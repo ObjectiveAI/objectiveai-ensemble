@@ -13,6 +13,9 @@ publish = true
 [package.metadata.wasm-pack]
 name = "@objectiveai/ensemble"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 objectiveai-ensemble = { path = "../objectiveai-ensemble", version = "0.1.0" }
 wasm-bindgen = { version = "0.2.105" }
