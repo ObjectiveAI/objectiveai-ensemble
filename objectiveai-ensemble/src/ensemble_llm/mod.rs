@@ -88,11 +88,19 @@ impl EnsembleLlmBase {
         };
         self.prefix_messages = match self.prefix_messages.take() {
             Some(prefix_messages) if prefix_messages.is_empty() => None,
-            other => other,
+            Some(mut prefix_messages) => {
+                prefix_messages.iter_mut().for_each(Message::prepare);
+                Some(prefix_messages)
+            }
+            None => None,
         };
         self.suffix_messages = match self.suffix_messages.take() {
             Some(suffix_messages) if suffix_messages.is_empty() => None,
-            other => other,
+            Some(mut suffix_messages) => {
+                suffix_messages.iter_mut().for_each(Message::prepare);
+                Some(suffix_messages)
+            }
+            None => None,
         };
         self.frequency_penalty = match self.frequency_penalty {
             Some(frequency_penalty) if frequency_penalty == 0.0 => None,
@@ -100,7 +108,12 @@ impl EnsembleLlmBase {
         };
         self.logit_bias = match self.logit_bias.take() {
             Some(logit_bias) if logit_bias.is_empty() => None,
-            other => other,
+            Some(mut logit_bias) => {
+                logit_bias.retain(|_, &mut weight| weight != 0);
+                logit_bias.sort_unstable_keys();
+                Some(logit_bias)
+            }
+            None => None,
         };
         self.max_completion_tokens = match self.max_completion_tokens {
             Some(0) => None,
