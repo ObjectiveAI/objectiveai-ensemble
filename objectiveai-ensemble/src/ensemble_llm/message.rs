@@ -241,7 +241,18 @@ impl RichContent {
         }
 
         // replace self with final parts
-        *self = RichContent::Parts(final_parts);
+        if final_parts.len() == 1
+            && matches!(&final_parts[0], RichContentPart::Text { .. })
+        {
+            match final_parts.into_iter().next() {
+                Some(RichContentPart::Text { text }) => {
+                    *self = RichContent::Text(text);
+                }
+                _ => unreachable!(),
+            }
+        } else {
+            *self = RichContent::Parts(final_parts);
+        }
     }
 
     pub fn is_empty(&self) -> bool {
