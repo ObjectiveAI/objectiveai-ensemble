@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ObjectiveAI/objectiveai-js.git"
+    "url": "git+https://github.com/ObjectiveAI/objectiveai.git"
   },
   "scripts": {
     "build": "rimraf dist && npm run build:cjs && npm run build:esm",
