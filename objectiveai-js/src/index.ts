@@ -845,12 +845,12 @@ export const EnsembleLlmBaseSchema = z
     prefix_messages: MessagesSchema.optional()
       .nullable()
       .describe(
-        `${MessagesSchema} These will be prepended to every prompt sent to this LLM. Useful for setting context or influencing behavior.`
+        `${MessagesSchema.description} These will be prepended to every prompt sent to this LLM. Useful for setting context or influencing behavior.`
       ),
     suffix_messages: MessagesSchema.optional()
       .nullable()
       .describe(
-        `${MessagesSchema} These will be appended to every prompt sent to this LLM. Useful for setting context or influencing behavior.`
+        `${MessagesSchema.description} These will be appended to every prompt sent to this LLM. Useful for setting context or influencing behavior.`
       ),
     frequency_penalty: z
       .number()
