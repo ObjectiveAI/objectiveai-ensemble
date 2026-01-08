@@ -76,9 +76,8 @@ export function SDKs({
                   "sm:text-lg",
                   "hover:text-highlight-primary",
                   "transition-colors",
-                  "duration-200"
+                  "border-b"
                 )}
-                inert
               >
                 npm
               </Link>
@@ -92,7 +91,6 @@ export function SDKs({
                   "sm:text-lg",
                   "hover:text-highlight-primary",
                   "transition-colors",
-                  "duration-200",
                   "border-b"
                 )}
               >
@@ -121,8 +119,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -137,8 +134,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -167,8 +163,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -183,8 +178,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -213,8 +207,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -243,8 +236,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -259,8 +251,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -289,8 +280,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
@@ -305,8 +295,7 @@ export function SDKs({
                   "text-base",
                   "sm:text-lg",
                   "hover:text-highlight-primary",
-                  "transition-colors",
-                  "duration-200"
+                  "transition-colors"
                 )}
                 inert
               >
