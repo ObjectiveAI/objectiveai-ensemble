@@ -44,7 +44,6 @@
     "stripe": "^18.5.0",
     "tailwindcss": "^4.1.4",
     "typescript": "^5",
-    "@objectiveai/llm-weighted-consensus": "0.1.0",
     "zod": "^4.3.5"
   },
   "devDependencies": {
