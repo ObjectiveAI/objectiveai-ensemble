@@ -82,7 +82,7 @@ export function SDKs({
                 npm
               </Link>
               <Link
-                href="https://github.com/ObjectiveAI/objective_ai_js"
+                href="https://github.com/ObjectiveAI/objectiveai"
                 className={cn(
                   "block",
                   "w-fit",
