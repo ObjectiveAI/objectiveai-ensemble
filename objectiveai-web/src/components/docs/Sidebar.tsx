@@ -131,8 +131,8 @@ export function Sidebar({ className }: { className?: string }): ReactElement {
           <SidebarSection title="Function Profiles" />
           <SidebarApiItem
             method="POST"
-            path="/functions/{fauthor}/{fid}/{version}/profiles/compute"
-            href="/docs/api/post/functions/fauthor/fid/version/profiles/compute"
+            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/compute"
+            href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/compute"
             description="Compute an ObjectiveAI Function Profile from your own Data"
           />
           <SidebarItemSpacer />
