@@ -28,12 +28,26 @@ export default async function Page() {
         authorization: z.string().describe("Authorization token (required)."),
       })}
       requestPath={z.object({
-        fauthor: z.string().describe("The author of the Function."),
-        fid: z.string().describe("The ID of the Function."),
-        version: z.string().describe("The version of the Function."),
+        fowner: z
+          .string()
+          .describe(
+            "The owner of the GitHub repository containing the function."
+          ),
+        frepository: z
+          .string()
+          .describe(
+            "The name of the GitHub repository containing the function."
+          ),
+        fcommit: z
+          .string()
+          .optional()
+          .describe(
+            "The commit SHA of the GitHub repository containing the function."
+          ),
       })}
       requestBody={
-        Function.Executions.Request.FunctionExecutionParamsPublishProfileSchema
+        Function.Executions.Request
+          .FunctionExecutionParamsRemoteFunctionInlineProfileSchema
       }
       responseBody={Function.Executions.Response.Unary.FunctionExecutionSchema}
       responseBodyStreaming={

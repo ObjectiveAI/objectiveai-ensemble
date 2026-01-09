@@ -24,19 +24,25 @@ export default async function Page() {
           ? Provider.TokenSession.fromSession(session)
           : ProviderServer.TokenSession.fromIpHeader(headers)
       }
-      requestHeaders={z.object({
-        authorization: z
+      requestPath={z.object({
+        fowner: z
           .string()
           .describe(
-            'Authorization token (optional). Only needed if specifying "me" as author.'
+            "The owner of the GitHub repository containing the function."
+          ),
+        frepository: z
+          .string()
+          .describe(
+            "The name of the GitHub repository containing the function."
+          ),
+        fcommit: z
+          .string()
+          .optional()
+          .describe(
+            "The commit SHA of the GitHub repository containing the function."
           ),
       })}
-      requestPath={z.object({
-        fauthor: z.string().describe("The author of the Function."),
-        fid: z.string().describe("The ID of the Function."),
-        version: z.string().optional().describe("The version of the Function."),
-      })}
-      responseBody={Function.RetrieveItemSchema}
+      responseBody={Function.HistoricalUsageSchema}
     />
   );
 }

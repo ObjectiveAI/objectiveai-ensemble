@@ -88,80 +88,66 @@ export function Sidebar({ className }: { className?: string }): ReactElement {
             method="GET"
             path="/functions"
             href="/docs/api/get/functions"
-            description="List all published ObjectiveAI Functions"
+            description="List all remote ObjectiveAI Functions"
           />
           <SidebarItemSpacer />
           <SidebarApiItem
             method="GET"
-            path="/functions/{fauthor}/{fid}/{version}"
-            href="/docs/api/get/functions/fauthor/fid/version"
-            description="Retrieve a published ObjectiveAI Function"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/{fauthor}/{fid}/{version}/usage"
-            href="/docs/api/get/functions/fauthor/fid/version/usage"
-            description="Retrieve historical usage for a published ObjectiveAI Function"
+            path="/functions/{fowner}/{frepository}/{fcommit}/usage"
+            href="/docs/api/get/functions/fowner/frepository/fcommit/usage"
+            description="Retrieve historical usage for a remote ObjectiveAI Function"
           />
           <SidebarItemSpacer />
           <SidebarApiItem
             method="POST"
             path="/functions"
             href="/docs/api/post/functions"
-            description="Execute an inline ObjectiveAI Function"
+            description="Execute an inline ObjectiveAI Function with an inline Profile"
           />
           <SidebarItemSpacer />
           <SidebarApiItem
             method="POST"
-            path="/functions/{fauthor}/{fid}/{version}"
-            href="/docs/api/post/functions/fauthor/fid/version"
-            description="Execute a published ObjectiveAI Function"
+            path="/functions/{fowner}/{frepository}/{fcommit}"
+            href="/docs/api/post/functions/fowner/frepository/fcommit"
+            description="Execute a remote ObjectiveAI Function with an inline Profile"
           />
           <SidebarItemSpacer />
           <SidebarApiItem
             method="POST"
-            path="/functions/{fauthor}/{fid}/{version}/publish"
-            href="/docs/api/post/functions/fauthor/fid/version/publish"
-            description="Publish an inline ObjectiveAI Function"
+            path="/functions/profiles/{powner}/{prepository}/{pcommit}"
+            href="/docs/api/post/functions/profiles/powner/prepository/pcommit"
+            description="Execute an inline ObjectiveAI Function with a remote Profile"
+          />
+          <SidebarItemSpacer />
+          <SidebarApiItem
+            method="POST"
+            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
+            href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
+            description="Execute a remote ObjectiveAI Function with a remote Profile"
           />
 
           <SidebarSectionSpacer />
 
           <SidebarSection title="Function Profiles" />
           <SidebarApiItem
-            method="GET"
-            path="/functions/profiles"
-            href="/docs/api/get/functions/profiles"
-            description="List all published ObjectiveAI Function Profiles"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/{fauthor}/{fid}/profiles/{pauthor}/{pid}/{version}"
-            href="/docs/api/get/functions/fauthor/fid/profiles/pauthor/pid/version"
-            description="Retrieve a published ObjectiveAI Function Profile"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/{fauthor}/{fid}/profiles/{pauthor}/{pid}/{version}/usage"
-            href="/docs/api/get/functions/fauthor/fid/profiles/pauthor/pid/version/usage"
-            description="Retrieve historical usage for a published ObjectiveAI Function Profile"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/functions/{fauthor}/{fid}/{version}/profiles/publish"
-            href="/docs/api/post/functions/fauthor/fid/version/profiles/publish"
-            description="Publish an inline ObjectiveAI Function Profile"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
             method="POST"
             path="/functions/{fauthor}/{fid}/{version}/profiles/compute"
             href="/docs/api/post/functions/fauthor/fid/version/profiles/compute"
-            description="Compute an ObjectiveAI Function Profile from your data"
+            description="Compute an ObjectiveAI Function Profile from your own Data"
+          />
+          <SidebarItemSpacer />
+          <SidebarApiItem
+            method="GET"
+            path="/functions/profiles"
+            href="/docs/api/get/functions/profiles"
+            description="List all remote ObjectiveAI Function Profiles"
+          />
+          <SidebarItemSpacer />
+          <SidebarApiItem
+            method="GET"
+            path="/functions/profiles/{powner}/{prepository}/{pcommit}/usage"
+            href="/docs/api/get/functions/profiles/powner/prepository/pcommit/usage"
+            description="Retrieve historical usage for a remote ObjectiveAI Function Profile"
           />
 
           <SidebarSectionSpacer />

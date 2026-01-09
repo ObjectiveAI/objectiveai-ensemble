@@ -24,21 +24,24 @@ export default async function Page() {
           ? Provider.TokenSession.fromSession(session)
           : ProviderServer.TokenSession.fromIpHeader(headers)
       }
-      requestHeaders={z.object({
-        authorization: z.string().describe("Authorization token (required)."),
-      })}
       requestPath={z.object({
-        fauthor: z.string().describe("The author of the Function."),
-        fid: z.string().describe("The ID of the Function."),
-        version: z.string().optional().describe("The version of the Function."),
+        powner: z
+          .string()
+          .describe(
+            "The owner of the GitHub repository containing the profile."
+          ),
+        prepository: z
+          .string()
+          .describe(
+            "The name of the GitHub repository containing the profile."
+          ),
+        pcommit: z
+          .string()
+          .describe(
+            "The commit SHA of the GitHub repository containing the profile."
+          ),
       })}
-      requestBody={
-        Function.Executions.Request.FunctionExecutionParamsExecuteSchema
-      }
-      responseBody={Function.Executions.Response.Unary.FunctionExecutionSchema}
-      responseBodyStreaming={
-        Function.Executions.Response.Streaming.FunctionExecutionChunkSchema
-      }
+      responseBody={Function.Profile.HistoricalUsageSchema}
     />
   );
 }

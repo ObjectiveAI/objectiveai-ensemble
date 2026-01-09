@@ -25,24 +25,34 @@ export default async function Page() {
           : ProviderServer.TokenSession.fromIpHeader(headers)
       }
       requestHeaders={z.object({
-        authorization: z
-          .string()
-          .describe(
-            'Authorization token (optional). Only needed if specifying "me" as author.'
-          ),
+        authorization: z.string().describe("Authorization token (required)."),
       })}
       requestPath={z.object({
-        fauthor: z
+        powner: z
           .string()
-          .describe("The author of the Function the Profile was published to."),
-        fid: z
+          .describe(
+            "The owner of the GitHub repository containing the profile."
+          ),
+        prepository: z
           .string()
-          .describe("The ID of the Function the Profile was published to."),
-        pauthor: z.string().describe("The author of the Profile."),
-        pid: z.string().describe("The ID of the Profile."),
-        version: z.string().optional().describe("The version of the Profile."),
+          .describe(
+            "The name of the GitHub repository containing the profile."
+          ),
+        pcommit: z
+          .string()
+          .optional()
+          .describe(
+            "The commit SHA of the GitHub repository containing the profile."
+          ),
       })}
-      responseBody={Function.Profile.RetrieveItemSchema}
+      requestBody={
+        Function.Executions.Request
+          .FunctionExecutionParamsInlineFunctionRemoteProfileSchema
+      }
+      responseBody={Function.Executions.Response.Unary.FunctionExecutionSchema}
+      responseBodyStreaming={
+        Function.Executions.Response.Streaming.FunctionExecutionChunkSchema
+      }
     />
   );
 }

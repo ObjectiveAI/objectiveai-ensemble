@@ -27,9 +27,43 @@ export default async function Page() {
       requestHeaders={z.object({
         authorization: z.string().describe("Authorization token (required)."),
       })}
+      requestPath={z.object({
+        fowner: z
+          .string()
+          .describe(
+            "The owner of the GitHub repository containing the function."
+          ),
+        frepository: z
+          .string()
+          .describe(
+            "The name of the GitHub repository containing the function."
+          ),
+        fcommit: z
+          .string()
+          .optional()
+          .describe(
+            "The commit SHA of the GitHub repository containing the function."
+          ),
+        powner: z
+          .string()
+          .describe(
+            "The owner of the GitHub repository containing the profile."
+          ),
+        prepository: z
+          .string()
+          .describe(
+            "The name of the GitHub repository containing the profile."
+          ),
+        pcommit: z
+          .string()
+          .optional()
+          .describe(
+            "The commit SHA of the GitHub repository containing the profile."
+          ),
+      })}
       requestBody={
         Function.Executions.Request
-          .FunctionExecutionParamsInlineFunctionInlineProfileSchema
+          .FunctionExecutionParamsRemoteFunctionRemoteProfileSchema
       }
       responseBody={Function.Executions.Response.Unary.FunctionExecutionSchema}
       responseBodyStreaming={
