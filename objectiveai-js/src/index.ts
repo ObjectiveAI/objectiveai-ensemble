@@ -3985,14 +3985,6 @@ export namespace Function {
               a.retry_token,
               b.retry_token
             );
-            const [function_published, function_publishedChanged] = merge(
-              a.function_published,
-              b.function_published
-            );
-            const [profile_published, profile_publishedChanged] = merge(
-              a.profile_published,
-              b.profile_published
-            );
             const created = a.created;
             const function_ = a.function;
             const profile = a.profile;
@@ -4004,8 +3996,6 @@ export namespace Function {
               outputChanged ||
               errorChanged ||
               retry_tokenChanged ||
-              function_publishedChanged ||
-              profile_publishedChanged ||
               usageChanged
             ) {
               return [
@@ -4016,12 +4006,6 @@ export namespace Function {
                   ...(output !== undefined ? { output } : {}),
                   ...(error !== undefined ? { error } : {}),
                   ...(retry_token !== undefined ? { retry_token } : {}),
-                  ...(function_published !== undefined
-                    ? { function_published }
-                    : {}),
-                  ...(profile_published !== undefined
-                    ? { profile_published }
-                    : {}),
                   created,
                   function: function_,
                   profile,
@@ -4074,18 +4058,6 @@ export namespace Function {
               .optional()
               .describe(
                 "A token which may be used to retry the function execution."
-              ),
-            function_published: z
-              .boolean()
-              .optional()
-              .describe(
-                "When true, indicates that a function was published as part of this execution."
-              ),
-            profile_published: z
-              .boolean()
-              .optional()
-              .describe(
-                "When true, indicates that a profile was published as part of this execution."
               ),
             created: z
               .uint32()
@@ -4195,18 +4167,6 @@ export namespace Function {
               .nullable()
               .describe(
                 "A token which may be used to retry the function execution."
-              ),
-            function_published: z
-              .boolean()
-              .optional()
-              .describe(
-                "When true, indicates that a function was published as part of this execution."
-              ),
-            profile_published: z
-              .boolean()
-              .optional()
-              .describe(
-                "When true, indicates that a profile was published as part of this execution."
               ),
             created: z
               .uint32()
