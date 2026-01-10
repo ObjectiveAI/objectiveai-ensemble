@@ -1,6 +1,7 @@
 steps:
   # build image
   - name: "gcr.io/cloud-builders/docker"
+    dir: objectiveai-github-discord-notifier
     args:
       - "build"
       - "--build-arg"
