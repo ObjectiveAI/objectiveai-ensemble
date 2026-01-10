@@ -33,6 +33,13 @@ DISCORD_CHAR_LIMIT = 2000
 ELLIPSIS = "..."
 
 discord_client = discord.Client(intents=discord.Intents.default())
+discord_ready = asyncio.Event()
+
+
+@discord_client.event
+async def on_ready():
+    """Signal that Discord client is ready."""
+    discord_ready.set()
 
 
 def verify_signature(payload: bytes, signature: str) -> bool:
@@ -102,7 +109,7 @@ async def send_discord_notification(message: str) -> None:
 async def lifespan(app: FastAPI):
     """Manage Discord client lifecycle."""
     asyncio.create_task(discord_client.start(DISCORD_TOKEN))
-    await discord_client.wait_until_ready()
+    await discord_ready.wait()
     print(f"Discord bot connected as {discord_client.user}")
     yield
     await discord_client.close()
