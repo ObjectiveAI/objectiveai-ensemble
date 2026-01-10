@@ -3556,6 +3556,22 @@ export namespace Function {
               .describe(
                 "The retry token provided by a previous incomplete or failed function execution."
               ),
+            reasoning: z
+              .object({
+                model: Chat.Completions.Request.ModelSchema,
+                models: z
+                  .array(Chat.Completions.Request.ModelSchema)
+                  .optional()
+                  .nullable()
+                  .describe(
+                    "Fallback Ensemble LLMs to use if the primary Ensemble LLM fails."
+                  ),
+              })
+              .optional()
+              .nullable()
+              .describe(
+                "If provided, a reasoning summary for the Function Execution will be generated. This reasoning summary attempts to detail why the final Output is what it is, based on AI assertions made during execution."
+              ),
             input: InputSchema_,
             provider:
               Chat.Completions.Request.ProviderSchema.optional().nullable(),
@@ -3965,6 +3981,41 @@ export namespace Function {
           .union([TaskChunk.FunctionSchema, TaskChunk.VectorCompletionSchema])
           .describe("A chunk of a task execution.");
 
+        export namespace ReasoningSummaryChunk {
+          export function merged(
+            a: ReasoningSummaryChunk,
+            b: ReasoningSummaryChunk
+          ): [ReasoningSummaryChunk, boolean] {
+            const [base, baseChanged] =
+              Chat.Completions.Response.Streaming.ChatCompletionChunk.merged(
+                a,
+                b
+              );
+            const [error, errorChanged] = merge(a.error, b.error);
+            if (baseChanged || errorChanged) {
+              return [
+                {
+                  ...base,
+                  ...(error !== undefined ? { error } : {}),
+                },
+                true,
+              ];
+            } else {
+              return [a, false];
+            }
+          }
+        }
+
+        export const ReasoningSummaryChunkSchema =
+          Chat.Completions.Response.Streaming.ChatCompletionChunkSchema.extend({
+            error: ObjectiveAIErrorSchema.optional().describe(
+              "When present, indicates that an error occurred during the chat completion."
+            ),
+          }).describe("A chunk of a reasoning summary generation.");
+        export type ReasoningSummaryChunk = z.infer<
+          typeof ReasoningSummaryChunkSchema
+        >;
+
         export namespace FunctionExecutionChunk {
           export function merged(
             a: FunctionExecutionChunk,
@@ -3978,6 +4029,10 @@ export namespace Function {
             const [tasks_errors, tasks_errorsChanged] = merge(
               a.tasks_errors,
               b.tasks_errors
+            );
+            const [reasoning, reasoningChanged] = merge(
+              a.reasoning,
+              b.reasoning
             );
             const [output, outputChanged] = merge(a.output, b.output);
             const [error, errorChanged] = merge(a.error, b.error);
@@ -3993,6 +4048,7 @@ export namespace Function {
             if (
               tasksChanged ||
               tasks_errorsChanged ||
+              reasoningChanged ||
               outputChanged ||
               errorChanged ||
               retry_tokenChanged ||
@@ -4003,6 +4059,7 @@ export namespace Function {
                   id,
                   tasks,
                   ...(tasks_errors !== undefined ? { tasks_errors } : {}),
+                  ...(reasoning !== undefined ? { reasoning } : {}),
                   ...(output !== undefined ? { output } : {}),
                   ...(error !== undefined ? { error } : {}),
                   ...(retry_token !== undefined ? { retry_token } : {}),
@@ -4036,6 +4093,7 @@ export namespace Function {
               .describe(
                 "When true, indicates that one or more tasks encountered errors during execution."
               ),
+            reasoning: ReasoningSummaryChunkSchema.optional(),
             output: z
               .union([
                 z
@@ -4131,6 +4189,14 @@ export namespace Function {
           .union([Task.FunctionSchema, Task.VectorCompletionSchema])
           .describe("A task execution.");
 
+        export const ReasoningSummarySchema =
+          Chat.Completions.Response.Unary.ChatCompletionSchema.extend({
+            error: ObjectiveAIErrorSchema.nullable().describe(
+              "When non-null, indicates that an error occurred during the chat completion."
+            ),
+          }).describe("A reasoning summary generation.");
+        export type ReasoningSummary = z.infer<typeof ReasoningSummarySchema>;
+
         export const FunctionExecutionSchema = z
           .object({
             id: z
@@ -4146,6 +4212,7 @@ export namespace Function {
               .describe(
                 "When true, indicates that one or more tasks encountered errors during execution."
               ),
+            reasoning: ReasoningSummarySchema.nullable(),
             output: z
               .union([
                 z
