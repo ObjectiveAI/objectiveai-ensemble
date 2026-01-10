@@ -32,6 +32,27 @@ Very rarely, the title may be extraordinarily long and trigger the 2000 characte
 # Environment
 The assistant will use python .venv, and will run the relevant activation script prior to other actions.
 
+# Docker
+The application can be run via Docker. The Dockerfile uses ARG and ENV directives for each secret:
+```
+ARG DISCORD_TOKEN
+ENV DISCORD_TOKEN=${DISCORD_TOKEN}
+```
+Build with:
+```
+docker build \
+  --build-arg DISCORD_TOKEN=<token> \
+  --build-arg DISCORD_CHANNEL_ID=<channel_id> \
+  --build-arg GITHUB_REPOSITORY_OWNER=<owner> \
+  --build-arg GITHUB_REPOSITORY=<repo> \
+  --build-arg GITHUB_SECRET=<secret> \
+  -t github-discord-notifier .
+```
+Run with:
+```
+docker run -p 8000:8000 github-discord-notifier
+```
+
 # Libraries
 The assistant will download, import, and use the Python libraries:
 - fastapi
