@@ -17,7 +17,7 @@ Only events which match the requirements should be delivered to DISCORD_CHANNEL_
 - Issue Opened
 - Issue Closed
 - Owner must match GITHUB_REPOSITORY_OWNER
-- Owner must match GITHUB_REPOSITORY
+- Repository name must match GITHUB_REPOSITORY
 - 'X-Hub-Signature-256' header must be valid against GITHUB_SECRET
 
 # Notifications
