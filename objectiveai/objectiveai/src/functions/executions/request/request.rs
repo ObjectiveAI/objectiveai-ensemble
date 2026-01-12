@@ -1,3 +1,4 @@
+use crate::functions;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +21,84 @@ pub enum Request {
     },
 }
 
+impl Request {
+    pub fn remote_function(&self) -> Option<(&str, &str, Option<&str>)> {
+        match self {
+            Request::FunctionRemoteProfileInline { path, .. } => Some((
+                path.fowner.as_str(),
+                path.frepository.as_str(),
+                path.fcommit.as_deref(),
+            )),
+            Request::FunctionRemoteProfileRemote { path, .. } => Some((
+                path.fowner.as_str(),
+                path.frepository.as_str(),
+                path.fcommit.as_deref(),
+            )),
+            _ => None,
+        }
+    }
+
+    pub fn inline_function(&self) -> Option<&functions::InlineFunction> {
+        match self {
+            Request::FunctionInlineProfileInline { body } => {
+                Some(&body.function)
+            }
+            Request::FunctionInlineProfileRemote { body, .. } => {
+                Some(&body.function)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn remote_profile(&self) -> Option<(&str, &str, Option<&str>)> {
+        match self {
+            Request::FunctionInlineProfileRemote { path, .. } => Some((
+                path.powner.as_str(),
+                path.prepository.as_str(),
+                path.pcommit.as_deref(),
+            )),
+            Request::FunctionRemoteProfileRemote { path, .. } => Some((
+                path.powner.as_str(),
+                path.prepository.as_str(),
+                path.pcommit.as_deref(),
+            )),
+            _ => None,
+        }
+    }
+
+    pub fn inline_profile(&self) -> Option<&functions::InlineProfile> {
+        match self {
+            Request::FunctionInlineProfileInline { body } => {
+                Some(&body.profile)
+            }
+            Request::FunctionRemoteProfileInline { body, .. } => {
+                Some(&body.profile)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn base(&self) -> &super::FunctionRemoteProfileRemoteRequestBody {
+        match self {
+            Request::FunctionInlineProfileInline { body } => &body.base,
+            Request::FunctionInlineProfileRemote { body, .. } => &body.base,
+            Request::FunctionRemoteProfileInline { body, .. } => &body.base,
+            Request::FunctionRemoteProfileRemote { body, .. } => body,
+        }
+    }
+
+    pub fn base_mut(
+        &mut self,
+    ) -> &mut super::FunctionRemoteProfileRemoteRequestBody {
+        match self {
+            Request::FunctionInlineProfileInline { body } => &mut body.base,
+            Request::FunctionInlineProfileRemote { body, .. } => &mut body.base,
+            Request::FunctionRemoteProfileInline { body, .. } => &mut body.base,
+            Request::FunctionRemoteProfileRemote { body, .. } => body,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum FunctionExecutionCreateParams {
@@ -27,4 +106,66 @@ pub enum FunctionExecutionCreateParams {
     FunctionInlineProfileRemote(super::FunctionInlineProfileRemoteRequestBody),
     FunctionRemoteProfileInline(super::FunctionRemoteProfileInlineRequestBody),
     FunctionRemoteProfileRemote(super::FunctionRemoteProfileRemoteRequestBody),
+}
+
+impl FunctionExecutionCreateParams {
+    pub fn inline_function(&self) -> Option<&functions::InlineFunction> {
+        match self {
+            FunctionExecutionCreateParams::FunctionInlineProfileInline(
+                body,
+            ) => Some(&body.function),
+            FunctionExecutionCreateParams::FunctionInlineProfileRemote(
+                body,
+            ) => Some(&body.function),
+            _ => None,
+        }
+    }
+
+    pub fn inline_profile(&self) -> Option<&functions::InlineProfile> {
+        match self {
+            FunctionExecutionCreateParams::FunctionInlineProfileInline(
+                body,
+            ) => Some(&body.profile),
+            FunctionExecutionCreateParams::FunctionRemoteProfileInline(
+                body,
+            ) => Some(&body.profile),
+            _ => None,
+        }
+    }
+
+    pub fn base(&self) -> &super::FunctionRemoteProfileRemoteRequestBody {
+        match self {
+            FunctionExecutionCreateParams::FunctionInlineProfileInline(
+                body,
+            ) => &body.base,
+            FunctionExecutionCreateParams::FunctionInlineProfileRemote(
+                body,
+            ) => &body.base,
+            FunctionExecutionCreateParams::FunctionRemoteProfileInline(
+                body,
+            ) => &body.base,
+            FunctionExecutionCreateParams::FunctionRemoteProfileRemote(
+                body,
+            ) => body,
+        }
+    }
+
+    pub fn base_mut(
+        &mut self,
+    ) -> &mut super::FunctionRemoteProfileRemoteRequestBody {
+        match self {
+            FunctionExecutionCreateParams::FunctionInlineProfileInline(
+                body,
+            ) => &mut body.base,
+            FunctionExecutionCreateParams::FunctionInlineProfileRemote(
+                body,
+            ) => &mut body.base,
+            FunctionExecutionCreateParams::FunctionRemoteProfileInline(
+                body,
+            ) => &mut body.base,
+            FunctionExecutionCreateParams::FunctionRemoteProfileRemote(
+                body,
+            ) => body,
+        }
+    }
 }
