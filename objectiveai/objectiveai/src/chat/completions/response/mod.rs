@@ -5,7 +5,7 @@ mod role;
 pub mod streaming;
 pub mod unary;
 mod usage;
-pub(crate) mod util;
+pub mod util;
 
 pub use finish_reason::*;
 pub use image::*;
