@@ -215,25 +215,79 @@ ObjectiveAI fetches: https://github.com/objectiveai/sentiment-scorer-profile/pro
 
 ### Rust SDK (`objectiveai` crate)
 - **Language:** Rust (Edition 2024)
-- **Key Dependencies:**
+- **Location:** `objectiveai/objectiveai/`
+- **Purpose:** Multi-purpose SDK serving as:
+  1. Core data structures and validation library
+  2. Client-side Function compilation engine
+  3. Full HTTP SDK with streaming support (optional)
+
+**Core Capabilities:**
+1. **Ensemble LLM Validation**
+   - Validates Ensemble LLM definitions
+   - Computes deterministic, content-addressed IDs using XXHash3-128
+   - Normalizes configurations (removes defaults, sorts collections)
+
+2. **Ensemble Validation**
+   - Validates Ensemble definitions
+   - Deduplicates LLMs and merges counts
+   - Computes deterministic Ensemble IDs
+   - Enforces constraints (1-128 total LLMs)
+
+3. **Client-Side Function Compilation**
+   - **Task Compilation**: Compiles Function Tasks from expressions
+     - Evaluates JMESPath expressions against input data
+     - Resolves conditionals (`skip` expressions)
+     - Handles mapped tasks (parallel execution patterns)
+     - Produces executable task definitions
+   - **Output Compilation**: Compiles Function Outputs after execution
+     - Evaluates output expressions with task results
+     - Validates output constraints (scalar [0,1], vector sum ≈ 1)
+     - Ensures type safety
+
+4. **HTTP Client** (optional `http` feature, enabled by default)
+   - Full API client for ObjectiveAI
+   - Streaming support (Server-Sent Events)
+   - Type-safe requests and responses
+
+**Key Dependencies:**
   - `serde` - Serialization/deserialization
-  - `indexmap` - Ordered maps
+  - `indexmap` - Ordered maps for deterministic hashing
   - `serde_json` - JSON support with order preservation
-  - `twox-hash` - Fast hashing (xxhash3_128)
-  - `rust_decimal` - Precise decimal arithmetic
-  - `jmespath` - Expression evaluation
-  - `base62`, `base64` - Encoding
+  - `twox-hash` - Fast hashing (xxhash3_128) for ID computation
+  - `rust_decimal` - Precise decimal arithmetic for scores
+  - `jmespath` - Expression evaluation engine
+  - `base62`, `base64` - Encoding for IDs
   - `chrono` - Date/time handling
   - `uuid` - UUID generation
   - **Optional HTTP feature:**
     - `reqwest` - HTTP client
     - `reqwest-eventsource` - SSE support
     - `futures` - Async streams
+    - `serde_path_to_error` - Better error messages
 
 ### WASM Bindings (`objectiveai-wasm-js`)
-- Compiles Rust core to WebAssembly for browser/JS environments
-- Uses `wasm-bindgen` for JS interop
-- Enables client-side ID computation and validation
+- **Location:** `objectiveai/objectiveai-wasm-js/`
+- **Purpose:** WebAssembly bindings for browser and Node.js environments
+- **Technology:** Uses `wasm-bindgen` for JavaScript/TypeScript interop
+
+**Exported Functions:**
+1. **`validateEnsembleLlm(llm)`** - Validates and computes ID for an Ensemble LLM
+2. **`validateEnsemble(ensemble)`** - Validates and computes ID for an Ensemble
+3. **`compileFunctionTasks(function, input)`** - Compiles Function Tasks client-side
+4. **`compileFunctionOutput(function, input, taskOutputs)`** - Compiles Function Output client-side
+
+**Benefits:**
+- **Zero server round-trips** - Validation and compilation happen entirely in the browser
+- **Instant feedback** - Real-time validation in web UIs without API calls
+- **Identical logic** - Same validation/compilation as server-side
+- **Type safety** - Full TypeScript definitions from Rust types
+- **Performance** - Near-native speed via WebAssembly
+
+**Use Cases:**
+- Web-based Ensemble builders with live validation
+- Client-side Function preview and testing
+- Reducing API costs by validating before submission
+- Offline-capable web applications
 
 ### JavaScript SDK (`objectiveai` npm package)
 - **Version:** 1.2.5
@@ -323,15 +377,37 @@ Recent commits:
 ### Rust Core Modules
 - `auth` - API authentication (API keys, HTTP requests)
 - `chat` - Chat completion APIs and models
+  - `completions/request` - Message types, tools, rich content, response formats
+  - `completions/response` - Chat completion responses (streaming and unary)
 - `ensemble` - Ensemble definitions and responses
-- `ensemble_llm` - Ensemble LLM configurations (output modes, providers, reasoning, stop sequences, verbosity)
-- `functions` - Function definitions, profiles, tasks, expressions
+  - Validation and deterministic ID computation
+  - Deduplication and count merging
+- `ensemble_llm` - Ensemble LLM configurations
+  - Output modes (instruction, json, reasoning)
+  - Provider preferences and routing
+  - Reasoning settings (effort, max_tokens)
+  - Stop sequences and verbosity
+  - Validation and deterministic ID computation
+- `functions` - **Function definitions, profiles, tasks, and client-side compilation**
+  - `function.rs` - Function types (Remote/Inline, Scalar/Vector) with `compile_tasks()` and `compile_output()` methods
+  - `task.rs` - Task types (ScalarFunction, VectorFunction, VectorCompletion) with compilation logic
+  - `profile.rs` - Profile definitions (learned weights)
+  - `expression/` - **JMESPath expression evaluation engine**
+    - `expression.rs` - Expression type with compilation methods
+    - `runtime.rs` - JMESPath runtime evaluation
+    - `input.rs` - Input data structures
+    - `params.rs` - Compilation context (input, tasks, map)
+    - `error.rs` - Expression errors
   - `compute_profile` - Profile computation logic
-  - `executions` - Function execution tracking
-  - `expression` - JMESPath expression evaluation
+  - `executions` - Function execution tracking and responses
+  - `profiles` - Profile HTTP APIs
 - `vector` - Vector completion APIs
-- `http` - HTTP client implementation (feature-gated)
-- `error` - Error types and handling
+  - `completions/request` - Vector completion requests, ensembles
+  - `completions/response` - Votes, scores, and results (streaming and unary)
+- `http` - HTTP client implementation (feature-gated, optional)
+  - `client.rs` - ObjectiveAI API client
+  - `error.rs` - HTTP error types
+- `error` - Core error types and handling
 - `prefixed_uuid` - Prefixed UUID utilities
 
 ### JavaScript SDK Structure
@@ -358,6 +434,38 @@ The JavaScript SDK (`objectiveai-js`) provides comprehensive TypeScript definiti
 6. **HTTP Feature Flag:** The Rust SDK's HTTP client is optional (`http` feature), allowing use as a pure data structure library without network dependencies.
 
 7. **GitHub-Hosted Functions and Profiles:** Functions and Profiles are hosted on GitHub repositories as `function.json` and `profile.json` files. This decentralized approach leverages Git for versioning, collaboration, and discoverability, making ObjectiveAI a truly open ecosystem where anyone can publish and share scoring pipelines.
+
+8. **Client-Side Function Compilation:** Functions use JMESPath expressions to define dynamic behavior. The SDK can compile these expressions client-side (in Rust, WASM, or browser) before API execution:
+   - **Task Compilation** resolves input maps, conditionals, and task expressions into executable tasks
+   - **Output Compilation** evaluates output expressions with task results and validates constraints
+   - This enables validation, optimization, and transparency before making API calls
+   - Same compilation logic works server-side, client-side (Rust), and in browsers (WASM)
+
+## Expression System Details
+
+Functions use **JMESPath** for powerful data transformations:
+
+**Input Maps** (`input_maps`):
+- Transform input data into arrays for mapped task execution
+- Example: `{"$jmespath": "input.items"}` extracts an array to map over
+
+**Task Expressions**:
+- **`skip`**: Conditional expression to skip task execution
+  - Example: `{"$jmespath": "input.count < 10"}` skips if count is low
+- **`map`**: Index into input_maps for parallel task instances
+  - Creates multiple task instances, one per map element
+- **`input`**: Expression defining task input from function input and map context
+
+**Output Expression**:
+- Computes final result from input and task outputs
+- Example: `{"$jmespath": "tasks[0].output"}` returns first task's result
+- For vectors: Must produce array with correct length and sum ≈ 1
+- For scalars: Must produce value in range [0, 1]
+
+**Expression Context:**
+- `input`: The original function input
+- `tasks`: Array of task outputs (indexed, can be null if skipped)
+- `map`: Current map element (when in mapped task context)
 
 ## Future Directions
 
