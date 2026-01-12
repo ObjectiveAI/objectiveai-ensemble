@@ -45,7 +45,7 @@ pub async fn delete_openrouter_byok_api_key(
 
 pub async fn list_api_keys(
     client: &HttpClient,
-) -> Result<Vec<super::response::ListApiKeyItem>, HttpError> {
+) -> Result<super::response::ListApiKeyResponse, HttpError> {
     client
         .send_unary(reqwest::Method::GET, "auth/keys", None::<String>)
         .await

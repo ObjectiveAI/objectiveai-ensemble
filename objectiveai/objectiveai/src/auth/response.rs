@@ -12,6 +12,11 @@ pub type CreateApiKeyResponse = super::ApiKeyWithMetadata;
 pub type DisableApiKeyResponse = super::ApiKeyWithMetadata;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListApiKeyResponse {
+    pub data: Vec<ListApiKeyItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListApiKeyItem {
     #[serde(flatten)]
     pub inner: super::ApiKeyWithMetadata,
