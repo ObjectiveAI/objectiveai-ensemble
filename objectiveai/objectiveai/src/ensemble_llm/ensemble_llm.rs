@@ -321,6 +321,14 @@ impl EnsembleLlmWithFallbacksAndCount {
             None => self.inner.id.clone(),
         }
     }
+
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.inner.id.as_str()).chain(
+            self.fallbacks.as_ref().into_iter().flat_map(|fallbacks| {
+                fallbacks.iter().map(|fallback| fallback.id.as_str())
+            }),
+        )
+    }
 }
 
 impl TryFrom<EnsembleLlmBaseWithFallbacksAndCount>

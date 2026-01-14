@@ -2542,7 +2542,21 @@ export namespace Vector {
             .optional()
             .nullable()
             .describe(
-              "The unique ID of a previous incomplete or failed completion."
+              "The unique ID of a previous incomplete or failed completion. Successful votes from it will be reused, sans any that were RNGed or came from cache."
+            ),
+          from_cache: z
+            .boolean()
+            .optional()
+            .nullable()
+            .describe(
+              "If true, uses cached votes from the global ObjectiveAI votes cache when available. Has lower priority than `retry`, higher priority than `from_rng`."
+            ),
+          from_rng: z
+            .boolean()
+            .optional()
+            .nullable()
+            .describe(
+              "If true, any remaining votes are generated via RNG. Has lower priority than `retry` or `from_cache`."
             ),
           messages: MessagesSchema,
           provider:
@@ -2647,8 +2661,18 @@ export namespace Vector {
             .boolean()
             .optional()
             .describe(
-              "Whether this vote came from a previous Vector Completion which was retried."
+              "Whether this vote came from a previous Vector Completion which was retried. `from_cache` will also be `true`."
             ),
+          from_cache: z
+            .boolean()
+            .optional()
+            .describe(
+              "Whether this vote came from the global ObjectiveAI votes cache."
+            ),
+          from_rng: z
+            .boolean()
+            .optional()
+            .describe("Whether this vote was generated via RNG."),
         })
         .describe("A vote from an Ensemble LLM within a Vector Completion.");
       export type Vote = z.infer<typeof VoteSchema>;
@@ -3473,6 +3497,20 @@ export namespace Function {
               .describe(
                 "The retry token provided by a previous incomplete or failed function execution."
               ),
+            from_cache: z
+              .boolean()
+              .optional()
+              .nullable()
+              .describe(
+                "If true, vector completion tasks use cached votes from the global ObjectiveAI votes cache when available. Has lower priority than `retry_token`, higher priority than `from_rng`."
+              ),
+            from_rng: z
+              .boolean()
+              .optional()
+              .nullable()
+              .describe(
+                "If true, any remaining votes from vector completion tasks are generated via RNG. Has lower priority than `retry_token` or `from_cache`."
+              ),
             reasoning: z
               .object({
                 model: Chat.Completions.Request.ModelSchema,
@@ -4243,6 +4281,20 @@ export namespace Function {
             .describe(
               "The retry token provided by a previous incomplete or failed profile computation."
             ),
+          from_cache: z
+            .boolean()
+            .optional()
+            .nullable()
+            .describe(
+              "If true, vector completion tasks use cached votes from the global ObjectiveAI votes cache when available. Has lower priority than `retry_token`, higher priority than `from_rng`."
+            ),
+          from_rng: z
+            .boolean()
+            .optional()
+            .nullable()
+            .describe(
+              "If true, any remaining votes from vector completion tasks are generated via RNG. Has lower priority than `retry_token` or `from_cache`."
+            ),
           max_retries: z
             .uint32()
             .optional()
@@ -4562,6 +4614,12 @@ export namespace Function {
               ),
             profile: InlineProfileSchema.optional(),
             fitting_stats: FittingStatsSchema.optional(),
+            retry_token: z
+              .string()
+              .optional()
+              .describe(
+                "A token which may be used to retry the function profile computation."
+              ),
             created: z
               .uint32()
               .describe(
@@ -4626,6 +4684,12 @@ export namespace Function {
               ),
             profile: InlineProfileSchema,
             fitting_stats: FittingStatsSchema,
+            retry_token: z
+              .string()
+              .nullable()
+              .describe(
+                "A token which may be used to retry the function profile computation."
+              ),
             created: z
               .uint32()
               .describe(
