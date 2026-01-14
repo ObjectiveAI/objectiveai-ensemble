@@ -133,7 +133,14 @@ export function Sidebar({ className }: { className?: string }): ReactElement {
             method="POST"
             path="/functions/{fowner}/{frepository}/{fcommit}/profiles/compute"
             href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/compute"
-            description="Compute an ObjectiveAI Function Profile from your own Data"
+            description="Compute an ObjectiveAI Function Profile from your own Data (remote Function)"
+          />
+          <SidebarItemSpacer />
+          <SidebarApiItem
+            method="POST"
+            path="/functions/profiles/compute"
+            href="/docs/api/post/functions/profiles/compute"
+            description="Compute an ObjectiveAI Function Profile from your own Data (inline Function)"
           />
           <SidebarItemSpacer />
           <SidebarApiItem
