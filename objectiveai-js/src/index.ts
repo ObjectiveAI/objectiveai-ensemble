@@ -4896,7 +4896,7 @@ export namespace Function {
           repository: string;
           commit?: string | null | undefined;
         },
-    body: Executions.Request.FunctionExecutionParamsInlineFunctionInlineProfileStreaming,
+    body: Executions.Request.FunctionExecutionParamsRemoteFunctionRemoteProfileStreaming,
     options?: OpenAI.RequestOptions
   ): Promise<Stream<Executions.Response.Streaming.FunctionExecutionChunk>>;
   export async function execute(
@@ -4915,7 +4915,7 @@ export namespace Function {
           repository: string;
           commit?: string | null | undefined;
         },
-    body: Executions.Request.FunctionExecutionParamsInlineFunctionInlineProfileNonStreaming,
+    body: Executions.Request.FunctionExecutionParamsRemoteFunctionRemoteProfileNonStreaming,
     options?: OpenAI.RequestOptions
   ): Promise<Executions.Response.Unary.FunctionExecution>;
   export async function execute(
@@ -4934,7 +4934,7 @@ export namespace Function {
           repository: string;
           commit?: string | null | undefined;
         },
-    body: Executions.Request.FunctionExecutionParamsInlineFunctionInlineProfile,
+    body: Executions.Request.FunctionExecutionParamsRemoteFunctionRemoteProfile,
     options?: OpenAI.RequestOptions
   ): Promise<
     | Stream<Executions.Response.Streaming.FunctionExecutionChunk>
@@ -5082,7 +5082,7 @@ export namespace Function {
           repository: string;
           commit?: string | null | undefined;
         },
-    body: ComputeProfile.Request.FunctionComputeProfileParamsInlineFunctionStreaming,
+    body: ComputeProfile.Request.FunctionComputeProfileParamsRemoteFunctionStreaming,
     options?: OpenAI.RequestOptions
   ): Promise<
     Stream<ComputeProfile.Response.Streaming.FunctionComputeProfileChunk>
@@ -5096,7 +5096,7 @@ export namespace Function {
           repository: string;
           commit?: string | null | undefined;
         },
-    body: ComputeProfile.Request.FunctionComputeProfileParamsInlineFunctionNonStreaming,
+    body: ComputeProfile.Request.FunctionComputeProfileParamsRemoteFunctionNonStreaming,
     options?: OpenAI.RequestOptions
   ): Promise<ComputeProfile.Response.Unary.FunctionComputeProfile>;
   export async function computeProfile(
@@ -5108,7 +5108,7 @@ export namespace Function {
           repository: string;
           commit?: string | null | undefined;
         },
-    body: ComputeProfile.Request.FunctionComputeProfileParamsInlineFunction,
+    body: ComputeProfile.Request.FunctionComputeProfileParamsRemoteFunction,
     options?: OpenAI.RequestOptions
   ): Promise<
     | Stream<ComputeProfile.Response.Streaming.FunctionComputeProfileChunk>
