@@ -2,6 +2,14 @@ use crate::functions;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+pub mod tools {
+    pub fn id(tools: &[super::Tool]) -> String {
+        let mut hasher = twox_hash::XxHash3_128::with_seed(0);
+        hasher.write(serde_json::to_string(tools).unwrap().as_bytes());
+        format!("{:0>22}", base62::encode(hasher.finish_128()))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Tool {

@@ -1,6 +1,18 @@
 use crate::functions;
 use serde::{Deserialize, Serialize};
 
+pub mod prompt {
+    pub fn prepare(messages: &mut Vec<super::Message>) {
+        messages.iter_mut().for_each(super::Message::prepare);
+    }
+
+    pub fn id(messages: &[super::Message]) -> String {
+        let mut hasher = twox_hash::XxHash3_128::with_seed(0);
+        hasher.write(serde_json::to_string(messages).unwrap().as_bytes());
+        format!("{:0>22}", base62::encode(hasher.finish_128()))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "role")]
 pub enum Message {
@@ -564,6 +576,12 @@ impl RichContent {
             RichContent::Text(text) => text.is_empty(),
             RichContent::Parts(parts) => parts.is_empty(),
         }
+    }
+
+    pub fn id(&self) -> String {
+        let mut hasher = twox_hash::XxHash3_128::with_seed(0);
+        hasher.write(serde_json::to_string(self).unwrap().as_bytes());
+        format!("{:0>22}", base62::encode(hasher.finish_128()))
     }
 }
 
