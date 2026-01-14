@@ -46,7 +46,8 @@ export default async function Page() {
           ),
       })}
       requestBody={
-        Function.ComputeProfile.Request.FunctionComputeProfileParamsSchema
+        Function.ComputeProfile.Request
+          .FunctionComputeProfileParamsRemoteFunctionSchema
       }
       responseBody={
         Function.ComputeProfile.Response.Unary.FunctionComputeProfileSchema

@@ -4,6 +4,7 @@ import { ProviderServer } from "@/provider_server";
 import { headers as getHeaders } from "next/headers";
 import { EndpointDocs } from "@/components/docs/EndpointDocs";
 import z from "zod";
+import { Function } from "objectiveai";
 
 export default async function Page() {
   const [headers, session] = await Promise.all([
@@ -26,12 +27,17 @@ export default async function Page() {
       requestHeaders={z.object({
         authorization: z.string().describe("Authorization token (required)."),
       })}
-      requestBody={z.object({
-        username: z.string().describe("The username to set for the user."),
-      })}
-      responseBody={z.object({
-        username: z.string().describe("The user's username."),
-      })}
+      requestBody={
+        Function.ComputeProfile.Request
+          .FunctionComputeProfileParamsInlineFunctionSchema
+      }
+      responseBody={
+        Function.ComputeProfile.Response.Unary.FunctionComputeProfileSchema
+      }
+      responseBodyStreaming={
+        Function.ComputeProfile.Response.Streaming
+          .FunctionComputeProfileChunkSchema
+      }
     />
   );
 }
