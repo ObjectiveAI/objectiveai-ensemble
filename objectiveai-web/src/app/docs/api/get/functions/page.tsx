@@ -3,8 +3,7 @@ import { Provider } from "@/provider";
 import { ProviderServer } from "@/provider_server";
 import { headers as getHeaders } from "next/headers";
 import { EndpointDocs } from "@/components/docs/EndpointDocs";
-import z from "zod";
-import { Function } from "objectiveai";
+import { Functions } from "objectiveai";
 
 export default async function Page() {
   const [headers, session] = await Promise.all([
@@ -24,9 +23,7 @@ export default async function Page() {
           ? Provider.TokenSession.fromSession(session)
           : ProviderServer.TokenSession.fromIpHeader(headers)
       }
-      responseBody={z.object({
-        data: z.array(Function.ListItemSchema),
-      })}
+      responseBody={Functions.ListSchema}
     />
   );
 }

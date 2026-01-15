@@ -27,9 +27,7 @@ export default async function Page() {
       requestHeaders={z.object({
         authorization: z.string().describe("Authorization token (required)."),
       })}
-      responseBody={z.object({
-        data: z.array(Auth.ApiKeyWithCostSchema),
-      })}
+      responseBody={Auth.ApiKey.ListSchema}
     />
   );
 }

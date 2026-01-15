@@ -30,7 +30,7 @@ export default async function Page() {
       requestBody={z.object({
         name: z.string().describe("The full OpenRouter API key."),
       })}
-      responseBody={Auth.OpenRouterApiKeySchema}
+      responseBody={Auth.ApiKey.OpenRouter.OpenRouterByokApiKeySchema}
     />
   );
 }

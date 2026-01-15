@@ -38,7 +38,7 @@ export default async function Page() {
           .optional()
           .describe("Description for the new API key."),
       })}
-      responseBody={Auth.ApiKeySchema}
+      responseBody={Auth.ApiKey.ApiKeyWithMetadataSchema}
     />
   );
 }

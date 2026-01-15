@@ -27,7 +27,7 @@ export default async function Page() {
       requestPath={z.object({
         id: z.string().describe("The ID of the Ensemble."),
       })}
-      responseBody={Ensemble.RetrieveItemSchema}
+      responseBody={Ensemble.RetrieveSchema}
     />
   );
 }

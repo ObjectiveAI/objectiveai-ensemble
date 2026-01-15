@@ -20,13 +20,13 @@ import { LoadingDots } from "@/components/Loading";
 import { costFormatter } from "@/format";
 
 interface KeyWithCost
-  extends Omit<Auth.ApiKeyWithCost, "created" | "expires" | "disabled"> {
+  extends Omit<Auth.ApiKey.ListItem, "created" | "expires" | "disabled"> {
   created: Date;
   expires: Date | null;
   disabled: Date | null;
 }
 
-function convertKey(key: Auth.ApiKeyWithCost): KeyWithCost {
+function convertKey(key: Auth.ApiKey.ListItem): KeyWithCost {
   const { created, expires, disabled, ...rest } = key;
   return {
     ...rest,
@@ -86,12 +86,12 @@ export function Keys({
   }, [session]);
 
   // add key to existing keys
-  const handleAddKey = (key: Auth.ApiKey) => {
+  const handleAddKey = (key: Auth.ApiKey.ApiKeyWithMetadata) => {
     setKeys((prev) => [...(prev || []), convertKey({ ...key, cost: 0 })]);
   };
 
   // disable key
-  const handleDisableKey = (key: Auth.ApiKey) =>
+  const handleDisableKey = (key: Auth.ApiKey.ApiKeyWithMetadata) =>
     setKeys((prev) =>
       prev?.map((k) =>
         k.api_key === key.api_key
@@ -168,7 +168,7 @@ function Key({
   keyWithCost: KeyWithCost;
   now: number;
   session: Provider.TokenSession;
-  onDisable: (key: Auth.ApiKey) => void;
+  onDisable: (key: Auth.ApiKey.ApiKeyWithMetadata) => void;
   className?: string;
 }): ReactElement {
   const [disabling, setDisabling] = useState(false);
@@ -193,7 +193,7 @@ function Key({
     setDisabling(true);
     (async () => {
       const openai = await openAi(session);
-      const key = await Auth.ApiKey.remove(openai, api_key);
+      const key = await Auth.ApiKey.disable(openai, api_key);
       setDisabling(false);
       onDisable(key);
     })();
