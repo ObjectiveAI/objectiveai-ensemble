@@ -1,4 +1,4 @@
-use crate::functions::{self, compute_profile::response};
+use crate::functions::{self, profiles::computations::response};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

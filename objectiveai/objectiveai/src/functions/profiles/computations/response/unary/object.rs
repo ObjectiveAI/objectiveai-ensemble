@@ -1,9 +1,9 @@
-use crate::functions::compute_profile::response;
+use crate::functions::profiles::computations::response;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Object {
-    #[serde(rename = "function.compute.profile")]
+    #[serde(rename = "function.profile.compute")]
     FunctionOptimizeResponse,
 }
 

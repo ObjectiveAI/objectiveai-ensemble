@@ -1,5 +1,5 @@
 use crate::{
-    functions::{self, compute_profile::response},
+    functions::{self, profiles::computations::response},
     vector,
 };
 use serde::{Deserialize, Serialize};
