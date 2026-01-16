@@ -27,7 +27,7 @@ export default async function Page() {
       requestHeaders={z.object({
         authorization: z.string().describe("Authorization token (required)."),
       })}
-      responseBody={Auth.CreditsSchema}
+      responseBody={Auth.Credits.CreditsSchema}
     />
   );
 }

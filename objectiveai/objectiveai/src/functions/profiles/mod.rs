@@ -1,3 +1,4 @@
+pub mod computations;
 pub mod response;
 
 #[cfg(feature = "http")]

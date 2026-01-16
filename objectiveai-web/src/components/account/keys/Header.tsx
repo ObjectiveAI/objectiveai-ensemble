@@ -18,7 +18,7 @@ export function Header({
 }: {
   sort: "created" | "cost";
   onSortChanged: (sort: "created" | "cost") => void;
-  onAddKey: (key: Auth.ApiKey) => void;
+  onAddKey: (key: Auth.ApiKey.ApiKeyWithMetadata) => void;
   session: Provider.TokenSession;
   loading?: boolean;
   now: number;
@@ -98,7 +98,7 @@ function CreatePopup({
   session,
   now,
 }: {
-  onSuccess: (key: Auth.ApiKey) => void;
+  onSuccess: (key: Auth.ApiKey.ApiKeyWithMetadata) => void;
   onCancel: () => void;
   session: Provider.TokenSession;
   now: number;

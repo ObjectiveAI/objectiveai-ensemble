@@ -4,7 +4,7 @@ import { ProviderServer } from "@/provider_server";
 import { headers as getHeaders } from "next/headers";
 import { EndpointDocs } from "@/components/docs/EndpointDocs";
 import z from "zod";
-import { Function } from "objectiveai";
+import { Functions } from "objectiveai";
 
 export default async function Page() {
   const [headers, session] = await Promise.all([
@@ -42,7 +42,7 @@ export default async function Page() {
             "The commit SHA of the GitHub repository containing the profile."
           ),
       })}
-      responseBody={Function.Profile.HistoricalUsageSchema}
+      responseBody={Functions.Profiles.HistoricalUsageSchema}
     />
   );
 }

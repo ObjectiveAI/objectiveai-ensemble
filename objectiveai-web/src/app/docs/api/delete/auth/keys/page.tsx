@@ -30,7 +30,7 @@ export default async function Page() {
       requestBody={z.object({
         api_key: z.string().describe("The API key to delete."),
       })}
-      responseBody={Auth.ApiKeySchema}
+      responseBody={Auth.ApiKey.ApiKeyWithMetadataSchema}
     />
   );
 }

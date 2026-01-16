@@ -1,4 +1,3 @@
-pub mod compute_profile;
 pub mod executions;
 pub mod expression;
 mod function;

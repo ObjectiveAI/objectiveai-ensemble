@@ -190,7 +190,7 @@ function AvailableCredits({
   session: Provider.TokenSession;
   className?: string;
 }): ReactElement {
-  const [credits, setCredits] = useState<Auth.Credits>();
+  const [credits, setCredits] = useState<Auth.Credits.Credits>();
   const creditsFormatted = useMemo(
     () =>
       credits !== undefined

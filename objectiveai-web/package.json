@@ -6,8 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "postinstall": "npx rimraf node_modules/objectiveai && npx degit ObjectiveAI/objectiveai/objectiveai-js node_modules/objectiveai && npm install --prefix node_modules/objectiveai"
+    "lint": "next lint"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -44,7 +43,8 @@
     "stripe": "^18.5.0",
     "tailwindcss": "^4.1.4",
     "typescript": "^5",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "objectiveai": "file:../objectiveai-js"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

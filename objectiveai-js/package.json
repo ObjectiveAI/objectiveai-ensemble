@@ -7,13 +7,14 @@
     "type": "git",
     "url": "git+https://github.com/ObjectiveAI/objectiveai.git"
   },
+  "type": "module",
   "scripts": {
-    "build": "rimraf dist && npm run build:cjs && npm run build:esm",
-    "build:cjs": "tsc --project tsconfig.cjs.json && shx mv dist/index.js dist/index.cjs",
-    "build:esm": "tsc --project tsconfig.esm.json",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "node ./scripts/install-wasm.cjs && tsup && shx rm -f dist/*.d.mts && shx rm -f dist/*.d.cts",
+    "test": "node test/test-cjs.cjs && node test/test-esm.mjs",
+    "prepublishOnly": "npm test",
     "start": "node dist/index.js",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "postinstall": "node ./scripts/install-wasm.cjs"
   },
   "author": {
     "name": "ObjectiveAI",
@@ -24,6 +25,7 @@
     "access": "public"
   },
   "license": "MIT",
+  "sideEffects": false,
   "dependencies": {
     "zod": "^4.3.5"
   },
@@ -31,6 +33,7 @@
     "openai": "^6.15.0",
     "rimraf": "^6.1.2",
     "shx": "^0.4.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   },
   "keywords": [
@@ -53,9 +56,9 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [

@@ -27,7 +27,7 @@ export default async function Page() {
       requestHeaders={z.object({
         authorization: z.string().describe("Authorization token (required)."),
       })}
-      responseBody={Auth.OpenRouterApiKeySchema}
+      responseBody={Auth.ApiKey.OpenRouter.OpenRouterByokApiKeySchema}
     />
   );
 }

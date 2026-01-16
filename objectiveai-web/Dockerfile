@@ -31,13 +31,9 @@ ENV IP_RSA_PUBLIC_KEY=${IP_RSA_PUBLIC_KEY}
 ARG USER_IP_HEADER
 ENV USER_IP_HEADER=${USER_IP_HEADER}
 WORKDIR /root
-COPY \
-    ./package.json \
-    ./package-lock.json* \
-    ./next.config.ts \
-    ./
-RUN npm install
 COPY . .
+WORKDIR /root/objectiveai-web
+RUN npm install
 RUN npm run build
 
 # Runner
@@ -73,11 +69,11 @@ ENV IP_RSA_PUBLIC_KEY=${IP_RSA_PUBLIC_KEY}
 ARG USER_IP_HEADER
 ENV USER_IP_HEADER=${USER_IP_HEADER}
 WORKDIR /root
-COPY --from=builder /root/.next .next
-COPY --from=builder /root/public public
-COPY --from=builder /root/node_modules node_modules
+COPY --from=builder /root/objectiveai-web/.next .next
+COPY --from=builder /root/objectiveai-web/public public
+COPY --from=builder /root/objectiveai-web/node_modules node_modules
 COPY --from=builder \
-    /root/package.json \
-    /root/next.config.ts \
+    /root/objectiveai-web/package.json \
+    /root/objectiveai-web/next.config.ts \
     ./
 CMD ["npx", "next", "start"]
