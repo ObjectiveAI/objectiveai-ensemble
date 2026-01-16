@@ -13,6 +13,9 @@ export default defineConfig({
       src: path.resolve(__dirname, "src"),
     };
   },
+  loader: {
+    ".wasm": "file",
+  },
   outExtension({ format }) {
     return {
       js: format === "cjs" ? ".cjs" : ".js",
