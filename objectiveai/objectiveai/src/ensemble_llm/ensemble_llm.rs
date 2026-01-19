@@ -54,7 +54,6 @@ pub struct EnsembleLlmBase {
     pub suffix_messages: Option<Vec<chat::completions::request::Message>>,
 
     // --- OpenAI-compatible parameters ---
-
     /// Penalizes tokens based on their frequency in the output so far (-2.0 to 2.0).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub frequency_penalty: Option<f64>,
@@ -78,7 +77,6 @@ pub struct EnsembleLlmBase {
     pub top_p: Option<f64>,
 
     // --- OpenRouter-specific parameters ---
-
     /// Maximum tokens (OpenRouter variant of max_completion_tokens).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u64>,
@@ -383,14 +381,20 @@ impl TryFrom<EnsembleLlmBase> for EnsembleLlm {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WithFallbacksAndCount<T> {
     /// Number of instances of this LLM in the ensemble. Defaults to 1.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub count: Option<u64>,
+    #[serde(default = "WithFallbacksAndCount::<T>::default_count")]
+    pub count: u64,
     /// The primary LLM configuration.
     #[serde(flatten)]
     pub inner: T,
     /// Fallback LLMs to try if the primary fails.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fallbacks: Option<Vec<T>>,
+}
+
+impl<T> WithFallbacksAndCount<T> {
+    fn default_count() -> u64 {
+        1
+    }
 }
 
 /// An [`EnsembleLlmBase`] with optional fallbacks and count (pre-validation).
