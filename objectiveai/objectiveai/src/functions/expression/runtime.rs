@@ -506,7 +506,12 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
         runtime.register_function(
             "l1_normalize",
             Box::new(CustomFunction::new(
-                Signature::new(vec![ArgumentType::Array], None),
+                Signature::new(
+                    vec![ArgumentType::TypedArray(Box::new(
+                        ArgumentType::Number,
+                    ))],
+                    None,
+                ),
                 Box::new(|args: &[Rcvar], ctx: &mut Context| {
                     let numbers = number_array_arg(args, ctx, 0, 1)?;
                     let sum: f64 = numbers.iter().map(|n| n.abs()).sum();
