@@ -42,3 +42,63 @@ pub enum HttpError {
     #[error(transparent)]
     ApiError(#[from] error::ResponseError),
 }
+
+impl error::StatusError for HttpError {
+    fn status(&self) -> u16 {
+        match self {
+            HttpError::DeserializationError(_) => 500,
+            HttpError::BadStatus { code, .. } => code.as_u16(),
+            HttpError::StreamError(reqwest_eventsource::Error::Transport(
+                e,
+            )) => e.status().map(|s| s.as_u16()).unwrap_or(500),
+            HttpError::StreamError(
+                reqwest_eventsource::Error::InvalidStatusCode(code, _),
+            ) => code.as_u16(),
+            HttpError::StreamError(_) => 500,
+            HttpError::RequestError(e) => {
+                e.status().map(|s| s.as_u16()).unwrap_or(500)
+            }
+            HttpError::StreamingRequestError(e) => 500,
+            HttpError::HttpError(e) => {
+                e.status().map(|s| s.as_u16()).unwrap_or(500)
+            }
+            HttpError::ApiError(e) => e.status(),
+        }
+    }
+
+    fn message(&self) -> Option<serde_json::Value> {
+        Some(serde_json::json!({
+            "kind": "objectiveai_client",
+            "error": match self {
+                HttpError::DeserializationError(e) => serde_json::json!({
+                    "kind": "deserialization",
+                    "error": e.to_string(),
+                }),
+                HttpError::BadStatus { body, .. } => serde_json::json!({
+                    "kind": "bad_status",
+                    "error": body,
+                }),
+                HttpError::StreamError(e) => serde_json::json!({
+                    "kind": "stream_error",
+                    "error": e.to_string(),
+                }),
+                HttpError::RequestError(e) => serde_json::json!({
+                    "kind": "request_error",
+                    "error": e.to_string(),
+                }),
+                HttpError::StreamingRequestError(e) => serde_json::json!({
+                    "kind": "streaming_request_error",
+                    "error": e.to_string(),
+                }),
+                HttpError::HttpError(e) => serde_json::json!({
+                    "kind": "http_error",
+                    "error": e.to_string(),
+                }),
+                HttpError::ApiError(e) => serde_json::json!({
+                    "kind": "api_error",
+                    "error": e.message(),
+                }),
+            }
+        }))
+    }
+}
