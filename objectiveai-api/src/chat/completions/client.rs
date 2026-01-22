@@ -345,7 +345,7 @@ where
                             .fetch(ctx.clone(), id)
                             .await
                         {
-                            Ok(Some(ensemble_llm)) => ensemble_llm,
+                            Ok(Some((ensemble_llm, _))) => ensemble_llm,
                             Ok(None) => {
                                 errors.push(super::Error::EnsembleLlmNotFound);
                                 continue;
