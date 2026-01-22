@@ -155,7 +155,8 @@ pub async fn create_function_execution_streaming(
             super::response::streaming::FunctionExecutionChunk,
             HttpError,
         >,
-    >,
+    > + Send
+    + 'static,
     HttpError,
 > {
     match request {

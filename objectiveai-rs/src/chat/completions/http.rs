@@ -48,7 +48,8 @@ pub async fn create_chat_completion_streaming(
             super::response::streaming::ChatCompletionChunk,
             HttpError,
         >,
-    >,
+    > + Send
+    + 'static,
     HttpError,
 > {
     params.stream = Some(true);
