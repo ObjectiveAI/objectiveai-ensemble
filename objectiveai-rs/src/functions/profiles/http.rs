@@ -13,7 +13,7 @@ use crate::{HttpClient, HttpError};
 /// A list of profiles with their GitHub repository information.
 pub async fn list_profiles(
     client: &HttpClient,
-) -> Result<Vec<super::response::ListProfile>, HttpError> {
+) -> Result<super::response::ListProfile, HttpError> {
     client
         .send_unary(reqwest::Method::GET, "functions/profiles", None::<String>)
         .await

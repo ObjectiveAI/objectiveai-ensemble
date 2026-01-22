@@ -5,7 +5,7 @@ use crate::{HttpClient, HttpError};
 /// Lists all Ensemble LLMs that have been used by the authenticated user.
 pub async fn list_ensemble_llms(
     client: &HttpClient,
-) -> Result<Vec<super::response::ListEnsembleLlm>, HttpError> {
+) -> Result<super::response::ListEnsembleLlm, HttpError> {
     client
         .send_unary(reqwest::Method::GET, "ensemble_llms", None::<String>)
         .await

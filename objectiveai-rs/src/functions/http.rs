@@ -13,7 +13,7 @@ use crate::{HttpClient, HttpError};
 /// A list of functions with their GitHub repository information.
 pub async fn list_functions(
     client: &HttpClient,
-) -> Result<Vec<super::response::ListFunction>, HttpError> {
+) -> Result<super::response::ListFunction, HttpError> {
     client
         .send_unary(reqwest::Method::GET, "functions", None::<String>)
         .await

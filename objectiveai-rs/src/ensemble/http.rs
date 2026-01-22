@@ -5,7 +5,7 @@ use crate::{HttpClient, HttpError};
 /// Lists all Ensembles that have been used by the authenticated user.
 pub async fn list_ensembles(
     client: &HttpClient,
-) -> Result<Vec<super::response::ListEnsemble>, HttpError> {
+) -> Result<super::response::ListEnsemble, HttpError> {
     client
         .send_unary(reqwest::Method::GET, "ensembles", None::<String>)
         .await
