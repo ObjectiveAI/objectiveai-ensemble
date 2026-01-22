@@ -234,13 +234,18 @@ impl HttpClient {
     /// stream items may also contain errors if chunks fail to deserialize.
     pub async fn send_streaming<
         T: serde::de::DeserializeOwned + Send + 'static,
+        P: AsRef<str> + Send,
+        B: serde::Serialize + Send,
     >(
         &self,
         method: reqwest::Method,
-        path: impl AsRef<str>,
-        body: Option<impl serde::Serialize>,
+        path: P,
+        body: Option<B>,
     ) -> Result<
-        impl Stream<Item = Result<T, super::HttpError>> + Send + 'static,
+        impl Stream<Item = Result<T, super::HttpError>>
+        + Send
+        + 'static
+        + use<T, P, B>,
         super::HttpError,
     > {
         Ok(

@@ -49,8 +49,10 @@ pub async fn compute_profile_streaming(
             super::response::streaming::FunctionProfileComputationChunk,
             HttpError,
         >,
-    > + Send
-    + 'static,
+    >
+    + Send
+    + 'static
+    + use<>,
     HttpError,
 > {
     match request {

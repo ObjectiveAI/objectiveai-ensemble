@@ -29,8 +29,10 @@ pub async fn create_vector_completion_streaming(
             super::response::streaming::VectorCompletionChunk,
             HttpError,
         >,
-    > + Send
-    + 'static,
+    >
+    + Send
+    + 'static
+    + use<>,
     HttpError,
 > {
     params.stream = Some(true);
