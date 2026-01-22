@@ -58,7 +58,7 @@ impl error::StatusError for HttpError {
             HttpError::RequestError(e) => {
                 e.status().map(|s| s.as_u16()).unwrap_or(500)
             }
-            HttpError::StreamingRequestError(e) => 500,
+            HttpError::StreamingRequestError(_) => 500,
             HttpError::HttpError(e) => {
                 e.status().map(|s| s.as_u16()).unwrap_or(500)
             }
