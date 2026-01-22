@@ -19,6 +19,18 @@ pub async fn list_functions(
         .await
 }
 
+/// Retrieves a function definition from a GitHub repository.
+///
+/// # Arguments
+///
+/// * `client` - The HTTP client to use
+/// * `owner` - GitHub repository owner
+/// * `repository` - GitHub repository name
+/// * `commit` - Optional Git commit SHA (uses latest if not specified)
+///
+/// # Returns
+///
+/// The function definition including its tasks, input schema, and output configuration.
 pub async fn get_function(
     client: &HttpClient,
     owner: &str,

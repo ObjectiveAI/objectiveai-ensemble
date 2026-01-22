@@ -19,6 +19,18 @@ pub async fn list_profiles(
         .await
 }
 
+/// Retrieves a profile definition from a GitHub repository.
+///
+/// # Arguments
+///
+/// * `client` - The HTTP client to use
+/// * `owner` - GitHub repository owner
+/// * `repository` - GitHub repository name
+/// * `commit` - Optional Git commit SHA (uses latest if not specified)
+///
+/// # Returns
+///
+/// The profile definition including its learned weights and associated function.
 pub async fn get_profile(
     client: &HttpClient,
     owner: &str,
