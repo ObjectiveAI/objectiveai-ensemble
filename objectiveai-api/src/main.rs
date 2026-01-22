@@ -110,8 +110,8 @@ async fn main() {
 
     // Ensemble LLM Fetcher
     let ensemble_llm_fetcher = Arc::new(
-        chat::completions::ensemble_llm_fetcher::CachingFetcher::new(Arc::new(
-            chat::completions::ensemble_llm_fetcher::ObjectiveAiFetcher::new(
+        ensemble_llm::fetcher::CachingFetcher::new(Arc::new(
+            ensemble_llm::fetcher::ObjectiveAiFetcher::new(
                 objectiveai_http_client.clone(),
             ),
         )),
@@ -151,8 +151,8 @@ async fn main() {
 
     // Ensemble Fetcher
     let ensemble_fetcher = Arc::new(
-        vector::completions::ensemble_fetcher::CachingFetcher::new(Arc::new(
-            vector::completions::ensemble_fetcher::ObjectiveAiFetcher::new(
+        ensemble::fetcher::CachingFetcher::new(Arc::new(
+            ensemble::fetcher::ObjectiveAiFetcher::new(
                 objectiveai_http_client.clone(),
             ),
         )),
@@ -917,7 +917,7 @@ async fn create_chat_completion(
     client: Arc<
         chat::completions::Client<
             ctx::DefaultContextExt,
-            impl chat::completions::ensemble_llm_fetcher::Fetcher<
+            impl ensemble_llm::fetcher::Fetcher<
                 ctx::DefaultContextExt,
             > + Send
             + Sync
@@ -977,7 +977,7 @@ async fn create_vector_completion(
     client: Arc<
         vector::completions::Client<
             ctx::DefaultContextExt,
-            impl chat::completions::ensemble_llm_fetcher::Fetcher<
+            impl ensemble_llm::fetcher::Fetcher<
                 ctx::DefaultContextExt,
             > + Send
             + Sync
@@ -987,7 +987,7 @@ async fn create_vector_completion(
             > + Send
             + Sync
             + 'static,
-            impl vector::completions::ensemble_fetcher::Fetcher<
+            impl ensemble::fetcher::Fetcher<
                 ctx::DefaultContextExt,
             > + Send
             + Sync
@@ -1099,7 +1099,7 @@ async fn execute_function(
     client: Arc<
         functions::executions::Client<
             ctx::DefaultContextExt,
-            impl chat::completions::ensemble_llm_fetcher::Fetcher<
+            impl ensemble_llm::fetcher::Fetcher<
                 ctx::DefaultContextExt,
             > + Send
             + Sync
@@ -1109,7 +1109,7 @@ async fn execute_function(
             > + Send
             + Sync
             + 'static,
-            impl vector::completions::ensemble_fetcher::Fetcher<
+            impl ensemble::fetcher::Fetcher<
                 ctx::DefaultContextExt,
             > + Send
             + Sync
@@ -1496,7 +1496,7 @@ async fn list_ensembles(
     client: Arc<
         ensemble::Client<
             ctx::DefaultContextExt,
-            impl vector::completions::ensemble_fetcher::Fetcher<ctx::DefaultContextExt>
+            impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
                 + Send
                 + Sync
                 + 'static,
@@ -1519,7 +1519,7 @@ async fn get_ensemble(
     client: Arc<
         ensemble::Client<
             ctx::DefaultContextExt,
-            impl vector::completions::ensemble_fetcher::Fetcher<ctx::DefaultContextExt>
+            impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
                 + Send
                 + Sync
                 + 'static,
@@ -1543,7 +1543,7 @@ async fn get_ensemble_usage(
     client: Arc<
         ensemble::Client<
             ctx::DefaultContextExt,
-            impl vector::completions::ensemble_fetcher::Fetcher<ctx::DefaultContextExt>
+            impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
                 + Send
                 + Sync
                 + 'static,
@@ -1569,7 +1569,7 @@ async fn list_ensemble_llms(
     client: Arc<
         ensemble_llm::Client<
             ctx::DefaultContextExt,
-            impl chat::completions::ensemble_llm_fetcher::Fetcher<ctx::DefaultContextExt>
+            impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
                 + Send
                 + Sync
                 + 'static,
@@ -1592,7 +1592,7 @@ async fn get_ensemble_llm(
     client: Arc<
         ensemble_llm::Client<
             ctx::DefaultContextExt,
-            impl chat::completions::ensemble_llm_fetcher::Fetcher<ctx::DefaultContextExt>
+            impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
                 + Send
                 + Sync
                 + 'static,
@@ -1616,7 +1616,7 @@ async fn get_ensemble_llm_usage(
     client: Arc<
         ensemble_llm::Client<
             ctx::DefaultContextExt,
-            impl chat::completions::ensemble_llm_fetcher::Fetcher<ctx::DefaultContextExt>
+            impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
                 + Send
                 + Sync
                 + 'static,

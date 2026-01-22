@@ -31,7 +31,7 @@ pub struct Client<
 > {
     pub chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
     pub ensemble_fetcher: Arc<
-        vector::completions::ensemble_fetcher::CachingFetcher<CTXEXT, FENS>,
+        crate::ensemble::fetcher::CachingFetcher<CTXEXT, FENS>,
     >,
     pub vector_client: Arc<
         vector::completions::Client<
@@ -55,7 +55,7 @@ impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG, FFN, FPFL, FUSG>
     pub fn new(
         chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
         ensemble_fetcher: Arc<
-            vector::completions::ensemble_fetcher::CachingFetcher<CTXEXT, FENS>,
+            crate::ensemble::fetcher::CachingFetcher<CTXEXT, FENS>,
         >,
         vector_client: Arc<
             vector::completions::Client<
@@ -87,7 +87,7 @@ impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG, FFN, FPFL, FUSG>
     Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG, FFN, FPFL, FUSG>
 where
     CTXEXT: ctx::ContextExt + Send + Sync + 'static,
-    FENSLLM: chat::completions::ensemble_llm_fetcher::Fetcher<CTXEXT>
+    FENSLLM: crate::ensemble_llm::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,
@@ -95,7 +95,7 @@ where
         + Send
         + Sync
         + 'static,
-    FENS: vector::completions::ensemble_fetcher::Fetcher<CTXEXT>
+    FENS: crate::ensemble::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,
@@ -198,7 +198,7 @@ impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG, FFN, FPFL, FUSG>
     Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG, FFN, FPFL, FUSG>
 where
     CTXEXT: ctx::ContextExt + Send + Sync + 'static,
-    FENSLLM: chat::completions::ensemble_llm_fetcher::Fetcher<CTXEXT>
+    FENSLLM: crate::ensemble_llm::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,
@@ -206,7 +206,7 @@ where
         + Send
         + Sync
         + 'static,
-    FENS: vector::completions::ensemble_fetcher::Fetcher<CTXEXT>
+    FENS: crate::ensemble::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,

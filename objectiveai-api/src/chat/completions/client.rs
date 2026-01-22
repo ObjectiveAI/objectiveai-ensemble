@@ -11,7 +11,7 @@ pub fn response_id(created: u64) -> String {
 #[derive(Debug, Clone)]
 pub struct Client<CTXEXT, FENSLLM, CUSG> {
     pub ensemble_llm_fetcher:
-        Arc<super::ensemble_llm_fetcher::CachingFetcher<CTXEXT, FENSLLM>>,
+        Arc<crate::ensemble_llm::fetcher::CachingFetcher<CTXEXT, FENSLLM>>,
     pub usage_handler: Arc<CUSG>,
     pub upstream_client: super::upstream::Client,
 
@@ -27,7 +27,7 @@ pub struct Client<CTXEXT, FENSLLM, CUSG> {
 impl<CTXEXT, FENSLLM, CUSG> Client<CTXEXT, FENSLLM, CUSG> {
     pub fn new(
         ensemble_llm_fetcher: Arc<
-            super::ensemble_llm_fetcher::CachingFetcher<CTXEXT, FENSLLM>,
+            crate::ensemble_llm::fetcher::CachingFetcher<CTXEXT, FENSLLM>,
         >,
         usage_handler: Arc<CUSG>,
         upstream_client: super::upstream::Client,
@@ -56,7 +56,7 @@ impl<CTXEXT, FENSLLM, CUSG> Client<CTXEXT, FENSLLM, CUSG>
 where
     CTXEXT: ctx::ContextExt + Send + Sync + 'static,
     FENSLLM:
-        super::ensemble_llm_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
+        crate::ensemble_llm::fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     CUSG: super::usage_handler::UsageHandler<CTXEXT> + Send + Sync + 'static,
 {
     pub async fn create_unary_for_chat_handle_usage(
@@ -228,7 +228,7 @@ impl<CTXEXT, FENSLLM, CUSG> Client<CTXEXT, FENSLLM, CUSG>
 where
     CTXEXT: ctx::ContextExt + Send + Sync + 'static,
     FENSLLM:
-        super::ensemble_llm_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
+        crate::ensemble_llm::fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
 {
     pub async fn create_streaming_for_chat(
         &self,

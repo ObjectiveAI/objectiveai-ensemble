@@ -15,7 +15,7 @@ pub fn response_id(created: u64) -> String {
 pub struct Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG> {
     pub chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
     pub ensemble_fetcher:
-        Arc<super::ensemble_fetcher::CachingFetcher<CTXEXT, FENS>>,
+        Arc<crate::ensemble::fetcher::CachingFetcher<CTXEXT, FENS>>,
     pub completion_votes_fetcher: Arc<FVVOTE>,
     pub cache_vote_fetcher: Arc<FCVOTE>,
     pub usage_handler: Arc<VUSG>,
@@ -27,7 +27,7 @@ impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG>
     pub fn new(
         chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
         ensemble_fetcher: Arc<
-            super::ensemble_fetcher::CachingFetcher<CTXEXT, FENS>,
+            crate::ensemble::fetcher::CachingFetcher<CTXEXT, FENS>,
         >,
         completion_votes_fetcher: Arc<FVVOTE>,
         cache_vote_fetcher: Arc<FCVOTE>,
@@ -47,7 +47,7 @@ impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG>
     Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG>
 where
     CTXEXT: ctx::ContextExt + Send + Sync + 'static,
-    FENSLLM: chat::completions::ensemble_llm_fetcher::Fetcher<CTXEXT>
+    FENSLLM: crate::ensemble_llm::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,
@@ -55,7 +55,7 @@ where
         + Send
         + Sync
         + 'static,
-    FENS: super::ensemble_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
+    FENS: crate::ensemble::fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     FVVOTE: super::completion_votes_fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
@@ -155,7 +155,7 @@ impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG>
     Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG>
 where
     CTXEXT: ctx::ContextExt + Send + Sync + 'static,
-    FENSLLM: chat::completions::ensemble_llm_fetcher::Fetcher<CTXEXT>
+    FENSLLM: crate::ensemble_llm::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,
@@ -163,7 +163,7 @@ where
         + Send
         + Sync
         + 'static,
-    FENS: super::ensemble_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
+    FENS: crate::ensemble::fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     FVVOTE: super::completion_votes_fetcher::Fetcher<CTXEXT>
         + Send
         + Sync

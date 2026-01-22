@@ -1,9 +1,9 @@
-use crate::{ctx, vector};
+use crate::ctx;
 use std::sync::Arc;
 
 pub struct Client<CTXEXT, FENS, RTRVL> {
     pub ensemble_fetcher: Arc<
-        vector::completions::ensemble_fetcher::CachingFetcher<CTXEXT, FENS>,
+        super::fetcher::CachingFetcher<CTXEXT, FENS>,
     >,
     pub retrieval_client: Arc<RTRVL>,
     pub _ctx_ext: std::marker::PhantomData<CTXEXT>,
@@ -12,7 +12,7 @@ pub struct Client<CTXEXT, FENS, RTRVL> {
 impl<CTXEXT, FENS, RTRVL> Client<CTXEXT, FENS, RTRVL> {
     pub fn new(
         ensemble_fetcher: Arc<
-            vector::completions::ensemble_fetcher::CachingFetcher<CTXEXT, FENS>,
+            super::fetcher::CachingFetcher<CTXEXT, FENS>,
         >,
         retrieval_client: Arc<RTRVL>,
     ) -> Self {
@@ -27,7 +27,7 @@ impl<CTXEXT, FENS, RTRVL> Client<CTXEXT, FENS, RTRVL> {
 impl<CTXEXT, FENS, RTRVL> Client<CTXEXT, FENS, RTRVL>
 where
     CTXEXT: Send + Sync + 'static,
-    FENS: vector::completions::ensemble_fetcher::Fetcher<CTXEXT>
+    FENS: super::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,

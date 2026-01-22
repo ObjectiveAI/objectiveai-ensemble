@@ -1,4 +1,4 @@
-use crate::{ctx, vector};
+use crate::ctx;
 use futures::FutureExt;
 use std::{
     pin::Pin,
@@ -249,9 +249,9 @@ pub async fn get_flat_task_profile<CTXEXT>(
         impl super::profile_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     >,
     ensemble_fetcher: Arc<
-        vector::completions::ensemble_fetcher::CachingFetcher<
+        crate::ensemble::fetcher::CachingFetcher<
             CTXEXT,
-            impl vector::completions::ensemble_fetcher::Fetcher<CTXEXT>
+            impl crate::ensemble::fetcher::Fetcher<CTXEXT>
             + Send
             + Sync
             + 'static,
@@ -707,9 +707,9 @@ async fn get_vector_completion_flat_task_profile<CTXEXT>(
     ensemble: objectiveai::vector::completions::request::Ensemble,
     profile: Vec<rust_decimal::Decimal>,
     ensemble_fetcher: Arc<
-        vector::completions::ensemble_fetcher::CachingFetcher<
+        crate::ensemble::fetcher::CachingFetcher<
             CTXEXT,
-            impl vector::completions::ensemble_fetcher::Fetcher<CTXEXT>
+            impl crate::ensemble::fetcher::Fetcher<CTXEXT>
             + Send
             + Sync
             + 'static,

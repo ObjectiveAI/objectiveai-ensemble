@@ -1,9 +1,9 @@
-use crate::{chat, ctx};
+use crate::ctx;
 use std::sync::Arc;
 
 pub struct Client<CTXEXT, FENSLLM, RTRVL> {
     pub ensemble_llm_fetcher: Arc<
-        chat::completions::ensemble_llm_fetcher::CachingFetcher<
+        super::fetcher::CachingFetcher<
             CTXEXT,
             FENSLLM,
         >,
@@ -15,7 +15,7 @@ pub struct Client<CTXEXT, FENSLLM, RTRVL> {
 impl<CTXEXT, FENSLLM, RTRVL> Client<CTXEXT, FENSLLM, RTRVL> {
     pub fn new(
         ensemble_llm_fetcher: Arc<
-            chat::completions::ensemble_llm_fetcher::CachingFetcher<
+            super::fetcher::CachingFetcher<
                 CTXEXT,
                 FENSLLM,
             >,
@@ -33,7 +33,7 @@ impl<CTXEXT, FENSLLM, RTRVL> Client<CTXEXT, FENSLLM, RTRVL> {
 impl<CTXEXT, FENSLLM, RTRVL> Client<CTXEXT, FENSLLM, RTRVL>
 where
     CTXEXT: Send + Sync + 'static,
-    FENSLLM: chat::completions::ensemble_llm_fetcher::Fetcher<CTXEXT>
+    FENSLLM: super::fetcher::Fetcher<CTXEXT>
         + Send
         + Sync
         + 'static,
