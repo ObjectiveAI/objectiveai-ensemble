@@ -1,12 +1,17 @@
+//! ObjectiveAI Ensemble LLM fetcher implementation.
+
 use crate::ctx;
 use objectiveai::error::StatusError;
 use std::sync::Arc;
 
+/// Fetches Ensemble LLMs from the ObjectiveAI HTTP API.
 pub struct ObjectiveAiFetcher {
+    /// The underlying HTTP client.
     pub client: Arc<objectiveai::HttpClient>,
 }
 
 impl ObjectiveAiFetcher {
+    /// Creates a new ObjectiveAI Ensemble LLM fetcher.
     pub fn new(client: Arc<objectiveai::HttpClient>) -> Self {
         Self { client }
     }

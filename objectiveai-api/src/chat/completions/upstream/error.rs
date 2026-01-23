@@ -1,11 +1,18 @@
+//! Error types for upstream provider operations.
+
+/// Errors that can occur when communicating with upstream providers.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// Error from the OpenRouter provider.
     #[error("openrouter error: {0}")]
     OpenRouter(#[from] super::openrouter::Error),
+    /// Failed to fetch a BYOK API key.
     #[error("fetch BYOK error: {0}")]
     FetchByok(objectiveai::error::ResponseError),
+    /// Multiple errors occurred during fallback attempts.
     #[error("multiple upstream errors: {0:?}")]
     MultipleErrors(Vec<Error>),
+    /// The upstream returned an empty stream.
     #[error("empty upstream stream")]
     EmptyStream,
 }

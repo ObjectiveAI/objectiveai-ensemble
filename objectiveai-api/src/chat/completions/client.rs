@@ -1,30 +1,46 @@
+//! Chat completions client implementation.
+
 use futures::{StreamExt, TryStreamExt};
 
 use crate::{ctx, util::StreamOnce};
 use std::{sync::Arc, time::Duration};
 
+/// Generates a unique response ID for a chat completion.
 pub fn response_id(created: u64) -> String {
     let uuid = uuid::Uuid::new_v4();
     format!("chtcpl-{}-{}", uuid.simple(), created)
 }
 
+/// Client for creating chat completions.
+///
+/// Handles Ensemble LLM fetching, upstream provider selection with fallbacks,
+/// retry logic with exponential backoff, and usage tracking.
 #[derive(Debug, Clone)]
 pub struct Client<CTXEXT, FENSLLM, CUSG> {
+    /// Caching fetcher for Ensemble LLM definitions.
     pub ensemble_llm_fetcher:
         Arc<crate::ensemble_llm::fetcher::CachingFetcher<CTXEXT, FENSLLM>>,
+    /// Handler for tracking usage after completion.
     pub usage_handler: Arc<CUSG>,
+    /// Client for communicating with upstream providers.
     pub upstream_client: super::upstream::Client,
 
-    // backoff
+    /// Current backoff interval for retry logic.
     pub backoff_current_interval: Duration,
+    /// Initial backoff interval for retry logic.
     pub backoff_initial_interval: Duration,
+    /// Randomization factor for backoff jitter.
     pub backoff_randomization_factor: f64,
+    /// Multiplier for exponential backoff growth.
     pub backoff_multiplier: f64,
+    /// Maximum backoff interval.
     pub backoff_max_interval: Duration,
+    /// Maximum total time to spend on retries.
     pub backoff_max_elapsed_time: Duration,
 }
 
 impl<CTXEXT, FENSLLM, CUSG> Client<CTXEXT, FENSLLM, CUSG> {
+    /// Creates a new chat completions client.
     pub fn new(
         ensemble_llm_fetcher: Arc<
             crate::ensemble_llm::fetcher::CachingFetcher<CTXEXT, FENSLLM>,
@@ -59,6 +75,9 @@ where
         crate::ensemble_llm::fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     CUSG: super::usage_handler::UsageHandler<CTXEXT> + Send + Sync + 'static,
 {
+    /// Creates a unary chat completion, tracking usage after completion.
+    ///
+    /// Internally streams the response and aggregates chunks into a single response.
     pub async fn create_unary_for_chat_handle_usage(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -86,6 +105,7 @@ where
         Ok(aggregate.unwrap().into())
     }
 
+    /// Creates a streaming chat completion, tracking usage after the stream ends.
     pub async fn create_streaming_for_chat_handle_usage(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -150,6 +170,9 @@ where
         }
     }
 
+    /// Creates a streaming completion for vector voting, tracking usage after the stream ends.
+    ///
+    /// Used internally by vector completions to generate LLM votes.
     pub async fn create_streaming_for_vector_handle_usage(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -230,6 +253,10 @@ where
     FENSLLM:
         crate::ensemble_llm::fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
 {
+    /// Creates a streaming chat completion without usage tracking.
+    ///
+    /// Handles model validation, Ensemble LLM fetching, fallback logic,
+    /// and retry with exponential backoff.
     pub async fn create_streaming_for_chat(
         &self,
         ctx: ctx::Context<CTXEXT>,
@@ -397,6 +424,10 @@ where
         .await
     }
 
+    /// Creates a streaming completion for vector voting without usage tracking.
+    ///
+    /// Used internally by vector completions. Handles fallback logic
+    /// and retry with exponential backoff.
     pub async fn create_streaming_for_vector(
         &self,
         ctx: ctx::Context<CTXEXT>,

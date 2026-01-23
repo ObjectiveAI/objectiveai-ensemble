@@ -1,7 +1,24 @@
+//! Prefix tree for response key generation.
+//!
+//! Generates unique prefix keys (e.g., `` `A` ``, `` `B` ``) for labeling vector responses.
+//! The LLM sees these keys and responds with its choice.
+//!
+//! The tree structure is designed around logprobs for probabilistic voting. Instead of
+//! relying on the LLM's final sampled answer, we use logprobs to capture a probability
+//! distribution over responses. The leaf width matches the number of logprobs the LLM
+//! generates (e.g., 20 logprobs = 20 leaves per branch). For large response sets, nested
+//! structures (`` `A` `` `` `A` ``, `` `A` `` `` `B` ``) allow capturing preferences across
+//! more responses than a single logprobs batch allows.
+//!
+//! This enables probabilistic voting: LLMs are inherently probabilistic, and the sampler
+//! makes the final discrete choice. By using logprobs, we bypass the sampler and capture
+//! the model's full preference distribution.
+
 use indexmap::IndexMap;
 use rand::{Rng, seq::SliceRandom};
 use std::sync::Arc;
 
+/// Single-character prefix labels A-T.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Pfx {
     A,
@@ -27,6 +44,7 @@ pub enum Pfx {
 }
 
 impl Pfx {
+    /// Converts this prefix to its character representation.
     pub fn to_char(&self) -> char {
         match self {
             Pfx::A => 'A',
@@ -52,6 +70,7 @@ impl Pfx {
         }
     }
 
+    /// Parses a character into a prefix, if valid.
     pub fn from_char(c: char) -> Option<Self> {
         match c {
             'A' => Some(Pfx::A),
@@ -78,6 +97,7 @@ impl Pfx {
         }
     }
 
+    /// Returns all prefixes in randomized order.
     pub fn rng_vec(rng: &mut impl Rng) -> Vec<Self> {
         let mut vec = vec![
             Pfx::A,
@@ -112,13 +132,25 @@ impl std::fmt::Display for Pfx {
     }
 }
 
+/// A tree structure for generating unique prefix keys.
+///
+/// The tree width is determined by the number of logprobs the LLM generates.
+/// For flat structures (`` `A` ``, `` `B` ``), each leaf corresponds to one logprob slot.
+/// For large response sets exceeding the logprobs limit, nested structures
+/// (`` `A` `` `` `A` ``, `` `A` `` `` `B` ``) allow capturing preferences in stages.
 #[derive(Debug, Clone)]
 pub enum PfxTree {
+    /// A branch containing child nodes.
     Branch(Arc<IndexMap<Pfx, PfxTree>>),
+    /// A leaf containing the response index.
     Leaf(usize),
 }
 
 impl PfxTree {
+    /// Creates a new prefix tree for the given number of responses.
+    ///
+    /// The `max_branch_len` should match the number of logprobs the LLM generates,
+    /// ensuring each branch fits within one logprobs batch for probability capture.
     pub fn new(
         rng: &mut impl Rng,
         source_len: usize,
@@ -129,6 +161,7 @@ impl PfxTree {
         Self::new_inner(rng, &source, max_branch_len, false)
     }
 
+    /// Internal recursive constructor.
     pub fn new_inner(
         rng: &mut impl Rng,
         source: &[usize],
@@ -179,6 +212,9 @@ impl PfxTree {
         }
     }
 
+    /// Generates prefix-to-index mappings in randomized order.
+    ///
+    /// Returns pairs of (prefix key, response index).
     pub fn pfx_indices(
         &self,
         rng: &mut impl Rng,
@@ -190,6 +226,7 @@ impl PfxTree {
         indices
     }
 
+    /// Internal recursive method for generating prefix indices.
     pub fn pfx_indices_inner(
         &self,
         parent_pfx: Option<String>,
@@ -211,6 +248,7 @@ impl PfxTree {
         }
     }
 
+    /// Gets a child node by prefix character.
     pub fn get(&self, pfx: Pfx) -> Option<PfxTree> {
         match self {
             PfxTree::Branch(branch) => branch.get(&pfx).cloned(),
@@ -218,6 +256,7 @@ impl PfxTree {
         }
     }
 
+    /// Returns the depth of the tree.
     pub fn depth(&self) -> usize {
         match self {
             PfxTree::Branch(branch) => {
@@ -231,6 +270,9 @@ impl PfxTree {
         }
     }
 
+    /// Unwraps a leaf node to get its response index.
+    ///
+    /// Panics if called on a branch node.
     pub fn unwrap_leaf(&self) -> usize {
         match self {
             PfxTree::Leaf(index) => *index,
@@ -240,6 +282,9 @@ impl PfxTree {
         }
     }
 
+    /// Generates regex patterns for matching response keys.
+    ///
+    /// Returns (pattern with backticks, pattern without backticks).
     pub fn regex_patterns(&self, keys: &[(String, usize)]) -> (String, String) {
         let depth = self.depth();
         let mut with_ticks = String::with_capacity(
@@ -268,9 +313,13 @@ impl PfxTree {
     }
 }
 
+/// Prefix data for a specific LLM, including tree and regex patterns.
 #[derive(Debug, Clone)]
 pub struct PfxData {
+    /// The prefix tree for this LLM.
     pub pfx_tree: PfxTree,
+    /// Regex pattern matching response keys with backticks.
     pub responses_key_pattern: String,
+    /// Regex pattern matching response keys without backticks.
     pub responses_key_pattern_stripped: String,
 }

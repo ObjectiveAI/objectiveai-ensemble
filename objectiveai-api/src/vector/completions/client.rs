@@ -1,3 +1,5 @@
+//! Vector completion client implementation.
+
 use crate::{
     chat, ctx,
     util::{ChoiceIndexer, StreamOnce},
@@ -7,23 +9,34 @@ use rand::Rng;
 use rust_decimal::Decimal;
 use std::{collections::HashMap, sync::Arc, time};
 
+/// Generates a unique response ID for a vector completion.
 pub fn response_id(created: u64) -> String {
     let uuid = uuid::Uuid::new_v4();
     format!("vctcpl-{}-{}", uuid.simple(), created)
 }
 
+/// Client for creating vector completions.
+///
+/// Orchestrates multiple LLM chat completions to vote on response options,
+/// combining their votes using weights to produce final scores.
 pub struct Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG> {
+    /// The underlying chat completion client.
     pub chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
+    /// Fetcher for Ensemble definitions.
     pub ensemble_fetcher:
         Arc<crate::ensemble::fetcher::CachingFetcher<CTXEXT, FENS>>,
+    /// Fetcher for votes from historical completions.
     pub completion_votes_fetcher: Arc<FVVOTE>,
+    /// Fetcher for votes from the global cache.
     pub cache_vote_fetcher: Arc<FCVOTE>,
+    /// Handler for usage tracking.
     pub usage_handler: Arc<VUSG>,
 }
 
 impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG>
     Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG>
 {
+    /// Creates a new vector completion client.
     pub fn new(
         chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
         ensemble_fetcher: Arc<
@@ -63,6 +76,9 @@ where
     FCVOTE: super::cache_vote_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     VUSG: super::usage_handler::UsageHandler<CTXEXT> + Send + Sync + 'static,
 {
+    /// Creates a unary (non-streaming) vector completion with usage tracking.
+    ///
+    /// Collects all streaming chunks into a single response.
     pub async fn create_unary_handle_usage(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -87,6 +103,9 @@ where
         Ok(aggregate.unwrap().into())
     }
 
+    /// Creates a streaming vector completion with usage tracking.
+    ///
+    /// Spawns a background task to track usage after the stream completes.
     pub async fn create_streaming_handle_usage(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -171,6 +190,10 @@ where
     FCVOTE: super::cache_vote_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     VUSG: Send + Sync + 'static,
 {
+    /// Creates a streaming vector completion.
+    ///
+    /// Orchestrates chat completions across all LLMs in the ensemble, extracting
+    /// votes from each and combining them with weights to produce scores.
     pub async fn create_streaming(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -651,6 +674,10 @@ where
         }))
     }
 
+    /// Creates a streaming completion for a single LLM in the ensemble.
+    ///
+    /// Generates prefix data for vote extraction, streams the chat completion,
+    /// and extracts votes from the LLM's response.
     async fn llm_create_streaming(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -864,6 +891,7 @@ where
         })
     }
 
+    /// Creates an error response chunk for a failed LLM completion.
     fn llm_create_streaming_vector_error(
         id: String,
         completion_index: u64,

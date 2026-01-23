@@ -1,3 +1,11 @@
+//! Vector response transformation for LLM prompts.
+//!
+//! Converts vector response options into prompt content parts with labeled keys.
+
+/// Transforms vector responses into prompt content parts.
+///
+/// Formats responses as a JSON-like structure with prefix keys (e.g., `` `A` ``)
+/// as labels, suitable for inclusion in the user message prompt.
 pub fn into_parts_for_prompt(
     vector_responses: &[objectiveai::chat::completions::request::RichContent],
     vector_pfx_indices: &[(String, usize)],

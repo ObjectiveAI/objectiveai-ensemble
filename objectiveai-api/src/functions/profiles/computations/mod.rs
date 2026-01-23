@@ -1,3 +1,7 @@
+//! Profile computation client.
+//!
+//! Provides client for computing (training) Profiles from datasets.
+
 mod client;
 mod objectiveai;
 

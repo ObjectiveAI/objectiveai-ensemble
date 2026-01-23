@@ -1,19 +1,30 @@
+//! Error types for vector completion operations.
+
+/// Errors that can occur during vector completion creation.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    /// The profile weights are invalid.
     #[error("invalid profile: {0}")]
     InvalidProfile(String),
+    /// Failed to fetch votes from a previous completion for retry.
     #[error("fetch retry error: {0}")]
     FetchRetry(objectiveai::error::ResponseError),
+    /// The completion specified for retry was not found.
     #[error("retry not found")]
     RetryNotFound,
+    /// Failed to fetch a vote from the global cache.
     #[error("fetch cache vote error: {0}")]
     FetchCacheVote(objectiveai::error::ResponseError),
+    /// Failed to fetch the Ensemble definition.
     #[error("fetch ensemble error: {0}")]
     FetchEnsemble(objectiveai::error::ResponseError),
+    /// The requested Ensemble was not found.
     #[error("ensemble not found")]
     EnsembleNotFound,
+    /// The provided Ensemble definition is invalid.
     #[error("invalid ensemble: {0}")]
     InvalidEnsemble(String),
+    /// Vector completions require at least two response options.
     #[error("expected two or more request vector responses, got {0}")]
     ExpectedTwoOrMoreRequestVectorResponses(usize),
 }

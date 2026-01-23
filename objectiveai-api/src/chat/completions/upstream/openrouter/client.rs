@@ -1,24 +1,37 @@
+//! OpenRouter HTTP client implementation.
+
 use eventsource_stream::Event as MessageEvent;
 use futures::{Stream, StreamExt};
 use reqwest_eventsource::{Event, EventSource, RequestBuilderExt};
 use std::time::Duration;
 
+/// Generates a unique response ID for a chat completion.
+///
+/// Combines a UUID with the creation timestamp for uniqueness.
 pub fn response_id(created: u64) -> String {
     let uuid = uuid::Uuid::new_v4();
     format!("chtcpl-{}-{}", uuid.simple(), created)
 }
 
+/// HTTP client for communicating with the OpenRouter API.
 #[derive(Debug, Clone)]
 pub struct Client {
+    /// The underlying HTTP client.
     pub http_client: reqwest::Client,
+    /// Base URL for the OpenRouter API.
     pub api_base: String,
+    /// API key for authentication with OpenRouter.
     pub api_key: String,
-    pub user_agent: Option<String>, // user-agent header
-    pub x_title: Option<String>,    // x-title header
-    pub referer: Option<String>,    // referer and http-referer headers
+    /// Optional User-Agent header value.
+    pub user_agent: Option<String>,
+    /// Optional X-Title header value.
+    pub x_title: Option<String>,
+    /// Optional Referer header value (sent as both referer and http-referer).
+    pub referer: Option<String>,
 }
 
 impl Client {
+    /// Creates a new OpenRouter client.
     pub fn new(
         http_client: reqwest::Client,
         api_base: String,
@@ -37,6 +50,10 @@ impl Client {
         }
     }
 
+    /// Creates a streaming chat completion request.
+    ///
+    /// Transforms the request using the Ensemble LLM's configuration and
+    /// returns a stream of chat completion chunks.
     pub fn create_streaming_for_chat(
         &self,
         id: String,
@@ -64,6 +81,11 @@ impl Client {
         )
     }
 
+    /// Creates a streaming chat completion for LLM voting in vector completions.
+    ///
+    /// The LLM sees responses labeled with prefix keys (e.g., `` `A` ``) and responds
+    /// with its choice. The `vector_pfx_indices` maps the prefix keys shown to the LLM
+    /// to the indices of the responses in the original request.
     pub fn create_streaming_for_vector(
         &self,
         id: String,
@@ -96,6 +118,7 @@ impl Client {
         )
     }
 
+    /// Internal method that creates the streaming request to OpenRouter.
     fn create_streaming(
         &self,
         id: String,
@@ -126,6 +149,7 @@ impl Client {
         )
     }
 
+    /// Creates an SSE EventSource for the streaming request.
     fn create_streaming_event_source(
         &self,
         api_key: &str,
@@ -149,6 +173,9 @@ impl Client {
         http_request.json(request).eventsource().unwrap()
     }
 
+    /// Processes the SSE EventSource into a stream of chat completion chunks.
+    ///
+    /// Handles timeouts, error responses, and transforms upstream chunks to downstream format.
     fn create_streaming_stream(
         mut event_source: EventSource,
         id: String,

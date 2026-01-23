@@ -1,3 +1,5 @@
+//! Fetchers for retrieving ensemble definitions.
+
 mod caching_fetcher;
 mod fetcher;
 mod objectiveai;

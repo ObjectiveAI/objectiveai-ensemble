@@ -1,7 +1,11 @@
+//! Ensemble retrieval client trait definition.
+
 use crate::ctx;
 
+/// Trait for listing ensembles and retrieving usage statistics.
 #[async_trait::async_trait]
 pub trait Client<CTXEXT> {
+    /// Lists all ensembles.
     async fn list(
         &self,
         ctx: ctx::Context<CTXEXT>,
@@ -10,6 +14,7 @@ pub trait Client<CTXEXT> {
         objectiveai::error::ResponseError,
     >;
 
+    /// Retrieves usage statistics for an ensemble by ID.
     async fn get_usage(
         &self,
         ctx: ctx::Context<CTXEXT>,

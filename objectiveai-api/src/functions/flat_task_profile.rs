@@ -1,3 +1,10 @@
+//! Flattened execution data for function execution.
+//!
+//! Transforms nested Function and Profile definitions into a flat structure suitable
+//! for parallel execution. A Function defines the task structure and expressions,
+//! while a Profile provides the weights for each task. This module combines both
+//! into flattened executable tasks.
+
 use crate::ctx;
 use futures::FutureExt;
 use std::{
@@ -6,15 +13,27 @@ use std::{
     task::Poll,
 };
 
+/// A flattened task ready for execution.
+///
+/// Combines Function structure with Profile weights into an executable node.
+/// Can be a function (with nested tasks), a mapped array of functions, a vector
+/// completion, or a mapped array of vector completions.
 #[derive(Debug, Clone)]
 pub enum FlatTaskProfile {
+    /// A single function task with nested tasks.
     Function(FunctionFlatTaskProfile),
+    /// Multiple function tasks from a mapped expression.
     MapFunction(MapFunctionFlatTaskProfile),
+    /// A single vector completion task.
     VectorCompletion(VectorCompletionFlatTaskProfile),
+    /// Multiple vector completion tasks from a mapped expression.
     MapVectorCompletion(MapVectorCompletionFlatTaskProfile),
 }
 
 impl FlatTaskProfile {
+    /// Returns an iterator over all vector completion tasks.
+    ///
+    /// Recursively traverses function tasks to collect all leaf vector completions.
     pub fn vector_completion_ftps(
         &self,
     ) -> impl Iterator<Item = &VectorCompletionFlatTaskProfile> {
@@ -73,6 +92,7 @@ impl FlatTaskProfile {
             }
         }
     }
+    /// Returns the total number of leaf tasks (vector completions).
     pub fn len(&self) -> usize {
         match self {
             FlatTaskProfile::Function(function) => function.len(),
@@ -82,6 +102,7 @@ impl FlatTaskProfile {
         }
     }
 
+    /// Returns the number of task indices needed for output assembly.
     pub fn task_index_len(&self) -> usize {
         match self {
             FlatTaskProfile::Function(function) => function.task_index_len(),
@@ -98,9 +119,15 @@ impl FlatTaskProfile {
     }
 }
 
+/// Multiple function tasks from a mapped expression.
+///
+/// Created when a task has a `map` index pointing to an input_maps sub-array.
+/// Each element in that array produces one function instance.
 #[derive(Debug, Clone)]
 pub struct MapFunctionFlatTaskProfile {
+    /// Path to this task in the Function tree (indices into tasks arrays).
     pub path: Vec<u64>,
+    /// The individual flattened function tasks, one per element in the mapped array.
     pub functions: Vec<FunctionFlatTaskProfile>,
 }
 
@@ -121,15 +148,27 @@ impl MapFunctionFlatTaskProfile {
     }
 }
 
+/// A flattened function task ready for execution.
+///
+/// Combines a Function definition with its corresponding Profile. Contains the
+/// compiled input, nested tasks with their weights, and the output expression.
 #[derive(Debug, Clone)]
 pub struct FunctionFlatTaskProfile {
+    /// Path to this task in the Function tree (indices into tasks arrays).
     pub path: Vec<u64>,
+    /// Full Function ID (owner, repository, commit) if from GitHub.
     pub full_function_id: Option<(String, String, String)>,
+    /// Full Profile ID (owner, repository, commit) if from GitHub.
     pub full_profile_id: Option<(String, String, String)>,
+    /// Description from the Function definition.
     pub description: Option<String>,
+    /// The compiled input for this Function.
     pub input: objectiveai::functions::expression::Input,
+    /// The flattened child tasks (None if task was skipped).
     pub tasks: Vec<Option<FlatTaskProfile>>,
+    /// The output expression for computing the final score.
     pub output: objectiveai::functions::expression::Expression,
+    /// The Function type (scalar or vector).
     pub r#type: FunctionType,
 }
 
@@ -168,15 +207,27 @@ impl FunctionFlatTaskProfile {
     }
 }
 
+/// The type of a Function's output.
 #[derive(Debug, Clone, Copy)]
 pub enum FunctionType {
+    /// Produces a single score in [0, 1].
     Scalar,
-    Vector { output_length: Option<u64> },
+    /// Produces a vector of scores that sums to ~1.
+    Vector {
+        /// Expected output length, if known from output_length expression.
+        output_length: Option<u64>,
+    },
 }
 
+/// Multiple vector completion tasks from a mapped expression.
+///
+/// Created when a vector completion task has a `map` index. Each element in the
+/// mapped array produces one vector completion instance.
 #[derive(Debug, Clone)]
 pub struct MapVectorCompletionFlatTaskProfile {
+    /// Path to this task in the Function tree (indices into tasks arrays).
     pub path: Vec<u64>,
+    /// The individual flattened vector completion tasks.
     pub vector_completions: Vec<VectorCompletionFlatTaskProfile>,
 }
 
@@ -190,13 +241,24 @@ impl MapVectorCompletionFlatTaskProfile {
     }
 }
 
+/// A flattened vector completion task ready for execution.
+///
+/// The leaf task type. Contains everything needed to run a vector completion:
+/// the Ensemble of LLMs, their weights from the Profile, and the compiled
+/// messages/responses.
 #[derive(Debug, Clone)]
 pub struct VectorCompletionFlatTaskProfile {
+    /// Path to this task in the Function tree (indices into tasks arrays).
     pub path: Vec<u64>,
+    /// The Ensemble configuration with LLMs and their settings.
     pub ensemble: objectiveai::ensemble::EnsembleBase,
+    /// The weights for each LLM in the Ensemble (from the Profile).
     pub profile: Vec<rust_decimal::Decimal>,
+    /// The compiled messages for the vector completion.
     pub messages: Vec<objectiveai::chat::completions::request::Message>,
+    /// Optional tools for the vector completion (read-only context).
     pub tools: Option<Vec<objectiveai::chat::completions::request::Tool>>,
+    /// The compiled response options the LLMs will vote on.
     pub responses: Vec<objectiveai::chat::completions::request::RichContent>,
 }
 
@@ -210,32 +272,43 @@ impl VectorCompletionFlatTaskProfile {
     }
 }
 
+/// Parameter for specifying a function source.
 #[derive(Debug, Clone)]
 pub enum FunctionParam {
+    /// Function to fetch from GitHub by owner/repository/commit.
     Remote {
         owner: String,
         repository: String,
         commit: Option<String>,
     },
+    /// Already-fetched or inline function definition.
     FetchedOrInline {
         full_id: Option<(String, String, String)>,
         function: objectiveai::functions::Function,
     },
 }
 
+/// Parameter for specifying a profile source.
 #[derive(Debug, Clone)]
 pub enum ProfileParam {
+    /// Profile to fetch from GitHub by owner/repository/commit.
     Remote {
         owner: String,
         repository: String,
         commit: Option<String>,
     },
+    /// Already-fetched or inline profile definition.
     FetchedOrInline {
         full_id: Option<(String, String, String)>,
         profile: objectiveai::functions::Profile,
     },
 }
 
+/// Recursively builds a flattened task from a Function and Profile.
+///
+/// Fetches any remote Functions/Profiles/Ensembles, compiles task expressions
+/// with the input, and validates that the Profile structure matches the Function.
+/// The result is a flat tree of tasks ready for parallel execution.
 pub async fn get_flat_task_profile<CTXEXT>(
     ctx: ctx::Context<CTXEXT>,
     mut path: Vec<u64>,

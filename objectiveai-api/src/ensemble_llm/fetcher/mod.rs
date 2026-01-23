@@ -1,3 +1,5 @@
+//! Fetchers for retrieving Ensemble LLM definitions.
+
 mod caching_fetcher;
 mod fetcher;
 mod objectiveai;

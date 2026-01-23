@@ -1,3 +1,5 @@
+//! Usage tracking for vector completions.
+
 mod log_usage_handler;
 mod usage_handler;
 

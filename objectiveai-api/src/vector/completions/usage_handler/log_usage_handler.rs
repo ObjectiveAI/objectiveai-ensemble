@@ -1,5 +1,9 @@
+//! Simple logging implementation of usage handler.
+
 use crate::ctx;
 use std::sync::Arc;
+
+/// A usage handler that logs completion costs to stdout.
 pub struct LogUsageHandler;
 
 #[async_trait::async_trait]

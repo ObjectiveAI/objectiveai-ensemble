@@ -1,6 +1,19 @@
+//! Vote extraction from LLM responses.
+//!
+//! Extracts votes from LLM chat completion responses by parsing response keys
+//! and computing probability distributions from logprobs when available.
+
 use regex::Regex;
 use rust_decimal::MathematicalOps;
 
+/// Extracts a vote from an LLM choice.
+///
+/// Parses the response to find selected response keys and converts them into a
+/// probability distribution. When logprobs are available, uses them to capture
+/// the model's preference distribution (probabilistic voting). Otherwise, falls
+/// back to discrete voting based on the final sampled token.
+///
+/// Returns None if no response key is found in the content.
 pub fn get_vote(
     mut pfx_tree: super::PfxTree,
     with_ticks_pattern: &str,
@@ -181,12 +194,16 @@ pub fn get_vote(
     Some(vote)
 }
 
+/// Helper for extracting content from choices without unnecessary allocation.
 enum Content<'s> {
+    /// Borrowed content from choice.delta.content.
     Ref(&'s str),
+    /// Owned content when combining tool call arguments with content.
     Owned(String),
 }
 
 impl<'s> Content<'s> {
+    /// Returns the content as a string slice.
     fn as_str(&self) -> &str {
         match self {
             Content::Ref(s) => s,
@@ -194,6 +211,7 @@ impl<'s> Content<'s> {
         }
     }
 
+    /// Extracts content from a choice, combining tool call arguments if present.
     fn from_choice(
         choice: &'s objectiveai::chat::completions::response::streaming::Choice,
     ) -> Option<Self> {

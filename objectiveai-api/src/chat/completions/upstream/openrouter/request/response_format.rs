@@ -1,5 +1,12 @@
+//! Response format construction for vector completions.
+
 use crate::vector;
 
+/// Creates a response format for vector completion voting.
+///
+/// When the output mode is `JsonSchema`, returns a JSON schema that constrains
+/// the LLM's output to select one of the available response keys.
+/// Returns None for other output modes.
 pub fn new_for_vector(
     vector_pfx_indices: &[(String, usize)],
     ensemble_llm_output_mode: objectiveai::ensemble_llm::OutputMode,

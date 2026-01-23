@@ -1,7 +1,11 @@
+//! Trait for listing Functions and getting usage statistics.
+
 use crate::ctx;
 
+/// Client for listing Functions and retrieving usage statistics.
 #[async_trait::async_trait]
 pub trait Client<CTXEXT> {
+    /// Lists Functions.
     async fn list_functions(
         &self,
         ctx: ctx::Context<CTXEXT>,
@@ -10,6 +14,7 @@ pub trait Client<CTXEXT> {
         objectiveai::error::ResponseError,
     >;
 
+    /// Retrieves usage statistics for a Function.
     async fn get_function_usage(
         &self,
         ctx: ctx::Context<CTXEXT>,

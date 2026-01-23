@@ -1,5 +1,14 @@
+//! Prompt construction for OpenRouter requests.
+//!
+//! Handles merging prefix/suffix messages from Ensemble LLM configurations
+//! with the request messages, and constructs vector voting prompts.
+
 use crate::vector;
 
+/// Constructs the message array for a chat completion.
+///
+/// Concatenates the Ensemble LLM's prefix messages, the request messages,
+/// and the Ensemble LLM's suffix messages.
 pub fn new_for_chat(
     ensemble_llm_prefix: Option<&[objectiveai::chat::completions::request::Message]>,
     request: &[objectiveai::chat::completions::request::Message],
@@ -31,6 +40,10 @@ pub fn new_for_chat(
     }
 }
 
+/// Constructs the message array for a vector completion vote.
+///
+/// Appends the labeled response options to the last user message and adds
+/// voting instructions to the system message based on the output mode.
 pub fn new_for_vector(
     vector_responses: &[objectiveai::chat::completions::request::RichContent],
     vector_pfx_indices: &[(String, usize)],

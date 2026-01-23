@@ -1,3 +1,5 @@
+//! Client for listing Profiles and getting usage statistics.
+
 mod client;
 mod objectiveai;
 

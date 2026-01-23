@@ -1,12 +1,17 @@
+//! ObjectiveAI API implementation of the Profile computation client.
+
 use crate::ctx;
 use futures::{Stream, TryStreamExt};
 use std::sync::Arc;
 
+/// Computes Profiles via the ObjectiveAI API.
 pub struct ObjectiveAiClient {
+    /// The HTTP client for API requests.
     pub client: Arc<objectiveai::HttpClient>,
 }
 
 impl ObjectiveAiClient {
+    /// Creates a new ObjectiveAI Profile computation client.
     pub fn new(client: Arc<objectiveai::HttpClient>) -> Self {
         Self { client }
     }

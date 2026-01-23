@@ -1,3 +1,5 @@
+//! Function execution client.
+
 use crate::{
     chat, ctx, functions,
     util::{ChoiceIndexer, StreamOnce},
@@ -7,16 +9,23 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, hash::Hasher, sync::Arc, time};
 
+/// Generates a unique response ID for scalar Function executions.
 pub fn scalar_response_id(created: u64) -> String {
     let uuid = uuid::Uuid::new_v4();
     format!("sclfnc-{}-{}", uuid.simple(), created)
 }
 
+/// Generates a unique response ID for vector Function executions.
 pub fn vector_response_id(created: u64) -> String {
     let uuid = uuid::Uuid::new_v4();
     format!("vctfnc-{}-{}", uuid.simple(), created)
 }
 
+/// Client for executing Functions.
+///
+/// Orchestrates Function execution by flattening the Function and Profile
+/// into executable tasks and running them (Vector Completions or nested
+/// Functions) with streaming output support.
 pub struct Client<
     CTXEXT,
     FENSLLM,
@@ -29,10 +38,13 @@ pub struct Client<
     FPFL,
     FUSG,
 > {
+    /// Chat completions client for reasoning summaries.
     pub chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
+    /// Fetcher for Ensemble definitions.
     pub ensemble_fetcher: Arc<
         crate::ensemble::fetcher::CachingFetcher<CTXEXT, FENS>,
     >,
+    /// Vector completions client for executing Vector Completion tasks.
     pub vector_client: Arc<
         vector::completions::Client<
             CTXEXT,
@@ -44,14 +56,18 @@ pub struct Client<
             VUSG,
         >,
     >,
+    /// Fetcher for Function definitions.
     pub function_fetcher: Arc<FFN>,
+    /// Fetcher for Profile definitions.
     pub profile_fetcher: Arc<FPFL>,
+    /// Handler for recording usage after execution.
     pub usage_handler: Arc<FUSG>,
 }
 
 impl<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG, FFN, FPFL, FUSG>
     Client<CTXEXT, FENSLLM, CUSG, FENS, FVVOTE, FCVOTE, VUSG, FFN, FPFL, FUSG>
 {
+    /// Creates a new Function execution client.
     pub fn new(
         chat_client: Arc<chat::completions::Client<CTXEXT, FENSLLM, CUSG>>,
         ensemble_fetcher: Arc<
@@ -115,6 +131,9 @@ where
     FPFL: functions::profile_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     FUSG: super::usage_handler::UsageHandler<CTXEXT> + Send + Sync + 'static,
 {
+    /// Executes a Function and returns the complete response.
+    ///
+    /// Collects the full streaming response and records usage.
     pub async fn create_unary_handle_usage(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -137,6 +156,9 @@ where
         Ok(aggregate.unwrap().into())
     }
 
+    /// Executes a Function with streaming output and records usage.
+    ///
+    /// Streams chunks as they become available and records usage after completion.
     pub async fn create_streaming_handle_usage(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -226,6 +248,11 @@ where
     FPFL: functions::profile_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     FUSG: Send + Sync + 'static,
 {
+    /// Executes a Function with streaming output.
+    ///
+    /// Fetches the Function and Profile, flattens them into tasks, and
+    /// executes all tasks with streaming output. Handles reasoning summaries
+    /// if requested.
     pub async fn create_streaming(
         self: Arc<Self>,
         ctx: ctx::Context<CTXEXT>,
@@ -1564,36 +1591,57 @@ where
     }
 }
 
+/// Internal chunk type for streaming execution.
+///
+/// Represents different kinds of chunks produced during flattened task
+/// profile execution.
 #[derive(Debug, Clone)]
 enum FtpStreamChunk {
+    /// A chunk from a Vector Completion task.
     VectorCompletionTaskChunk(
         objectiveai::functions::executions::response::streaming::VectorCompletionTaskChunk,
     ),
+    /// A chunk from a nested Function execution.
     FunctionExecutionChunk(
         objectiveai::functions::executions::response::streaming::FunctionExecutionTaskChunk,
     ),
+    /// The final output of a task with its retry token.
     OutputChunk {
+        /// Index of the task in the flattened structure.
         task_index: u64,
+        /// The computed output of the task.
         output: objectiveai::functions::expression::TaskOutputOwned,
+        /// Token for retrying from this point.
         retry_token: objectiveai::functions::executions::RetryToken,
     },
 }
 
+/// A response option with its aggregated confidence for reasoning summaries.
+///
+/// Tracks confidence scores and reasoning across multiple Vector Completion
+/// tasks that share the same response option.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConfidenceResponse {
+    /// Hash of the response for deduplication.
     #[serde(skip)]
     pub response_hash: u64,
+    /// Task paths that included this response.
     #[serde(skip)]
     pub paths: Vec<Vec<u64>>,
+    /// Number of times this response appeared (for normalization).
     #[serde(skip)]
     pub confidence_count: rust_decimal::Decimal,
 
+    /// The response content.
     pub response: objectiveai::chat::completions::request::RichContent,
+    /// Aggregated confidence score.
     pub confidence: rust_decimal::Decimal,
+    /// Collected reasoning from LLMs that voted for this response.
     pub reasoning: Vec<String>,
 }
 
 impl ConfidenceResponse {
+    /// Formats all confidence responses as assertion parts for the reasoning prompt.
     pub fn assertions(
         confidence_responses: Vec<ConfidenceResponse>,
     ) -> impl Iterator<Item = objectiveai::chat::completions::request::RichContentPart>
@@ -1603,6 +1651,7 @@ impl ConfidenceResponse {
             .flat_map(ConfidenceResponse::assertion)
     }
 
+    /// Formats this confidence response as JSON assertion parts.
     pub fn assertion(
         self,
     ) -> impl Iterator<Item = objectiveai::chat::completions::request::RichContentPart>

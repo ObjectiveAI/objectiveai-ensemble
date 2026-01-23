@@ -1,12 +1,17 @@
+//! ObjectiveAI API implementation of the completion votes fetcher.
+
 use crate::ctx;
 use objectiveai::error::StatusError;
 use std::sync::Arc;
 
+/// Fetches completion votes from the ObjectiveAI API.
 pub struct ObjectiveAiFetcher {
+    /// The HTTP client for API requests.
     pub client: Arc<objectiveai::HttpClient>,
 }
 
 impl ObjectiveAiFetcher {
+    /// Creates a new ObjectiveAI completion votes fetcher.
     pub fn new(client: Arc<objectiveai::HttpClient>) -> Self {
         Self { client }
     }

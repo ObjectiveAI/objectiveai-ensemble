@@ -1,11 +1,16 @@
+//! ObjectiveAI API implementation of the Profile retrieval client.
+
 use crate::ctx;
 use std::sync::Arc;
 
+/// Lists Profiles and retrieves usage via the ObjectiveAI API.
 pub struct ObjectiveAiClient {
+    /// The HTTP client for API requests.
     pub client: Arc<objectiveai::HttpClient>,
 }
 
 impl ObjectiveAiClient {
+    /// Creates a new ObjectiveAI Profile retrieval client.
     pub fn new(client: Arc<objectiveai::HttpClient>) -> Self {
         Self { client }
     }

@@ -1,3 +1,5 @@
+//! Usage tracking handlers for chat completions.
+
 mod log_usage_handler;
 mod usage_handler;
 

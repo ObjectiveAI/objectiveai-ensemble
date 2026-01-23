@@ -1,15 +1,24 @@
+//! Error types for chat completions.
+
+/// Errors that can occur during chat completion creation.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    /// Error from the upstream provider.
     #[error("upstream error: {0}")]
     UpstreamError(#[from] super::upstream::Error),
+    /// No upstream providers were available for the request.
     #[error("no upstreams found for request")]
     NoUpstreamsFound,
+    /// Failed to fetch an Ensemble LLM definition.
     #[error("fetch Ensemble LLM error: {0}")]
     FetchEnsembleLlm(objectiveai::error::ResponseError),
+    /// The requested Ensemble LLM was not found.
     #[error("Ensemble LLM not found")]
     EnsembleLlmNotFound,
+    /// The Ensemble LLM definition is invalid.
     #[error("invalid Ensemble LLM: {0}")]
     InvalidEnsembleLlm(String),
+    /// Multiple errors occurred during fallback attempts.
     #[error("multiple errors: {0:?}")]
     MultipleErrors(Vec<Error>),
 }

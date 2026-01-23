@@ -1,11 +1,16 @@
+//! ObjectiveAI authentication client implementation.
+
 use crate::ctx;
 use std::sync::Arc;
 
+/// Authentication client that delegates to the ObjectiveAI HTTP API.
 pub struct ObjectiveAiClient {
+    /// The underlying HTTP client for ObjectiveAI API requests.
     pub client: Arc<objectiveai::HttpClient>,
 }
 
 impl ObjectiveAiClient {
+    /// Creates a new ObjectiveAI authentication client.
     pub fn new(client: Arc<objectiveai::HttpClient>) -> Self {
         Self { client }
     }

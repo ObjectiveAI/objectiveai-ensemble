@@ -1,12 +1,17 @@
+//! ObjectiveAI ensemble fetcher implementation.
+
 use crate::ctx;
 use objectiveai::error::StatusError;
 use std::sync::Arc;
 
+/// Fetches ensembles from the ObjectiveAI HTTP API.
 pub struct ObjectiveAiFetcher {
+    /// The underlying HTTP client.
     pub client: Arc<objectiveai::HttpClient>,
 }
 
 impl ObjectiveAiFetcher {
+    /// Creates a new ObjectiveAI ensemble fetcher.
     pub fn new(client: Arc<objectiveai::HttpClient>) -> Self {
         Self { client }
     }

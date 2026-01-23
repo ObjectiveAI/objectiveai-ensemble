@@ -1,25 +1,36 @@
+//! Usage statistics from OpenRouter responses.
+
 use serde::{Deserialize, Serialize};
 
+/// Token usage and cost statistics from OpenRouter.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Usage {
+    /// Number of tokens in the completion.
     pub completion_tokens: u64,
+    /// Number of tokens in the prompt.
     pub prompt_tokens: u64,
+    /// Total tokens (prompt + completion).
     pub total_tokens: u64,
+    /// Detailed breakdown of completion tokens.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub completion_tokens_details:
         Option<objectiveai::chat::completions::response::CompletionTokensDetails>,
+    /// Detailed breakdown of prompt tokens.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt_tokens_details:
         Option<objectiveai::chat::completions::response::PromptTokensDetails>,
-
-    // openrouter fields
+    /// Cost charged by OpenRouter for this request.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cost: Option<rust_decimal::Decimal>,
+    /// Detailed cost breakdown including upstream provider costs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cost_details: Option<CostDetails>,
 }
 
 impl Usage {
+    /// Transforms upstream usage into downstream format with cost calculations.
+    ///
+    /// Applies the cost multiplier and separates BYOK costs from ObjectiveAI costs.
     pub fn into_downstream(
         self,
         is_byok: bool,
@@ -59,6 +70,7 @@ impl Usage {
         }
     }
 
+    /// Accumulates usage from another Usage struct.
     pub fn push(&mut self, other: &Usage) {
         self.completion_tokens += other.completion_tokens;
         self.prompt_tokens += other.prompt_tokens;
@@ -103,13 +115,16 @@ impl Usage {
     }
 }
 
+/// Detailed cost breakdown from OpenRouter.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CostDetails {
+    /// Cost charged by the upstream inference provider.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upstream_inference_cost: Option<rust_decimal::Decimal>,
 }
 
 impl CostDetails {
+    /// Accumulates cost details from another CostDetails struct.
     pub fn push(&mut self, other: &CostDetails) {
         objectiveai::chat::completions::response::util::push_option_decimal(
             &mut self.upstream_inference_cost,

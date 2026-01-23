@@ -1,11 +1,20 @@
+//! Response key schema generation for structured LLM voting.
+//!
+//! Provides JSON schema and tool definitions that constrain LLM output to
+//! select one of the available response keys.
+
+/// Parsed response key from LLM structured output.
 #[derive(Debug, serde::Deserialize)]
 pub struct ResponseKey {
+    /// Optional synthetic reasoning from the LLM.
     pub _think: Option<String>,
+    /// The selected response key.
     #[allow(dead_code)]
     response_key: String,
 }
 
 impl ResponseKey {
+    /// Creates a JSON schema for response key selection.
     fn schema(
         vector_response_keys: Vec<String>,
         think: bool,
@@ -56,6 +65,9 @@ impl ResponseKey {
         map
     }
 
+    /// Creates a response format for JSON schema output mode.
+    ///
+    /// Constrains the LLM to output a JSON object with the selected response key.
     pub fn response_format(
         vector_response_keys: Vec<String>,
         think: bool,
@@ -73,6 +85,9 @@ impl ResponseKey {
         }
     }
 
+    /// Creates a tool definition for tool call output mode.
+    ///
+    /// The LLM calls this tool with the selected response key as an argument.
     pub fn tool(
         vector_response_keys: Vec<String>,
         think: bool,
@@ -87,6 +102,7 @@ impl ResponseKey {
         }
     }
 
+    /// Creates a tool choice that forces the LLM to call the response_key tool.
     pub fn tool_choice() -> objectiveai::chat::completions::request::ToolChoice {
         objectiveai::chat::completions::request::ToolChoice::Function(
             objectiveai::chat::completions::request::ToolChoiceFunction::Function {

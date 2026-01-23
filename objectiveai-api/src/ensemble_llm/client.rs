@@ -1,18 +1,23 @@
+//! Ensemble LLM client for listing, retrieving, and fetching Ensemble LLMs.
+
 use crate::ctx;
 use std::sync::Arc;
 
+/// Client for Ensemble LLM operations.
+///
+/// Combines a caching fetcher for Ensemble LLM definitions with a retrieval
+/// client for listing and usage statistics.
 pub struct Client<CTXEXT, FENSLLM, RTRVL> {
-    pub ensemble_llm_fetcher: Arc<
-        super::fetcher::CachingFetcher<
-            CTXEXT,
-            FENSLLM,
-        >,
-    >,
+    /// Caching fetcher for Ensemble LLM definitions.
+    pub ensemble_llm_fetcher: Arc<super::fetcher::CachingFetcher<CTXEXT, FENSLLM>>,
+    /// Client for listing Ensemble LLMs and getting usage.
     pub retrieval_client: Arc<RTRVL>,
+    /// Phantom data for the context extension type.
     pub _ctx_ext: std::marker::PhantomData<CTXEXT>,
 }
 
 impl<CTXEXT, FENSLLM, RTRVL> Client<CTXEXT, FENSLLM, RTRVL> {
+    /// Creates a new Ensemble LLM client.
     pub fn new(
         ensemble_llm_fetcher: Arc<
             super::fetcher::CachingFetcher<
@@ -39,6 +44,7 @@ where
         + 'static,
     RTRVL: super::retrieval_client::Client<CTXEXT> + Send + Sync + 'static,
 {
+    /// Lists all Ensemble LLMs.
     pub async fn list(
         &self,
         ctx: ctx::Context<CTXEXT>,
@@ -49,6 +55,9 @@ where
         self.retrieval_client.list(ctx).await
     }
 
+    /// Retrieves an Ensemble LLM by its ID.
+    ///
+    /// Returns a 404 error if the Ensemble LLM is not found.
     pub async fn get(
         &self,
         ctx: ctx::Context<CTXEXT>,
@@ -75,6 +84,7 @@ where
             })
     }
 
+    /// Retrieves usage statistics for an Ensemble LLM.
     pub async fn get_usage(
         &self,
         ctx: ctx::Context<CTXEXT>,

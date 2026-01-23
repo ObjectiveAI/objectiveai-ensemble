@@ -1,18 +1,28 @@
+//! Unified upstream client that dispatches to provider-specific clients.
+
 use crate::{ctx, util::StreamOnce};
 use futures::{Stream, StreamExt, TryStreamExt};
 use std::{sync::Arc, time::Duration};
 
+/// Client that manages connections to all upstream providers.
+///
+/// Handles provider selection, BYOK key injection, and fallback between providers.
 #[derive(Debug, Clone)]
 pub struct Client {
+    /// OpenRouter provider client.
     pub openrouter_client: super::openrouter::Client,
-    // pub google_vertex_client: super::google_vertex::Client,
 }
 
 impl Client {
+    /// Creates a new upstream client.
     pub fn new(openrouter_client: super::openrouter::Client) -> Self {
         Self { openrouter_client }
     }
 
+    /// Creates a streaming completion, trying each upstream provider in order.
+    ///
+    /// First attempts with BYOK if available, then falls back to the default key.
+    /// Returns `Ok(None)` if no upstreams were available.
     pub async fn create_streaming(
         &self,
         ctx: ctx::Context<impl ctx::ContextExt + Send + Sync + 'static>,
@@ -99,6 +109,7 @@ impl Client {
         }
     }
 
+    /// Creates a streaming completion with a specific upstream provider.
     async fn upstream_create_streaming(
         &self,
         upstream: super::Upstream,
@@ -157,6 +168,7 @@ impl Client {
         }
     }
 
+    /// Creates a streaming chat completion with a specific upstream provider.
     fn create_streaming_for_chat(
         &self,
         upstream: super::Upstream,
@@ -190,6 +202,9 @@ impl Client {
         }
     }
 
+    /// Creates a streaming chat completion for vector voting with a specific upstream provider.
+    ///
+    /// The LLM sees responses labeled with prefix keys and responds with its choice.
     fn create_streaming_for_vector(
         &self,
         upstream: super::Upstream,

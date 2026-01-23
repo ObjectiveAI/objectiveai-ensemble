@@ -1,11 +1,16 @@
+//! ObjectiveAI ensemble retrieval client implementation.
+
 use crate::ctx;
 use std::sync::Arc;
 
+/// Retrieval client that delegates to the ObjectiveAI HTTP API.
 pub struct ObjectiveAiClient {
+    /// The underlying HTTP client.
     pub client: Arc<objectiveai::HttpClient>,
 }
 
 impl ObjectiveAiClient {
+    /// Creates a new ObjectiveAI retrieval client.
     pub fn new(client: Arc<objectiveai::HttpClient>) -> Self {
         Self { client }
     }

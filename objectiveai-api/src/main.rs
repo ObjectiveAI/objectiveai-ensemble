@@ -1,3 +1,8 @@
+//! ObjectiveAI API server.
+//!
+//! REST API server for chat completions, vector completions, Functions,
+//! Profiles, Ensembles, and authentication.
+
 use axum::{
     Json,
     extract::Path,
