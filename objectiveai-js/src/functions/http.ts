@@ -1,8 +1,6 @@
 import OpenAI from "openai";
 import z from "zod";
 import {
-  RemoteFunctionSchema,
-  RemoteFunction,
   RemoteScalarFunctionSchema,
   RemoteVectorFunctionSchema,
 } from "./function";
