@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "objectiveai-js",
-    "objectiveai-web"
+    "objectiveai-web",
+    "objectiveai-web-new"
   ],
   "scripts": {
     "build:js": "npm run build -w objectiveai-js",
