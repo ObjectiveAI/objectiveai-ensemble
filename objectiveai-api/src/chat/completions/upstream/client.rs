@@ -46,7 +46,7 @@ impl Client {
     >{
         let mut errors = Vec::new();
 
-        // try each upstream in order
+        // try each upstream in order (with BYOK)
         for upstream in super::upstreams(&ensemble_llm, request.clone()) {
             // fetch BYOK from context
             let byok = ctx
@@ -78,7 +78,10 @@ impl Client {
                     }
                 }
             }
+        }
 
+        // try each upstream in order (without BYOK)
+        for upstream in super::upstreams(&ensemble_llm, request.clone()) {
             // then, try without BYOK
             match self
                 .upstream_create_streaming(
