@@ -296,6 +296,28 @@ impl Function {
             Function::Inline(_) => None,
         }
     }
+
+    /// Returns the function's input_split expression, if defined.
+    pub fn input_split(
+        &self,
+    ) -> Option<&super::expression::WithExpression<Vec<super::expression::Input>>>
+    {
+        match self {
+            Function::Remote(remote_function) => remote_function.input_split(),
+            Function::Inline(inline_function) => inline_function.input_split(),
+        }
+    }
+
+    /// Returns the function's input_merge expression, if defined.
+    pub fn input_merge(
+        &self,
+    ) -> Option<&super::expression::WithExpression<super::expression::Input>>
+    {
+        match self {
+            Function::Remote(remote_function) => remote_function.input_merge(),
+            Function::Inline(inline_function) => inline_function.input_merge(),
+        }
+    }
 }
 
 /// A GitHub-hosted function with full metadata.
