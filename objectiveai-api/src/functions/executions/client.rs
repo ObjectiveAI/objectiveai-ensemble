@@ -418,6 +418,21 @@ where
             None
         };
 
+        // Swiss System Strategy
+        //
+        // A tournament-style ranking algorithm for vector functions:
+        //
+        // 1. Splits input into pools of `pool` size (or pool+1 when len % pool == 1
+        //    to avoid single-item trailing chunks)
+        // 2. Each pool must have at least 2 items, except when the original input
+        //    itself has only 1 item (user's choice)
+        // 3. Runs each round, accumulating scores for each item
+        // 4. After each round, re-sorts items by cumulative scores and re-pools
+        // 5. Final output is the average of scores from all rounds, mapped back
+        //    to original input order
+        //
+        // Only the first round uses retry tokens; subsequent rounds do not.
+        // Errors from subsequent rounds are included in the final output chunk.
         if let Some(
             objectiveai::functions::executions::request::Strategy::SwissSystem {
                 pool,
