@@ -1,5 +1,11 @@
 const { spawnSync } = require("child_process");
-const { mkdirSync, readFileSync, writeFileSync, rmSync, existsSync } = require("fs");
+const {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+} = require("fs");
 const path = require("path");
 
 // Paths
@@ -24,7 +30,7 @@ const result = spawnSync(
     cwd: wasmDir,
     stdio: "inherit",
     shell: process.platform === "win32",
-  }
+  },
 );
 
 if (result.status !== 0) {
@@ -36,10 +42,10 @@ if (result.status !== 0) {
 const nodejsPkgDir = path.join(wasmDir, "pkg-nodejs");
 const glueCode = readFileSync(
   path.join(nodejsPkgDir, "objectiveai_wasm_js.js"),
-  "utf-8"
+  "utf-8",
 );
 const wasmBinary = readFileSync(
-  path.join(nodejsPkgDir, "objectiveai_wasm_js_bg.wasm")
+  path.join(nodejsPkgDir, "objectiveai_wasm_js_bg.wasm"),
 );
 const wasmBase64 = wasmBinary.toString("base64");
 
@@ -85,7 +91,7 @@ if (modifiedGlue.includes("require('util')")) {
   // Replace Node.js TextDecoder with universal version
   modifiedGlue = modifiedGlue.replace(
     /const \{ TextDecoder \} = require\('util'\);/g,
-    "const TextDecoder = typeof globalThis.TextDecoder !== 'undefined' ? globalThis.TextDecoder : require('util').TextDecoder;"
+    "const TextDecoder = typeof globalThis.TextDecoder !== 'undefined' ? globalThis.TextDecoder : require('util').TextDecoder;",
   );
 }
 
@@ -101,16 +107,22 @@ const esmLoader = `// Universal ESM loader with embedded base64 WASM
 const _wasm = (() => {
   const exports = {};
   const module = { exports };
-  ${modifiedGlue
-    .replace("imports['__wbindgen_placeholder__'] = module.exports;", "imports['__wbindgen_placeholder__'] = exports;")
-  }
+  ${modifiedGlue.replace(
+    "imports['__wbindgen_placeholder__'] = module.exports;",
+    "imports['__wbindgen_placeholder__'] = exports;",
+  )}
   return exports;
 })();
 
 export const validateEnsembleLlm = _wasm.validateEnsembleLlm;
 export const validateEnsemble = _wasm.validateEnsemble;
+export const validateFunctionInput = _wasm.validateFunctionInput;
+export const compileFunctionInputMaps = _wasm.compileFunctionInputMaps;
 export const compileFunctionTasks = _wasm.compileFunctionTasks;
 export const compileFunctionOutput = _wasm.compileFunctionOutput;
+export const compileFunctionOutputLength = _wasm.compileFunctionOutputLength;
+export const compileFunctionInputSplit = _wasm.compileFunctionInputSplit;
+export const compileFunctionInputMerge = _wasm.compileFunctionInputMerge;
 export const promptId = _wasm.promptId;
 export const toolsId = _wasm.toolsId;
 export const vectorResponseId = _wasm.vectorResponseId;
@@ -122,9 +134,11 @@ console.log("✓ Created loader.js (universal ESM loader)");
 // 6. Copy type declarations
 const dtsContent = readFileSync(
   path.join(nodejsPkgDir, "objectiveai_wasm_js.d.ts"),
-  "utf-8"
+  "utf-8",
 );
 writeFileSync(path.join(outDir, "loader.d.ts"), dtsContent);
 console.log("✓ Created loader.d.ts");
 
-console.log("\n✅ WASM installation complete (universal base64-embedded loader)");
+console.log(
+  "\n✅ WASM installation complete (universal base64-embedded loader)",
+);
