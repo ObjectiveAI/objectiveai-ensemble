@@ -53,7 +53,6 @@ pub fn validateEnsembleLlm(llm: JsValue) -> Result<JsValue, JsValue> {
         .try_into()
         .map_err(|e: String| JsValue::from_str(&e))?;
     // serialize
-    let llm: serde_json::Value = serde_json::to_value(llm).unwrap();
     let llm: JsValue = serde_wasm_bindgen::to_value(&llm)?;
     Ok(llm)
 }
@@ -86,7 +85,6 @@ pub fn validateEnsemble(ensemble: JsValue) -> Result<JsValue, JsValue> {
         .try_into()
         .map_err(|e: String| JsValue::from_str(&e))?;
     // serialize
-    let ensemble: serde_json::Value = serde_json::to_value(ensemble).unwrap();
     let ensemble: JsValue = serde_wasm_bindgen::to_value(&ensemble)?;
     Ok(ensemble)
 }
