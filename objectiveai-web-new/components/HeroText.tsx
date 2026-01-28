@@ -19,7 +19,7 @@ export default function HeroText() {
       viewBox="0 0 800 300"
       style={{
         width: '100%',
-        maxWidth: '1100px',
+        maxWidth: '700px',
         height: 'auto',
       }}
       role="img"

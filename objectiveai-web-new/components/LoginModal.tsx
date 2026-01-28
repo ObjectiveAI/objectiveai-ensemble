@@ -11,11 +11,27 @@ type LoginModalProps = {
 };
 
 type Provider = "google" | "github" | "reddit" | "x";
+type ModalView = "signin" | "signup" | "email-signin" | "email-signup";
 
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const { signInWithGoogle } = useAuth();
+  const {
+    signInWithGoogle,
+    signInWithGitHub,
+    signInWithX,
+    signInWithReddit,
+    signInWithEmail,
+    signUpWithEmail,
+    isAuthenticating,
+    authError,
+    clearError,
+  } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [hoveredProvider, setHoveredProvider] = useState<Provider | null>(null);
+  const [view, setView] = useState<ModalView>("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [emailHovered, setEmailHovered] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -35,14 +51,47 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     };
   }, [isOpen, onClose]);
 
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setView("signin");
+      setEmail("");
+      setPassword("");
+      setName("");
+      clearError();
+    }
+  }, [isOpen, clearError]);
+
   if (!isOpen || !mounted) return null;
 
-  const handleSignIn = async (provider: Provider) => {
-    // TODO: Connect to actual auth providers
-    if (provider === "google") {
-      await signInWithGoogle();
+  const handleProviderSignIn = async (provider: Provider) => {
+    switch (provider) {
+      case "google":
+        await signInWithGoogle();
+        break;
+      case "github":
+        await signInWithGitHub();
+        break;
+      case "x":
+        await signInWithX();
+        break;
+      case "reddit":
+        await signInWithReddit();
+        break;
     }
     onClose();
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (view === "email-signup") {
+      await signUpWithEmail(email, password, name || undefined);
+    } else {
+      await signInWithEmail(email, password);
+    }
+    if (!authError) {
+      onClose();
+    }
   };
 
   const providers: { id: Provider; name: string; icon: React.ReactNode }[] = [
@@ -51,6 +100,9 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     { id: "x", name: "X", icon: <XIcon /> },
     { id: "reddit", name: "Reddit", icon: <RedditIcon /> },
   ];
+
+  const isEmailView = view === "email-signin" || view === "email-signup";
+  const isSignUp = view === "signup" || view === "email-signup";
 
   const modal = (
     <div
@@ -97,93 +149,334 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             <path d="M106.94,32.22c0-1.55.28-3,.85-4.34.56-1.34,1.32-2.5,2.28-3.49.95-.99,2.08-1.76,3.39-2.33,1.3-.56,2.7-.85,4.18-.85s2.87.28,4.18.85c1.3.57,2.47,1.34,3.49,2.33,1.02.99,1.82,2.15,2.38,3.49.56,1.34.85,2.79.85,4.34s-.28,2.91-.85,4.29c-.57,1.38-1.36,2.56-2.38,3.54-1.02.99-2.19,1.78-3.49,2.38-1.31.6-2.7.9-4.18.9s-2.88-.3-4.18-.9c-1.31-.6-2.43-1.39-3.39-2.38-.95-.99-1.71-2.17-2.28-3.54-.57-1.38-.85-2.8-.85-4.29ZM108.95,46.19h17.46v51.86h-17.46v-51.86Z" />
           </svg>
           <h2 style={{ fontSize: "24px", fontWeight: 600, marginBottom: "8px" }}>
-            Sign in
+            {isEmailView
+              ? isSignUp
+                ? "Create account"
+                : "Welcome back"
+              : isSignUp
+              ? "Create account"
+              : "Sign in"}
           </h2>
           <p style={{ fontSize: "15px", color: "var(--text-muted)" }}>
-            Choose your preferred method
+            {isEmailView
+              ? isSignUp
+                ? "Enter your details to get started"
+                : "Enter your credentials to continue"
+              : "Choose your preferred method"}
           </p>
         </div>
 
-        {/* Provider Buttons */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {providers.map((provider) => {
-            const isHovered = hoveredProvider === provider.id;
-            return (
-              <button
-                key={provider.id}
-                onClick={() => handleSignIn(provider.id)}
-                onMouseEnter={() => setHoveredProvider(provider.id)}
-                onMouseLeave={() => setHoveredProvider(null)}
-                style={{
-                  width: "100%",
-                  padding: "14px 20px",
-                  fontSize: "15px",
-                  fontWeight: 500,
-                  color: isHovered ? "var(--accent)" : "var(--text)",
-                  background: isHovered
-                    ? "rgba(107, 92, 255, 0.05)"
-                    : "var(--page-bg)",
-                  border: `1px solid ${isHovered ? "var(--accent)" : "var(--border)"}`,
-                  borderRadius: "50px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "12px",
-                  transition: "all 0.15s ease",
-                  fontFamily: "inherit",
-                }}
-              >
-                <span style={{
-                  display: "flex",
-                  color: isHovered && provider.id !== "google" ? "var(--accent)" : undefined
-                }}>
-                  {provider.icon}
-                </span>
-                Continue with {provider.name}
-              </button>
-            );
-          })}
-        </div>
+        {/* Error Message */}
+        {authError && (
+          <div
+            style={{
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.3)",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              marginBottom: "20px",
+              fontSize: "14px",
+              color: "#ef4444",
+            }}
+          >
+            {authError.message}
+          </div>
+        )}
 
-        {/* Divider */}
+        {isEmailView ? (
+          /* Email Form */
+          <form onSubmit={handleEmailSubmit}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {isSignUp && (
+                <div>
+                  <label
+                    htmlFor="name"
+                    style={{
+                      display: "block",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      marginBottom: "8px",
+                      color: "var(--text)",
+                    }}
+                  >
+                    Name (optional)
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    style={{
+                      width: "100%",
+                      padding: "14px 16px",
+                      fontSize: "15px",
+                      background: "var(--page-bg)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "12px",
+                      color: "var(--text)",
+                      outline: "none",
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                    onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                  />
+                </div>
+              )}
+              <div>
+                <label
+                  htmlFor="email"
+                  style={{
+                    display: "block",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    marginBottom: "8px",
+                    color: "var(--text)",
+                  }}
+                >
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    fontSize: "15px",
+                    background: "var(--page-bg)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "12px",
+                    color: "var(--text)",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                  onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="password"
+                  style={{
+                    display: "block",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    marginBottom: "8px",
+                    color: "var(--text)",
+                  }}
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={isSignUp ? "Create a password" : "Your password"}
+                  required
+                  minLength={8}
+                  style={{
+                    width: "100%",
+                    padding: "14px 16px",
+                    fontSize: "15px",
+                    background: "var(--page-bg)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "12px",
+                    color: "var(--text)",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+                  onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isAuthenticating}
+              style={{
+                width: "100%",
+                padding: "14px 20px",
+                marginTop: "24px",
+                fontSize: "15px",
+                fontWeight: 500,
+                color: "var(--color-light)",
+                background: isAuthenticating ? "var(--text-muted)" : "var(--accent)",
+                border: "none",
+                borderRadius: "50px",
+                cursor: isAuthenticating ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+                transition: "opacity 0.15s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+              }}
+            >
+              {isAuthenticating ? (
+                <>
+                  <LoadingSpinner />
+                  {isSignUp ? "Creating account..." : "Signing in..."}
+                </>
+              ) : isSignUp ? (
+                "Create account"
+              ) : (
+                "Sign in"
+              )}
+            </button>
+
+            {/* Back to providers */}
+            <button
+              type="button"
+              onClick={() => setView(isSignUp ? "signup" : "signin")}
+              style={{
+                width: "100%",
+                padding: "12px",
+                marginTop: "12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                color: "var(--text-muted)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              ← Back to all options
+            </button>
+          </form>
+        ) : (
+          <>
+            {/* Provider Buttons */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {providers.map((provider) => {
+                const isHovered = hoveredProvider === provider.id;
+                return (
+                  <button
+                    key={provider.id}
+                    onClick={() => handleProviderSignIn(provider.id)}
+                    disabled={isAuthenticating}
+                    onMouseEnter={() => setHoveredProvider(provider.id)}
+                    onMouseLeave={() => setHoveredProvider(null)}
+                    style={{
+                      width: "100%",
+                      padding: "14px 20px",
+                      fontSize: "15px",
+                      fontWeight: 500,
+                      color: isHovered ? "var(--accent)" : "var(--text)",
+                      background: isHovered
+                        ? "rgba(107, 92, 255, 0.05)"
+                        : "var(--page-bg)",
+                      border: `1px solid ${isHovered ? "var(--accent)" : "var(--border)"}`,
+                      borderRadius: "50px",
+                      cursor: isAuthenticating ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "12px",
+                      transition: "all 0.15s ease",
+                      fontFamily: "inherit",
+                      opacity: isAuthenticating ? 0.6 : 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "flex",
+                        color:
+                          isHovered && provider.id !== "google"
+                            ? "var(--accent)"
+                            : undefined,
+                      }}
+                    >
+                      {provider.icon}
+                    </span>
+                    Continue with {provider.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Divider */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+                margin: "24px 0",
+              }}
+            >
+              <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+              <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>or</span>
+              <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+            </div>
+
+            {/* Email option */}
+            <button
+              onClick={() => setView(isSignUp ? "email-signup" : "email-signin")}
+              disabled={isAuthenticating}
+              onMouseEnter={() => setEmailHovered(true)}
+              onMouseLeave={() => setEmailHovered(false)}
+              style={{
+                width: "100%",
+                padding: "14px 20px",
+                fontSize: "15px",
+                fontWeight: 500,
+                color: "var(--color-light)",
+                background: "var(--accent)",
+                border: "none",
+                borderRadius: "50px",
+                cursor: isAuthenticating ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+                transition: "opacity 0.15s ease",
+                opacity: emailHovered && !isAuthenticating ? 0.9 : 1,
+              }}
+            >
+              Continue with Email
+            </button>
+          </>
+        )}
+
+        {/* Toggle Sign In / Sign Up */}
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            margin: "24px 0",
+            fontSize: "14px",
+            color: "var(--text-muted)",
+            textAlign: "center",
+            marginTop: "24px",
           }}
         >
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
-          <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>or</span>
-          <div style={{ flex: 1, height: "1px", background: "var(--border)" }} />
+          {isSignUp ? "Already have an account? " : "Don't have an account? "}
+          <button
+            type="button"
+            onClick={() => {
+              if (isSignUp) {
+                setView(isEmailView ? "email-signin" : "signin");
+              } else {
+                setView(isEmailView ? "email-signup" : "signup");
+              }
+            }}
+            style={{
+              color: "var(--accent)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: "inherit",
+              fontWeight: 500,
+              padding: 0,
+            }}
+          >
+            {isSignUp ? "Sign in" : "Sign up"}
+          </button>
         </div>
-
-        {/* Email option placeholder */}
-        <button
-          style={{
-            width: "100%",
-            padding: "14px 20px",
-            fontSize: "15px",
-            fontWeight: 500,
-            color: "var(--color-light)",
-            background: "var(--accent)",
-            border: "none",
-            borderRadius: "50px",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            transition: "opacity 0.15s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = "0.9";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = "1";
-          }}
-        >
-          Continue with Email
-        </button>
 
         {/* Terms */}
         <p
@@ -191,18 +484,51 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             fontSize: "12px",
             color: "var(--text-muted)",
             textAlign: "center",
-            marginTop: "24px",
+            marginTop: "16px",
             lineHeight: 1.6,
           }}
         >
           By continuing, you agree to our{" "}
-          <a href="/legal/terms" style={{ color: "var(--accent)", textDecoration: "none" }}>Terms of Service</a>
-          {" "}and{" "}
-          <a href="/legal/privacy" style={{ color: "var(--accent)", textDecoration: "none" }}>Privacy Policy</a>.
+          <a
+            href="/legal/terms"
+            style={{ color: "var(--accent)", textDecoration: "none" }}
+          >
+            Terms
+          </a>{" "}
+          and{" "}
+          <a
+            href="/legal/privacy"
+            style={{ color: "var(--accent)", textDecoration: "none" }}
+          >
+            Privacy Policy
+          </a>
+          .
         </p>
       </div>
     </div>
   );
 
   return createPortal(modal, document.body);
+}
+
+function LoadingSpinner() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      style={{ animation: "spin 1s linear infinite" }}
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </svg>
+  );
 }
