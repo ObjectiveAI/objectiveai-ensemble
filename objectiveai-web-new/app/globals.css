@@ -806,6 +806,12 @@ body {
 }
 
 /* Responsive Spacing */
+/* Loading Animation */
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
 .sectionGap {
   margin-bottom: 100px;
 }

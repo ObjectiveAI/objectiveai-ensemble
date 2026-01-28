@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Footer from "./Footer";
+import UserMenu from "./UserMenu";
 
 // Constants for sticky calculations
 const SAFE_GAP = 24; // Gap below nav for content breathing room
@@ -240,27 +241,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </button>
                 )}
 
-                {/* Profile Icon (hidden on mobile) */}
-                {!isMobile && (
-                  <div
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      background: 'var(--accent)',
-                      borderRadius: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--color-light)',
-                      fontSize: '15px',
-                      fontWeight: 600,
-                      lineHeight: 1,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span style={{ transform: 'translateY(1px)' }}>MA</span>
-                  </div>
-                )}
+                {/* User Menu (hidden on mobile) */}
+                {!isMobile && <UserMenu />}
               </div>
 
               {/* Hamburger Menu (Mobile) */}
