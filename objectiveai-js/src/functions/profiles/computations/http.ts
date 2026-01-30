@@ -1,3 +1,5 @@
+import { ObjectiveAI, RequestOptions } from "../../../client";
+import { Stream } from "../../../stream";
 import { FunctionProfileComputationChunk } from "./response/streaming/function_profile_computation_chunk";
 import { FunctionProfileComputation } from "./response/unary/function_profile_computation";
 import {
@@ -8,80 +10,81 @@ import {
   FunctionProfileComputationCreateParamsRemoteFunctionNonStreaming,
   FunctionProfileComputationCreateParamsRemoteFunctionStreaming,
 } from "./request/function_profile_computation_create_params";
-import { InlineFunction } from "src/functions/function";
-import { Stream } from "openai/streaming";
-import OpenAI from "openai";
+import { InlineFunction } from "../../function";
 
-export async function inlineFunctionCreate(
-  openai: OpenAI,
+export function inlineFunctionCreate(
+  client: ObjectiveAI,
   body: FunctionProfileComputationCreateParamsInlineFunctionStreaming,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<Stream<FunctionProfileComputationChunk>>;
-export async function inlineFunctionCreate(
-  openai: OpenAI,
+export function inlineFunctionCreate(
+  client: ObjectiveAI,
   body: FunctionProfileComputationCreateParamsInlineFunctionNonStreaming,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<FunctionProfileComputation>;
-export async function inlineFunctionCreate(
-  openai: OpenAI,
+export function inlineFunctionCreate(
+  client: ObjectiveAI,
   body: FunctionProfileComputationCreateParamsInlineFunction,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<
   Stream<FunctionProfileComputationChunk> | FunctionProfileComputation
 > {
-  const response = await openai.post("/functions/profiles/compute", {
+  if (body.stream) {
+    return client.post_streaming<FunctionProfileComputationChunk>(
+      "/functions/profiles/compute",
+      body,
+      options,
+    );
+  }
+  return client.post_unary<FunctionProfileComputation>(
+    "/functions/profiles/compute",
     body,
-    stream: body.stream ?? false,
-    ...options,
-  });
-  return response as
-    | Stream<FunctionProfileComputationChunk>
-    | FunctionProfileComputation;
+    options,
+  );
 }
 
-export async function remoteFunctionCreate(
-  openai: OpenAI,
+export function remoteFunctionCreate(
+  client: ObjectiveAI,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
   body: FunctionProfileComputationCreateParamsRemoteFunctionStreaming,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<Stream<FunctionProfileComputationChunk>>;
-export async function remoteFunctionCreate(
-  openai: OpenAI,
+export function remoteFunctionCreate(
+  client: ObjectiveAI,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
   body: FunctionProfileComputationCreateParamsRemoteFunctionNonStreaming,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<FunctionProfileComputation>;
-export async function remoteFunctionCreate(
-  openai: OpenAI,
+export function remoteFunctionCreate(
+  client: ObjectiveAI,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
   body: FunctionProfileComputationCreateParamsRemoteFunction,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<
   Stream<FunctionProfileComputationChunk> | FunctionProfileComputation
 > {
-  const response = await openai.post(
+  const path =
     fcommit !== null && fcommit !== undefined
       ? `/functions/${fowner}/${frepository}/${fcommit}/profiles/compute`
-      : `/functions/${fowner}/${frepository}/profiles/compute`,
-    {
+      : `/functions/${fowner}/${frepository}/profiles/compute`;
+  if (body.stream) {
+    return client.post_streaming<FunctionProfileComputationChunk>(
+      path,
       body,
-      stream: body.stream ?? false,
-      ...options,
-    }
-  );
-  return response as
-    | Stream<FunctionProfileComputationChunk>
-    | FunctionProfileComputation;
+      options,
+    );
+  }
+  return client.post_unary<FunctionProfileComputation>(path, body, options);
 }
 
-export async function create(
-  openai: OpenAI,
+export function create(
+  client: ObjectiveAI,
   function_:
     | InlineFunction
     | {
@@ -90,10 +93,10 @@ export async function create(
         commit?: string | null | undefined;
       },
   body: FunctionProfileComputationCreateParamsInlineFunctionStreaming,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<Stream<FunctionProfileComputationChunk>>;
-export async function create(
-  openai: OpenAI,
+export function create(
+  client: ObjectiveAI,
   function_:
     | InlineFunction
     | {
@@ -102,10 +105,10 @@ export async function create(
         commit?: string | null | undefined;
       },
   body: FunctionProfileComputationCreateParamsInlineFunctionNonStreaming,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<FunctionProfileComputation>;
-export async function create(
-  openai: OpenAI,
+export function create(
+  client: ObjectiveAI,
   function_:
     | InlineFunction
     | {
@@ -114,7 +117,7 @@ export async function create(
         commit?: string | null | undefined;
       },
   body: FunctionProfileComputationCreateParamsInlineFunction,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<
   Stream<FunctionProfileComputationChunk> | FunctionProfileComputation
 > {
@@ -123,21 +126,21 @@ export async function create(
       body;
     if (requestBody.stream) {
       return remoteFunctionCreate(
-        openai,
+        client,
         function_.owner,
         function_.repository,
         function_.commit ?? null,
         body as FunctionProfileComputationCreateParamsRemoteFunctionStreaming,
-        options
+        options,
       );
     } else {
       return remoteFunctionCreate(
-        openai,
+        client,
         function_.owner,
         function_.repository,
         function_.commit ?? null,
         body as FunctionProfileComputationCreateParamsRemoteFunctionNonStreaming,
-        options
+        options,
       );
     }
   } else {
@@ -147,15 +150,15 @@ export async function create(
     };
     if (requestBody.stream) {
       return inlineFunctionCreate(
-        openai,
+        client,
         requestBody as FunctionProfileComputationCreateParamsInlineFunctionStreaming,
-        options
+        options,
       );
     } else {
       return inlineFunctionCreate(
-        openai,
+        client,
         requestBody as FunctionProfileComputationCreateParamsInlineFunctionNonStreaming,
-        options
+        options,
       );
     }
   }

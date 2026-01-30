@@ -9,6 +9,8 @@ pub mod executions;
 mod flat_task_profile;
 /// Fetcher for Function definitions from GitHub.
 pub mod function_fetcher;
+/// Client for listing function-profile pairs and getting usage statistics.
+pub mod pair_retrieval_client;
 /// Fetcher for Profile definitions from GitHub.
 pub mod profile_fetcher;
 /// Profile operations.

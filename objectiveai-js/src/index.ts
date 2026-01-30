@@ -5,3 +5,5 @@ export * as EnsembleLlm from "./ensemble_llm";
 export * as Functions from "./functions";
 export * as Vector from "./vector";
 export * from "./error";
+export * from "./client";
+export * from "./stream";

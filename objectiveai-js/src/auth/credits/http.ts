@@ -1,10 +1,9 @@
-import OpenAI from "openai";
+import { ObjectiveAI, RequestOptions } from "../../client";
 import { Credits } from "./credits";
 
-export async function retrieve(
-  openai: OpenAI,
-  options?: OpenAI.RequestOptions
+export function retrieve(
+  client: ObjectiveAI,
+  options?: RequestOptions,
 ): Promise<Credits> {
-  const response = await openai.get("/auth/credits", options);
-  return response as Credits;
+  return client.get_unary<Credits>("/auth/credits", undefined, options);
 }

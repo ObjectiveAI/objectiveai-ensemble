@@ -173,6 +173,30 @@ export function Sidebar({ className }: { className?: string }): ReactElement {
 
           <SidebarSectionSpacer />
 
+          <SidebarSection title="Function-Profile Pairs" />
+          <SidebarApiItem
+            method="GET"
+            path="/functions/profiles/pairs"
+            href="/docs/api/get/functions/profiles/pairs"
+            description="List all remote ObjectiveAI Function-Profile pairs"
+          />
+          <SidebarItemSpacer />
+          <SidebarApiItem
+            method="GET"
+            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
+            href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
+            description="Retrieve a remote ObjectiveAI Function-Profile pair"
+          />
+          <SidebarItemSpacer />
+          <SidebarApiItem
+            method="GET"
+            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}/usage"
+            href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit/usage"
+            description="Retrieve historical usage for a remote ObjectiveAI Function-Profile pair"
+          />
+
+          <SidebarSectionSpacer />
+
           <SidebarSection title="Vector" />
           <SidebarApiItem
             method="POST"

@@ -89,6 +89,80 @@ pub fn validateEnsemble(ensemble: JsValue) -> Result<JsValue, JsValue> {
     Ok(ensemble)
 }
 
+/// Validates function input against its schema.
+///
+/// For remote functions, checks whether the provided input conforms to
+/// the function's JSON Schema definition. For inline functions, returns
+/// `null` since they lack schema definitions.
+///
+/// # Arguments
+///
+/// * `function` - JavaScript object representing a Function definition
+/// * `input` - JavaScript object representing the function input to validate
+///
+/// # Returns
+///
+/// - `true` if the input is valid against the schema
+/// - `false` if the input is invalid
+/// - `null` for inline functions (no schema to validate against)
+///
+/// # Errors
+///
+/// Returns an error if deserialization fails.
+#[wasm_bindgen]
+pub fn validateFunctionInput(
+    function: JsValue,
+    input: JsValue,
+) -> Result<Option<bool>, JsValue> {
+    // deserialize
+    let function: objectiveai::functions::Function =
+        serde_wasm_bindgen::from_value(function)?;
+    let input: objectiveai::functions::expression::Input =
+        serde_wasm_bindgen::from_value(input)?;
+    // validate input
+    Ok(function.validate_input(&input))
+}
+
+/// Compiles a Function's input_maps expressions for a given input.
+///
+/// Evaluates the `input_maps` expressions to transform the input into a 2D array
+/// that can be referenced by mapped tasks. Each sub-array can be accessed by
+/// tasks via their `map` index.
+///
+/// # Arguments
+///
+/// * `function` - JavaScript object representing a Function definition
+/// * `input` - JavaScript object representing the function input
+///
+/// # Returns
+///
+/// - An array of input arrays if `input_maps` is defined
+/// - `null` if the function has no `input_maps`
+///
+/// # Errors
+///
+/// Returns an error string if expression evaluation fails.
+#[wasm_bindgen]
+pub fn compileFunctionInputMaps(
+    function: JsValue,
+    input: JsValue,
+) -> Result<Option<JsValue>, JsValue> {
+    // deserialize
+    let function: objectiveai::functions::Function =
+        serde_wasm_bindgen::from_value(function)?;
+    let input: objectiveai::functions::expression::Input =
+        serde_wasm_bindgen::from_value(input)?;
+    // compile input maps
+    let input_maps = function
+        .compile_input_maps(&input)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    // serialize
+    let input_maps: Option<JsValue> = input_maps
+        .map(|maps| serde_wasm_bindgen::to_value(&maps))
+        .transpose()?;
+    Ok(input_maps)
+}
+
 /// Compiles a Function's task expressions for a given input.
 ///
 /// Evaluates all JMESPath expressions in the function's tasks using the
@@ -172,6 +246,124 @@ pub fn compileFunctionOutput(
     // serialize
     let output: JsValue = serde_wasm_bindgen::to_value(&output)?;
     Ok(output)
+}
+
+/// Computes the expected output length for a vector Function.
+///
+/// Evaluates the `output_length` expression to determine how many elements
+/// the output vector should contain. This is only applicable to remote
+/// vector functions which have an `output_length` field.
+///
+/// # Arguments
+///
+/// * `function` - JavaScript object representing a Function definition
+/// * `input` - JavaScript object representing the function input
+///
+/// # Returns
+///
+/// - The expected output length for remote vector functions
+/// - `null` for scalar functions or inline functions
+///
+/// # Errors
+///
+/// Returns an error string if expression evaluation fails.
+#[wasm_bindgen]
+pub fn compileFunctionOutputLength(
+    function: JsValue,
+    input: JsValue,
+) -> Result<Option<u32>, JsValue> {
+    // deserialize
+    let function: objectiveai::functions::Function =
+        serde_wasm_bindgen::from_value(function)?;
+    let input: objectiveai::functions::expression::Input =
+        serde_wasm_bindgen::from_value(input)?;
+    // compile output length
+    Ok(function
+        .compile_output_length(&input)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?
+        .map(|u| u as u32))
+}
+
+/// Compiles the `input_split` expression to split input into multiple sub-inputs.
+///
+/// Used by strategies like Swiss System that need to partition input into
+/// smaller pools. The expression transforms the original input into an array
+/// of inputs, where each element can be processed independently.
+///
+/// # Arguments
+///
+/// * `function` - JavaScript object representing a Function definition
+/// * `input` - JavaScript object representing the function input to split
+///
+/// # Returns
+///
+/// - An array of split inputs for vector functions with `input_split` defined
+/// - `null` for scalar functions or functions without `input_split`
+///
+/// # Errors
+///
+/// Returns an error string if expression evaluation fails.
+#[wasm_bindgen]
+pub fn compileFunctionInputSplit(
+    function: JsValue,
+    input: JsValue,
+) -> Result<Option<JsValue>, JsValue> {
+    // deserialize
+    let function: objectiveai::functions::Function =
+        serde_wasm_bindgen::from_value(function)?;
+    let input: objectiveai::functions::expression::Input =
+        serde_wasm_bindgen::from_value(input)?;
+    // compile input split
+    let input_split = function
+        .compile_input_split(&input)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    // serialize
+    let input_split: Option<JsValue> = input_split
+        .map(|split| serde_wasm_bindgen::to_value(&split))
+        .transpose()?;
+    Ok(input_split)
+}
+
+/// Compiles the `input_merge` expression to merge multiple sub-inputs back into one.
+///
+/// Used by strategies like Swiss System to recombine a subset of split inputs
+/// into a single input for pool execution. The expression transforms an array
+/// of inputs (a subset from `compileFunctionInputSplit`) into a single merged input.
+///
+/// # Arguments
+///
+/// * `function` - JavaScript object representing a Function definition
+/// * `input` - Array of inputs to merge (typically a subset from `compileFunctionInputSplit`)
+///
+/// # Returns
+///
+/// - The merged input for vector functions with `input_merge` defined
+/// - `null` for scalar functions or functions without `input_merge`
+///
+/// # Errors
+///
+/// Returns an error string if expression evaluation fails.
+#[wasm_bindgen]
+pub fn compileFunctionInputMerge(
+    function: JsValue,
+    input: JsValue,
+) -> Result<Option<JsValue>, JsValue> {
+    // deserialize
+    let function: objectiveai::functions::Function =
+        serde_wasm_bindgen::from_value(function)?;
+    let input: Vec<objectiveai::functions::expression::Input> =
+        serde_wasm_bindgen::from_value(input)?;
+    // compile input merge
+    let input_merge = function
+        .compile_input_merge(&objectiveai::functions::expression::Input::Array(
+            input,
+        ))
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    // serialize
+    let input_merge: Option<JsValue> = input_merge
+        .map(|merge| serde_wasm_bindgen::to_value(&merge))
+        .transpose()?;
+    Ok(input_merge)
 }
 
 /// Computes a content-addressed ID for chat messages.

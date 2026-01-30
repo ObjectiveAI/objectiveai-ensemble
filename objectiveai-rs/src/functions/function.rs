@@ -19,6 +19,83 @@ pub enum Function {
 }
 
 impl Function {
+    /// Validates the input against the function's input schema.
+    ///
+    /// For remote functions, checks whether the provided input conforms to
+    /// the function's JSON Schema definition. For inline functions, returns
+    /// `None` since they lack schema definitions.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(true)` if the input is valid against the schema
+    /// - `Some(false)` if the input is invalid
+    /// - `None` for inline functions (no schema to validate against)
+    pub fn validate_input(
+        &self,
+        input: &super::expression::Input,
+    ) -> Option<bool> {
+        match self {
+            Function::Remote(remote_function) => {
+                Some(remote_function.input_schema().validate_input(input))
+            }
+            Function::Inline(_) => None,
+        }
+    }
+
+    /// Compiles the `input_maps` expressions to transform input into a 2D array.
+    ///
+    /// Evaluates the `input_maps` expressions to transform the input into a 2D array
+    /// that can be referenced by mapped tasks. Each sub-array can be accessed by
+    /// tasks via their `map` index.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The function input to transform
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Some(Vec<Vec<Input>>))` - The compiled input maps (2D array)
+    /// - `Ok(None)` - If the function has no `input_maps` defined
+    /// - `Err(ExpressionError)` - If the expression fails to compile
+    pub fn compile_input_maps(
+        self,
+        input: &super::expression::Input,
+    ) -> Result<
+        Option<Vec<Vec<super::expression::Input>>>,
+        super::expression::ExpressionError,
+    > {
+        let input_maps_expr = match self {
+            Function::Remote(RemoteFunction::Scalar { input_maps, .. }) => {
+                input_maps
+            }
+            Function::Remote(RemoteFunction::Vector { input_maps, .. }) => {
+                input_maps
+            }
+            Function::Inline(InlineFunction::Scalar { input_maps, .. }) => {
+                input_maps
+            }
+            Function::Inline(InlineFunction::Vector { input_maps, .. }) => {
+                input_maps
+            }
+        };
+        match input_maps_expr {
+            Some(input_maps_expr) => {
+                // prepare params for compiling input_maps expression
+                let params = super::expression::Params::Ref(
+                    super::expression::ParamsRef {
+                        input,
+                        tasks: &[],
+                        map: None,
+                    },
+                );
+                // compile input_maps
+                let input_maps = input_maps_expr.compile(&params)?;
+                Ok(Some(input_maps))
+            }
+            None => Ok(None),
+        }
+    }
+
     /// Compiles task expressions to show the final tasks for a given input.
     ///
     /// Evaluates all JMESPath expressions in the function's tasks using the
@@ -231,6 +308,151 @@ impl Function {
 
         // compiled output
         Ok(super::expression::CompiledFunctionOutput { output, valid })
+    }
+
+    /// Computes the expected output length for a vector function.
+    ///
+    /// Evaluates the `output_length` expression to determine how many elements
+    /// the output vector should contain. This is only applicable to remote
+    /// vector functions which have an `output_length` field.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The function input used to compute the output length
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Some(u64))` - The expected output length for remote vector functions
+    /// - `Ok(None)` - For scalar functions or inline functions
+    /// - `Err(ExpressionError)` - If the expression fails to compile
+    pub fn compile_output_length(
+        self,
+        input: &super::expression::Input,
+    ) -> Result<Option<u64>, super::expression::ExpressionError> {
+        let output_length_expr = match self {
+            Function::Remote(RemoteFunction::Scalar { .. }) => None,
+            Function::Remote(RemoteFunction::Vector {
+                output_length, ..
+            }) => Some(output_length),
+            Function::Inline(InlineFunction::Scalar { .. }) => None,
+            Function::Inline(InlineFunction::Vector { .. }) => None,
+        };
+        match output_length_expr {
+            Some(output_length_expr) => {
+                // prepare params for compiling output_length expression
+                let params = super::expression::Params::Ref(
+                    super::expression::ParamsRef {
+                        input,
+                        tasks: &[],
+                        map: None,
+                    },
+                );
+                // compile output_length
+                let output_length = output_length_expr.compile_one(&params)?;
+                Ok(Some(output_length))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Compiles the `input_split` expression to split input into multiple sub-inputs.
+    ///
+    /// Used by strategies like Swiss System that need to partition input into
+    /// smaller pools. The expression transforms the original input into an array
+    /// of inputs, where each element can be processed independently.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - The original function input to split
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Some(Vec<Input>))` - The split inputs for vector functions with `input_split` defined
+    /// - `Ok(None)` - For scalar functions or functions without `input_split`
+    /// - `Err(ExpressionError)` - If the expression fails to compile
+    pub fn compile_input_split(
+        self,
+        input: &super::expression::Input,
+    ) -> Result<
+        Option<Vec<super::expression::Input>>,
+        super::expression::ExpressionError,
+    > {
+        let input_split_expr = match self {
+            Function::Remote(RemoteFunction::Scalar { .. }) => None,
+            Function::Remote(RemoteFunction::Vector {
+                input_split, ..
+            }) => Some(input_split),
+            Function::Inline(InlineFunction::Scalar { .. }) => None,
+            Function::Inline(InlineFunction::Vector {
+                input_split, ..
+            }) => input_split,
+        };
+        match input_split_expr {
+            Some(input_split_expr) => {
+                // prepare params for compiling input_split expression
+                let params = super::expression::Params::Ref(
+                    super::expression::ParamsRef {
+                        input,
+                        tasks: &[],
+                        map: None,
+                    },
+                );
+                // compile input_split
+                let input_split = input_split_expr.compile_one(&params)?;
+                Ok(Some(input_split))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Compiles the `input_merge` expression to merge multiple sub-inputs back into one.
+    ///
+    /// Used by strategies like Swiss System to recombine a subset of split inputs
+    /// into a single input for pool execution. The expression transforms an array
+    /// of inputs (a subset from `input_split`) into a single merged input.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - An array of inputs to merge (typically a subset from `compile_input_split`)
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(Some(Input))` - The merged input for vector functions with `input_merge` defined
+    /// - `Ok(None)` - For scalar functions or functions without `input_merge`
+    /// - `Err(ExpressionError)` - If the expression fails to compile
+    pub fn compile_input_merge(
+        self,
+        input: &super::expression::Input,
+    ) -> Result<
+        Option<super::expression::Input>,
+        super::expression::ExpressionError,
+    > {
+        let input_merge_expr = match self {
+            Function::Remote(RemoteFunction::Scalar { .. }) => None,
+            Function::Remote(RemoteFunction::Vector {
+                input_merge, ..
+            }) => Some(input_merge),
+            Function::Inline(InlineFunction::Scalar { .. }) => None,
+            Function::Inline(InlineFunction::Vector {
+                input_merge, ..
+            }) => input_merge,
+        };
+        match input_merge_expr {
+            Some(input_merge_expr) => {
+                // prepare params for compiling input_merge expression
+                let params = super::expression::Params::Ref(
+                    super::expression::ParamsRef {
+                        input,
+                        tasks: &[],
+                        map: None,
+                    },
+                );
+                // compile input_merge
+                let input_merge = input_merge_expr.compile_one(&params)?;
+                Ok(Some(input_merge))
+            }
+            None => Ok(None),
+        }
     }
 
     /// Returns the function's description, if available.

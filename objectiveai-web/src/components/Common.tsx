@@ -21,7 +21,7 @@ import {
 } from "@/components/Icon";
 import { Dropdown, Popup } from "@/components/Popup";
 import { Provider } from "@/provider";
-import OpenAI from "openai";
+import { ObjectiveAI } from "objectiveai";
 import {
   DraggableAttributes,
   DndContext,
@@ -933,15 +933,15 @@ export function EmptyText({
   );
 }
 
-export async function openAi(session?: Provider.TokenSession): Promise<OpenAI> {
+export async function openAi(
+  session?: Provider.TokenSession,
+): Promise<ObjectiveAI> {
   const authorization = session
     ? await Provider.TokenSession.authorization(session)
     : "none";
-  return new OpenAI({
+  return new ObjectiveAI({
     apiKey: authorization ?? "none",
-    dangerouslyAllowBrowser: true,
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
-    maxRetries: 0,
+    apiBase: process.env.NEXT_PUBLIC_API_URL,
   });
 }
 

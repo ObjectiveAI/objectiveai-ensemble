@@ -35,7 +35,7 @@ struct Config {
         default = "https://openrouter.ai/api/v1"
     )]
     openrouter_api_base: String,
-    #[envconfig(from = "OPENROUTER_API_KEY")]
+    #[envconfig(from = "OPENROUTER_API_KEY", default = "")]
     openrouter_api_key: String,
     #[envconfig(from = "USER_AGENT")]
     user_agent: Option<String>,
@@ -114,13 +114,12 @@ async fn main() {
     ));
 
     // Ensemble LLM Fetcher
-    let ensemble_llm_fetcher = Arc::new(
-        ensemble_llm::fetcher::CachingFetcher::new(Arc::new(
+    let ensemble_llm_fetcher =
+        Arc::new(ensemble_llm::fetcher::CachingFetcher::new(Arc::new(
             ensemble_llm::fetcher::ObjectiveAiFetcher::new(
                 objectiveai_http_client.clone(),
             ),
-        )),
-    );
+        )));
 
     // Chat Completions Client
     let chat_completions_client = Arc::new(chat::completions::Client::<
@@ -155,13 +154,11 @@ async fn main() {
     ));
 
     // Ensemble Fetcher
-    let ensemble_fetcher = Arc::new(
-        ensemble::fetcher::CachingFetcher::new(Arc::new(
-            ensemble::fetcher::ObjectiveAiFetcher::new(
-                objectiveai_http_client.clone(),
-            ),
+    let ensemble_fetcher = Arc::new(ensemble::fetcher::CachingFetcher::new(
+        Arc::new(ensemble::fetcher::ObjectiveAiFetcher::new(
+            objectiveai_http_client.clone(),
         )),
-    );
+    ));
 
     // Vector Completion Votes Fetcher
     let completion_votes_fetcher = Arc::new(
@@ -239,6 +236,12 @@ async fn main() {
             ),
         ),
     ));
+
+    // Function-Profile Pairs Client
+    let pairs_client =
+        Arc::new(functions::pair_retrieval_client::ObjectiveAiClient::new(
+            objectiveai_http_client.clone(),
+        ));
 
     // Auth Client
     let auth_client = Arc::new(auth::ObjectiveAiClient::new(
@@ -680,6 +683,174 @@ async fn main() {
                 }
             }),
         )
+        // Function-Profile Pairs - list
+        .route(
+            "/functions/profiles/pairs",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap| list_function_profile_pairs(pairs_client, headers)
+            }),
+        )
+        // Function-Profile Pairs - get (no commits)
+        .route(
+            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, powner, prepository)): Path<(String, String, String, String)>| {
+                    get_function_profile_pair(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        None,
+                        powner,
+                        prepository,
+                        None,
+                    )
+                }
+            }),
+        )
+        // Function-Profile Pairs - get (fcommit only)
+        .route(
+            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, fcommit, powner, prepository)): Path<(String, String, String, String, String)>| {
+                    get_function_profile_pair(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        Some(fcommit),
+                        powner,
+                        prepository,
+                        None,
+                    )
+                }
+            }),
+        )
+        // Function-Profile Pairs - get (pcommit only)
+        .route(
+            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}/{pcommit}",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, powner, prepository, pcommit)): Path<(String, String, String, String, String)>| {
+                    get_function_profile_pair(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        None,
+                        powner,
+                        prepository,
+                        Some(pcommit),
+                    )
+                }
+            }),
+        )
+        // Function-Profile Pairs - get (both commits)
+        .route(
+            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, fcommit, powner, prepository, pcommit)): Path<(String, String, String, String, String, String)>| {
+                    get_function_profile_pair(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        Some(fcommit),
+                        powner,
+                        prepository,
+                        Some(pcommit),
+                    )
+                }
+            }),
+        )
+        // Function-Profile Pairs - get usage (no commits)
+        .route(
+            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}/usage",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, powner, prepository)): Path<(String, String, String, String)>| {
+                    get_function_profile_pair_usage(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        None,
+                        powner,
+                        prepository,
+                        None,
+                    )
+                }
+            }),
+        )
+        // Function-Profile Pairs - get usage (fcommit only)
+        .route(
+            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/usage",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, fcommit, powner, prepository)): Path<(String, String, String, String, String)>| {
+                    get_function_profile_pair_usage(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        Some(fcommit),
+                        powner,
+                        prepository,
+                        None,
+                    )
+                }
+            }),
+        )
+        // Function-Profile Pairs - get usage (pcommit only)
+        .route(
+            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}/{pcommit}/usage",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, powner, prepository, pcommit)): Path<(String, String, String, String, String)>| {
+                    get_function_profile_pair_usage(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        None,
+                        powner,
+                        prepository,
+                        Some(pcommit),
+                    )
+                }
+            }),
+        )
+        // Function-Profile Pairs - get usage (both commits)
+        .route(
+            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}/usage",
+            axum::routing::get({
+                let pairs_client = pairs_client.clone();
+                move |headers: HeaderMap,
+                      Path((fowner, frepository, fcommit, powner, prepository, pcommit)): Path<(String, String, String, String, String, String)>| {
+                    get_function_profile_pair_usage(
+                        pairs_client,
+                        headers,
+                        fowner,
+                        frepository,
+                        Some(fcommit),
+                        powner,
+                        prepository,
+                        Some(pcommit),
+                    )
+                }
+            }),
+        )
         // Function Profile Computations - create
         // inline function
         .route(
@@ -922,9 +1093,8 @@ async fn create_chat_completion(
     client: Arc<
         chat::completions::Client<
             ctx::DefaultContextExt,
-            impl ensemble_llm::fetcher::Fetcher<
-                ctx::DefaultContextExt,
-            > + Send
+            impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
+            + Send
             + Sync
             + 'static,
             impl chat::completions::usage_handler::UsageHandler<
@@ -982,9 +1152,8 @@ async fn create_vector_completion(
     client: Arc<
         vector::completions::Client<
             ctx::DefaultContextExt,
-            impl ensemble_llm::fetcher::Fetcher<
-                ctx::DefaultContextExt,
-            > + Send
+            impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
+            + Send
             + Sync
             + 'static,
             impl chat::completions::usage_handler::UsageHandler<
@@ -992,9 +1161,8 @@ async fn create_vector_completion(
             > + Send
             + Sync
             + 'static,
-            impl ensemble::fetcher::Fetcher<
-                ctx::DefaultContextExt,
-            > + Send
+            impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
+            + Send
             + Sync
             + 'static,
             impl vector::completions::completion_votes_fetcher::Fetcher<
@@ -1104,9 +1272,8 @@ async fn execute_function(
     client: Arc<
         functions::executions::Client<
             ctx::DefaultContextExt,
-            impl ensemble_llm::fetcher::Fetcher<
-                ctx::DefaultContextExt,
-            > + Send
+            impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
+            + Send
             + Sync
             + 'static,
             impl chat::completions::usage_handler::UsageHandler<
@@ -1114,9 +1281,8 @@ async fn execute_function(
             > + Send
             + Sync
             + 'static,
-            impl ensemble::fetcher::Fetcher<
-                ctx::DefaultContextExt,
-            > + Send
+            impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
+            + Send
             + Sync
             + 'static,
             impl vector::completions::completion_votes_fetcher::Fetcher<
@@ -1237,6 +1403,90 @@ async fn get_profile_usage(
     {
         Ok(r) => Json(r).into_response(),
         Err(e) => ResponseError::from(&e).into_response(),
+    }
+}
+
+// Function-Profile Pairs
+
+async fn list_function_profile_pairs(
+    client: Arc<
+        impl functions::pair_retrieval_client::Client<ctx::DefaultContextExt>
+        + Send
+        + Sync
+        + 'static,
+    >,
+    headers: HeaderMap,
+) -> axum::response::Response {
+    let ctx = context(&headers);
+    match client.list_function_profile_pairs(ctx).await {
+        Ok(r) => Json(r).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn get_function_profile_pair(
+    client: Arc<
+        impl functions::pair_retrieval_client::Client<ctx::DefaultContextExt>
+        + Send
+        + Sync
+        + 'static,
+    >,
+    headers: HeaderMap,
+    fowner: String,
+    frepository: String,
+    fcommit: Option<String>,
+    powner: String,
+    prepository: String,
+    pcommit: Option<String>,
+) -> axum::response::Response {
+    let ctx = context(&headers);
+    match client
+        .get_function_profile_pair(
+            ctx,
+            &fowner,
+            &frepository,
+            fcommit.as_deref(),
+            &powner,
+            &prepository,
+            pcommit.as_deref(),
+        )
+        .await
+    {
+        Ok(r) => Json(r).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
+async fn get_function_profile_pair_usage(
+    client: Arc<
+        impl functions::pair_retrieval_client::Client<ctx::DefaultContextExt>
+        + Send
+        + Sync
+        + 'static,
+    >,
+    headers: HeaderMap,
+    fowner: String,
+    frepository: String,
+    fcommit: Option<String>,
+    powner: String,
+    prepository: String,
+    pcommit: Option<String>,
+) -> axum::response::Response {
+    let ctx = context(&headers);
+    match client
+        .get_function_profile_pair_usage(
+            ctx,
+            &fowner,
+            &frepository,
+            fcommit.as_deref(),
+            &powner,
+            &prepository,
+            pcommit.as_deref(),
+        )
+        .await
+    {
+        Ok(r) => Json(r).into_response(),
+        Err(e) => e.into_response(),
     }
 }
 
@@ -1416,7 +1666,9 @@ async fn create_profile_computation(
 // Auth
 
 async fn create_api_key(
-    client: Arc<impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static>,
+    client: Arc<
+        impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static,
+    >,
     headers: HeaderMap,
     body: objectiveai::auth::request::CreateApiKeyRequest,
 ) -> axum::response::Response {
@@ -1428,7 +1680,9 @@ async fn create_api_key(
 }
 
 async fn create_openrouter_byok_api_key(
-    client: Arc<impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static>,
+    client: Arc<
+        impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static,
+    >,
     headers: HeaderMap,
     body: objectiveai::auth::request::CreateOpenRouterByokApiKeyRequest,
 ) -> axum::response::Response {
@@ -1440,7 +1694,9 @@ async fn create_openrouter_byok_api_key(
 }
 
 async fn disable_api_key(
-    client: Arc<impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static>,
+    client: Arc<
+        impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static,
+    >,
     headers: HeaderMap,
     body: objectiveai::auth::request::DisableApiKeyRequest,
 ) -> axum::response::Response {
@@ -1452,7 +1708,9 @@ async fn disable_api_key(
 }
 
 async fn delete_openrouter_byok_api_key(
-    client: Arc<impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static>,
+    client: Arc<
+        impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static,
+    >,
     headers: HeaderMap,
 ) -> axum::response::Response {
     let ctx = context(&headers);
@@ -1463,7 +1721,9 @@ async fn delete_openrouter_byok_api_key(
 }
 
 async fn list_api_keys(
-    client: Arc<impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static>,
+    client: Arc<
+        impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static,
+    >,
     headers: HeaderMap,
 ) -> axum::response::Response {
     let ctx = context(&headers);
@@ -1474,7 +1734,9 @@ async fn list_api_keys(
 }
 
 async fn get_openrouter_byok_api_key(
-    client: Arc<impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static>,
+    client: Arc<
+        impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static,
+    >,
     headers: HeaderMap,
 ) -> axum::response::Response {
     let ctx = context(&headers);
@@ -1485,7 +1747,9 @@ async fn get_openrouter_byok_api_key(
 }
 
 async fn get_credits(
-    client: Arc<impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static>,
+    client: Arc<
+        impl auth::Client<ctx::DefaultContextExt> + Send + Sync + 'static,
+    >,
     headers: HeaderMap,
 ) -> axum::response::Response {
     let ctx = context(&headers);
@@ -1502,13 +1766,13 @@ async fn list_ensembles(
         ensemble::Client<
             ctx::DefaultContextExt,
             impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
             impl ensemble::retrieval_client::Client<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
         >,
     >,
     headers: HeaderMap,
@@ -1525,13 +1789,13 @@ async fn get_ensemble(
         ensemble::Client<
             ctx::DefaultContextExt,
             impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
             impl ensemble::retrieval_client::Client<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
         >,
     >,
     headers: HeaderMap,
@@ -1549,13 +1813,13 @@ async fn get_ensemble_usage(
         ensemble::Client<
             ctx::DefaultContextExt,
             impl ensemble::fetcher::Fetcher<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
             impl ensemble::retrieval_client::Client<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
         >,
     >,
     headers: HeaderMap,
@@ -1575,13 +1839,13 @@ async fn list_ensemble_llms(
         ensemble_llm::Client<
             ctx::DefaultContextExt,
             impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
             impl ensemble_llm::retrieval_client::Client<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
         >,
     >,
     headers: HeaderMap,
@@ -1598,13 +1862,13 @@ async fn get_ensemble_llm(
         ensemble_llm::Client<
             ctx::DefaultContextExt,
             impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
             impl ensemble_llm::retrieval_client::Client<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
         >,
     >,
     headers: HeaderMap,
@@ -1622,13 +1886,13 @@ async fn get_ensemble_llm_usage(
         ensemble_llm::Client<
             ctx::DefaultContextExt,
             impl ensemble_llm::fetcher::Fetcher<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
             impl ensemble_llm::retrieval_client::Client<ctx::DefaultContextExt>
-                + Send
-                + Sync
-                + 'static,
+            + Send
+            + Sync
+            + 'static,
         >,
     >,
     headers: HeaderMap,

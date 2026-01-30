@@ -1,6 +1,6 @@
 import z from "zod";
 import { ApiKeyWithMetadata, ApiKeyWithMetadataSchema } from "./api_key";
-import OpenAI from "openai";
+import { ObjectiveAI, RequestOptions } from "../../client";
 
 export const ListItemSchema = ApiKeyWithMetadataSchema.extend({
   cost: z
@@ -14,42 +14,35 @@ export const ListSchema = z.object({
 });
 export type List = z.infer<typeof ListSchema>;
 
-export async function list(
-  openai: OpenAI,
-  options?: OpenAI.RequestOptions
+export function list(
+  client: ObjectiveAI,
+  options?: RequestOptions,
 ): Promise<List> {
-  const response = await openai.get("/auth/keys", options);
-  return response as List;
+  return client.get_unary<List>("/auth/keys", undefined, options);
 }
 
-export async function create(
-  openai: OpenAI,
+export function create(
+  client: ObjectiveAI,
   name: string,
   expires?: Date | null,
   description?: string | null,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<ApiKeyWithMetadata> {
-  const response = await openai.post("/auth/keys", {
-    body: {
-      name,
-      expires,
-      description,
-    },
-    ...options,
-  });
-  return response as ApiKeyWithMetadata;
+  return client.post_unary<ApiKeyWithMetadata>(
+    "/auth/keys",
+    { name, expires, description },
+    options,
+  );
 }
 
-export async function disable(
-  openai: OpenAI,
+export function disable(
+  client: ObjectiveAI,
   key: string,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<ApiKeyWithMetadata> {
-  const response = await openai.delete("/auth/keys", {
-    body: {
-      api_key: key,
-    },
-    ...options,
-  });
-  return response as ApiKeyWithMetadata;
+  return client.delete_unary<ApiKeyWithMetadata>(
+    "/auth/keys",
+    { api_key: key },
+    options,
+  );
 }

@@ -1,6 +1,6 @@
 [package]
 name = "objectiveai"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 authors = ["ObjectiveAI <admin@objective-ai.io>"]
 description = "ObjectiveAI SDK, definitions, and utilities"
@@ -23,7 +23,7 @@ indexmap = { version = "2.2.3", features = ["serde"] }
 serde_json = { version = "1.0.140", features = ["preserve_order"] }
 twox-hash = { version = "2.1.1", default-features = false, features = ["xxhash3_128", "alloc"] }
 rust_decimal = { version = "1.39.0", features = ["serde-float", "macros"] }
-jmespath = { version = "0.4.0" }
+jmespath = { version = "0.5.0" }
 thiserror = {  version = "2.0.12" }
 base64 = { version = "0.22.1" }
 chrono = { version = "=0.4.39", features = ["serde"] }

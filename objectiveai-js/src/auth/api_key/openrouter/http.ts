@@ -1,31 +1,32 @@
-import OpenAI from "openai";
+import { ObjectiveAI, RequestOptions } from "../../../client";
 import { OpenRouterByokApiKey } from "./openrouter_byok_api_key";
 
-export async function retrieve(
-  openai: OpenAI,
-  options?: OpenAI.RequestOptions
+export function retrieve(
+  client: ObjectiveAI,
+  options?: RequestOptions,
 ): Promise<OpenRouterByokApiKey> {
-  const response = await openai.get("/auth/keys/openrouter", options);
-  return response as OpenRouterByokApiKey;
+  return client.get_unary<OpenRouterByokApiKey>(
+    "/auth/keys/openrouter",
+    undefined,
+    options,
+  );
 }
 
-export async function create(
-  openai: OpenAI,
+export function create(
+  client: ObjectiveAI,
   apiKey: string,
-  options?: OpenAI.RequestOptions
+  options?: RequestOptions,
 ): Promise<OpenRouterByokApiKey> {
-  const response = await openai.post("/auth/keys/openrouter", {
-    body: {
-      api_key: apiKey,
-    },
-    ...options,
-  });
-  return response as OpenRouterByokApiKey;
+  return client.post_unary<OpenRouterByokApiKey>(
+    "/auth/keys/openrouter",
+    { api_key: apiKey },
+    options,
+  );
 }
 
-export async function remove(
-  openai: OpenAI,
-  options?: OpenAI.RequestOptions
+export function remove(
+  client: ObjectiveAI,
+  options?: RequestOptions,
 ): Promise<void> {
-  const _ = await openai.delete("/auth/keys/openrouter", options);
+  return client.delete_unary<void>("/auth/keys/openrouter", undefined, options);
 }

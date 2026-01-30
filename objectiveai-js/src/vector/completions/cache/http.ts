@@ -1,15 +1,16 @@
-import OpenAI from "openai";
+import { ObjectiveAI, RequestOptions } from "../../../client";
 import { CacheVoteRequest } from "./request";
 import { CacheVote } from "./response";
 
-export async function retrieve(
-  openai: OpenAI,
+export function retrieve(
+  client: ObjectiveAI,
   request: CacheVoteRequest,
-  options?: OpenAI.RequestOptions,
+  options?: RequestOptions,
 ): Promise<CacheVote> {
-  const response = await openai.get("/vector/completions/cache", {
-    query: request as unknown as Record<string, unknown>,
-    ...options,
-  });
-  return response as CacheVote;
+  // Using GET with body for complex request object
+  return client.get_unary<CacheVote>(
+    "/vector/completions/cache",
+    request,
+    options,
+  );
 }

@@ -1,9 +1,13 @@
-import OpenAI from "openai";
 import z from "zod";
+import { ObjectiveAI, RequestOptions } from "../client";
 import {
   RemoteScalarFunctionSchema,
   RemoteVectorFunctionSchema,
 } from "./function";
+import {
+  ListItemSchema as ProfileListItemSchema,
+  RetrieveSchema as ProfileRetrieveSchema,
+} from "./profiles/http";
 
 export const ListItemSchema = z.object({
   owner: z
@@ -25,12 +29,11 @@ export const ListSchema = z.object({
 });
 export type List = z.infer<typeof ListSchema>;
 
-export async function list(
-  openai: OpenAI,
-  options?: OpenAI.RequestOptions,
+export function list(
+  client: ObjectiveAI,
+  options?: RequestOptions,
 ): Promise<List> {
-  const response = await openai.get("/functions", options);
-  return response as List;
+  return client.get_unary<List>("/functions", undefined, options);
 }
 
 export const HistoricalUsageSchema = z.object({
@@ -51,20 +54,18 @@ export const HistoricalUsageSchema = z.object({
 });
 export type HistoricalUsage = z.infer<typeof HistoricalUsageSchema>;
 
-export async function retrieveUsage(
-  openai: OpenAI,
+export function retrieveUsage(
+  client: ObjectiveAI,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
-  options?: OpenAI.RequestOptions,
+  options?: RequestOptions,
 ): Promise<HistoricalUsage> {
-  const response = await openai.get(
+  const path =
     fcommit !== null && fcommit !== undefined
       ? `/functions/${fowner}/${frepository}/${fcommit}/usage`
-      : `/functions/${fowner}/${frepository}/usage`,
-    options,
-  );
-  return response as HistoricalUsage;
+      : `/functions/${fowner}/${frepository}/usage`;
+  return client.get_unary<HistoricalUsage>(path, undefined, options);
 }
 
 export const RetrieveSchema = z.discriminatedUnion("type", [
@@ -73,18 +74,91 @@ export const RetrieveSchema = z.discriminatedUnion("type", [
 ]);
 export type Retrieve = z.infer<typeof RetrieveSchema>;
 
-export async function retrieve(
-  openai: OpenAI,
+export function retrieve(
+  client: ObjectiveAI,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
-  options?: OpenAI.RequestOptions,
+  options?: RequestOptions,
 ): Promise<Retrieve> {
-  const response = await openai.get(
+  const path =
     fcommit !== null && fcommit !== undefined
       ? `/functions/${fowner}/${frepository}/${fcommit}`
-      : `/functions/${fowner}/${frepository}`,
+      : `/functions/${fowner}/${frepository}`;
+  return client.get_unary<Retrieve>(path, undefined, options);
+}
+
+// Function-Profile Pairs
+
+export const ListPairItemSchema = z.object({
+  function: ListItemSchema.describe("The function."),
+  profile: ProfileListItemSchema.describe("The profile."),
+});
+export type ListPairItem = z.infer<typeof ListPairItemSchema>;
+
+export const ListPairsSchema = z.object({
+  data: z
+    .array(ListPairItemSchema)
+    .describe("A list of Function-Profile pairs."),
+});
+export type ListPairs = z.infer<typeof ListPairsSchema>;
+
+export function listPairs(
+  client: ObjectiveAI,
+  options?: RequestOptions,
+): Promise<ListPairs> {
+  return client.get_unary<ListPairs>(
+    "/functions/profiles/pairs",
+    undefined,
     options,
   );
-  return response as Retrieve;
+}
+
+export const RetrievePairSchema = z.object({
+  function: RetrieveSchema.describe("The function."),
+  profile: ProfileRetrieveSchema.describe("The profile."),
+});
+export type RetrievePair = z.infer<typeof RetrievePairSchema>;
+
+export function retrievePair(
+  client: ObjectiveAI,
+  fowner: string,
+  frepository: string,
+  fcommit: string | null | undefined,
+  powner: string,
+  prepository: string,
+  pcommit: string | null | undefined,
+  options?: RequestOptions,
+): Promise<RetrievePair> {
+  let path = `/functions/${fowner}/${frepository}`;
+  if (fcommit !== null && fcommit !== undefined) {
+    path += `/${fcommit}`;
+  }
+  path += `/profiles/${powner}/${prepository}`;
+  if (pcommit !== null && pcommit !== undefined) {
+    path += `/${pcommit}`;
+  }
+  return client.get_unary<RetrievePair>(path, undefined, options);
+}
+
+export function retrievePairUsage(
+  client: ObjectiveAI,
+  fowner: string,
+  frepository: string,
+  fcommit: string | null | undefined,
+  powner: string,
+  prepository: string,
+  pcommit: string | null | undefined,
+  options?: RequestOptions,
+): Promise<HistoricalUsage> {
+  let path = `/functions/${fowner}/${frepository}`;
+  if (fcommit !== null && fcommit !== undefined) {
+    path += `/${fcommit}`;
+  }
+  path += `/profiles/${powner}/${prepository}`;
+  if (pcommit !== null && pcommit !== undefined) {
+    path += `/${pcommit}`;
+  }
+  path += "/usage";
+  return client.get_unary<HistoricalUsage>(path, undefined, options);
 }

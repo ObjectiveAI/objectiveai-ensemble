@@ -1,5 +1,5 @@
-import OpenAI from "openai";
 import z from "zod";
+import { ObjectiveAI, RequestOptions } from "../../client";
 import { RemoteProfileSchema } from "../profile";
 
 export const ListItemSchema = z.object({
@@ -22,12 +22,11 @@ export const ListSchema = z.object({
 });
 export type List = z.infer<typeof ListSchema>;
 
-export async function list(
-  openai: OpenAI,
-  options?: OpenAI.RequestOptions,
+export function list(
+  client: ObjectiveAI,
+  options?: RequestOptions,
 ): Promise<List> {
-  const response = await openai.get("/functions/profiles", options);
-  return response as List;
+  return client.get_unary<List>("/functions/profiles", undefined, options);
 }
 
 export const HistoricalUsageSchema = z.object({
@@ -52,37 +51,33 @@ export const HistoricalUsageSchema = z.object({
 });
 export type HistoricalUsage = z.infer<typeof HistoricalUsageSchema>;
 
-export async function retrieveUsage(
-  openai: OpenAI,
+export function retrieveUsage(
+  client: ObjectiveAI,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
-  options?: OpenAI.RequestOptions,
+  options?: RequestOptions,
 ): Promise<HistoricalUsage> {
-  const response = await openai.get(
+  const path =
     pcommit !== null && pcommit !== undefined
       ? `/functions/profiles/${powner}/${prepository}/${pcommit}/usage`
-      : `/functions/profiles/${powner}/${prepository}/usage`,
-    options,
-  );
-  return response as HistoricalUsage;
+      : `/functions/profiles/${powner}/${prepository}/usage`;
+  return client.get_unary<HistoricalUsage>(path, undefined, options);
 }
 
 export const RetrieveSchema = ListItemSchema.merge(RemoteProfileSchema);
 export type Retrieve = z.infer<typeof RetrieveSchema>;
 
-export async function retrieve(
-  openai: OpenAI,
+export function retrieve(
+  client: ObjectiveAI,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
-  options?: OpenAI.RequestOptions,
+  options?: RequestOptions,
 ): Promise<Retrieve> {
-  const response = await openai.get(
+  const path =
     pcommit !== null && pcommit !== undefined
       ? `/functions/profiles/${powner}/${prepository}/${pcommit}`
-      : `/functions/profiles/${powner}/${prepository}`,
-    options,
-  );
-  return response as Retrieve;
+      : `/functions/profiles/${powner}/${prepository}`;
+  return client.get_unary<Retrieve>(path, undefined, options);
 }

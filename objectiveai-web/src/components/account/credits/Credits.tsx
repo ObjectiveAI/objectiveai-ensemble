@@ -20,7 +20,7 @@ import { openAi } from "@/components/Common";
 import { SharedFooter } from "../../SharedFooter";
 import { SharedHeader } from "../../SharedHeader";
 import { LoadingDots } from "@/components/Loading";
-import { APIError } from "openai";
+import { ObjectiveAIFetchError } from "objectiveai";
 import { costFormatter } from "@/format";
 import { Auth } from "objectiveai";
 import { useTheme } from "@/theme";
@@ -29,11 +29,6 @@ const stripePublishableKey =
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ??
   (() => {
     throw new Error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not defined");
-  })();
-const apiUrl =
-  process.env.NEXT_PUBLIC_API_URL ??
-  (() => {
-    throw new Error("NEXT_PUBLIC_API_URL is not defined");
   })();
 
 interface PaymentIntentPreview {
@@ -249,10 +244,10 @@ function BillingAddress({
     setCustomerSession(undefined);
     setBillingAddress(undefined);
     (async () => {
-      const openai = await openAi(session);
-      const customerSession = (await openai.get(
-        `${apiUrl}/stripe/customer`
-      )) as CustomerSession | null;
+      const client = await openAi(session);
+      const customerSession = await client.get_unary<CustomerSession | null>(
+        "/stripe/customer",
+      );
       if (customerSession) {
         const customerSessionBillingAddress =
           customerSessionToBillingAddress(customerSession);
@@ -270,16 +265,21 @@ function BillingAddress({
   const handleSubmit = async () => {
     if (billingAddress === undefined) return;
     setSubmitting(true);
-    const openai = await openAi(session);
+    const client = await openAi(session);
     let attempt = 0;
     while (true) {
       try {
-        await openai.post(`${apiUrl}/stripe/customer`, {
-          body: { name: billingAddress.name, address: billingAddress.address },
+        await client.post_unary("/stripe/customer", {
+          name: billingAddress.name,
+          address: billingAddress.address,
         });
         break;
       } catch (error) {
-        if (error instanceof APIError && error.status === 429 && attempt < 1) {
+        if (
+          error instanceof ObjectiveAIFetchError &&
+          error.code === 429 &&
+          attempt < 1
+        ) {
           attempt += 1;
           // sleep for 10 seconds
           await new Promise((resolve) => setTimeout(resolve, 10000));
@@ -353,10 +353,10 @@ function PurchaseCredits({
   useEffect(() => {
     setBillingAddress(undefined);
     (async () => {
-      const openai = await openAi(session);
-      const customerSession = (await openai.get(
-        `${apiUrl}/stripe/customer`
-      )) as CustomerSession | null;
+      const client = await openAi(session);
+      const customerSession = await client.get_unary<CustomerSession | null>(
+        "/stripe/customer",
+      );
       if (customerSession === null) {
         onNeedBillingAddress();
       } else {
@@ -382,11 +382,11 @@ function PurchaseCredits({
       return;
     }
     (async () => {
-      const openai = await openAi(session);
-      const paymentIntent = (await openai.post(
-        `${apiUrl}/stripe/payment_intent`,
-        { body: { amount_cents: amountCents } }
-      )) as PaymentIntentPreview;
+      const client = await openAi(session);
+      const paymentIntent = await client.post_unary<PaymentIntentPreview>(
+        "/stripe/payment_intent",
+        { amount_cents: amountCents },
+      );
       setPaymentIntentPreview(paymentIntent);
     })();
   }, [session, amountCents]);
@@ -402,22 +402,27 @@ function PurchaseCredits({
   const handleConfirm = async () => {
     if (!paymentIntentPreview) return;
     setConfirming(true);
-    const openai = await openAi(session);
+    const client = await openAi(session);
     let paymentIntent: PaymentIntent;
     let attempt = 0;
     while (true) {
       try {
-        paymentIntent = (await openai.post(`${apiUrl}/stripe/payment_intent`, {
-          body: {
+        paymentIntent = await client.post_unary<PaymentIntent>(
+          "/stripe/payment_intent",
+          {
             amount_cents: amountCents,
             // receipt_email: profile.email,
             save_payment_method: true,
             confirm: true,
           },
-        })) as PaymentIntent;
+        );
         break;
       } catch (error) {
-        if (error instanceof APIError && error.status === 429 && attempt < 1) {
+        if (
+          error instanceof ObjectiveAIFetchError &&
+          error.code === 429 &&
+          attempt < 1
+        ) {
           attempt += 1;
           // sleep for 10 seconds
           await new Promise((resolve) => setTimeout(resolve, 10000));
@@ -426,9 +431,9 @@ function PurchaseCredits({
         }
       }
     }
-    const customerSession = (await openai.get(
-      `${apiUrl}/stripe/customer`
-    )) as CustomerSession | null;
+    const customerSession = await client.get_unary<CustomerSession | null>(
+      "/stripe/customer",
+    );
     if (customerSession === null) {
       onNeedBillingAddress();
     } else {

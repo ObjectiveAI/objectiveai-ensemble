@@ -21,11 +21,65 @@ pub enum OneOrMany<T> {
 /// ```json
 /// {"$jmespath": "input.items[0].name"}
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Expression {
     /// The JMESPath expression string.
     #[serde(rename = "$jmespath")]
     pub jmespath: String,
+}
+
+impl<'de> Deserialize<'de> for Expression {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{self, MapAccess, Visitor};
+        use std::fmt;
+
+        struct ExpressionVisitor;
+
+        impl<'de> Visitor<'de> for ExpressionVisitor {
+            type Value = Expression;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a map with exactly one key '$jmespath' containing a string")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Expression, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                // Get the first (and should be only) key
+                let Some(key) = map.next_key::<String>()? else {
+                    return Err(de::Error::custom(
+                        "expected a map with '$jmespath' key, found empty map",
+                    ));
+                };
+
+                // Must be $jmespath
+                if key != "$jmespath" {
+                    return Err(de::Error::custom(format!(
+                        "expected '$jmespath' key, found '{}'",
+                        key
+                    )));
+                }
+
+                // Get the string value
+                let jmespath: String = map.next_value()?;
+
+                // Ensure there are no more keys
+                if map.next_key::<String>()?.is_some() {
+                    return Err(de::Error::custom(
+                        "expected exactly one key '$jmespath', found additional keys",
+                    ));
+                }
+
+                Ok(Expression { jmespath })
+            }
+        }
+
+        deserializer.deserialize_map(ExpressionVisitor)
+    }
 }
 
 impl Expression {

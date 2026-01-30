@@ -451,7 +451,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
                         )),
                     }?;
                     if let Some(ast) = output_value.as_expref() {
-                        interpret(&input_value, &ast, ctx)
+                        jmespath::interpret(&input_value, &ast, ctx)
                     } else {
                         Ok(output_value)
                     }
@@ -491,13 +491,33 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
                                 column.push(Rc::new(Variable::Null));
                             }
                         }
-                        output_array.push(interpret(
+                        output_array.push(jmespath::interpret(
                             &Rc::new(Variable::Array(column)),
                             &expref,
                             ctx,
                         )?);
                     }
                     Ok(Rc::new(Variable::Array(output_array)))
+                }),
+            )),
+        );
+
+        // Repeat given value n times in an array
+        runtime.register_function(
+            "repeat",
+            Box::new(CustomFunction::new(
+                Signature::new(
+                    vec![ArgumentType::Any, ArgumentType::Number],
+                    None,
+                ),
+                Box::new(|args: &[Rcvar], ctx: &mut Context| {
+                    let value = any_arg(args, ctx, 0, 2)?;
+                    let n = number_arg(args, ctx, 1, 2)? as usize;
+                    let mut array = Vec::with_capacity(n);
+                    for _ in 0..n {
+                        array.push(value.clone());
+                    }
+                    Ok(Rc::new(Variable::Array(array)))
                 }),
             )),
         );
@@ -546,188 +566,3 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
         runtime
     },
 );
-
-/// Copied from jmespath::interpreter
-/// https://github.com/jmespath/jmespath.rs/pull/60
-/// Interprets the given data using an AST node.
-fn interpret(
-    data: &Rcvar,
-    node: &Ast,
-    ctx: &mut Context<'_>,
-) -> Result<Rcvar, JmespathError> {
-    match *node {
-        Ast::Field { ref name, .. } => Ok(data.get_field(name)),
-        Ast::Subexpr {
-            ref lhs, ref rhs, ..
-        } => {
-            let left_result = interpret(data, lhs, ctx)?;
-            interpret(&left_result, rhs, ctx)
-        }
-        Ast::Identity { .. } => Ok(data.clone()),
-        Ast::Literal { ref value, .. } => Ok(value.clone()),
-        Ast::Index { idx, .. } => {
-            if idx >= 0 {
-                Ok(data.get_index(idx as usize))
-            } else {
-                Ok(data.get_negative_index((-idx) as usize))
-            }
-        }
-        Ast::Or {
-            ref lhs, ref rhs, ..
-        } => {
-            let left = interpret(data, lhs, ctx)?;
-            if left.is_truthy() {
-                Ok(left)
-            } else {
-                interpret(data, rhs, ctx)
-            }
-        }
-        Ast::And {
-            ref lhs, ref rhs, ..
-        } => {
-            let left = interpret(data, lhs, ctx)?;
-            if !left.is_truthy() {
-                Ok(left)
-            } else {
-                interpret(data, rhs, ctx)
-            }
-        }
-        Ast::Not { ref node, .. } => {
-            let result = interpret(data, node, ctx)?;
-            Ok(Rcvar::new(Variable::Bool(!result.is_truthy())))
-        }
-        // Returns the resut of RHS if cond yields truthy value.
-        Ast::Condition {
-            ref predicate,
-            ref then,
-            ..
-        } => {
-            let cond_result = interpret(data, predicate, ctx)?;
-            if cond_result.is_truthy() {
-                interpret(data, then, ctx)
-            } else {
-                Ok(Rcvar::new(Variable::Null))
-            }
-        }
-        Ast::Comparison {
-            ref comparator,
-            ref lhs,
-            ref rhs,
-            ..
-        } => {
-            let left = interpret(data, lhs, ctx)?;
-            let right = interpret(data, rhs, ctx)?;
-            Ok(left
-                .compare(comparator, &right)
-                .map_or(Rcvar::new(Variable::Null), |result| {
-                    Rcvar::new(Variable::Bool(result))
-                }))
-        }
-        // Converts an object into a JSON array of its values.
-        Ast::ObjectValues { ref node, .. } => {
-            let subject = interpret(data, node, ctx)?;
-            match *subject {
-                Variable::Object(ref v) => Ok(Rcvar::new(Variable::Array(
-                    v.values().cloned().collect::<Vec<Rcvar>>(),
-                ))),
-                _ => Ok(Rcvar::new(Variable::Null)),
-            }
-        }
-        // Passes the results of lhs into rhs if lhs yields an array and
-        // each node of lhs that passes through rhs yields a non-null value.
-        Ast::Projection {
-            ref lhs, ref rhs, ..
-        } => match interpret(data, lhs, ctx)?.as_array() {
-            None => Ok(Rcvar::new(Variable::Null)),
-            Some(left) => {
-                let mut collected = vec![];
-                for element in left {
-                    let current = interpret(element, rhs, ctx)?;
-                    if !current.is_null() {
-                        collected.push(current);
-                    }
-                }
-                Ok(Rcvar::new(Variable::Array(collected)))
-            }
-        },
-        Ast::Flatten { ref node, .. } => match interpret(data, node, ctx)?
-            .as_array()
-        {
-            None => Ok(Rcvar::new(Variable::Null)),
-            Some(a) => {
-                let mut collected: Vec<Rcvar> = vec![];
-                for element in a {
-                    match element.as_array() {
-                        Some(array) => collected.extend(array.iter().cloned()),
-                        _ => collected.push(element.clone()),
-                    }
-                }
-                Ok(Rcvar::new(Variable::Array(collected)))
-            }
-        },
-        Ast::MultiList { ref elements, .. } => {
-            if data.is_null() {
-                Ok(Rcvar::new(Variable::Null))
-            } else {
-                let mut collected = vec![];
-                for node in elements {
-                    collected.push(interpret(data, node, ctx)?);
-                }
-                Ok(Rcvar::new(Variable::Array(collected)))
-            }
-        }
-        Ast::MultiHash { ref elements, .. } => {
-            if data.is_null() {
-                Ok(Rcvar::new(Variable::Null))
-            } else {
-                let mut collected = BTreeMap::new();
-                for kvp in elements {
-                    let value = interpret(data, &kvp.value, ctx)?;
-                    collected.insert(kvp.key.clone(), value);
-                }
-                Ok(Rcvar::new(Variable::Object(collected)))
-            }
-        }
-        Ast::Function {
-            ref name,
-            ref args,
-            offset,
-        } => {
-            let mut fn_args: Vec<Rcvar> = vec![];
-            for arg in args {
-                fn_args.push(interpret(data, arg, ctx)?);
-            }
-            // Reset the offset so that it points to the function being evaluated.
-            ctx.offset = offset;
-            match ctx.runtime.get_function(name) {
-                Some(f) => f.evaluate(&fn_args, ctx),
-                None => {
-                    let reason = ErrorReason::Runtime(
-                        RuntimeError::UnknownFunction(name.to_owned()),
-                    );
-                    Err(JmespathError::from_ctx(ctx, reason))
-                }
-            }
-        }
-        Ast::Expref { ref ast, .. } => {
-            Ok(Rcvar::new(Variable::Expref(*ast.clone())))
-        }
-        Ast::Slice {
-            start,
-            stop,
-            step,
-            offset,
-        } => {
-            if step == 0 {
-                ctx.offset = offset;
-                let reason = ErrorReason::Runtime(RuntimeError::InvalidSlice);
-                Err(JmespathError::from_ctx(ctx, reason))
-            } else {
-                match data.slice(start, stop, step) {
-                    Some(array) => Ok(Rcvar::new(Variable::Array(array))),
-                    None => Ok(Rcvar::new(Variable::Null)),
-                }
-            }
-        }
-    }
-}
