@@ -241,8 +241,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </button>
                 )}
 
-                {/* User Menu (hidden on mobile) */}
-                {!isMobile && <UserMenu />}
+                {/* User Menu */}
+                <UserMenu isMobile={isMobile} />
               </div>
 
               {/* Hamburger Menu (Mobile) */}

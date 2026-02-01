@@ -57,7 +57,7 @@ export default function Home() {
         minHeight: 'calc(45vh - 100px)',
         paddingTop: isMobile ? '32px' : '48px',
       }}>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '0 32px', maxWidth: '800px' }}>
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: isMobile ? '0 20px' : '0 32px', maxWidth: '800px' }}>
           <div style={{ marginBottom: '12px', width: '100%' }}>
             <HeroText />
           </div>
@@ -85,7 +85,7 @@ export default function Home() {
       </section>
 
       {/* Featured Functions Section */}
-      <section style={{ padding: '0 32px' }}>
+      <section style={{ padding: isMobile ? '0 20px' : '0 32px' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
           <div style={{
             display: 'flex',

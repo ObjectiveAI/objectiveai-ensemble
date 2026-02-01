@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 // Types for team member data
@@ -73,28 +73,28 @@ const SocialIcons = {
 // Person Card Component
 function PersonCard({ person, isMobile }: { person: TeamMember; isMobile: boolean }) {
   return (
-    <div 
+    <div
       className="card"
       style={{
         flex: 1,
         minWidth: isMobile ? '100%' : '340px',
         maxWidth: isMobile ? '100%' : '520px',
-        padding: '24px',
+        padding: isMobile ? '20px' : '24px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
+        gap: isMobile ? '16px' : '20px',
       }}
     >
       {/* Profile Header: Photo + Info */}
       <div style={{
         display: 'flex',
-        gap: '20px',
+        gap: isMobile ? '16px' : '20px',
         alignItems: 'center',
       }}>
         {/* Circle Photo */}
         <div style={{
-          width: '110px',
-          height: '110px',
+          width: isMobile ? '90px' : '110px',
+          height: isMobile ? '90px' : '110px',
           flexShrink: 0,
           borderRadius: '50%',
           background: 'var(--nav-surface)',
@@ -124,7 +124,7 @@ function PersonCard({ person, isMobile }: { person: TeamMember; isMobile: boolea
         {/* Name, Title, Tags - vertically centered with circle */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{
-            fontSize: '20px',
+            fontSize: isMobile ? '18px' : '20px',
             fontWeight: 700,
             marginBottom: '3px',
             color: 'var(--text)',
@@ -133,10 +133,10 @@ function PersonCard({ person, isMobile }: { person: TeamMember; isMobile: boolea
             {person.name}
           </h3>
           <p style={{
-            fontSize: '13px',
+            fontSize: isMobile ? '12px' : '13px',
             color: 'var(--text-muted)',
             fontWeight: 500,
-            marginBottom: '8px',
+            marginBottom: isMobile ? '6px' : '8px',
             lineHeight: 1.3,
           }}>
             {person.title}
@@ -270,14 +270,12 @@ export default function PeoplePage() {
   const [emailSent, setEmailSent] = useState(false);
 
   // Check viewport on mount
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      const checkViewport = () => setIsMobile(window.innerWidth <= 768);
-      checkViewport();
-      window.addEventListener('resize', checkViewport);
-      return () => window.removeEventListener('resize', checkViewport);
-    }
-  });
+  useEffect(() => {
+    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
 
   const handleJoinSubmit = () => {
     setEmailSent(true);
@@ -290,10 +288,10 @@ export default function PeoplePage() {
         {/* Page Header */}
         <div style={{
           textAlign: 'center',
-          marginBottom: '40px',
+          marginBottom: isMobile ? '32px' : '40px',
         }}>
-          <h1 style={{ 
-            fontSize: '32px',
+          <h1 style={{
+            fontSize: isMobile ? '28px' : '32px',
             fontWeight: 700,
             marginBottom: '8px',
             color: 'var(--text)',
@@ -301,7 +299,7 @@ export default function PeoplePage() {
             Co-Founders
           </h1>
           <p style={{
-            fontSize: '16px',
+            fontSize: isMobile ? '15px' : '16px',
             color: 'var(--text-muted)',
             lineHeight: 1.5,
           }}>
@@ -310,7 +308,7 @@ export default function PeoplePage() {
         </div>
 
         {/* Founders Section */}
-        <section style={{ marginBottom: '80px' }}>
+        <section style={{ marginBottom: isMobile ? '48px' : '80px' }}>
           <div className="gridTwo">
             {FOUNDERS.map((founder) => (
               <PersonCard key={founder.id} person={founder} isMobile={isMobile} />
@@ -320,10 +318,10 @@ export default function PeoplePage() {
 
         {/* Join the Team Section */}
         <section>
-          <div 
+          <div
             className="card"
             style={{
-              padding: isMobile ? '32px 24px' : '48px',
+              padding: isMobile ? '28px 20px' : '48px',
               textAlign: 'center',
               maxWidth: '700px',
               margin: '0 auto',

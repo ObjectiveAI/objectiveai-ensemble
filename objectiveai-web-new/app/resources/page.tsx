@@ -1,6 +1,17 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from 'next/link';
 
 export default function ResourcesPage() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
 
   const apiEndpoints = [
     {
@@ -114,10 +125,10 @@ export default function ResourcesPage() {
         {/* Hero */}
         <div style={{
           textAlign: 'center',
-          marginBottom: '40px',
+          marginBottom: isMobile ? '32px' : '40px',
         }}>
-          <h1 style={{ 
-            fontSize: '32px',
+          <h1 style={{
+            fontSize: isMobile ? '28px' : '32px',
             fontWeight: 700,
             marginBottom: '8px',
             color: 'var(--text)',
@@ -125,7 +136,7 @@ export default function ResourcesPage() {
             Resources
           </h1>
           <p style={{
-            fontSize: '16px',
+            fontSize: isMobile ? '14px' : '16px',
             color: 'var(--text-muted)',
             lineHeight: 1.5,
           }}>
@@ -135,7 +146,7 @@ export default function ResourcesPage() {
 
         {/* Resource Cards */}
         <div className="gridThree" style={{
-          marginBottom: '100px',
+          marginBottom: isMobile ? '60px' : '100px',
         }}>
           <Link href="/faq" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="card" style={{
@@ -143,10 +154,10 @@ export default function ResourcesPage() {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              padding: '24px',
+              padding: isMobile ? '16px' : '24px',
             }}>
               <h3 style={{
-                fontSize: '17px',
+                fontSize: isMobile ? '16px' : '17px',
                 fontWeight: 600,
                 marginBottom: '8px',
                 color: 'var(--text)',
@@ -154,7 +165,7 @@ export default function ResourcesPage() {
                 FAQ
               </h3>
               <p style={{
-                fontSize: '14px',
+                fontSize: isMobile ? '13px' : '14px',
                 color: 'var(--text-muted)',
                 lineHeight: 1.6,
                 flex: 1,
@@ -181,10 +192,10 @@ export default function ResourcesPage() {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              padding: '24px',
+              padding: isMobile ? '16px' : '24px',
             }}>
               <h3 style={{
-                fontSize: '17px',
+                fontSize: isMobile ? '16px' : '17px',
                 fontWeight: 600,
                 marginBottom: '8px',
                 color: 'var(--text)',
@@ -192,7 +203,7 @@ export default function ResourcesPage() {
                 Terms of Service
               </h3>
               <p style={{
-                fontSize: '14px',
+                fontSize: isMobile ? '13px' : '14px',
                 color: 'var(--text-muted)',
                 lineHeight: 1.6,
                 flex: 1,
@@ -219,10 +230,10 @@ export default function ResourcesPage() {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              padding: '24px',
+              padding: isMobile ? '16px' : '24px',
             }}>
               <h3 style={{
-                fontSize: '17px',
+                fontSize: isMobile ? '16px' : '17px',
                 fontWeight: 600,
                 marginBottom: '8px',
                 color: 'var(--text)',
@@ -230,7 +241,7 @@ export default function ResourcesPage() {
                 Privacy Policy
               </h3>
               <p style={{
-                fontSize: '14px',
+                fontSize: isMobile ? '13px' : '14px',
                 color: 'var(--text-muted)',
                 lineHeight: 1.6,
                 flex: 1,
@@ -253,20 +264,20 @@ export default function ResourcesPage() {
         </div>
 
         {/* API Docs Section */}
-        <div style={{ marginBottom: '100px' }}>
-          <h2 className="heading2" style={{ marginBottom: '32px' }}>API Documentation</h2>
+        <div style={{ marginBottom: isMobile ? '60px' : '100px' }}>
+          <h2 className="heading2" style={{ marginBottom: isMobile ? '24px' : '32px' }}>API Documentation</h2>
 
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '48px',
+            gap: isMobile ? '32px' : '48px',
           }}>
             {apiEndpoints.map((section, idx) => (
               <div key={idx}>
                 <h3 style={{
-                  fontSize: '20px',
+                  fontSize: isMobile ? '18px' : '20px',
                   fontWeight: 600,
-                  marginBottom: '16px',
+                  marginBottom: isMobile ? '12px' : '16px',
                   color: 'var(--text)',
                 }}>
                   {section.category}
@@ -274,48 +285,49 @@ export default function ResourcesPage() {
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '12px',
+                  gap: isMobile ? '16px' : '12px',
                 }}>
                   {section.endpoints.map((endpoint, endIdx) => (
                     <div
                       key={endIdx}
                       style={{
                         display: 'flex',
-                        gap: '16px',
-                        alignItems: 'flex-start',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        gap: isMobile ? '4px' : '16px',
+                        alignItems: isMobile ? 'flex-start' : 'flex-start',
                       }}
                     >
                       <span style={{
-                        fontSize: '13px',
+                        fontSize: isMobile ? '11px' : '13px',
                         fontWeight: 600,
-                        padding: '4px 8px',
+                        padding: isMobile ? '2px 6px' : '4px 8px',
                         borderRadius: '4px',
                         flexShrink: 0,
                         lineHeight: 1,
-                        marginTop: '-1px',
                         color: endpoint.method === 'GET' ? '#10b981' :
                                endpoint.method === 'POST' ? 'var(--accent)' :
                                endpoint.method === 'DELETE' ? '#ef4444' : 'var(--text)',
                       }}>
                         {endpoint.method}
                       </span>
-                      <div style={{ flex: 1 }}>
-                        <div 
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
                           className="endpointPath"
                           style={{
-                            fontSize: '14px',
+                            fontSize: isMobile ? '12px' : '14px',
                             fontFamily: 'monospace',
                             fontWeight: 600,
                             color: 'var(--text)',
                             marginBottom: '4px',
                             lineHeight: 1.4,
                             cursor: 'pointer',
+                            wordBreak: 'break-all',
                           }}
                         >
                           {endpoint.path}
                         </div>
                         <div style={{
-                          fontSize: '14px',
+                          fontSize: isMobile ? '13px' : '14px',
                           color: 'var(--text-muted)',
                           lineHeight: 1.4,
                         }}>
@@ -331,12 +343,12 @@ export default function ResourcesPage() {
         </div>
 
         {/* SDKs Section */}
-        <div style={{ marginBottom: '100px' }}>
+        <div style={{ marginBottom: isMobile ? '60px' : '100px' }}>
           <h2 className="heading2" style={{ marginBottom: '12px' }}>SDKs</h2>
           <p style={{
-            fontSize: '15px',
+            fontSize: isMobile ? '14px' : '15px',
             color: 'var(--text-muted)',
-            marginBottom: '32px',
+            marginBottom: isMobile ? '24px' : '32px',
           }}>
             Set up your development environment to use the ObjectiveAI API with an Open-Source SDK in your preferred language.
           </p>
@@ -344,12 +356,12 @@ export default function ResourcesPage() {
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '32px',
+            gap: isMobile ? '24px' : '32px',
           }}>
             {sdks.map((sdk, idx) => (
               <div key={idx}>
                 <h3 style={{
-                  fontSize: '20px',
+                  fontSize: isMobile ? '18px' : '20px',
                   fontWeight: 600,
                   marginBottom: '12px',
                   paddingBottom: '12px',

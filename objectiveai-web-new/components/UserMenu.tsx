@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginModal from "./LoginModal";
 
@@ -10,6 +11,7 @@ type UserMenuProps = {
 
 export default function UserMenu({ isMobile = false }: UserMenuProps) {
   const { user, isLoading, signOut } = useAuth();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -197,12 +199,16 @@ export default function UserMenu({ isMobile = false }: UserMenuProps) {
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               }
-              label="Profile"
-              onClick={() => setIsOpen(false)}
+              label="Credits"
+              onClick={() => {
+                setIsOpen(false);
+                router.push('/account/credits');
+              }}
             />
             <MenuItem
               icon={
@@ -214,12 +220,14 @@ export default function UserMenu({ isMobile = false }: UserMenuProps) {
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m15.36-5.64l-4.24 4.24m0 0L7.64 7.64m4.48 4.48l-4.24 4.24m4.24-4.24l4.24 4.24" />
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
                 </svg>
               }
-              label="Settings"
-              onClick={() => setIsOpen(false)}
+              label="API Keys"
+              onClick={() => {
+                setIsOpen(false);
+                router.push('/account/keys');
+              }}
             />
 
             <div

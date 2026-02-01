@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GitHubIcon, DiscordIcon, XIcon, LinkedInIcon, YouTubeIcon } from "./SocialIcons";
 
 export default function Footer() {
   const [emailSent, setEmailSent] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
 
   const handleSubmit = () => {
     setEmailSent(true);
@@ -27,7 +35,7 @@ export default function Footer() {
       <div style={{
         maxWidth: '1100px',
         margin: '0 auto',
-        padding: '0 32px',
+        padding: isMobile ? '0 20px' : '0 32px',
       }}>
         <div style={{
           padding: '12px 24px 4px',
