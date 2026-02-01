@@ -53,8 +53,8 @@ fn register_custom_functions(builder: &mut GlobalsBuilder) {
     }
 
     /// Round a number to the nearest integer.
-    fn round(#[starlark(require = pos)] x: UnpackFloat) -> starlark::Result<i32> {
-        Ok(x.0.round() as i32)
+    fn round(#[starlark(require = pos)] x: UnpackFloat) -> starlark::Result<i64> {
+        Ok(x.0.round() as i64)
     }
 }
 
