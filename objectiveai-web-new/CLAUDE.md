@@ -78,8 +78,22 @@ This means the system first checks for retry token votes, then cached votes, the
 
 Only disable these flags when you need real LLM responses (e.g., testing actual model behavior, production deployments).
 
+## Layout Standards
+
+- **Mobile padding**: 16px horizontal (not 20px)
+- **Desktop padding**: 32px horizontal
+- **Breakpoints**: 640px (mobile), 1024px (tablet), 1100px+ (desktop)
+- **Mobile menu**: Horizontal dropdown with 3 columns (matches footer layout), not a slide-over drawer
+
+## Asset Locations
+
+- **Founder photos**: `public/photos/maya.jpg`, `public/photos/ronald.jpg`
+- **Planning assets**: `planning/` directory contains moodboards, wireframes, color system references
+
 ## Current State Notes
 
 - **Auth bypass**: Account pages (keys, credits) have `BYPASS_AUTH = true` for development. Remove when auth is working.
 - **API key in .env**: The `.env` file contains `OBJECTIVEAI_API_KEY`. This file is gitignored - never commit it.
 - **Vibe-native hyperprompt**: Currently lorem ipsum placeholder. Needs real content from Ronald.
+- **Functions integration**: Complete - uses real ObjectiveAI SDK with streaming support (no mock data)
+- **File uploads**: Disabled pending backend support for function expressions with media types
