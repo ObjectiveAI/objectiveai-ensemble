@@ -58,52 +58,74 @@ console.log(result.output);`;
           </p>
         </div>
 
-        {/* Links */}
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          marginBottom: '32px',
-          flexWrap: 'wrap',
+        {/* CTA Card */}
+        <div className="card" style={{
+          padding: isMobile ? '24px 20px' : '32px',
+          marginBottom: '24px',
+          textAlign: 'center',
         }}>
-          <a
-            href="https://www.npmjs.com/package/objectiveai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pillBtn"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              background: 'var(--accent)',
-              color: 'var(--color-light)',
-              textDecoration: 'none',
-            }}
-          >
-            npm
-          </a>
-          <a
-            href="https://github.com/anthropics/objectiveai-js"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pillBtn"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              background: 'transparent',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-              textDecoration: 'none',
-            }}
-          >
-            GitHub
-          </a>
+          <h2 style={{
+            fontSize: isMobile ? '18px' : '20px',
+            fontWeight: 600,
+            marginBottom: '12px',
+          }}>
+            Get Started with the SDK
+          </h2>
+          <p style={{
+            color: 'var(--text-muted)',
+            fontSize: '14px',
+            marginBottom: '20px',
+            maxWidth: '400px',
+            margin: '0 auto 20px',
+          }}>
+            Install the package and start making requests in minutes.
+          </p>
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+          }}>
+            <a
+              href="https://www.npmjs.com/package/objectiveai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pillBtn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '14px 28px',
+                fontSize: '15px',
+                fontWeight: 600,
+                background: 'var(--accent)',
+                color: 'var(--color-light)',
+                textDecoration: 'none',
+              }}
+            >
+              npm
+            </a>
+            <a
+              href="https://github.com/anthropics/objectiveai-js"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pillBtn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '14px 28px',
+                fontSize: '15px',
+                fontWeight: 600,
+                background: 'transparent',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                textDecoration: 'none',
+              }}
+            >
+              GitHub
+            </a>
+          </div>
         </div>
 
         {/* Install */}

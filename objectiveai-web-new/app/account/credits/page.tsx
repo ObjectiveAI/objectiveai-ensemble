@@ -116,7 +116,7 @@ export default function CreditsPage() {
 
   return (
     <div className="page">
-      <div className="container" style={{ padding: isMobile ? '0 20px' : '0 32px' }}>
+      <div className="container" style={{ padding: isMobile ? '0 16px' : '0 32px' }}>
         {/* Page Header */}
         <div style={{
           marginBottom: isMobile ? '32px' : '40px',

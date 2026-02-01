@@ -2,6 +2,10 @@
 
 Guidelines for working with the ObjectiveAI SDK in this project.
 
+## Scope
+
+**Only work within `objectiveai-web-new/` unless explicitly instructed otherwise.** This is Maya's frontend workspace. Backend, API, SDK, and other directories are off-limits unless the user specifically directs you there.
+
 ## Team Context
 
 **Maya Gore** - COO & Co-Founder. Handles UI/UX, creative direction, and frontend work. This is her workspace.

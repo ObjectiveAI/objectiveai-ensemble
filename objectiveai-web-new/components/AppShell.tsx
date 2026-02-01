@@ -394,106 +394,74 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-      </nav>
 
-      {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div
-          onClick={() => setMobileMenuOpen(false)}
-          style={{
-            position: 'fixed',
-            top: 0,
+        {/* Mobile Menu Dropdown - horizontal layout like footer */}
+        {isMobile && mobileMenuOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
             left: 0,
             right: 0,
-            bottom: 0,
-            background: theme === 'dark' ? 'rgba(27, 27, 27, 0.85)' : 'rgba(27, 27, 27, 0.5)',
-            zIndex: 998,
-            opacity: mobileMenuOpen ? 1 : 0,
-            transition: 'opacity 0.3s',
-          }}
-        />
-      )}
-
-      {/* Mobile Menu Drawer */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        width: '280px',
-        maxWidth: '80vw',
-        height: '100vh',
-        background: 'var(--card-bg)',
-        zIndex: 999,
-        padding: '24px',
-        transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(100%)',
-        transition: 'transform 0.3s ease',
-        boxShadow: '-4px 0 20px var(--shadow)',
-      }}>
-        <div style={{ marginBottom: '32px', paddingTop: '8px' }}>
-          <button
-            onClick={() => setMobileMenuOpen(false)}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: 'var(--text)',
-            }}
-            aria-label="Close menu"
-          >
-            ✕
-          </button>
-        </div>
-        
-        {navLinks.map(link => (
-          <div key={link.href} style={{ borderBottom: '1px solid var(--border)' }}>
-            <Link
-              href={link.href}
-              onClick={() => setMobileMenuOpen(false)}
-              style={{
-                display: 'block',
-                padding: '16px 0',
-                fontSize: '18px',
-                fontWeight: 600,
-                color: isActive(link.href) ? 'var(--accent)' : 'var(--text)',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-              }}
-            >
-              {link.label}
-            </Link>
-            {/* Sub-links for mobile */}
-            {link.subLinks && link.subLinks.length > 1 && (
-              <div style={{
-                paddingBottom: '12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-              }}>
-                {link.subLinks.map(sub => (
+            padding: '8px 16px 12px',
+            zIndex: 999,
+          }}>
+            <div style={{
+              background: 'var(--card-bg)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              boxShadow: '0 4px 20px var(--shadow)',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+            }}>
+              {navLinks.map((link) => (
+                <div key={link.href} style={{ flex: 1 }}>
                   <Link
-                    key={sub.href}
-                    href={sub.href}
+                    href={link.href}
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
                       display: 'block',
-                      padding: '8px 16px',
-                      fontSize: '15px',
-                      fontWeight: 400,
-                      color: pathname === sub.href ? 'var(--accent)' : 'var(--text-muted)',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: isActive(link.href) ? 'var(--accent)' : 'var(--text-muted)',
                       textDecoration: 'none',
-                      borderRadius: '8px',
-                      transition: 'all 0.15s',
+                      marginBottom: '6px',
                     }}
                   >
-                    {sub.label}
+                    {link.label}
                   </Link>
-                ))}
-              </div>
-            )}
+                  {link.subLinks && link.subLinks.length > 1 && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                    }}>
+                      {link.subLinks.map(sub => (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          style={{
+                            display: 'block',
+                            fontSize: '13px',
+                            fontWeight: 400,
+                            color: pathname === sub.href ? 'var(--accent)' : 'var(--text)',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          {sub.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
+        )}
+      </nav>
 
       {/* Page Content */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>

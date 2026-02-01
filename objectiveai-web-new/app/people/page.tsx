@@ -30,6 +30,7 @@ const FOUNDERS: TeamMember[] = [
     bio: "Building the infrastructure for objective AI evaluation. Previously worked on distributed systems and machine learning pipelines. Passionate about making AI more transparent and accountable through ensemble methods.",
     focusAreas: ["Software Engineer", "Programmer", "AI Architect"],
     contactEmail: "", // Removed for now
+    photoUrl: "/photos/ronald.jpg",
     socials: {
       x: "https://x.com/ronald_obj_ai",
       linkedin: "https://www.linkedin.com/in/ronald-riggles-908a29235/",
@@ -43,6 +44,7 @@ const FOUNDERS: TeamMember[] = [
     bio: "Designing experiences that make complex AI systems feel intuitive. Background in product design and creative technology. Believes great tools should be invisible, letting users focus on what matters.",
     focusAreas: ["User Interface", "Creative Direction", "Vibe Coder"],
     contactEmail: "", // Removed for now
+    photoUrl: "/photos/maya.jpg",
     socials: {
       x: "https://x.com/mkgores",
       linkedin: "https://www.linkedin.com/in/maya-gore-4ab87b301/",

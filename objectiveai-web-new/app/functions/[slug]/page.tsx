@@ -790,7 +790,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       <div style={{
         maxWidth: "1400px",
         margin: "0 auto",
-        padding: isMobile ? "0 20px" : "0 32px",
+        padding: isMobile ? "0 16px" : "0 32px",
       }}>
         {/* Breadcrumb Row with Pin */}
         <div style={{

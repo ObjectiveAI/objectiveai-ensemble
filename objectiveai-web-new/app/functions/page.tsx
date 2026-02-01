@@ -187,7 +187,7 @@ export default function FunctionsPage() {
         maxWidth: '1400px',
         marginLeft: 'auto',
         marginRight: 'auto',
-        padding: isMobile ? '0 20px' : '0 32px',
+        padding: isMobile ? '0 16px' : '0 32px',
         boxSizing: 'border-box',
       }}>
         {/* Header */}
