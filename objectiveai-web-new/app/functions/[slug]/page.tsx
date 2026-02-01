@@ -363,6 +363,14 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     );
   };
 
+  // Score color gradient: green (100%) → yellow (66%) → orange (33%) → red (0%)
+  const getScoreColor = (percentage: number): string => {
+    if (percentage >= 66) return "rgb(34, 197, 94)";   // green
+    if (percentage >= 33) return "rgb(234, 179, 8)";   // yellow
+    if (percentage >= 15) return "rgb(249, 115, 22)";  // orange
+    return "rgb(239, 68, 68)";                          // red
+  };
+
   // Helper to get content item label
   const getContentLabel = (index: number): string => {
     const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
@@ -397,6 +405,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     if (typeof output === "number") {
       const pct = output * 100;
       const keywords = results.inputSnapshot?.keywords as string[] | undefined;
+      const scoreColor = getScoreColor(pct);
 
       return (
         <div>
@@ -410,7 +419,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
           <p style={{
             fontSize: isMobile ? "42px" : "56px",
             fontWeight: 700,
-            color: "var(--accent)",
+            color: scoreColor,
             lineHeight: 1,
             marginBottom: "12px",
           }}>
@@ -427,7 +436,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
             <div style={{
               height: "100%",
               width: `${pct}%`,
-              background: "linear-gradient(90deg, var(--accent), #a78bfa)",
+              background: scoreColor,
               borderRadius: "5px",
               transition: "width 0.5s ease",
             }} />
@@ -443,14 +452,6 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
     // Vector output (array of numbers) - Rankings
     if (Array.isArray(output)) {
-      const getScoreColor = (score: number, isTop: boolean) => {
-        if (isTop) return "rgb(34, 197, 94)"; // Green for #1
-        const pct = score * 100;
-        if (pct >= 25) return "rgb(168, 230, 120)";
-        if (pct >= 15) return "rgb(234, 179, 8)";
-        return "rgb(249, 115, 22)";
-      };
-
       const sorted = output
         .map((score, i) => ({ index: i, score, label: getContentLabel(i) }))
         .sort((a, b) => b.score - a.score);
@@ -496,7 +497,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                   <span style={{
                     fontSize: "16px",
                     fontWeight: 700,
-                    color: getScoreColor(item.score, isTop),
+                    color: getScoreColor(pct),
                     width: "50px",
                     flexShrink: 0,
                   }}>
@@ -784,13 +785,6 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                         return `Option ${letters[idx] || idx + 1}`;
                       };
 
-                      // Score-based color only (green = confident, yellow = moderate, orange = uncertain)
-                      const getConfidenceColor = (pct: number) => {
-                        if (pct >= 70) return "rgb(34, 197, 94)";
-                        if (pct >= 45) return "rgb(234, 179, 8)";
-                        return "rgb(249, 115, 22)";
-                      };
-
                       return (
                         <>
                           <p style={{
@@ -805,7 +799,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                             {votes.slice(0, 5).map((vote, modelIdx) => {
                               const maxVoteIdx = vote.vote.indexOf(Math.max(...vote.vote));
                               const confidence = Math.max(...vote.vote) * 100;
-                              const variance = Math.round((100 - confidence) * 0.4);
+                              // Use actual model ID (shortened for display)
+                              const shortModelId = vote.model.slice(0, 8);
 
                               return (
                                 <div key={modelIdx}>
@@ -816,18 +811,22 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                                     marginBottom: "8px",
                                   }}>
                                     <span style={{ fontSize: "13px", color: "var(--text)" }}>
-                                      Model {modelIdx + 1} → {getOptionLabel(maxVoteIdx)}
+                                      <span style={{ fontFamily: "monospace", fontSize: "12px", color: "var(--text-muted)" }}>
+                                        {shortModelId}
+                                      </span>
+                                      <span style={{ margin: "0 6px", color: "var(--text-muted)" }}>→</span>
+                                      {getOptionLabel(maxVoteIdx)}
                                     </span>
                                     <span style={{ fontSize: "13px" }}>
-                                      <span style={{ color: "var(--text)", fontWeight: 500 }}>
+                                      <span style={{ color: getScoreColor(confidence), fontWeight: 500 }}>
                                         {confidence.toFixed(0)}%
                                       </span>
-                                      <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "12px" }}>
-                                        ±{variance}%
+                                      <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px" }}>
+                                        w:{vote.weight}
                                       </span>
                                     </span>
                                   </div>
-                                  {/* Progress bar - color based on confidence */}
+                                  {/* Progress bar - muted fill, no color */}
                                   <div style={{
                                     height: "6px",
                                     background: "var(--border)",
@@ -837,8 +836,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                                     <div style={{
                                       height: "100%",
                                       width: `${confidence}%`,
-                                      background: getConfidenceColor(confidence),
+                                      background: "var(--text-muted)",
                                       borderRadius: "3px",
+                                      opacity: 0.4,
                                     }} />
                                   </div>
                                 </div>
