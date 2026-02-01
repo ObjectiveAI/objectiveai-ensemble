@@ -58,6 +58,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
           message?: {
             content?: string;
           };
+          delta?: {
+            content?: string;
+          };
         }>;
       }>;
       scores?: number[];
@@ -240,23 +243,87 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       // Check if streaming response
       const contentType = response.headers.get("content-type");
       if (contentType?.includes("text/event-stream")) {
-        // Handle SSE streaming
+        // Handle SSE streaming with proper chunk merging
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+
+        // Accumulated state - properly merged across chunks
+        type AccumulatedTask = NonNullable<typeof results>["tasks"] extends (infer T)[] | undefined ? T : never;
         let accumulatedOutput: number | number[] | undefined;
-        let accumulatedTasks: typeof results extends { tasks?: infer T } ? T : undefined;
-        let accumulatedUsage: typeof results extends { usage?: infer U } ? U : undefined;
+        let accumulatedTasks: AccumulatedTask[] = [];
+        let accumulatedUsage: NonNullable<typeof results>["usage"] | undefined;
         let accumulatedReasoningContent = "";
 
-        while (reader) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!value) continue;
+        // Helper: Merge completions by model, accumulating delta content
+        type CompletionType = NonNullable<AccumulatedTask["completions"]>[number];
+        const mergeCompletions = (existing: CompletionType[] | undefined, incoming: CompletionType[] | undefined): CompletionType[] | undefined => {
+          if (!Array.isArray(incoming) || incoming.length === 0) return existing;
+          if (!Array.isArray(existing) || existing.length === 0) return incoming;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n\n");
-          buffer = lines.pop() || "";
+          const result = [...existing];
+          for (const comp of incoming) {
+            if (!comp) continue;
+            const existingIdx = result.findIndex(c => c.model === comp.model);
+            if (existingIdx === -1) {
+              result.push(comp);
+            } else {
+              // Merge: accumulate delta content
+              const existingComp = result[existingIdx];
+              const existingContent = existingComp.choices?.[0]?.delta?.content || existingComp.choices?.[0]?.message?.content || "";
+              const incomingContent = comp.choices?.[0]?.delta?.content || "";
+              const mergedContent = existingContent + incomingContent;
+
+              result[existingIdx] = {
+                ...existingComp,
+                choices: [{
+                  ...existingComp.choices?.[0],
+                  delta: { content: mergedContent },
+                  message: comp.choices?.[0]?.message || existingComp.choices?.[0]?.message,
+                }],
+              };
+            }
+          }
+          return result;
+        };
+
+        // Helper: Merge tasks by index (like SDK's TaskChunk.mergedList)
+        const mergeTasks = (existing: AccumulatedTask[], incoming: AccumulatedTask[]): AccumulatedTask[] => {
+          const result = [...existing];
+          for (const task of incoming) {
+            if (!task) continue;
+            const taskIndex = (task as { index?: number }).index;
+            const existingIdx = result.findIndex(t => t && (t as { index?: number }).index === taskIndex);
+            if (existingIdx === -1) {
+              // New task, add it
+              result.push(task);
+            } else {
+              // Merge existing task - combine votes, completions (with delta accumulation), scores
+              const existingTask = result[existingIdx];
+              result[existingIdx] = {
+                ...existingTask,
+                votes: Array.isArray(task.votes) && task.votes.length > 0 ? task.votes : existingTask?.votes,
+                completions: mergeCompletions(existingTask?.completions, task.completions),
+                scores: Array.isArray(task.scores) && task.scores.length > 0 ? task.scores : existingTask?.scores,
+              };
+            }
+          }
+          return result;
+        };
+
+        if (!reader) {
+          throw new Error("Response body is not readable");
+        }
+
+        try {
+          while (true) {
+            const readResult = await reader.read();
+            if (readResult.done) break;
+            if (!readResult.value) continue;
+
+            buffer += decoder.decode(readResult.value, { stream: true });
+            const lines = buffer.split("\n\n");
+            buffer = lines.pop() || "";
 
           for (const line of lines) {
             if (line.startsWith("data: ")) {
@@ -270,35 +337,44 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                   throw new Error(chunk.error);
                 }
 
-                // Merge chunk into accumulated result
+                // Merge output (take latest)
                 if (chunk.output !== undefined) accumulatedOutput = chunk.output;
-                if (chunk.tasks) accumulatedTasks = chunk.tasks;
+
+                // Merge tasks by index
+                if (chunk.tasks && Array.isArray(chunk.tasks)) {
+                  accumulatedTasks = mergeTasks(accumulatedTasks, chunk.tasks);
+                }
+
+                // Merge usage (take latest)
                 if (chunk.usage) accumulatedUsage = chunk.usage;
 
-                // Handle streaming reasoning content
+                // Merge reasoning delta content (concatenate like SDK's mergedString)
                 if (chunk.reasoning?.choices?.[0]?.delta?.content) {
                   accumulatedReasoningContent += chunk.reasoning.choices[0].delta.content;
                 } else if (chunk.reasoning?.choices?.[0]?.message?.content) {
+                  // Full message (non-streaming fallback)
                   accumulatedReasoningContent = chunk.reasoning.choices[0].message.content;
                 }
 
-                // Only update UI if we have output
-                if (accumulatedOutput !== undefined) {
-                  setResults({
-                    output: accumulatedOutput,
-                    inputSnapshot: { ...formData },
-                    usage: accumulatedUsage,
-                    tasks: accumulatedTasks,
-                    reasoning: accumulatedReasoningContent ? {
-                      choices: [{ message: { content: accumulatedReasoningContent } }]
-                    } : undefined,
-                  });
-                }
+                // Update UI progressively
+                setResults({
+                  output: accumulatedOutput,
+                  inputSnapshot: { ...formData },
+                  usage: accumulatedUsage,
+                  tasks: accumulatedTasks.length > 0 ? accumulatedTasks : undefined,
+                  reasoning: accumulatedReasoningContent ? {
+                    choices: [{ message: { content: accumulatedReasoningContent } }]
+                  } : undefined,
+                });
               } catch (parseErr) {
                 console.error("Failed to parse chunk:", parseErr);
               }
             }
           }
+        }
+        } catch (streamErr) {
+          console.error("Stream reading error:", streamErr);
+          throw streamErr;
         }
       } else {
         // Non-streaming fallback
@@ -932,7 +1008,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                                 const isExpanded = expandedVotes.has(modelIdx);
                                 // Find matching completion by model ID
                                 const completion = completions.find(c => c.model === vote.model);
-                                const reasoningText = completion?.choices?.[0]?.message?.content;
+                                // Handle both streaming (delta) and non-streaming (message) structures
+                                const choice = completion?.choices?.[0];
+                                const reasoningText = choice?.message?.content || choice?.delta?.content;
 
                                 return (
                                   <div key={modelIdx}>

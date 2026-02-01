@@ -24,9 +24,22 @@ export function getClient(): ObjectiveAI {
 export const DEV_EXECUTION_OPTIONS = {
   from_cache: true,
   from_rng: true,
-  stream: false, // Disabled - streaming chunks have different structure, needs more work
-  reasoning: {
-    model: "openai/gpt-4o-mini", // Fast, cheap model for reasoning summary
+  stream: false, // Disabled - Next.js dev mode has issues with fetch streaming
+  // reasoning: disabled by default to avoid costs
+  // To enable, uncomment below (costs ~$0.0001-0.001 per execution):
+  // reasoning: {
+  //   model: {
+  //     model: "openai/gpt-4o-mini",
+  //     output_mode: "instruction" as const,
+  //   },
+  // },
+} as const;
+
+// Reasoning config for when you want AI-generated explanations (has cost)
+export const REASONING_MODEL = {
+  model: {
+    model: "openai/gpt-4o-mini",
+    output_mode: "instruction" as const,
   },
 } as const;
 
