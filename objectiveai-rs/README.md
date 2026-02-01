@@ -23,7 +23,7 @@ objectiveai = "0.1.1"
 
 - **Data structures and validation** for Ensemble LLMs, Ensembles, Functions, and Profiles
 - **Deterministic ID computation** using XXHash3-128 (content-addressed identities)
-- **Client-side Function compilation** with JMESPath expression evaluation
+- **Client-side Function compilation** with JMESPath and Starlark expression evaluation
 - **HTTP client** with streaming support (optional, enabled by default)
 
 ### Feature Flags

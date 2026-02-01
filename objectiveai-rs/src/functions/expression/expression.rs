@@ -1,6 +1,6 @@
-//! Core expression types for JMESPath evaluation.
+//! Core expression types for JMESPath and Starlark evaluation.
 
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 /// Result of an expression that may produce one or many values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,20 +12,42 @@ pub enum OneOrMany<T> {
     Many(Vec<T>),
 }
 
-/// A JMESPath expression.
+/// An expression that can be either JMESPath or Starlark.
 ///
-/// Serializes as `{"$jmespath": "expression_string"}` in JSON.
+/// Serializes as `{"$jmespath": "..."}` or `{"$starlark": "..."}` in JSON.
 ///
-/// # Example
+/// # Examples
 ///
+/// JMESPath:
 /// ```json
 /// {"$jmespath": "input.items[0].name"}
 /// ```
-#[derive(Debug, Clone, Serialize)]
-pub struct Expression {
-    /// The JMESPath expression string.
-    #[serde(rename = "$jmespath")]
-    pub jmespath: String,
+///
+/// Starlark:
+/// ```json
+/// {"$starlark": "input['items'][0]['name']"}
+/// ```
+#[derive(Debug, Clone)]
+pub enum Expression {
+    /// A JMESPath expression.
+    JMESPath(String),
+    /// A Starlark expression.
+    Starlark(String),
+}
+
+impl Serialize for Expression {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(1))?;
+        match self {
+            Expression::JMESPath(expr) => map.serialize_entry("$jmespath", expr)?,
+            Expression::Starlark(expr) => map.serialize_entry("$starlark", expr)?,
+        }
+        map.end()
+    }
 }
 
 impl<'de> Deserialize<'de> for Expression {
@@ -42,7 +64,9 @@ impl<'de> Deserialize<'de> for Expression {
             type Value = Expression;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a map with exactly one key '$jmespath' containing a string")
+                formatter.write_str(
+                    "a map with exactly one key '$jmespath' or '$starlark' containing a string",
+                )
             }
 
             fn visit_map<M>(self, mut map: M) -> Result<Expression, M::Error>
@@ -52,29 +76,28 @@ impl<'de> Deserialize<'de> for Expression {
                 // Get the first (and should be only) key
                 let Some(key) = map.next_key::<String>()? else {
                     return Err(de::Error::custom(
-                        "expected a map with '$jmespath' key, found empty map",
+                        "expected '$jmespath' or '$starlark' key, found empty map",
                     ));
                 };
 
-                // Must be $jmespath
-                if key != "$jmespath" {
-                    return Err(de::Error::custom(format!(
-                        "expected '$jmespath' key, found '{}'",
-                        key
-                    )));
-                }
-
                 // Get the string value
-                let jmespath: String = map.next_value()?;
+                let expr: String = map.next_value()?;
 
                 // Ensure there are no more keys
                 if map.next_key::<String>()?.is_some() {
                     return Err(de::Error::custom(
-                        "expected exactly one key '$jmespath', found additional keys",
+                        "expected exactly one expression key, found additional keys",
                     ));
                 }
 
-                Ok(Expression { jmespath })
+                match key.as_str() {
+                    "$jmespath" => Ok(Expression::JMESPath(expr)),
+                    "$starlark" => Ok(Expression::Starlark(expr)),
+                    other => Err(de::Error::custom(format!(
+                        "expected '$jmespath' or '$starlark', found '{}'",
+                        other
+                    ))),
+                }
             }
         }
 
@@ -95,9 +118,22 @@ impl Expression {
     where
         T: DeserializeOwned,
     {
-        let expr = super::JMESPATH_RUNTIME.compile(&self.jmespath)?;
-        let value = expr.search(params)?;
-        let value = serde_json::to_value(value).unwrap();
+        let value = match self {
+            Expression::JMESPath(jmespath) => {
+                let expr = super::JMESPATH_RUNTIME.compile(jmespath)?;
+                let value = expr.search(params)?;
+                serde_json::to_value(value).unwrap()
+            }
+            Expression::Starlark(starlark) => super::starlark_eval(starlark, params)?,
+        };
+        Self::deserialize_result(value)
+    }
+
+    /// Deserialize expression result to the expected type.
+    fn deserialize_result<T>(value: serde_json::Value) -> Result<OneOrMany<T>, super::ExpressionError>
+    where
+        T: DeserializeOwned,
+    {
         let value: Option<OneOrMany<Option<T>>> = serde_json::from_value(value)
             .map_err(super::ExpressionError::DeserializationError)?;
         Ok(match value {
@@ -105,14 +141,12 @@ impl Expression {
             Some(OneOrMany::One(None)) => OneOrMany::Many(Vec::new()),
             Some(OneOrMany::Many(mut vs)) => {
                 vs.retain(|v| v.is_some());
-                if vs.len() == 0 {
+                if vs.is_empty() {
                     OneOrMany::Many(Vec::new())
                 } else if vs.len() == 1 {
-                    OneOrMany::One(
-                        vs.into_iter().filter_map(|v| v).next().unwrap(),
-                    )
+                    OneOrMany::One(vs.into_iter().flatten().next().unwrap())
                 } else {
-                    OneOrMany::Many(vs.into_iter().filter_map(|v| v).collect())
+                    OneOrMany::Many(vs.into_iter().flatten().collect())
                 }
             }
             None => OneOrMany::Many(Vec::new()),
@@ -134,14 +168,12 @@ impl Expression {
         let result = self.compile_one_or_many(params)?;
         match result {
             OneOrMany::One(value) => Ok(value),
-            OneOrMany::Many(_) => {
-                Err(super::ExpressionError::ExpectedOneValueFoundMany)
-            }
+            OneOrMany::Many(_) => Err(super::ExpressionError::ExpectedOneValueFoundMany),
         }
     }
 }
 
-/// A value that can be either a literal or a JMESPath expression.
+/// A value that can be either a literal or an expression.
 ///
 /// This allows Function definitions to mix static values with dynamic
 /// expressions. During compilation, expressions are evaluated while
@@ -154,14 +186,19 @@ impl Expression {
 /// "hello world"
 /// ```
 ///
-/// Expression:
+/// JMESPath expression:
 /// ```json
 /// {"$jmespath": "input.greeting"}
+/// ```
+///
+/// Starlark expression:
+/// ```json
+/// {"$starlark": "input['greeting']"}
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum WithExpression<T> {
-    /// A JMESPath expression to evaluate.
+    /// An expression (JMESPath or Starlark) to evaluate.
     Expression(Expression),
     /// A literal value.
     Value(T),

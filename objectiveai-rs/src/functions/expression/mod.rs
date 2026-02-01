@@ -1,12 +1,17 @@
-//! JMESPath expression evaluation engine for Function compilation.
+//! Expression evaluation engine for Function compilation.
 //!
 //! This module provides the expression system used by Functions to define
 //! dynamic behavior. Expressions are evaluated against input data and task
 //! results to produce concrete values.
 //!
+//! # Supported Languages
+//!
+//! - **JMESPath** (`{"$jmespath": "..."}`) - JSON query language
+//! - **Starlark** (`{"$starlark": "..."}`) - Python-like configuration language
+//!
 //! # Key Types
 //!
-//! - [`Expression`] - A JMESPath expression (`{"$jmespath": "..."}`)
+//! - [`Expression`] - Either a JMESPath or Starlark expression
 //! - [`WithExpression<T>`] - Either a literal value or an expression
 //! - [`Input`] - The input data structure passed to expressions
 //! - [`Params`] - Context available during expression evaluation
@@ -23,9 +28,11 @@ mod expression;
 mod input;
 mod params;
 mod runtime;
+mod starlark;
 
 pub use error::*;
 pub use expression::*;
 pub use input::*;
 pub use params::*;
 pub use runtime::*;
+pub(crate) use starlark::starlark_eval;

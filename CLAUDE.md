@@ -101,7 +101,11 @@ Profiles are also GitHub-hosted as `profile.json`. Highly recommended to specify
 
 ## Expression System (Complex)
 
-Functions use **JMESPath** expressions for dynamic behavior. This is the most complex part of the SDK.
+Functions use **expressions** for dynamic behavior. Two languages are supported:
+- **JMESPath** (`{"$jmespath": "..."}`) - JSON query language
+- **Starlark** (`{"$starlark": "..."}`) - Python-like configuration language (not Turing-complete)
+
+This is the most complex part of the SDK.
 
 ### Input Maps
 
@@ -111,7 +115,7 @@ Functions use **JMESPath** expressions for dynamic behavior. This is the most co
 {
   "input_maps": [
     {"$jmespath": "input.items"},
-    {"$jmespath": "input.categories"}
+    {"$starlark": "input['categories']"}
   ]
 }
 ```
@@ -124,7 +128,11 @@ Each task can have:
 
 - **`skip`**: Boolean expression. If true, task is skipped.
   ```json
-  {"$jmespath": "input.count < 10"}
+  {"$jmespath": "input.count < `10`"}
+  ```
+  or with Starlark:
+  ```json
+  {"$starlark": "input['count'] < 10"}
   ```
 
 - **`map`**: Index into `input_maps`. Creates **multiple task instances**—one per element in that sub-array. Each instance is compiled with a different value from the 1D array. The number of compiled tasks equals the length of that sub-array.
@@ -137,6 +145,10 @@ Computes final result from input and task outputs:
 
 ```json
 {"$jmespath": "tasks[0].output"}
+```
+or with Starlark:
+```json
+{"$starlark": "tasks[0]['output']"}
 ```
 
 **Constraints:**
@@ -181,7 +193,7 @@ Location: `objectiveai-rs/`
 **Capabilities:**
 1. Data structures and validation
 2. Deterministic ID computation (XXHash3-128, base62 encoded)
-3. Client-side Function compilation (JMESPath evaluation)
+3. Client-side Function compilation (JMESPath and Starlark expression evaluation)
 4. HTTP client (optional `http` feature, enabled by default)
 
 **Key modules:**

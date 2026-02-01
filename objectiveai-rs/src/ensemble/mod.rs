@@ -23,7 +23,7 @@
 //!     llms: vec![
 //!         // A simple GPT-4 configuration
 //!         EnsembleLlmBaseWithFallbacksAndCount {
-//!             count: None,
+//!             count: 1,
 //!             inner: EnsembleLlmBase {
 //!                 model: "openai/gpt-4o".to_string(),
 //!                 output_mode: OutputMode::Instruction,
@@ -33,7 +33,7 @@
 //!         },
 //!         // Claude with a system prompt
 //!         EnsembleLlmBaseWithFallbacksAndCount {
-//!             count: None,
+//!             count: 1,
 //!             inner: EnsembleLlmBase {
 //!                 model: "anthropic/claude-3.5-sonnet".to_string(),
 //!                 output_mode: OutputMode::JsonSchema,
@@ -49,7 +49,7 @@
 //!         },
 //!         // Gemini with lower temperature
 //!         EnsembleLlmBaseWithFallbacksAndCount {
-//!             count: Some(2), // Include 2 instances
+//!             count: 2, // Include 2 instances
 //!             inner: EnsembleLlmBase {
 //!                 model: "google/gemini-2.0-flash-001".to_string(),
 //!                 output_mode: OutputMode::ToolCall,

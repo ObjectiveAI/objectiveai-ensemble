@@ -165,9 +165,9 @@ pub fn compileFunctionInputMaps(
 
 /// Compiles a Function's task expressions for a given input.
 ///
-/// Evaluates all JMESPath expressions in the function's tasks using the
-/// provided input data. This is used for previewing how tasks will be
-/// executed during Function authoring.
+/// Evaluates all expressions (JMESPath or Starlark) in the function's tasks
+/// using the provided input data. This is used for previewing how tasks will
+/// be executed during Function authoring.
 ///
 /// # Arguments
 ///

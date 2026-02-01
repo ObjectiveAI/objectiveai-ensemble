@@ -296,10 +296,10 @@ impl Input {
     }
 }
 
-/// An input value that may contain JMESPath expressions (pre-compilation).
+/// An input value that may contain expressions (pre-compilation).
 ///
 /// Similar to [`Input`] but object values and array elements can be
-/// expressions that are evaluated during compilation.
+/// expressions (JMESPath or Starlark) that are evaluated during compilation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum InputExpression {

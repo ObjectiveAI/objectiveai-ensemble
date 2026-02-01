@@ -58,10 +58,11 @@ impl Message {
     }
 }
 
-/// A message with JMESPath expressions for dynamic content.
+/// A message with expressions for dynamic content.
 ///
 /// This is the expression variant of [`Message`] used in function definitions
 /// where message content can be computed from the function input at runtime.
+/// Supports both JMESPath and Starlark expressions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "role")]
 pub enum MessageExpression {
@@ -80,8 +81,8 @@ pub enum MessageExpression {
 impl MessageExpression {
     /// Compiles the expression into a concrete [`Message`].
     ///
-    /// Evaluates all JMESPath expressions using the provided parameters
-    /// and returns the resulting message.
+    /// Evaluates all expressions (JMESPath or Starlark) using the provided
+    /// parameters and returns the resulting message.
     ///
     /// # Errors
     ///

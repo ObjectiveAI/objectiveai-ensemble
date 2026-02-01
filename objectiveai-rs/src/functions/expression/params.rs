@@ -1,12 +1,12 @@
 //! Parameters and context for expression evaluation.
 //!
-//! Provides the context available to JMESPath expressions during compilation,
-//! including the function input, task outputs, and current map element.
+//! Provides the context available to expressions (JMESPath or Starlark) during
+//! compilation, including the function input, task outputs, and current map element.
 
 use crate::vector;
 use serde::{Deserialize, Serialize};
 
-/// Context for evaluating JMESPath expressions.
+/// Context for evaluating expressions (JMESPath or Starlark).
 ///
 /// Contains all data accessible within expressions: `input`, `tasks`, and `map`.
 #[derive(Debug, Clone, Serialize)]

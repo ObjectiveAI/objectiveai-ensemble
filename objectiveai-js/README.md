@@ -34,5 +34,5 @@ The SDK provides comprehensive type definitions for:
 - Chat Completions
 - Vector Completions
 - Functions and Profiles
-- Expressions (JMESPath)
+- Expressions (JMESPath and Starlark)
 - Rich content types (text, image, video, file, audio)

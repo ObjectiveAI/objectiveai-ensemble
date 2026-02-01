@@ -38,7 +38,7 @@ pub enum Error {
     /// The retry token is malformed.
     #[error("invalid retry token")]
     InvalidRetryToken,
-    /// A JMESPath expression in the Function is invalid.
+    /// An expression (JMESPath or Starlark) in the Function is invalid.
     #[error("invalid function expression: {0}")]
     InvalidAppExpression(
         #[from] objectiveai::functions::expression::ExpressionError,

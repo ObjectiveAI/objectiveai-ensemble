@@ -7,11 +7,11 @@
 use crate::chat;
 use serde::{Deserialize, Serialize};
 
-/// A task definition with JMESPath expressions (pre-compilation).
+/// A task definition with expressions (pre-compilation).
 ///
-/// Task expressions contain dynamic fields that are resolved against input
-/// data during compilation. Use [`compile`](Self::compile) to produce a
-/// concrete [`Task`].
+/// Task expressions contain dynamic fields (JMESPath or Starlark) that are
+/// resolved against input data during compilation. Use [`compile`](Self::compile)
+/// to produce a concrete [`Task`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum TaskExpression {
@@ -64,7 +64,7 @@ impl TaskExpression {
 /// A compiled task ready for execution.
 ///
 /// Produced by compiling a [`TaskExpression`] against input data. All
-/// JMESPath expressions have been resolved to concrete values.
+/// expressions have been resolved to concrete values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Task {

@@ -136,8 +136,8 @@ impl FunctionToolExpression {
 
 /// A JSON value expression for dynamic content.
 ///
-/// This allows JSON values to contain JMESPath expressions that are
-/// evaluated at runtime.
+/// This allows JSON values to contain expressions (JMESPath or Starlark)
+/// that are evaluated at runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ValueExpression {

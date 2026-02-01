@@ -26,8 +26,8 @@
 //!
 //! # Client-Side Compilation
 //!
-//! Functions use JMESPath expressions for dynamic behavior. The SDK can compile
-//! these expressions client-side to preview results during Function authoring:
+//! Functions use expressions (JMESPath or Starlark) for dynamic behavior. The SDK
+//! can compile these expressions client-side to preview results during Function authoring:
 //!
 //! - [`Function::compile_tasks`] - Resolves task expressions to show final tasks for a given input
 //! - [`Function::compile_output`] - Computes the final output given input and task outputs
@@ -35,7 +35,7 @@
 //! # Submodules
 //!
 //! - [`executions`] - Function execution request/response types
-//! - [`expression`] - JMESPath expression evaluation engine
+//! - [`expression`] - Expression evaluation engine (JMESPath and Starlark)
 //! - [`profiles`] - Profile management and computation
 
 pub mod executions;

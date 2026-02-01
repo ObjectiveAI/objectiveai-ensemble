@@ -132,7 +132,7 @@ A sandbox environment for creating ObjectiveAI Functions and Profiles. Includes 
 **Features:**
 - TypeScript-based Function/Profile authoring
 - Built-in validation and testing
-- Specialized agents for JMESPath expressions and input edge-case evaluation
+- Specialized agents for expressions (JMESPath/Starlark) and input edge-case evaluation
 - One-command publishing to GitHub
 
 ### [ObjectiveAI-claude-code-1](https://github.com/ObjectiveAI-claude-code-1)

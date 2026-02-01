@@ -98,9 +98,9 @@ impl Function {
 
     /// Compiles task expressions to show the final tasks for a given input.
     ///
-    /// Evaluates all JMESPath expressions in the function's tasks using the
-    /// provided input data. Tasks with `skip` expressions that evaluate to true
-    /// return `None`. Tasks with `map` fields produce multiple task instances.
+    /// Evaluates all expressions (JMESPath or Starlark) in the function's tasks
+    /// using the provided input data. Tasks with `skip` expressions that evaluate
+    /// to true return `None`. Tasks with `map` fields produce multiple task instances.
     ///
     /// # Returns
     ///
