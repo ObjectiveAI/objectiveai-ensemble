@@ -52,6 +52,14 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         from_cache?: boolean;
         from_rng?: boolean;
       }>;
+      completions?: Array<{
+        model: string;
+        choices?: Array<{
+          message?: {
+            content?: string;
+          };
+        }>;
+      }>;
       scores?: number[];
     }>;
     reasoning?: {
@@ -65,6 +73,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
+  const [showAllModels, setShowAllModels] = useState(false);
+  const [expandedVotes, setExpandedVotes] = useState<Set<number>>(new Set());
 
   // Fetch function details
   useEffect(() => {
@@ -197,6 +207,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     setIsRunning(true);
     setRunError(null);
     setResults(null);
+    setShowAllModels(false);
+    setExpandedVotes(new Set());
 
     try {
       const response = await fetch("/api/functions/execute", {
@@ -840,63 +852,126 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                           </p>
 
                           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                            {votes.slice(0, 5).map((vote, modelIdx) => {
-                              const maxVoteIdx = vote.vote.indexOf(Math.max(...vote.vote));
-                              const confidence = Math.max(...vote.vote) * 100;
-                              // Use readable model name if available, else shortened cryptic ID
-                              const displayName = modelNames[vote.model] || vote.model.slice(0, 8);
-                              const isResolved = !!modelNames[vote.model];
+                            {(() => {
+                              const displayedVotes = showAllModels ? votes : votes.slice(0, 5);
+                              const completions = results.tasks?.[0]?.completions || [];
 
-                              return (
-                                <div key={modelIdx}>
-                                  <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "baseline",
-                                    marginBottom: "8px",
-                                  }}>
-                                    <span style={{ fontSize: "13px", color: "var(--text)" }}>
-                                      <span style={{
-                                        fontFamily: isResolved ? "inherit" : "monospace",
-                                        fontSize: isResolved ? "13px" : "12px",
-                                        color: isResolved ? "var(--text)" : "var(--text-muted)",
-                                      }}>
-                                        {displayName}
+                              return displayedVotes.map((vote, modelIdx) => {
+                                const maxVoteIdx = vote.vote.indexOf(Math.max(...vote.vote));
+                                const confidence = Math.max(...vote.vote) * 100;
+                                // Use readable model name if available, else shortened cryptic ID
+                                const displayName = modelNames[vote.model] || vote.model.slice(0, 8);
+                                const isResolved = !!modelNames[vote.model];
+                                const isExpanded = expandedVotes.has(modelIdx);
+                                // Find matching completion by model ID
+                                const completion = completions.find(c => c.model === vote.model);
+                                const reasoningText = completion?.choices?.[0]?.message?.content;
+
+                                return (
+                                  <div key={modelIdx}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "baseline",
+                                        marginBottom: "8px",
+                                        cursor: reasoningText ? "pointer" : "default",
+                                      }}
+                                      onClick={() => {
+                                        if (!reasoningText) return;
+                                        setExpandedVotes(prev => {
+                                          const next = new Set(prev);
+                                          if (next.has(modelIdx)) {
+                                            next.delete(modelIdx);
+                                          } else {
+                                            next.add(modelIdx);
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                    >
+                                      <span style={{ fontSize: "13px", color: "var(--text)" }}>
+                                        {reasoningText && (
+                                          <span style={{
+                                            display: "inline-block",
+                                            width: "16px",
+                                            color: "var(--text-muted)",
+                                            fontSize: "10px",
+                                          }}>
+                                            {isExpanded ? "▼" : "▶"}
+                                          </span>
+                                        )}
+                                        <span style={{
+                                          fontFamily: isResolved ? "inherit" : "monospace",
+                                          fontSize: isResolved ? "13px" : "12px",
+                                          color: isResolved ? "var(--text)" : "var(--text-muted)",
+                                        }}>
+                                          {displayName}
+                                        </span>
+                                        <span style={{ margin: "0 6px", color: "var(--text-muted)" }}>→</span>
+                                        {getOptionLabel(maxVoteIdx)}
                                       </span>
-                                      <span style={{ margin: "0 6px", color: "var(--text-muted)" }}>→</span>
-                                      {getOptionLabel(maxVoteIdx)}
-                                    </span>
-                                    <span style={{ fontSize: "13px" }}>
-                                      <span style={{ color: getScoreColor(confidence), fontWeight: 500 }}>
-                                        {confidence.toFixed(0)}%
+                                      <span style={{ fontSize: "13px" }}>
+                                        <span style={{ color: getScoreColor(confidence), fontWeight: 500 }}>
+                                          {confidence.toFixed(0)}%
+                                        </span>
+                                        <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px" }}>
+                                          w:{vote.weight}
+                                        </span>
                                       </span>
-                                      <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px" }}>
-                                        w:{vote.weight}
-                                      </span>
-                                    </span>
-                                  </div>
-                                  {/* Progress bar - muted fill, no color */}
-                                  <div style={{
-                                    height: "6px",
-                                    background: "var(--border)",
-                                    borderRadius: "3px",
-                                    overflow: "hidden",
-                                  }}>
+                                    </div>
+                                    {/* Progress bar - muted fill, no color */}
                                     <div style={{
-                                      height: "100%",
-                                      width: `${confidence}%`,
-                                      background: "var(--text-muted)",
+                                      height: "6px",
+                                      background: "var(--border)",
                                       borderRadius: "3px",
-                                      opacity: 0.4,
-                                    }} />
+                                      overflow: "hidden",
+                                    }}>
+                                      <div style={{
+                                        height: "100%",
+                                        width: `${confidence}%`,
+                                        background: "var(--text-muted)",
+                                        borderRadius: "3px",
+                                        opacity: 0.4,
+                                      }} />
+                                    </div>
+                                    {/* Expanded reasoning */}
+                                    {isExpanded && reasoningText && (
+                                      <div style={{
+                                        marginTop: "8px",
+                                        padding: "12px",
+                                        background: "var(--page-bg)",
+                                        borderRadius: "8px",
+                                        fontSize: "12px",
+                                        color: "var(--text-muted)",
+                                        lineHeight: 1.5,
+                                        whiteSpace: "pre-wrap",
+                                      }}>
+                                        {reasoningText}
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              });
+                            })()}
                             {votes.length > 5 && (
-                              <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                                +{votes.length - 5} more model{votes.length - 5 !== 1 ? "s" : ""}
-                              </p>
+                              <button
+                                onClick={() => setShowAllModels(!showAllModels)}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                  fontSize: "12px",
+                                  color: "var(--accent)",
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                }}
+                              >
+                                {showAllModels
+                                  ? "Show less"
+                                  : `+${votes.length - 5} more model${votes.length - 5 !== 1 ? "s" : ""}`
+                                }
+                              </button>
                             )}
                           </div>
 

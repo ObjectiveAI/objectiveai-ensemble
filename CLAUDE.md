@@ -237,3 +237,127 @@ Enables browser-based validation and preview without server round-trips.
 3. **Composition** - Functions call Functions, building complex pipelines from simple parts
 4. **No fine-tuning** - Learn weights over fixed models (faster, more interpretable)
 5. **Cross-environment** - Same logic in Rust, Node.js, and browsers
+
+---
+
+## TypeScript SDK (`objectiveai-js`)
+
+### Client Setup
+
+```typescript
+import { ObjectiveAI, Functions, EnsembleLlm } from "objectiveai";
+
+const client = new ObjectiveAI({
+  apiKey: process.env.OBJECTIVEAI_API_KEY, // or reads from env automatically
+});
+```
+
+### Key Namespaces
+
+- `Functions` - List, retrieve, and execute functions
+- `Functions.Executions` - Execute functions with profiles
+- `EnsembleLlm` - Retrieve ensemble LLM details by ID
+- `Chat` - Direct chat completions
+- `Vector` - Direct vector completions
+
+### Function Execution
+
+```typescript
+// Execute a remote function with a remote profile
+const result = await Functions.Executions.create(
+  client,
+  { owner: "objective-ai", repository: "is-spam", commit: "abc123" },
+  { owner: "objective-ai", repository: "is-spam", commit: "def456" },
+  {
+    input: { text: "Hello world" },
+    from_cache: true,   // Use cached votes when available
+    from_rng: true,     // Generate remaining votes via RNG (free, simulated)
+    reasoning: {        // Optional: generate reasoning summary
+      model: "openai/gpt-4o-mini",
+    },
+  }
+);
+```
+
+### Execution Response Structure
+
+```typescript
+interface FunctionExecution {
+  id: string;
+  output: number | number[];  // Scalar [0,1] or Vector (sums to ~1)
+  tasks: Task[];              // Executed tasks with votes/completions
+  reasoning: ReasoningSummary | null;  // AI-generated explanation
+  usage: Usage;
+}
+
+interface Task {
+  votes: Vote[];        // How each LLM voted
+  completions: ChatCompletion[];  // What each LLM said before voting
+  scores: number[];     // Final weighted scores
+}
+
+interface Vote {
+  model: string;        // Ensemble LLM ID (cryptic, content-addressed)
+  vote: number[];       // Distribution over options
+  weight: number;       // This LLM's influence
+  from_cache?: boolean;
+  from_rng?: boolean;
+}
+```
+
+### Looking Up Model Names
+
+Votes contain cryptic IDs like `0QMZqudstCDbls4uoQOhEC`. To get the readable name:
+
+```typescript
+const details = await EnsembleLlm.retrieve(client, vote.model);
+console.log(details.model); // "openai/gpt-4o"
+```
+
+### Execution Options
+
+| Option | Description |
+|--------|-------------|
+| `from_cache: true` | Use globally cached votes (higher priority than RNG) |
+| `from_rng: true` | Generate votes via RNG if not cached (free, simulated) |
+| `reasoning: { model }` | Generate AI explanation of the result |
+| `stream: true` | Stream chunks as execution progresses |
+| `retry_token` | Resume a failed/incomplete execution |
+
+---
+
+## Web Interface (`objectiveai-web-new`)
+
+### Scope
+
+**UI/UX only.** Never modify files outside of `objectiveai-web-new/`. Backend is off-limits.
+
+### Design System
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Light | `#EDEDF2` | Light bg, dark text |
+| Dark | `#1B1B1B` | Dark bg, light text |
+| Accent | `#6B5CFF` | Buttons, links, interactive |
+| Score Green | `rgb(34, 197, 94)` | Scores ≥66% |
+| Score Yellow | `rgb(234, 179, 8)` | Scores ≥33% |
+| Score Orange | `rgb(249, 115, 22)` | Scores ≥15% |
+| Score Red | `rgb(239, 68, 68)` | Scores <15% |
+
+**Key rule:** Brand colors (purple) for interactive elements. Warm colors (green→red) for scores/data only.
+
+### Server-Side API Routes
+
+API keys must stay server-side. Use Next.js API routes:
+
+```
+/api/functions/execute    - Execute functions (POST)
+/api/ensemble-llms/[id]   - Lookup ensemble LLM details (GET)
+```
+
+### Planning Assets
+
+Check `objectiveai-web-new/planning/` before making design decisions:
+- `objectiveai-planning-moodboard.png` - Visual tone
+- `objectiveai-planning-color-system.png` - Official palette
+- `objectiveai-planning-wireframes-figma.png` - Page layouts
