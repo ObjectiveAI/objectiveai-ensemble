@@ -24,6 +24,9 @@ export function getClient(): ObjectiveAI {
 export const DEV_EXECUTION_OPTIONS = {
   from_cache: true,
   from_rng: true,
+  reasoning: {
+    model: "openai/gpt-4o-mini", // Fast, cheap model for reasoning summary
+  },
 } as const;
 
 // Helper: derive category from function type

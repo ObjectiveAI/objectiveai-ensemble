@@ -54,9 +54,17 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       }>;
       scores?: number[];
     }>;
+    reasoning?: {
+      choices?: Array<{
+        message?: {
+          content?: string;
+        };
+      }>;
+    } | null;
     error?: string;
   } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [modelNames, setModelNames] = useState<Record<string, string>>({});
 
   // Fetch function details
   useEffect(() => {
@@ -147,6 +155,41 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Fetch model names when results contain votes
+  useEffect(() => {
+    if (!results?.tasks) return;
+
+    const allVotes = results.tasks.flatMap(t => t.votes || []);
+    const uniqueIds = [...new Set(allVotes.map(v => v.model))];
+    const idsToFetch = uniqueIds.filter(id => !modelNames[id]);
+
+    if (idsToFetch.length === 0) return;
+
+    // Fetch in parallel
+    Promise.all(
+      idsToFetch.map(async (id) => {
+        try {
+          const res = await fetch(`/api/ensemble-llms/${id}`);
+          if (res.ok) {
+            const data = await res.json();
+            return { id, model: data.model as string };
+          }
+        } catch {
+          // Ignore errors, fall back to cryptic ID
+        }
+        return null;
+      })
+    ).then((results) => {
+      const newNames: Record<string, string> = {};
+      for (const r of results) {
+        if (r) newNames[r.id] = r.model;
+      }
+      if (Object.keys(newNames).length > 0) {
+        setModelNames(prev => ({ ...prev, ...newNames }));
+      }
+    });
+  }, [results?.tasks, modelNames]);
+
   // Execute function via server API route
   const handleRun = async () => {
     if (!functionDetails || !profileInfo) return;
@@ -188,6 +231,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
           inputSnapshot: { ...formData }, // Save input for display
           usage: result.usage,
           tasks: result.tasks,
+          reasoning: result.reasoning,
         });
       }
     } catch (err) {
@@ -799,8 +843,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                             {votes.slice(0, 5).map((vote, modelIdx) => {
                               const maxVoteIdx = vote.vote.indexOf(Math.max(...vote.vote));
                               const confidence = Math.max(...vote.vote) * 100;
-                              // Use actual model ID (shortened for display)
-                              const shortModelId = vote.model.slice(0, 8);
+                              // Use readable model name if available, else shortened cryptic ID
+                              const displayName = modelNames[vote.model] || vote.model.slice(0, 8);
+                              const isResolved = !!modelNames[vote.model];
 
                               return (
                                 <div key={modelIdx}>
@@ -811,8 +856,12 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                                     marginBottom: "8px",
                                   }}>
                                     <span style={{ fontSize: "13px", color: "var(--text)" }}>
-                                      <span style={{ fontFamily: "monospace", fontSize: "12px", color: "var(--text-muted)" }}>
-                                        {shortModelId}
+                                      <span style={{
+                                        fontFamily: isResolved ? "inherit" : "monospace",
+                                        fontSize: isResolved ? "13px" : "12px",
+                                        color: isResolved ? "var(--text)" : "var(--text-muted)",
+                                      }}>
+                                        {displayName}
                                       </span>
                                       <span style={{ margin: "0 6px", color: "var(--text-muted)" }}>→</span>
                                       {getOptionLabel(maxVoteIdx)}
@@ -867,6 +916,31 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                   </div>
                 )}
 
+                {/* Reasoning Summary */}
+                {results.reasoning?.choices?.[0]?.message?.content && (
+                  <div style={{
+                    padding: "16px",
+                    background: "var(--page-bg)",
+                    borderRadius: "12px",
+                    border: "1px solid var(--border)",
+                  }}>
+                    <p style={{
+                      fontSize: "13px",
+                      color: "var(--text-muted)",
+                      marginBottom: "12px",
+                    }}>
+                      Reasoning Summary
+                    </p>
+                    <p style={{
+                      fontSize: "14px",
+                      color: "var(--text)",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                    }}>
+                      {results.reasoning.choices[0].message.content}
+                    </p>
+                  </div>
+                )}
 
                 {/* Usage & Cost */}
                 {results.usage && (
