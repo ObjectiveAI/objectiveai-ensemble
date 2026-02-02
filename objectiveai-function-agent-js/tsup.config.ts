@@ -7,7 +7,8 @@ const baseConfig: Options = {
   dts: true,
   outDir: "dist",
   treeshake: true,
-  target: "es2020",
+  target: "node18",
+  platform: "node",
   esbuildOptions(options) {
     options.alias = {
       src: path.resolve(__dirname, "src"),

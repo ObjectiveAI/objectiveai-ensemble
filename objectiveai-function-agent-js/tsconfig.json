@@ -2,7 +2,8 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "esnext",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": ["ES2022"],
+    "types": ["node"],
     "moduleResolution": "node",
     "declaration": true,
     "strict": true,
