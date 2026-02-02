@@ -1,14 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 
-function promptResources(resources: string[]): string {
-  let prompt = "Resources:\n";
-  for (const resource of resources) {
-    prompt += `- ${resource}\n`;
-  }
-  return prompt;
-}
-
 // Step 1 - Learn about ObjectiveAI and ObjectiveAI Functions
 export async function learnSubmodule(
   sessionId?: string,
@@ -784,4 +776,15 @@ export async function essayTasks(
   return sessionId;
 }
 
-// Step 8 -
+// // Step 9 - Main Loop
+// export async function mainLoop(
+//   sessionId?: string,
+// ): Promise<string | undefined> {
+
+function promptResources(resources: string[]): string {
+  let prompt = "Resources:\n";
+  for (const resource of resources) {
+    prompt += `- ${resource}\n`;
+  }
+  return prompt;
+}

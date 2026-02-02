@@ -242,6 +242,20 @@ Exports:
 
 Enables browser-based validation and preview without server round-trips.
 
+## Development
+
+**npm commands should always be run from the workspace root**, not from individual package directories:
+
+```bash
+# Good - from workspace root
+npm install
+npm run build --workspace=@objectiveai/function-agent
+npm run build --workspace=objectiveai
+
+# Bad - from package directory
+cd objectiveai-js && npm run build
+```
+
 ## Design Principles
 
 1. **Content-addressed identities** - Reproducibility via deterministic IDs
