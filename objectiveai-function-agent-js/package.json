@@ -1,5 +1,5 @@
 {
-  "name": "@anthropic-ai/function-agent",
+  "name": "@objectiveai/function-agent",
   "version": "0.1.0",
   "description": "ObjectiveAI Function Agent SDK for JavaScript/TypeScript",
   "main": "dist/index.cjs",
