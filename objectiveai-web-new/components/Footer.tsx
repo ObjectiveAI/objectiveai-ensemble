@@ -22,11 +22,11 @@ export default function Footer() {
   };
 
   const socialIcons = [
-    { name: "GitHub", href: "#", icon: <GitHubIcon /> },
-    { name: "Discord", href: "#", icon: <DiscordIcon /> },
-    { name: "X", href: "#", icon: <XIcon /> },
-    { name: "LinkedIn", href: "#", icon: <LinkedInIcon /> },
-    { name: "YouTube", href: "#", icon: <YouTubeIcon /> },
+    { name: "GitHub", href: "https://github.com/ObjectiveAI/objectiveai", icon: <GitHubIcon /> },
+    { name: "Discord", href: "https://discord.gg/YD5anq5sNR", icon: <DiscordIcon /> },
+    { name: "X", href: "https://x.com/objectv_ai", icon: <XIcon /> },
+    { name: "LinkedIn", href: "https://www.linkedin.com/company/objective-ai", icon: <LinkedInIcon /> },
+    { name: "YouTube", href: "https://www.youtube.com/@Objective-AI", icon: <YouTubeIcon /> },
   ];
 
   return (
@@ -87,7 +87,7 @@ export default function Footer() {
                   gap: '3px',
                 }}>
                 <Link
-                  href="/ensembles"
+                  href="/functions"
                   style={{
                     fontSize: '12px',
                     fontWeight: 400,
@@ -105,10 +105,10 @@ export default function Footer() {
                     e.currentTarget.style.opacity = '0.7';
                   }}
                 >
-                  Ensembles
+                  Browse
                 </Link>
                 <Link
-                  href="/studio"
+                  href="/profiles"
                   style={{
                     fontSize: '12px',
                     fontWeight: 400,
@@ -126,15 +126,15 @@ export default function Footer() {
                     e.currentTarget.style.opacity = '0.7';
                   }}
                 >
-                  Studio
+                  Profiles
                 </Link>
               </div>
               </div>
 
-              {/* GROUP 2: PEOPLE */}
+              {/* GROUP 2: ENSEMBLES */}
               <div style={{ textAlign: 'left' }}>
                 <Link
-                  href="/people"
+                  href="/ensembles"
                   style={{
                     display: 'block',
                     fontSize: '10px',
@@ -156,7 +156,7 @@ export default function Footer() {
                     e.currentTarget.style.opacity = '0.8';
                   }}
                 >
-                  People
+                  Ensembles
                 </Link>
                 <div style={{
                   display: 'flex',
@@ -164,7 +164,84 @@ export default function Footer() {
                   gap: '3px',
                 }}>
                 <Link
-                  href="/team"
+                  href="/ensembles"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  Browse
+                </Link>
+                <Link
+                  href="/ensemble-llms"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  LLMs
+                </Link>
+              </div>
+              </div>
+
+              {/* GROUP 3: INFORMATION */}
+              <div style={{ textAlign: 'left' }}>
+                <Link
+                  href="/docs"
+                  style={{
+                    display: 'block',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    marginBottom: '6px',
+                    opacity: 0.8,
+                    transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.8';
+                  }}
+                >
+                  Information
+                </Link>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '3px',
+                }}>
+                <Link
+                  href="/people"
                   style={{
                     fontSize: '12px',
                     fontWeight: 400,
@@ -184,62 +261,6 @@ export default function Footer() {
                 >
                   Team
                 </Link>
-                <Link
-                  href="/contact"
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 400,
-                    color: 'var(--text-muted)',
-                    textDecoration: 'none',
-                    transition: 'color 0.2s',
-                    opacity: 0.7,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--accent)';
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--text-muted)';
-                    e.currentTarget.style.opacity = '0.7';
-                  }}
-                >
-                  Contact
-                </Link>
-              </div>
-              </div>
-
-              {/* GROUP 3: RESOURCES */}
-              <div style={{ textAlign: 'left' }}>
-                <Link
-                  href="/resources"
-                  style={{
-                    display: 'block',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: 'var(--text-muted)',
-                    textDecoration: 'none',
-                    marginBottom: '6px',
-                    opacity: 0.8,
-                    transition: 'color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--accent)';
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--text-muted)';
-                    e.currentTarget.style.opacity = '0.8';
-                  }}
-                >
-                  Resources
-                </Link>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                }}>
                 <Link
                   href="/docs"
                   style={{
