@@ -26,6 +26,7 @@
   "license": "MIT",
   "sideEffects": false,
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.29",
     "objectiveai": "*"
   },
   "devDependencies": {
