@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { ObjectiveAI, Functions } from "objectiveai";
 import { assets } from "./assets";
@@ -263,10 +263,14 @@ export async function init(options: InitOptions = {}): Promise<void> {
   // Step 4: Fetch examples if needed
   await fetchExamples(options.apiBase);
 
-  // Step 5: Write SPEC.md if provided
+  // Step 5: Write SPEC.md if provided and doesn't already exist non-empty
   if (options.spec) {
-    console.log("Writing SPEC.md...");
-    writeFileSync("SPEC.md", options.spec);
+    const specPath = "SPEC.md";
+    const specExists = existsSync(specPath) && readFileSync(specPath, "utf-8").trim().length > 0;
+    if (!specExists) {
+      console.log("Writing SPEC.md...");
+      writeFileSync(specPath, options.spec);
+    }
   }
 
   console.log("Initialization complete.");
