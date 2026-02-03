@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface EnsembleLlmDetails {
   id: string;
@@ -23,7 +24,7 @@ export default function EnsembleLlmDetailPage({ params }: { params: Promise<{ id
   const [llm, setLlm] = useState<EnsembleLlmDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     async function fetchLlm() {
@@ -41,13 +42,6 @@ export default function EnsembleLlmDetailPage({ params }: { params: Promise<{ id
     }
     fetchLlm();
   }, [id]);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 768);
-    checkViewport();
-    window.addEventListener("resize", checkViewport);
-    return () => window.removeEventListener("resize", checkViewport);
-  }, []);
 
   if (isLoading) {
     return (

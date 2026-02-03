@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "../../../hooks/useIsMobile";
+import { COPY_FEEDBACK_DURATION_MS } from "../../../lib/constants";
 
 interface ApiKey {
   api_key: string;
@@ -18,7 +20,7 @@ const BYPASS_AUTH = true;
 
 export default function ApiKeysPage() {
   const { user, isLoading } = useAuth();
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
   const [keysError, setKeysError] = useState<string | null>(null);
@@ -47,13 +49,6 @@ export default function ApiKeysPage() {
     } finally {
       setKeysLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
   }, []);
 
   // Fetch keys when user is authenticated (or bypass enabled)
@@ -122,7 +117,7 @@ export default function ApiKeysPage() {
     if (newlyCreatedKey) {
       navigator.clipboard.writeText(newlyCreatedKey);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
     }
   };
 
@@ -695,9 +690,9 @@ export default function ApiKeysPage() {
                       padding: '10px 20px',
                       fontSize: '14px',
                       fontWeight: 600,
-                      background: 'var(--accent)',
-                      color: 'var(--color-light)',
-                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--text)',
+                      border: '1px solid var(--border)',
                       borderRadius: '8px',
                       cursor: 'pointer',
                     }}
@@ -711,11 +706,12 @@ export default function ApiKeysPage() {
                       padding: '10px 20px',
                       fontSize: '14px',
                       fontWeight: 600,
-                      background: 'transparent',
-                      color: newKeyName.trim() && !isCreating ? 'var(--text)' : 'var(--text-muted)',
-                      border: '1px solid var(--border)',
+                      background: newKeyName.trim() && !isCreating ? 'var(--accent)' : 'var(--accent-muted)',
+                      color: 'var(--color-light)',
+                      border: 'none',
                       borderRadius: '8px',
                       cursor: newKeyName.trim() && !isCreating ? 'pointer' : 'not-allowed',
+                      opacity: newKeyName.trim() && !isCreating ? 1 : 0.6,
                     }}
                   >
                     {isCreating ? 'Creating...' : 'Confirm'}

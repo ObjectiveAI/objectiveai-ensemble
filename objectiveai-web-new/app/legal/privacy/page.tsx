@@ -1,17 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 export default function PrivacyPage() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
-  }, []);
+  const isMobile = useIsMobile();
 
   const sectionStyle = {
     marginBottom: '32px',

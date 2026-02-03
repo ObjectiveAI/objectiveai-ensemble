@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -35,19 +36,9 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<ChatCompletion["usage"] | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Track viewport size
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 640);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -267,7 +258,7 @@ export default function ChatPage() {
               padding: "40px 20px",
             }}>
               <div>
-                <p style={{ fontSize: "24px", marginBottom: "8px" }}>---</p>
+                <p style={{ fontSize: "32px", marginBottom: "8px", opacity: 0.5 }}>💬</p>
                 <p style={{ fontSize: "14px" }}>Start a conversation</p>
               </div>
             </div>

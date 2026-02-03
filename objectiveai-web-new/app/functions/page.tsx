@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { deriveCategory, deriveDisplayName } from "../../lib/objectiveai";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../../lib/constants";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 // Function item type for UI
 interface FunctionItem {
@@ -36,7 +38,7 @@ export default function FunctionsPage() {
   const [pinnedFunctions, setPinnedFunctions] = useState<string[]>([]);
   const [recentFunctions, setRecentFunctions] = useState<string[]>([]);
   const [navOffset, setNavOffset] = useState(96);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [isTablet, setIsTablet] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -106,10 +108,9 @@ export default function FunctionsPage() {
     fetchFunctions();
   }, []);
 
-  // Track viewport size
+  // Track tablet viewport size
   useEffect(() => {
     const checkViewport = () => {
-      setIsMobile(window.innerWidth <= 768);
       setIsTablet(window.innerWidth <= 1024);
     };
     checkViewport();
@@ -137,7 +138,7 @@ export default function FunctionsPage() {
     
     updateOffset();
     window.addEventListener('resize', updateOffset);
-    const timer = setTimeout(updateOffset, 100);
+    const timer = setTimeout(updateOffset, NAV_HEIGHT_CALCULATION_DELAY_MS);
     return () => {
       window.removeEventListener('resize', updateOffset);
       clearTimeout(timer);
@@ -169,8 +170,6 @@ export default function FunctionsPage() {
   // Visible functions (paginated)
   const visibleFunctions = filteredFunctions.slice(0, visibleCount);
   const hasMore = visibleCount < filteredFunctions.length;
-
-  const recentFunctionsList = functions.filter(fn => recentFunctions.includes(fn.slug));
 
   // Safe gap from CSS variable
   const safeGap = 24;

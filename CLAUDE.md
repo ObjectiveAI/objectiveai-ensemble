@@ -646,6 +646,18 @@ For vector functions, enables tournament-style ranking:
 | Profile Training UI | Complete | `/profiles/train` (backend returns 501 - coming soon) |
 | WASM Validation | Complete | `lib/wasm-validation.ts` for real-time ID computation |
 
+### Code Quality Improvements (Feb 2026)
+
+| Improvement | Files | Notes |
+|-------------|-------|-------|
+| `useIsMobile` hook | `hooks/useIsMobile.ts` | Replaces duplicated mobile detection in 22 files |
+| Shared types | `lib/types.ts` | Comprehensive TypeScript types for API responses |
+| Error handling utility | `lib/error-handling.ts` | `normalizeError()`, `isAuthError()`, etc. |
+| Named constants | `lib/constants.ts` | Timeout/animation durations (no more magic numbers) |
+| AuthContext types | `contexts/AuthContext.tsx` | Fixed implicit `any` types for OAuth responses |
+| BrowsePage component | `components/BrowsePage.tsx` | Reusable compound component for browse pages |
+| Streaming re-enabled | `lib/objectiveai.ts` | `stream: true` (was disabled for dev mode issues) |
+
 ### WASM Bindings
 
 Now integrated via `lib/wasm-validation.ts`. Used in creation pages for real-time validation:

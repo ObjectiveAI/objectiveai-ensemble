@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface TrainingExample {
   input: Record<string, unknown>;
@@ -16,7 +17,7 @@ interface FunctionOption {
 }
 
 export default function ProfileTrainPage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [availableFunctions, setAvailableFunctions] = useState<FunctionOption[]>([]);
   const [isLoadingFunctions, setIsLoadingFunctions] = useState(true);
   const [selectedFunctionIndex, setSelectedFunctionIndex] = useState<number | null>(null);
@@ -32,14 +33,6 @@ export default function ProfileTrainPage() {
 
   // UI state
   const [showJsonPreview, setShowJsonPreview] = useState(false);
-
-  // Check viewport
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Fetch available functions
   useEffect(() => {

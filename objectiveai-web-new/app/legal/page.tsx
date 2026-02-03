@@ -1,18 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 export default function LegalPage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [termsOpen, setTermsOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
-  }, []);
 
   const sectionStyle = {
     marginBottom: '24px',

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface CreditsData {
   credits: number;
@@ -15,7 +16,7 @@ const BYPASS_AUTH = true;
 
 export default function CreditsPage() {
   const { user, isLoading } = useAuth();
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [creditsData, setCreditsData] = useState<CreditsData | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditsError, setCreditsError] = useState<string | null>(null);
@@ -36,13 +37,6 @@ export default function CreditsPage() {
     } finally {
       setCreditsLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
   }, []);
 
   // Fetch credits when user is authenticated (or bypass enabled)

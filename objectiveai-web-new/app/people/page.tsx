@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { EMAIL_SENT_FEEDBACK_DURATION_MS } from "../../lib/constants";
 
 // Types for team member data
 interface SocialLinks {
@@ -279,20 +281,12 @@ function SocialIconLink({ href, label, icon }: { href: string; label: string; ic
 }
 
 export default function PeoplePage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [emailSent, setEmailSent] = useState(false);
-
-  // Check viewport on mount
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
-  }, []);
 
   const handleJoinSubmit = () => {
     setEmailSent(true);
-    setTimeout(() => setEmailSent(false), 2000);
+    setTimeout(() => setEmailSent(false), EMAIL_SENT_FEEDBACK_DURATION_MS);
   };
 
   return (

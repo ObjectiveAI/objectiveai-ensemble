@@ -25,7 +25,7 @@ export function getClient(): ObjectiveAI {
 export const DEV_EXECUTION_OPTIONS = {
   from_cache: true,
   from_rng: true,
-  stream: false, // Disabled - Next.js dev mode has issues with fetch streaming
+  stream: true, // Enabled for production - only had issues in Next.js dev mode
   // reasoning: disabled by default to avoid costs
   // To enable, uncomment below (costs ~$0.0001-0.001 per execution):
   // reasoning: {

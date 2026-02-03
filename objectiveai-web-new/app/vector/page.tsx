@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import ArrayInput from "../../components/ArrayInput";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 // Content item types matching ArrayInput component
 type TextItem = string;
@@ -47,21 +48,11 @@ export default function VectorCompletionsPage() {
   const [ensembleId, setEnsembleId] = useState("");
   const [profileWeights, setProfileWeights] = useState("1");
   const [isRunning, setIsRunning] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [results, setResults] = useState<VectorResult | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
   const [showAllModels, setShowAllModels] = useState(false);
-
-  // Track viewport size
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Fetch model names when results contain votes
   useEffect(() => {
@@ -581,7 +572,7 @@ export default function VectorCompletionsPage() {
                 padding: isMobile ? "40px 20px" : "60px 20px",
                 color: "var(--text-muted)",
               }}>
-                <p style={{ marginBottom: "8px", fontSize: "24px" }}>-</p>
+                <p style={{ marginBottom: "8px", fontSize: "32px", opacity: 0.5 }}>📊</p>
                 <p style={{ fontSize: "14px" }}>Execute to see ranked results</p>
               </div>
             )}

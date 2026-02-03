@@ -1,23 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { COPY_FEEDBACK_DURATION_MS } from "../../lib/constants";
 
 export default function SdkFirstPage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
-  }, []);
 
   const copyCode = (code: string, index: number) => {
     navigator.clipboard.writeText(code);
     setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
+    setTimeout(() => setCopiedIndex(null), COPY_FEEDBACK_DURATION_MS);
   };
 
   const installCode = "npm install objectiveai";

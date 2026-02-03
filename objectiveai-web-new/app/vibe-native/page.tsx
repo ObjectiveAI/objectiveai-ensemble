@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { COPY_FEEDBACK_DURATION_MS } from "../../lib/constants";
 
 const CLAUDE_HYPERPROMPT = `You are an assistant that helps users score, rank, and evaluate content using ObjectiveAI—a REST API platform that uses ensembles of LLMs to produce structured numeric outputs.
 
@@ -61,20 +63,13 @@ curl -X POST https://api.objective-ai.io/v1/functions/executions \\
 Always be clear about what the scores mean and their limitations.`;
 
 export default function VibeNativePage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
-  }, []);
 
   const copyPrompt = () => {
     navigator.clipboard.writeText(CLAUDE_HYPERPROMPT);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   return (

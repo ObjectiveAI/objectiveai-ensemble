@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 interface FAQItem {
   question: string;
@@ -96,15 +97,8 @@ const faqSections: { title: string; items: FAQItem[] }[] = [
 ];
 
 export default function FAQPage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
-  }, []);
 
   const toggleItem = (key: string) => {
     setOpenItems(prev => {

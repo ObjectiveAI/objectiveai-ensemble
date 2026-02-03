@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { validateEnsembleLlm, loadWasm } from "@/lib/wasm-validation";
+import { useIsMobile } from "../../../hooks/useIsMobile";
+import { COPY_FEEDBACK_DURATION_MS, DROPDOWN_BLUR_DELAY_MS, WASM_VALIDATION_DEBOUNCE_MS } from "../../../lib/constants";
 
 // Common model suggestions
 const MODEL_SUGGESTIONS = [
@@ -34,7 +36,7 @@ interface EnsembleLlmConfig {
 }
 
 export default function CreateEnsembleLlmPage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
   const [wasmReady, setWasmReady] = useState(false);
   const [computedId, setComputedId] = useState<string | null>(null);
@@ -54,13 +56,6 @@ export default function CreateEnsembleLlmPage() {
 
   // Model suggestions dropdown
   const [showSuggestions, setShowSuggestions] = useState(false);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener("resize", checkViewport);
-    return () => window.removeEventListener("resize", checkViewport);
-  }, []);
 
   // Load WASM on mount
   useEffect(() => {
@@ -162,7 +157,7 @@ export default function CreateEnsembleLlmPage() {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       runValidation(config);
-    }, 300);
+    }, WASM_VALIDATION_DEBOUNCE_MS);
     return () => clearTimeout(timeoutId);
   }, [config, runValidation]);
 
@@ -173,7 +168,7 @@ export default function CreateEnsembleLlmPage() {
     if (configJson) {
       navigator.clipboard.writeText(configJson);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
     }
   };
 
@@ -251,7 +246,7 @@ export default function CreateEnsembleLlmPage() {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), DROPDOWN_BLUR_DELAY_MS)}
                 placeholder="e.g., openai/gpt-4o"
                 className="input"
                 style={{ fontFamily: "monospace" }}

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../../lib/constants";
+import { useIsMobile } from "../../hooks/useIsMobile";
 
 interface EnsembleItem {
   id: string;
@@ -15,7 +17,7 @@ export default function EnsemblesPage() {
   const [ensembles, setEnsembles] = useState<EnsembleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [isTablet, setIsTablet] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("id");
@@ -41,9 +43,9 @@ export default function EnsemblesPage() {
     fetchEnsembles();
   }, []);
 
+  // Track tablet viewport size
   useEffect(() => {
     const checkViewport = () => {
-      setIsMobile(window.innerWidth <= 768);
       setIsTablet(window.innerWidth <= 1024);
     };
     checkViewport();
@@ -60,7 +62,7 @@ export default function EnsemblesPage() {
 
     updateOffset();
     window.addEventListener('resize', updateOffset);
-    const timer = setTimeout(updateOffset, 100);
+    const timer = setTimeout(updateOffset, NAV_HEIGHT_CALCULATION_DELAY_MS);
     return () => {
       window.removeEventListener('resize', updateOffset);
       clearTimeout(timer);

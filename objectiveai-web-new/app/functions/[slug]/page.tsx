@@ -4,6 +4,8 @@ import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import ArrayInput from "../../../components/ArrayInput";
+import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
+import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface FunctionDetails {
   owner: string;
@@ -33,7 +35,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [rawInput, setRawInput] = useState("{}");
   const [isRunning, setIsRunning] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [isSaved, setIsSaved] = useState(false);
   const [showPinnedColor, setShowPinnedColor] = useState(false);
   const [results, setResults] = useState<{
@@ -174,19 +176,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       localStorage.setItem("pinned-functions", JSON.stringify(library));
       setIsSaved(true);
       setShowPinnedColor(true);
-      setTimeout(() => setShowPinnedColor(false), 1000);
+      setTimeout(() => setShowPinnedColor(false), PINNED_COLOR_ANIMATION_MS);
     }
   };
-
-  // Track viewport size
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Fetch model names when results contain votes
   useEffect(() => {

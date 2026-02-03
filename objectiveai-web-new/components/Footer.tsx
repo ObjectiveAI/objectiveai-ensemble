@@ -1,24 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { GitHubIcon, DiscordIcon, XIcon, LinkedInIcon, YouTubeIcon } from "./SocialIcons";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { EMAIL_SENT_FEEDBACK_DURATION_MS } from "../lib/constants";
 
 export default function Footer() {
   const [emailSent, setEmailSent] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener('resize', checkViewport);
-    return () => window.removeEventListener('resize', checkViewport);
-  }, []);
+  const isMobile = useIsMobile();
 
   const handleSubmit = () => {
     setEmailSent(true);
-    // Reset after 2 seconds
-    setTimeout(() => setEmailSent(false), 2000);
+    setTimeout(() => setEmailSent(false), EMAIL_SENT_FEEDBACK_DURATION_MS);
   };
 
   const socialIcons = [

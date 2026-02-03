@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useIsMobile } from "../../hooks/useIsMobile";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../../lib/constants";
 
 interface ProfileItem {
   owner: string;
@@ -16,7 +18,7 @@ export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [isTablet, setIsTablet] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
@@ -43,9 +45,9 @@ export default function ProfilesPage() {
     fetchProfiles();
   }, []);
 
+  // Track tablet viewport size
   useEffect(() => {
     const checkViewport = () => {
-      setIsMobile(window.innerWidth <= 768);
       setIsTablet(window.innerWidth <= 1024);
     };
     checkViewport();
@@ -63,7 +65,7 @@ export default function ProfilesPage() {
 
     updateOffset();
     window.addEventListener('resize', updateOffset);
-    const timer = setTimeout(updateOffset, 100);
+    const timer = setTimeout(updateOffset, NAV_HEIGHT_CALCULATION_DELAY_MS);
     return () => {
       window.removeEventListener('resize', updateOffset);
       clearTimeout(timer);

@@ -1,0 +1,817 @@
+/**
+ * Shared TypeScript types for ObjectiveAI Web API responses.
+ *
+ * These types mirror the SDK's Zod schemas but are defined as plain TypeScript
+ * interfaces for use throughout the web application. They provide proper typing
+ * for API route responses and client-side state management.
+ *
+ * Reference: objectiveai-js/src/ for authoritative type definitions
+ */
+
+// ============================================================================
+// Core Primitives
+// ============================================================================
+
+/**
+ * A GitHub repository reference used throughout the API for Functions and Profiles.
+ */
+export interface GitHubRef {
+  owner: string;
+  repository: string;
+  commit: string;
+}
+
+/**
+ * A content-addressed 22-character ID (XXHash3-128, base62 encoded).
+ * Used for Ensemble LLMs and Ensembles.
+ */
+export type ContentAddressedId = string;
+
+// ============================================================================
+// Usage & Cost Types
+// ============================================================================
+
+/**
+ * Detailed breakdown of completion token usage.
+ */
+export interface UsageCompletionTokensDetails {
+  accepted_prediction_tokens?: number;
+  audio_tokens?: number;
+  reasoning_tokens?: number;
+  rejected_prediction_tokens?: number;
+}
+
+/**
+ * Detailed breakdown of prompt token usage.
+ */
+export interface UsagePromptTokensDetails {
+  audio_tokens?: number;
+  cached_tokens?: number;
+  cache_write_tokens?: number;
+  video_tokens?: number;
+}
+
+/**
+ * Detailed breakdown of upstream costs.
+ */
+export interface UsageCostDetails {
+  upstream_inference_cost?: number;
+  upstream_upstream_inference_cost?: number;
+}
+
+/**
+ * Token and cost usage statistics for completions.
+ * Returned by chat completions, vector completions, and function executions.
+ */
+export interface Usage {
+  /** Number of tokens generated in the completion */
+  prompt_tokens: number;
+  /** Number of tokens in the prompt */
+  completion_tokens: number;
+  /** Total tokens used (prompt + completion) */
+  total_tokens: number;
+  /** Detailed completion token breakdown */
+  completion_tokens_details?: UsageCompletionTokensDetails;
+  /** Detailed prompt token breakdown */
+  prompt_tokens_details?: UsagePromptTokensDetails;
+  /** Cost in credits charged by ObjectiveAI */
+  cost: number;
+  /** Breakdown of upstream costs */
+  cost_details?: UsageCostDetails;
+  /** Total cost including upstream providers (differs from cost only with BYOK) */
+  total_cost: number;
+  /** Cost multiplier applied to upstream costs */
+  cost_multiplier?: number;
+  /** Whether BYOK (Bring Your Own Key) was used */
+  is_byok?: boolean;
+}
+
+/**
+ * Simplified usage type used in some UI contexts.
+ * Subset of Usage with optional cost fields.
+ */
+export interface UsageSimplified {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost?: number;
+  total_cost?: number;
+}
+
+// ============================================================================
+// Vote Types (Vector Completions)
+// ============================================================================
+
+/**
+ * A vote from an Ensemble LLM within a Vector Completion.
+ * Each LLM votes on the provided responses based on the prompt.
+ */
+export interface Vote {
+  /** Content-addressed ID of the Ensemble LLM (22 chars, cryptic) */
+  model: string;
+  /** Index of this LLM in the Ensemble */
+  ensemble_index: number;
+  /** Flat index accounting for LLM counts > 1 */
+  flat_ensemble_index: number;
+  /**
+   * Vote distribution over responses.
+   * - Length matches number of responses
+   * - With logprobs: probability distribution
+   * - Without logprobs: one-hot (single 1, rest 0)
+   */
+  vote: number[];
+  /** Weight assigned to this vote */
+  weight: number;
+  /** Whether this vote came from a retry token */
+  retry?: boolean;
+  /** Whether this vote came from the global ObjectiveAI cache */
+  from_cache?: boolean;
+  /** Whether this vote was generated via RNG (simulated) */
+  from_rng?: boolean;
+}
+
+// ============================================================================
+// Chat Completion Types
+// ============================================================================
+
+/**
+ * Role in a chat message.
+ */
+export type MessageRole = "user" | "assistant" | "system" | "tool";
+
+/**
+ * A chat message in a conversation.
+ */
+export interface ChatMessage {
+  role: MessageRole;
+  content: string;
+}
+
+/**
+ * Response message from an assistant.
+ */
+export interface AssistantMessage {
+  content: string | null;
+  refusal: string | null;
+  role: MessageRole;
+  tool_calls: ToolCall[] | null;
+  reasoning?: string;
+  images?: ResponseImage[];
+}
+
+/**
+ * A tool call made by the assistant.
+ */
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+/**
+ * An image generated by the assistant.
+ */
+export interface ResponseImage {
+  url: string;
+  revised_prompt?: string;
+}
+
+/**
+ * Finish reason for a completion.
+ */
+export type FinishReason = "stop" | "length" | "tool_calls" | "content_filter" | null;
+
+/**
+ * A choice in a chat completion response (unary/non-streaming).
+ */
+export interface ChatCompletionChoice {
+  message: AssistantMessage;
+  finish_reason: FinishReason;
+  index: number;
+  logprobs: Logprobs | null;
+}
+
+/**
+ * Logprobs information for a completion.
+ */
+export interface Logprobs {
+  content: LogprobContent[] | null;
+  refusal: LogprobContent[] | null;
+}
+
+/**
+ * Individual logprob content item.
+ */
+export interface LogprobContent {
+  token: string;
+  logprob: number;
+  bytes: number[] | null;
+  top_logprobs: TopLogprob[];
+}
+
+/**
+ * Top logprob alternative.
+ */
+export interface TopLogprob {
+  token: string;
+  logprob: number;
+  bytes: number[] | null;
+}
+
+/**
+ * Delta in a streaming chat completion response.
+ */
+export interface ChatCompletionDelta {
+  content?: string;
+  refusal?: string;
+  role?: MessageRole;
+  tool_calls?: ToolCall[];
+  reasoning?: string;
+  images?: ResponseImage[];
+}
+
+/**
+ * A choice in a streaming chat completion response.
+ */
+export interface ChatCompletionStreamingChoice {
+  delta: ChatCompletionDelta;
+  finish_reason?: FinishReason;
+  index: number;
+  logprobs?: Logprobs;
+}
+
+/**
+ * A unary (non-streaming) chat completion response.
+ */
+export interface ChatCompletion {
+  id: string;
+  upstream_id: string;
+  choices: ChatCompletionChoice[];
+  created: number;
+  /** Ensemble LLM ID used for this completion */
+  model: string;
+  /** Upstream model name (e.g., "gpt-4o") */
+  upstream_model: string;
+  object: "chat.completion";
+  service_tier?: string;
+  system_fingerprint?: string;
+  usage: Usage;
+  provider?: string;
+}
+
+/**
+ * A streaming chat completion chunk.
+ */
+export interface ChatCompletionChunk {
+  id: string;
+  upstream_id?: string;
+  choices: ChatCompletionStreamingChoice[];
+  created: number;
+  model: string;
+  upstream_model?: string;
+  object: "chat.completion.chunk";
+  service_tier?: string;
+  system_fingerprint?: string;
+  usage?: Usage;
+  provider?: string;
+}
+
+// ============================================================================
+// Vector Completion Types
+// ============================================================================
+
+/**
+ * A vector completion response.
+ * The core ObjectiveAI primitive: prompt + responses -> scores.
+ */
+export interface VectorCompletion {
+  id: string;
+  /** Chat completions generated during voting */
+  completions: VectorChatCompletion[];
+  /** Votes from each Ensemble LLM */
+  votes: Vote[];
+  /** Final normalized scores (sum ~= 1) */
+  scores: number[];
+  /** Weights allocated to each response */
+  weights: number[];
+  created: number;
+  ensemble: Ensemble;
+  object: "vector.completion";
+  usage: Usage;
+}
+
+/**
+ * Chat completion generated as part of a vector completion.
+ * Extends the base ChatCompletion with an index and optional error.
+ */
+export interface VectorChatCompletion extends Omit<ChatCompletion, "object"> {
+  index: number;
+  error?: ObjectiveAIError;
+}
+
+// ============================================================================
+// Ensemble & Ensemble LLM Types
+// ============================================================================
+
+/**
+ * Output mode for an Ensemble LLM.
+ */
+export type OutputMode = "instruction" | "json_schema" | "tool_call";
+
+/**
+ * Reasoning configuration for an Ensemble LLM.
+ */
+export interface Reasoning {
+  effort?: "low" | "medium" | "high";
+}
+
+/**
+ * Provider configuration for an Ensemble LLM.
+ */
+export interface ProviderConfig {
+  order?: string[];
+  allow_fallbacks?: boolean;
+  require_parameters?: boolean;
+  data_collection?: "allow" | "deny";
+  quantizations?: string[];
+}
+
+/**
+ * An Ensemble LLM configuration.
+ * Fully specifies how to use a single upstream LLM.
+ */
+export interface EnsembleLlm {
+  /** Content-addressed ID (22 chars) */
+  id: string;
+  /** Full model identifier (e.g., "openai/gpt-4o") */
+  model: string;
+  output_mode: OutputMode;
+  synthetic_reasoning?: boolean | null;
+  top_logprobs?: number | null;
+  prefix_messages?: ChatMessage[] | null;
+  suffix_messages?: ChatMessage[] | null;
+  frequency_penalty?: number | null;
+  logit_bias?: Record<string, number> | null;
+  max_completion_tokens?: number | null;
+  presence_penalty?: number | null;
+  stop?: string | string[] | null;
+  temperature?: number | null;
+  top_p?: number | null;
+  max_tokens?: number | null;
+  min_p?: number | null;
+  provider?: ProviderConfig | null;
+  reasoning?: Reasoning | null;
+  repetition_penalty?: number | null;
+  top_a?: number | null;
+  top_k?: number | null;
+  verbosity?: "very_terse" | "terse" | "normal" | "verbose" | "very_verbose" | null;
+}
+
+/**
+ * An Ensemble LLM with optional fallbacks and count.
+ * Used within Ensemble definitions.
+ */
+export interface EnsembleLlmWithFallbacksAndCount extends EnsembleLlm {
+  /** Number of instances of this LLM in the ensemble (default: 1) */
+  count?: number | null;
+  /** Fallback LLMs if primary fails */
+  fallbacks?: EnsembleLlm[] | null;
+}
+
+/**
+ * An Ensemble of LLMs used for voting.
+ */
+export interface Ensemble {
+  /** Content-addressed ID (22 chars) */
+  id: string;
+  /** List of LLMs in this ensemble */
+  llms: EnsembleLlmWithFallbacksAndCount[];
+}
+
+// ============================================================================
+// Function Types
+// ============================================================================
+
+/**
+ * Function type discriminator.
+ */
+export type FunctionType = "scalar.function" | "vector.function";
+
+/**
+ * A remote function reference.
+ */
+export interface FunctionRef extends GitHubRef {}
+
+/**
+ * A remote profile reference.
+ */
+export interface ProfileRef extends GitHubRef {}
+
+/**
+ * Expression type for JMESPath or Starlark expressions.
+ */
+export type Expression =
+  | { $jmespath: string }
+  | { $starlark: string };
+
+/**
+ * JSON schema type for function input schemas.
+ */
+export interface JsonSchema {
+  type?: string;
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+  additionalProperties?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * JSON schema property definition.
+ */
+export interface JsonSchemaProperty {
+  type?: string;
+  description?: string;
+  items?: JsonSchemaProperty;
+  enum?: unknown[];
+  [key: string]: unknown;
+}
+
+/**
+ * A function definition (as returned from API).
+ */
+export interface FunctionDefinition {
+  type: FunctionType;
+  description: string;
+  changelog?: string | null;
+  input_schema: JsonSchema;
+  input_maps?: Expression[] | null;
+  tasks: TaskExpression[];
+  output: Expression;
+  /** For vector functions: output length specification */
+  output_length?: number | Expression;
+  /** For vector functions: input splitting expression */
+  input_split?: Expression;
+  /** For vector functions: input merging expression */
+  input_merge?: Expression;
+}
+
+/**
+ * A task expression within a function definition.
+ */
+export interface TaskExpression {
+  skip?: Expression;
+  map?: number;
+  input?: Expression;
+  task: TaskDefinition;
+}
+
+/**
+ * A task definition (vector completion or nested function).
+ */
+export type TaskDefinition =
+  | VectorCompletionTaskDefinition
+  | FunctionTaskDefinition;
+
+/**
+ * Vector completion task definition.
+ */
+export interface VectorCompletionTaskDefinition {
+  type: "vector.completion";
+  messages: Expression;
+  responses: Expression;
+}
+
+/**
+ * Nested function task definition.
+ */
+export interface FunctionTaskDefinition {
+  type: "scalar.function" | "vector.function";
+  function: FunctionRef | FunctionDefinition;
+  input: Expression;
+}
+
+// ============================================================================
+// Function Execution Types
+// ============================================================================
+
+/**
+ * A function execution response (unary).
+ */
+export interface FunctionExecution {
+  id: string;
+  tasks: FunctionExecutionTask[];
+  tasks_errors: boolean;
+  reasoning: ReasoningSummary | null;
+  /** Scalar output [0,1] or vector output (sums to ~1) */
+  output: number | number[];
+  error: ObjectiveAIError | null;
+  retry_token: string | null;
+  created: number;
+  function: string | null;
+  profile: string | null;
+  object: "functions.execution";
+  usage: Usage;
+}
+
+/**
+ * A task within a function execution.
+ */
+export type FunctionExecutionTask = VectorCompletionTask | FunctionExecutionTaskNested;
+
+/**
+ * A vector completion task result.
+ */
+export interface VectorCompletionTask extends VectorCompletion {
+  index: number;
+  task_index: number[];
+  task_path: string;
+  error: ObjectiveAIError | null;
+}
+
+/**
+ * A nested function execution task result.
+ */
+export interface FunctionExecutionTaskNested {
+  index: number;
+  task_index: number[];
+  task_path: string;
+  output: number | number[];
+  error: ObjectiveAIError | null;
+}
+
+/**
+ * Reasoning summary attached to function executions.
+ */
+export interface ReasoningSummary extends Omit<ChatCompletion, "object"> {
+  error: ObjectiveAIError | null;
+}
+
+/**
+ * Streaming chunk for function executions.
+ */
+export interface FunctionExecutionChunk {
+  id?: string;
+  tasks?: FunctionExecutionTaskChunk[];
+  reasoning?: ReasoningSummaryChunk | null;
+  output?: number | number[];
+  error?: string;
+  created?: number;
+  function?: string | null;
+  profile?: string | null;
+  object?: "functions.execution.chunk";
+  usage?: Usage;
+}
+
+/**
+ * A task chunk in streaming function execution.
+ */
+export interface FunctionExecutionTaskChunk {
+  index?: number;
+  task_index?: number[];
+  task_path?: string;
+  votes?: Vote[];
+  completions?: VectorChatCompletionChunk[];
+  scores?: number[];
+  weights?: number[];
+  error?: ObjectiveAIError | null;
+}
+
+/**
+ * Chat completion chunk within vector completion (streaming).
+ */
+export interface VectorChatCompletionChunk {
+  id?: string;
+  model: string;
+  choices?: ChatCompletionStreamingChoice[];
+  usage?: Usage;
+  error?: ObjectiveAIError;
+}
+
+/**
+ * Reasoning summary chunk (streaming).
+ */
+export interface ReasoningSummaryChunk {
+  choices?: ChatCompletionStreamingChoice[];
+  error?: ObjectiveAIError | null;
+}
+
+// ============================================================================
+// Profile Types
+// ============================================================================
+
+/**
+ * A function profile containing learned weights.
+ */
+export interface Profile {
+  description: string;
+  changelog?: string | null;
+  tasks: TaskProfile[];
+}
+
+/**
+ * A task profile (weights for a specific task).
+ */
+export type TaskProfile =
+  | ProfileRef
+  | VectorCompletionTaskProfile
+  | InlineFunctionTaskProfile;
+
+/**
+ * Vector completion task profile with ensemble and weights.
+ */
+export interface VectorCompletionTaskProfile {
+  ensemble: Ensemble | ContentAddressedId;
+  profile: number[];
+}
+
+/**
+ * Inline function task profile.
+ */
+export interface InlineFunctionTaskProfile {
+  tasks: TaskProfile[];
+}
+
+// ============================================================================
+// API List Response Types
+// ============================================================================
+
+/**
+ * Standard list response wrapper.
+ */
+export interface ListResponse<T> {
+  data: T[];
+}
+
+/**
+ * Function list item (returned from /api/functions).
+ */
+export interface FunctionListItem extends GitHubRef {}
+
+/**
+ * Profile list item (returned from /api/profiles).
+ */
+export interface ProfileListItem extends GitHubRef {}
+
+/**
+ * Ensemble list item (returned from /api/ensembles).
+ */
+export interface EnsembleListItem {
+  id: string;
+}
+
+/**
+ * Ensemble LLM list item (returned from /api/ensemble-llms).
+ */
+export interface EnsembleLlmListItem {
+  id: string;
+}
+
+/**
+ * Function-Profile pair (returned from /api/functions/pairs).
+ */
+export interface FunctionProfilePair {
+  function: FunctionListItem;
+  profile: ProfileListItem;
+}
+
+// ============================================================================
+// Historical Usage Types
+// ============================================================================
+
+/**
+ * Historical usage statistics for a Function, Profile, or Ensemble.
+ */
+export interface HistoricalUsage {
+  requests: number;
+  completion_tokens: number;
+  prompt_tokens: number;
+  total_cost: number;
+}
+
+// ============================================================================
+// Auth Types
+// ============================================================================
+
+/**
+ * An ObjectiveAI API Key with metadata.
+ */
+export interface ApiKeyWithMetadata {
+  /** The API key string (format: apk + 32 hex chars) */
+  api_key: string;
+  /** RFC 3339 timestamp when created */
+  created: string;
+  /** RFC 3339 timestamp when expires, or null if never */
+  expires: string | null;
+  /** RFC 3339 timestamp when disabled, or null if active */
+  disabled: string | null;
+  /** Name assigned to the key */
+  name: string;
+  /** Optional description */
+  description: string | null;
+}
+
+/**
+ * Credit balance information.
+ */
+export interface Credits {
+  credits: number;
+  total_credits_purchased: number;
+  total_credits_used: number;
+}
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+/**
+ * ObjectiveAI API error structure.
+ */
+export interface ObjectiveAIError {
+  message: string;
+  code?: string;
+  param?: string;
+  type?: string;
+}
+
+/**
+ * API error response wrapper.
+ */
+export interface ApiErrorResponse {
+  error: string;
+}
+
+// ============================================================================
+// Rich Content Types (for ArrayInput and media uploads)
+// ============================================================================
+
+/**
+ * Plain text content.
+ */
+export type TextContent = string;
+
+/**
+ * Image URL content part.
+ */
+export interface ImageUrlPart {
+  type: "image_url";
+  image_url: { url: string };
+}
+
+/**
+ * Audio input content part.
+ */
+export interface InputAudioPart {
+  type: "input_audio";
+  input_audio: { data: string; format: "wav" | "mp3" };
+}
+
+/**
+ * Video URL content part.
+ */
+export interface VideoUrlPart {
+  type: "video_url";
+  video_url: { url: string };
+}
+
+/**
+ * File content part.
+ */
+export interface FilePart {
+  type: "file";
+  file: { file_data: string; filename: string };
+}
+
+/**
+ * A rich content part (non-text media).
+ */
+export type RichContentPart = ImageUrlPart | InputAudioPart | VideoUrlPart | FilePart;
+
+/**
+ * Content item: either plain text or array of rich content parts.
+ */
+export type ContentItem = TextContent | RichContentPart[];
+
+// ============================================================================
+// User & Auth Context Types
+// ============================================================================
+
+/**
+ * Authenticated user information.
+ */
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar?: string;
+}
+
+/**
+ * Authentication error information.
+ */
+export interface AuthError {
+  message: string;
+  code?: string;
+}

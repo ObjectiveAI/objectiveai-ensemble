@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { validateEnsemble, loadWasm } from "@/lib/wasm-validation";
+import { useIsMobile } from "../../../hooks/useIsMobile";
+import { COPY_FEEDBACK_DURATION_MS } from "../../../lib/constants";
 
 interface EnsembleLlmEntry {
   id: string;
@@ -42,19 +44,12 @@ export default function CreateEnsemblePage() {
   const [entries, setEntries] = useState<EnsembleLlmEntry[]>([
     { id: crypto.randomUUID(), ensemble_llm: "", count: 1 },
   ]);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
   const [wasmReady, setWasmReady] = useState(false);
   const [computedId, setComputedId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-
-  useEffect(() => {
-    const checkViewport = () => setIsMobile(window.innerWidth <= 640);
-    checkViewport();
-    window.addEventListener("resize", checkViewport);
-    return () => window.removeEventListener("resize", checkViewport);
-  }, []);
 
   // Load WASM on mount
   useEffect(() => {
@@ -158,7 +153,7 @@ export default function CreateEnsemblePage() {
     try {
       await navigator.clipboard.writeText(ensembleJson);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
     } catch (err) {
       console.error("Failed to copy:", err);
     }

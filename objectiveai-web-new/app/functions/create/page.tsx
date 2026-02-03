@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useIsMobile } from "../../../hooks/useIsMobile";
+import { COPY_FEEDBACK_DURATION_MS } from "../../../lib/constants";
 
 type ExpressionType = "jmespath" | "starlark" | "static";
 
@@ -48,18 +50,11 @@ const DEFAULT_FUNCTION: FunctionDefinition = {
 };
 
 export default function FunctionCreatePage() {
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useIsMobile();
   const [func, setFunc] = useState<FunctionDefinition>(DEFAULT_FUNCTION);
   const [showJsonPreview, setShowJsonPreview] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   // Build the function JSON for the API
   const buildFunctionJson = () => {
@@ -122,7 +117,7 @@ export default function FunctionCreatePage() {
   const copyToClipboard = () => {
     navigator.clipboard.writeText(JSON.stringify(buildFunctionJson(), null, 2));
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   const addInputMap = () => {
