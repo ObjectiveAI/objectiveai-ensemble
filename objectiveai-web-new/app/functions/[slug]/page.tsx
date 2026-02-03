@@ -770,9 +770,11 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         <div style={{
           maxWidth: "1400px",
           margin: "0 auto",
-          padding: "0 32px",
-          textAlign: "center",
           paddingTop: "100px",
+          paddingRight: "32px",
+          paddingBottom: "0",
+          paddingLeft: "32px",
+          textAlign: "center",
         }}>
           <div style={{
             width: "40px",
@@ -796,9 +798,11 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         <div style={{
           maxWidth: "1400px",
           margin: "0 auto",
-          padding: "0 32px",
-          textAlign: "center",
           paddingTop: "100px",
+          paddingRight: "32px",
+          paddingBottom: "0",
+          paddingLeft: "32px",
+          textAlign: "center",
         }}>
           <p style={{ color: "#ef4444", marginBottom: "8px" }}>Failed to load function</p>
           <p style={{ color: "var(--text-muted)", marginBottom: "24px" }}>{loadError}</p>
