@@ -4,6 +4,8 @@ import {
   createContext,
   useContext,
   useMemo,
+  useState,
+  useCallback,
   ReactNode,
 } from "react";
 import {
@@ -30,18 +32,25 @@ type AuthContextType = {
   user: User | null;
   isLoading: boolean;
   isAuthenticating: boolean;
+  authError: AuthError | null;
   tokenSession: Provider.TokenSession | null;
   signInWithGoogle: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
   signInWithX: () => Promise<void>;
   signInWithReddit: () => Promise<void>;
   signOut: () => Promise<void>;
+  clearError: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function AuthContextInner({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
+  const [authError, setAuthError] = useState<AuthError | null>(null);
+
+  const clearError = useCallback(() => {
+    setAuthError(null);
+  }, []);
 
   const tokenSession = useMemo<Provider.TokenSession | null>(() => {
     if (!session) return null;
@@ -84,12 +93,14 @@ function AuthContextInner({ children }: { children: ReactNode }) {
         user,
         isLoading: status === "loading",
         isAuthenticating: status === "loading",
+        authError,
         tokenSession,
         signInWithGoogle,
         signInWithGitHub,
         signInWithX,
         signInWithReddit,
         signOut: handleSignOut,
+        clearError,
       }}
     >
       {children}

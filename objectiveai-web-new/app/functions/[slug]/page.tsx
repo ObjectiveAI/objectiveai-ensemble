@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import Link from "next/link";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
-import ArrayInput from "../../../components/ArrayInput";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
 import { useIsMobile } from "../../../hooks/useIsMobile";
+import { SchemaFormBuilder } from "../../../components/SchemaForm";
+import type { InputSchema, InputValue, ValidationError } from "../../../components/SchemaForm/types";
+import SplitItemDisplay from "../../../components/SplitItemDisplay";
+import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/split-item-utils";
+import { compileFunctionInputSplit } from "../../../lib/wasm-validation";
 
 interface FunctionDetails {
   owner: string;
@@ -32,12 +36,14 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [formData, setFormData] = useState<InputValue>({});
   const [rawInput, setRawInput] = useState("{}");
+  const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const isMobile = useIsMobile();
   const [isSaved, setIsSaved] = useState(false);
   const [showPinnedColor, setShowPinnedColor] = useState(false);
+  const [splitItems, setSplitItems] = useState<InputValue[] | null>(null);
   const [results, setResults] = useState<{
     output?: number | number[];
     inputSnapshot?: Record<string, unknown>; // Store input for display
@@ -217,6 +223,38 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     });
   }, [results?.tasks, modelNames]);
 
+  // Compute split items for vector results visualization
+  useEffect(() => {
+    if (!results?.output || !Array.isArray(results.output) || !functionDetails) return;
+
+    // Capture values for the async function
+    const inputSnapshot = results.inputSnapshot;
+    const { owner, repository, commit } = functionDetails;
+
+    async function computeSplitItems() {
+      try {
+        // Fetch the full function definition for WASM compilation
+        const slug = `${owner}--${repository}`;
+        const detailsRes = await fetch(`/api/functions/${slug}?commit=${commit}`);
+        if (!detailsRes.ok) return;
+        const funcDef = await detailsRes.json();
+
+        // Use WASM to compile the input split
+        const splitResult = await compileFunctionInputSplit(funcDef, inputSnapshot);
+        if (splitResult.success && splitResult.data) {
+          // Simplify the items for display (cast to InputValue[])
+          const simplified = simplifySplitItems(splitResult.data as InputValue[]);
+          setSplitItems(simplified);
+        }
+      } catch (err) {
+        console.error("Failed to compute split items:", err);
+        // Keep splitItems as null, will fall back to basic labels
+      }
+    }
+
+    computeSplitItems();
+  }, [results?.output, results?.inputSnapshot, functionDetails]);
+
   // Execute function via server API route with streaming
   const handleRun = async () => {
     const selectedProfile = availableProfiles[selectedProfileIndex];
@@ -225,6 +263,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     setIsRunning(true);
     setRunError(null);
     setResults(null);
+    setSplitItems(null);
     setShowAllModels(false);
     setExpandedVotes(new Set());
 
@@ -383,7 +422,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                 // Update UI progressively
                 setResults({
                   output: accumulatedOutput,
-                  inputSnapshot: { ...formData },
+                  inputSnapshot: typeof formData === 'object' && formData !== null ? { ...(formData as Record<string, unknown>) } : {},
                   usage: accumulatedUsage,
                   tasks: accumulatedTasks.length > 0 ? accumulatedTasks : undefined,
                   reasoning: accumulatedReasoningContent ? {
@@ -406,7 +445,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         if ("output" in result) {
           setResults({
             output: result.output as number | number[],
-            inputSnapshot: { ...formData },
+            inputSnapshot: typeof formData === 'object' && formData !== null ? { ...(formData as Record<string, unknown>) } : {},
             usage: result.usage,
             tasks: result.tasks,
             reasoning: result.reasoning,
@@ -421,10 +460,15 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     }
   };
 
-  // Build input fields from schema
+  // Handle form validation callback
+  const handleFormValidate = useCallback((errors: ValidationError[]) => {
+    setFormErrors(errors);
+  }, []);
+
+  // Build input fields from schema using SchemaFormBuilder
   const renderInputFields = () => {
     if (!functionDetails?.inputSchema) {
-      // Fallback: single text input
+      // Fallback: single text input (no schema available)
       return (
         <div>
           <label style={{
@@ -462,109 +506,15 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       );
     }
 
-    // Parse input_schema to generate fields
-    const schema = functionDetails.inputSchema as {
-      type?: string;
-      properties?: Record<string, { type?: string; description?: string; items?: { type?: string } }>;
-    };
-
-    if (schema.type === "object" && schema.properties) {
-      return Object.entries(schema.properties).map(([key, prop]) => (
-        <div key={key}>
-          <label style={{
-            display: "block",
-            fontSize: "14px",
-            fontWeight: 600,
-            marginBottom: "8px",
-            color: "var(--text)",
-          }}>
-            {key.charAt(0).toUpperCase() + key.slice(1)}
-            {prop.description && (
-              <span style={{
-                fontWeight: 400,
-                color: "var(--text-muted)",
-                marginLeft: "8px",
-                display: isMobile ? "block" : "inline",
-                marginTop: isMobile ? "4px" : "0",
-              }}>
-                {prop.description}
-              </span>
-            )}
-          </label>
-
-          {prop.type === "string" && (
-            <div className="aiTextField">
-              <textarea
-                placeholder={`Enter ${key}...`}
-                value={(formData[key] as string) || ""}
-                onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                rows={3}
-              />
-            </div>
-          )}
-
-          {(prop.type === "number" || prop.type === "integer") && (
-            <div className="aiTextField">
-              <input
-                type="number"
-                placeholder={`Enter ${key}...`}
-                value={(formData[key] as number) || ""}
-                onChange={(e) => setFormData({ ...formData, [key]: parseFloat(e.target.value) })}
-              />
-            </div>
-          )}
-
-          {prop.type === "array" && (
-            <ArrayInput
-              value={Array.isArray(formData[key]) ? formData[key] : []}
-              onChange={(items) => setFormData(prev => ({ ...prev, [key]: items }))}
-              isMobile={isMobile}
-            />
-          )}
-
-          {/* Fallback for unknown types */}
-          {prop.type !== "string" && prop.type !== "number" && prop.type !== "integer" && prop.type !== "array" && (
-            <div className="aiTextField">
-              <textarea
-                placeholder={`Enter ${key}...`}
-                value={(formData[key] as string) || ""}
-                onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                rows={3}
-              />
-            </div>
-          )}
-        </div>
-      ));
-    }
-
-    // Fallback for other schema types
+    // Use SchemaFormBuilder for schema-driven dynamic forms
     return (
-      <div>
-        <label style={{
-          display: "block",
-          fontSize: "14px",
-          fontWeight: 600,
-          marginBottom: "8px",
-          color: "var(--text)",
-        }}>
-          Input
-        </label>
-        <div className="aiTextField">
-          <textarea
-            placeholder="Enter input as JSON..."
-            value={rawInput}
-            onChange={(e) => {
-              setRawInput(e.target.value);
-              try {
-                setFormData(JSON.parse(e.target.value));
-              } catch {
-                // Invalid JSON, keep typing
-              }
-            }}
-            rows={6}
-          />
-        </div>
-      </div>
+      <SchemaFormBuilder
+        schema={functionDetails.inputSchema as unknown as InputSchema}
+        value={formData}
+        onChange={setFormData}
+        onValidate={handleFormValidate}
+        disabled={isRunning}
+      />
     );
   };
 
@@ -669,6 +619,10 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
       const keywords = results.inputSnapshot?.keywords as string[] | undefined;
 
+      // Determine display mode based on split items
+      const displayMode = splitItems ? getDisplayMode(splitItems) : "simple";
+      const showCompactDisplay = displayMode === "simple" || displayMode === "mixed";
+
       return (
         <div>
           {/* Show keywords context */}
@@ -694,11 +648,12 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
             {sorted.map((item, rank) => {
               const pct = item.score * 100;
               const isTop = rank === 0;
+              const splitItem = splitItems?.[item.index];
 
               return (
                 <div key={item.index} style={{
                   display: "flex",
-                  alignItems: "center",
+                  alignItems: showCompactDisplay ? "center" : "flex-start",
                   gap: isMobile ? "10px" : "14px",
                   padding: isMobile ? "10px 12px" : "14px 18px",
                   background: isTop ? "rgba(34, 197, 94, 0.08)" : "var(--page-bg)",
@@ -714,17 +669,30 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                   }}>
                     {pct.toFixed(0)}%
                   </span>
-                  <span style={{
+                  <div style={{
                     flex: 1,
                     fontSize: isMobile ? "13px" : "14px",
                     fontWeight: isTop ? 600 : 400,
                     color: isTop ? "var(--text)" : "var(--text-muted)",
                     overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    minWidth: 0,
                   }}>
-                    {item.label}
-                  </span>
+                    {splitItem !== undefined ? (
+                      <SplitItemDisplay
+                        item={toDisplayItem(splitItem)}
+                        compact={showCompactDisplay}
+                      />
+                    ) : (
+                      <span style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        display: "block",
+                      }}>
+                        {item.label}
+                      </span>
+                    )}
+                  </div>
                   {isTop && !isMobile && (
                     <span style={{
                       fontSize: "11px",
@@ -733,6 +701,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                       color: "var(--color-success)",
                       borderRadius: "6px",
                       fontWeight: 600,
+                      flexShrink: 0,
                     }}>
                       Best Match
                     </span>
@@ -1081,9 +1050,31 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                       const allSimulated = votes.every(v => v.from_rng);
                       const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
-                      // Get content labels from input
-                      const contentItems = results.inputSnapshot?.contentItems as string[] | undefined;
-                      const getOptionLabel = (idx: number) => {
+                      // Get content labels from split items or fallback to input
+                      const getOptionLabel = (idx: number): string => {
+                        // Use split items if available (simplified, actual content)
+                        if (splitItems && splitItems[idx] !== undefined) {
+                          const item = splitItems[idx];
+                          if (typeof item === "string") {
+                            return item.length > 18 ? item.slice(0, 18) + "…" : item;
+                          }
+                          if (typeof item === "number" || typeof item === "boolean") {
+                            return String(item);
+                          }
+                          // For complex items, show a brief summary
+                          const display = toDisplayItem(item);
+                          if (display.type === "image") return "[Image]";
+                          if (display.type === "audio") return "[Audio]";
+                          if (display.type === "video") return "[Video]";
+                          if (display.type === "file") return display.filename || "[File]";
+                          if (display.type === "object" || display.type === "array") {
+                            const json = JSON.stringify(item);
+                            return json.length > 18 ? json.slice(0, 18) + "…" : json;
+                          }
+                          return String(item);
+                        }
+                        // Fallback to old behavior
+                        const contentItems = results.inputSnapshot?.contentItems as unknown[] | undefined;
                         if (contentItems && contentItems[idx]) {
                           const item = contentItems[idx];
                           if (typeof item === "string") {
