@@ -243,6 +243,7 @@ function writeAssets(): void {
 
 export interface InitOptions {
   apiBase?: string;
+  spec?: string;
 }
 
 export async function init(options: InitOptions = {}): Promise<void> {
@@ -261,6 +262,12 @@ export async function init(options: InitOptions = {}): Promise<void> {
 
   // Step 4: Write asset files
   writeAssets();
+
+  // Step 5: Write SPEC.md if provided
+  if (options.spec) {
+    console.log("Writing SPEC.md...");
+    writeFileSync("SPEC.md", options.spec);
+  }
 
   console.log("Initialization complete.");
 }

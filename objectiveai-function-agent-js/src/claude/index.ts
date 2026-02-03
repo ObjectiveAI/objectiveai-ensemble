@@ -1178,3 +1178,49 @@ function promptResources(resources: string[]): string {
   }
   return prompt;
 }
+
+export interface RunOptions {
+  spec?: string;
+  apiBase?: string;
+}
+
+// Main entry point - runs init and all agent steps
+export async function run(options: RunOptions = {}): Promise<void> {
+  const { init } = await import("../init");
+
+  // Initialize the workspace
+  console.log("=== Initializing workspace ===");
+  await init({ spec: options.spec, apiBase: options.apiBase });
+
+  // Run all agent steps, passing sessionId between them
+  let sessionId: string | undefined;
+
+  console.log("=== Step 1: Learning about ObjectiveAI ===");
+  sessionId = await learnSubmodule(sessionId);
+
+  console.log("=== Step 2: Learning from examples ===");
+  sessionId = await learnExamples(sessionId);
+
+  console.log("=== Step 3: Reading/Creating SPEC.md ===");
+  sessionId = await spec(sessionId);
+
+  console.log("=== Step 4: Creating function/type.json ===");
+  sessionId = await createFunctionTypeJson(sessionId);
+
+  console.log("=== Step 5: Creating github/name.json ===");
+  sessionId = await createGitHubNameJson(sessionId);
+
+  console.log("=== Step 6: Reading/Creating ESSAY.md ===");
+  sessionId = await essay(sessionId);
+
+  console.log("=== Step 7: Reading/Creating ESSAY_TASKS.md ===");
+  sessionId = await essayTasks(sessionId);
+
+  console.log("=== Step 8: Handling open issues ===");
+  sessionId = await handleOpenIssues(sessionId);
+
+  console.log("=== Step 9: Main implementation loop ===");
+  await mainLoop(sessionId);
+
+  console.log("=== ObjectiveAI Function Agent complete ===");
+}
