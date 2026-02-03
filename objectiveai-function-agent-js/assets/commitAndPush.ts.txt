@@ -1,0 +1,11 @@
+import { GitHub } from "@objectiveai/function-agent";
+
+const message = process.argv[2];
+
+if (!message) {
+  console.error("Usage: ts-node commitAndPush.ts <commit_message>");
+  process.exit(1);
+}
+
+GitHub.commitAndPush({ message });
+console.log("Committed and pushed successfully.");

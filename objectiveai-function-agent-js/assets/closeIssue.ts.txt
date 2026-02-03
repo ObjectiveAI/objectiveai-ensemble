@@ -1,0 +1,11 @@
+import { GitHub } from "@objectiveai/function-agent";
+
+const issueNumber = parseInt(process.argv[2], 10);
+
+if (isNaN(issueNumber)) {
+  console.error("Usage: ts-node closeIssue.ts <issue_number>");
+  process.exit(1);
+}
+
+GitHub.closeIssue(issueNumber);
+console.log(`Closed issue #${issueNumber}`);

@@ -21,6 +21,13 @@ import readmeMd from "../assets/README.md.txt";
 import testTs from "../assets/test.ts.txt";
 import tsconfigJson from "../assets/tsconfig.json.txt";
 
+// GitHub issue assets
+import fetchOpenIssuesTs from "../assets/fetchOpenIssues.ts.txt";
+import fetchClosedIssuesTs from "../assets/fetchClosedIssues.ts.txt";
+import commentOnIssueTs from "../assets/commentOnIssue.ts.txt";
+import closeIssueTs from "../assets/closeIssue.ts.txt";
+import commitAndPushTs from "../assets/commitAndPush.ts.txt";
+
 export const assets: Record<string, string> = {
   "function/description.json": functionDescription,
   "function/input_maps.json": functionInputMaps,
@@ -39,4 +46,9 @@ export const assets: Record<string, string> = {
   "README.md": readmeMd,
   "test.ts": testTs,
   "tsconfig.json": tsconfigJson,
+  "fetchOpenIssues.ts": fetchOpenIssuesTs,
+  "fetchClosedIssues.ts": fetchClosedIssuesTs,
+  "commentOnIssue.ts": commentOnIssueTs,
+  "closeIssue.ts": closeIssueTs,
+  "commitAndPush.ts": commitAndPushTs,
 };
