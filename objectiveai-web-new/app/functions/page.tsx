@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { getClient, Functions, deriveCategory, deriveDisplayName } from "../../lib/objectiveai";
+import { deriveCategory, deriveDisplayName } from "../../lib/objectiveai";
 
 // Function item type for UI
 interface FunctionItem {
@@ -47,13 +47,14 @@ export default function FunctionsPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const client = getClient();
 
-        // Get all functions
-        const result = await Functions.list(client);
+        // Get all functions via API route
+        const listRes = await fetch('/api/functions');
+        if (!listRes.ok) throw new Error('Failed to fetch functions');
+        const result = await listRes.json();
 
         // Deduplicate by owner/repository (same function may have multiple commits)
-        const uniqueFunctions = new Map<string, typeof result.data[0]>();
+        const uniqueFunctions = new Map<string, { owner: string; repository: string; commit: string }>();
         for (const fn of result.data) {
           const key = `${fn.owner}/${fn.repository}`;
           if (!uniqueFunctions.has(key)) {
@@ -61,24 +62,22 @@ export default function FunctionsPage() {
           }
         }
 
-        // Fetch details for each unique function
+        // Fetch details for each unique function via API route
         const functionItems: FunctionItem[] = await Promise.all(
           Array.from(uniqueFunctions.values()).map(async (fn) => {
-            // Fetch full function details
-            const details = await Functions.retrieve(
-              client,
-              fn.owner,
-              fn.repository,
-              fn.commit
-            );
-
             // Use -- separator for slug (single path segment)
             const slug = `${fn.owner}--${fn.repository}`;
+
+            // Fetch full function details via API route
+            const detailsRes = await fetch(`/api/functions/${slug}?commit=${fn.commit}`);
+            if (!detailsRes.ok) throw new Error(`Failed to fetch function ${slug}`);
+            const details = await detailsRes.json();
+
             const category = deriveCategory(details);
             const name = deriveDisplayName(fn.repository);
 
             // Extract tags from repository name
-            const tags = fn.repository.split("-").filter(t => t.length > 2);
+            const tags = fn.repository.split("-").filter((t: string) => t.length > 2);
             if (details.type === "vector.function") tags.push("ranking");
             else tags.push("scoring");
 

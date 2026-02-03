@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import HeroText from "@/components/HeroText";
-import { getClient, Functions, deriveCategory, deriveDisplayName } from "../lib/objectiveai";
+import { deriveCategory, deriveDisplayName } from "../lib/objectiveai";
 
 // =============================================================================
 // FEATURED FUNCTIONS CONFIGURATION
@@ -42,11 +42,14 @@ export default function Home() {
     async function fetchFunctions() {
       try {
         setIsLoading(true);
-        const client = getClient();
-        const result = await Functions.list(client);
+
+        // Fetch functions list via API route
+        const listRes = await fetch('/api/functions');
+        if (!listRes.ok) throw new Error('Failed to fetch functions');
+        const result = await listRes.json();
 
         // Deduplicate by owner/repository (same function may have multiple commits)
-        const uniqueFunctions = new Map<string, typeof result.data[0]>();
+        const uniqueFunctions = new Map<string, { owner: string; repository: string; commit: string }>();
         for (const fn of result.data) {
           const key = `${fn.owner}/${fn.repository}`;
           if (!uniqueFunctions.has(key)) {
@@ -59,20 +62,17 @@ export default function Home() {
 
         const functionItems: FeaturedFunction[] = await Promise.all(
           limitedFunctions.map(async (fn) => {
-            // Fetch full function details
-            const details = await Functions.retrieve(
-              client,
-              fn.owner,
-              fn.repository,
-              fn.commit
-            );
-
+            // Fetch full function details via API route
             const slug = `${fn.owner}--${fn.repository}`;
+            const detailsRes = await fetch(`/api/functions/${slug}?commit=${fn.commit}`);
+            if (!detailsRes.ok) throw new Error(`Failed to fetch function ${slug}`);
+            const details = await detailsRes.json();
+
             const category = deriveCategory(details);
             const name = deriveDisplayName(fn.repository);
 
             // Extract tags from repository name
-            const tags = fn.repository.split("-").filter(t => t.length > 2);
+            const tags = fn.repository.split("-").filter((t: string) => t.length > 2);
             if (details.type === "vector.function") tags.push("ranking");
             else tags.push("scoring");
 

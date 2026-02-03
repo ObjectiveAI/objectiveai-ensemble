@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { getClient, Functions, deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
+import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import ArrayInput from "../../../components/ArrayInput";
 
 interface FunctionDetails {
@@ -86,12 +86,15 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       try {
         setIsLoadingDetails(true);
         setLoadError(null);
-        const client = getClient();
 
-        // First get the function-profile pair
-        const pairs = await Functions.listPairs(client);
+        // First get the function-profile pairs via API route
+        const pairsRes = await fetch('/api/functions/pairs');
+        if (!pairsRes.ok) throw new Error('Failed to fetch function pairs');
+        const pairs = await pairsRes.json();
+
         const pair = pairs.data.find(
-          p => p.function.owner === owner && p.function.repository === repository
+          (p: { function: { owner: string; repository: string } }) =>
+            p.function.owner === owner && p.function.repository === repository
         );
 
         if (!pair) {
@@ -101,13 +104,11 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         // Store profile info for execution
         setProfileInfo(pair.profile);
 
-        // Fetch full function details
-        const details = await Functions.retrieve(
-          client,
-          pair.function.owner,
-          pair.function.repository,
-          pair.function.commit
-        );
+        // Fetch full function details via API route
+        const slug = `${pair.function.owner}--${pair.function.repository}`;
+        const detailsRes = await fetch(`/api/functions/${slug}?commit=${pair.function.commit}`);
+        if (!detailsRes.ok) throw new Error(`Failed to fetch function details`);
+        const details = await detailsRes.json();
 
         const category = details.type === "vector.function" ? "Ranking" : "Scoring";
 
