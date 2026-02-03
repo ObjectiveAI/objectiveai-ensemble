@@ -30,3 +30,5 @@ export {
   type ApiServerOptions,
 } from "./apiServer";
 export { ExampleInputSchema, type ExampleInput } from "./exampleInput";
+export { createFileLogger, getLatestLogPath } from "./logging";
+export { type LogFn, type AgentOptions } from "./agentOptions";

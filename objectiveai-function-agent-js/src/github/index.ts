@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "fs";
 
 export interface IssueComment {
   body: string;
@@ -308,4 +308,111 @@ export function hasUntrackedFiles(): boolean {
 // Checkout/discard changes in the objectiveai submodule
 export function checkoutSubmodule(): void {
   execSync("git checkout -- objectiveai", { stdio: "inherit" });
+}
+
+export interface FunctionTask {
+  type: string;
+  owner?: string;
+  repository?: string;
+  commit?: string;
+}
+
+export interface CloneSubFunctionsOptions {
+  latest?: boolean;
+}
+
+export interface ClonedSubFunction {
+  owner: string;
+  repository: string;
+  commit: string;
+  path: string;
+}
+
+// Get the latest commit SHA for a repository's default branch
+function getLatestCommit(owner: string, repository: string): string {
+  const result = gh(`api repos/${owner}/${repository}/commits/HEAD --jq .sha`);
+  return result.trim();
+}
+
+// Clone all sub-function repositories referenced in tasks.json
+export function cloneSubFunctions(options: CloneSubFunctionsOptions = {}): ClonedSubFunction[] {
+  const { latest = false } = options;
+
+  // Read tasks.json
+  const tasksPath = "function/tasks.json";
+  if (!existsSync(tasksPath)) {
+    console.log("No function/tasks.json found.");
+    return [];
+  }
+
+  const tasks = JSON.parse(readFileSync(tasksPath, "utf-8")) as FunctionTask[];
+  const cloned: ClonedSubFunction[] = [];
+
+  for (const task of tasks) {
+    // Only process function tasks
+    if (task.type !== "scalar.function" && task.type !== "vector.function") {
+      continue;
+    }
+
+    if (!task.owner || !task.repository) {
+      console.log(`Skipping task with missing owner/repository: ${JSON.stringify(task)}`);
+      continue;
+    }
+
+    // Determine commit to use
+    let commit: string;
+    if (latest) {
+      console.log(`Fetching latest commit for ${task.owner}/${task.repository}...`);
+      commit = getLatestCommit(task.owner, task.repository);
+    } else {
+      if (!task.commit) {
+        console.log(`Skipping task with missing commit: ${JSON.stringify(task)}`);
+        continue;
+      }
+      commit = task.commit;
+    }
+
+    const targetPath = `sub_functions/${task.owner}/${task.repository}/${commit}`;
+
+    // Skip if already cloned
+    if (existsSync(targetPath)) {
+      console.log(`Already cloned: ${targetPath}`);
+      cloned.push({
+        owner: task.owner,
+        repository: task.repository,
+        commit,
+        path: targetPath,
+      });
+      continue;
+    }
+
+    // Create parent directories
+    mkdirSync(`sub_functions/${task.owner}/${task.repository}`, { recursive: true });
+
+    // Clone the repository at the specific commit
+    console.log(`Cloning ${task.owner}/${task.repository}@${commit} to ${targetPath}...`);
+    execSync(
+      `gh repo clone ${task.owner}/${task.repository} "${targetPath}" -- --depth 1`,
+      { stdio: "inherit" }
+    );
+
+    // Checkout the specific commit (in case default branch is different)
+    execSync(`git -C "${targetPath}" fetch origin ${commit} --depth 1`, { stdio: "inherit" });
+    execSync(`git -C "${targetPath}" checkout ${commit}`, { stdio: "inherit" });
+
+    // Remove logs folder to save space (can be large)
+    const logsPath = `${targetPath}/logs`;
+    if (existsSync(logsPath)) {
+      rmSync(logsPath, { recursive: true, force: true });
+    }
+
+    cloned.push({
+      owner: task.owner,
+      repository: task.repository,
+      commit,
+      path: targetPath,
+    });
+  }
+
+  return cloned;
 }

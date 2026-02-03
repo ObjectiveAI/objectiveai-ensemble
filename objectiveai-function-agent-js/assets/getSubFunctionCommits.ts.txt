@@ -1,0 +1,74 @@
+import { execSync } from "child_process";
+import { existsSync, readdirSync, readFileSync } from "fs";
+
+interface SubFunctionInfo {
+  index: number;
+  owner: string;
+  repository: string;
+  commit: string;
+  path: string;
+}
+
+function main(): void {
+  const subFunctionsDir = "sub_functions";
+
+  if (!existsSync(subFunctionsDir)) {
+    console.log("No sub_functions directory found.");
+    console.log("\n=== SUB_FUNCTION_COMMITS ===");
+    console.log("[]");
+    return;
+  }
+
+  const entries = readdirSync(subFunctionsDir);
+  const results: SubFunctionInfo[] = [];
+
+  for (const entry of entries) {
+    // Skip non-numeric directories (like .gitignore)
+    const index = parseInt(entry, 10);
+    if (isNaN(index)) continue;
+
+    const subFunctionPath = `${subFunctionsDir}/${entry}`;
+
+    // Get the commit SHA from git
+    let commit: string;
+    try {
+      commit = execSync("git rev-parse HEAD", {
+        cwd: subFunctionPath,
+        encoding: "utf-8",
+        stdio: "pipe",
+      }).trim();
+    } catch {
+      console.log(`Failed to get commit for ${subFunctionPath}`);
+      continue;
+    }
+
+    // Get owner/repository from github/name.json if it exists
+    let owner = "";
+    let repository = "";
+    const namePath = `${subFunctionPath}/github/name.json`;
+    if (existsSync(namePath)) {
+      const name = JSON.parse(readFileSync(namePath, "utf-8")) as string;
+      const parts = name.split("/");
+      if (parts.length === 2) {
+        owner = parts[0];
+        repository = parts[1];
+      }
+    }
+
+    results.push({
+      index,
+      owner,
+      repository,
+      commit,
+      path: subFunctionPath,
+    });
+  }
+
+  // Sort by index
+  results.sort((a, b) => a.index - b.index);
+
+  console.log("\n=== SUB_FUNCTION_COMMITS ===");
+  console.log(JSON.stringify(results, null, 2));
+}
+
+main();
