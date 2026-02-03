@@ -108,6 +108,27 @@ export default function Footer() {
                   Browse
                 </Link>
                 <Link
+                  href="/functions/create"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  Create
+                </Link>
+                <Link
                   href="/profiles"
                   style={{
                     fontSize: '12px',
@@ -127,6 +148,27 @@ export default function Footer() {
                   }}
                 >
                   Profiles
+                </Link>
+                <Link
+                  href="/profiles/train"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  Train
                 </Link>
               </div>
               </div>
@@ -185,6 +227,27 @@ export default function Footer() {
                   Browse
                 </Link>
                 <Link
+                  href="/ensembles/create"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  Create
+                </Link>
+                <Link
                   href="/ensemble-llms"
                   style={{
                     fontSize: '12px',
@@ -204,6 +267,69 @@ export default function Footer() {
                   }}
                 >
                   LLMs
+                </Link>
+                <Link
+                  href="/ensemble-llms/create"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  Create LLM
+                </Link>
+                <Link
+                  href="/chat"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  Chat
+                </Link>
+                <Link
+                  href="/vector"
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 400,
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                    opacity: 0.7,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent)';
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.opacity = '0.7';
+                  }}
+                >
+                  Vector
                 </Link>
               </div>
               </div>

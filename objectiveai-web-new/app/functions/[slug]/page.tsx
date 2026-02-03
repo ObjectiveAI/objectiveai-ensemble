@@ -25,7 +25,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     : ["unknown", slug];
 
   const [functionDetails, setFunctionDetails] = useState<FunctionDetails | null>(null);
-  const [profileInfo, setProfileInfo] = useState<{ owner: string; repository: string; commit: string } | null>(null);
+  const [availableProfiles, setAvailableProfiles] = useState<{ owner: string; repository: string; commit: string }[]>([]);
+  const [selectedProfileIndex, setSelectedProfileIndex] = useState(0);
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -80,6 +81,17 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const [showAllModels, setShowAllModels] = useState(false);
   const [expandedVotes, setExpandedVotes] = useState<Set<number>>(new Set());
 
+  // Reasoning options
+  const [reasoningEnabled, setReasoningEnabled] = useState(false);
+  const [reasoningModel, setReasoningModel] = useState("openai/gpt-4o-mini");
+
+  const REASONING_MODEL_OPTIONS = [
+    { value: "openai/gpt-4o-mini", label: "GPT-4o Mini (cheapest)" },
+    { value: "openai/gpt-4o", label: "GPT-4o" },
+    { value: "anthropic/claude-3-haiku", label: "Claude 3 Haiku" },
+    { value: "anthropic/claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
+  ];
+
   // Fetch function details
   useEffect(() => {
     async function fetchDetails() {
@@ -92,17 +104,23 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         if (!pairsRes.ok) throw new Error('Failed to fetch function pairs');
         const pairs = await pairsRes.json();
 
-        const pair = pairs.data.find(
+        // Find ALL pairs for this function (may have multiple profiles)
+        const matchingPairs = pairs.data.filter(
           (p: { function: { owner: string; repository: string } }) =>
             p.function.owner === owner && p.function.repository === repository
         );
 
-        if (!pair) {
+        if (matchingPairs.length === 0) {
           throw new Error(`Function ${owner}/${repository} not found`);
         }
 
-        // Store profile info for execution
-        setProfileInfo(pair.profile);
+        // Store all available profiles
+        const profiles = matchingPairs.map((p: { profile: { owner: string; repository: string; commit: string } }) => p.profile);
+        setAvailableProfiles(profiles);
+        setSelectedProfileIndex(0);
+
+        // Use the first pair for function details
+        const pair = matchingPairs[0];
 
         // Fetch full function details via API route
         const slug = `${pair.function.owner}--${pair.function.repository}`;
@@ -209,7 +227,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
   // Execute function via server API route with streaming
   const handleRun = async () => {
-    if (!functionDetails || !profileInfo) return;
+    const selectedProfile = availableProfiles[selectedProfileIndex];
+    if (!functionDetails || !selectedProfile) return;
 
     setIsRunning(true);
     setRunError(null);
@@ -218,6 +237,17 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     setExpandedVotes(new Set());
 
     try {
+      // Build execution options with optional reasoning
+      const executionOptions = {
+        ...DEV_EXECUTION_OPTIONS,
+        reasoning: reasoningEnabled ? {
+          model: {
+            model: reasoningModel,
+            output_mode: "instruction" as const,
+          },
+        } : undefined,
+      };
+
       const response = await fetch("/api/functions/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -228,12 +258,12 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
             commit: functionDetails.commit,
           },
           profileRef: {
-            owner: profileInfo.owner,
-            repository: profileInfo.repository,
-            commit: profileInfo.commit,
+            owner: selectedProfile.owner,
+            repository: selectedProfile.repository,
+            commit: selectedProfile.commit,
           },
           input: formData,
-          options: DEV_EXECUTION_OPTIONS,
+          options: executionOptions,
         }),
       });
 
@@ -497,10 +527,6 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
               value={Array.isArray(formData[key]) ? formData[key] : []}
               onChange={(items) => setFormData(prev => ({ ...prev, [key]: items }))}
               isMobile={isMobile}
-              // TODO: Re-enable file uploads once function input format is verified
-              // The function's expression system expects specific RichContent format
-              // For now, only allow text inputs which are known to work
-              textOnly={true}
             />
           )}
 
@@ -884,10 +910,119 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
               {renderInputFields()}
             </div>
 
+            {availableProfiles.length > 1 && (
+              <div style={{ marginTop: isMobile ? "16px" : "24px" }}>
+                <label style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                  color: "var(--text)",
+                }}>
+                  Profile
+                  <span style={{
+                    fontWeight: 400,
+                    color: "var(--text-muted)",
+                    marginLeft: "8px",
+                  }}>
+                    Learned weights for this function
+                  </span>
+                </label>
+                <select
+                  className="select"
+                  value={selectedProfileIndex}
+                  onChange={(e) => setSelectedProfileIndex(parseInt(e.target.value, 10))}
+                  style={{
+                    width: "100%",
+                    padding: isMobile ? "10px 12px" : "12px 16px",
+                    fontSize: isMobile ? "14px" : "15px",
+                    background: "var(--page-bg)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "8px",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {availableProfiles.map((profile, idx) => (
+                    <option key={`${profile.owner}/${profile.repository}@${profile.commit}`} value={idx}>
+                      {profile.owner}/{profile.repository}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Reasoning Options */}
+            <div style={{
+              marginTop: isMobile ? "16px" : "24px",
+              padding: isMobile ? "12px" : "16px",
+              background: "var(--page-bg)",
+              borderRadius: isMobile ? "10px" : "12px",
+              border: "1px solid var(--border)",
+            }}>
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                cursor: "pointer",
+              }}>
+                <input
+                  type="checkbox"
+                  checked={reasoningEnabled}
+                  onChange={(e) => setReasoningEnabled(e.target.checked)}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    accentColor: "var(--accent)",
+                    cursor: "pointer",
+                  }}
+                />
+                <span style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "var(--text)",
+                }}>
+                  Enable Reasoning
+                </span>
+              </label>
+
+              {reasoningEnabled && (
+                <div style={{ marginTop: "12px" }}>
+                  <select
+                    className="select"
+                    value={reasoningModel}
+                    onChange={(e) => setReasoningModel(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: isMobile ? "10px 12px" : "12px 16px",
+                      fontSize: isMobile ? "14px" : "15px",
+                    }}
+                  >
+                    {REASONING_MODEL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <p style={{
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                marginTop: "10px",
+                lineHeight: 1.4,
+              }}>
+                {reasoningEnabled
+                  ? "AI will explain the result. Cost: ~$0.0001-0.001 per execution."
+                  : "Generate an AI explanation of the result."}
+              </p>
+            </div>
+
             <button
               className="pillBtn"
               onClick={handleRun}
-              disabled={isRunning}
+              disabled={isRunning || availableProfiles.length === 0}
               style={{
                 width: "100%",
                 marginTop: isMobile ? "20px" : "32px",

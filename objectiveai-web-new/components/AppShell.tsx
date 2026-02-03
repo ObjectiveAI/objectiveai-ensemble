@@ -82,7 +82,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       label: "Functions",
       subLinks: [
         { href: "/functions", label: "Browse" },
+        { href: "/functions/create", label: "Create" },
         { href: "/profiles", label: "Profiles" },
+        { href: "/profiles/train", label: "Train" },
       ],
     },
     {
@@ -90,7 +92,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       label: "Ensembles",
       subLinks: [
         { href: "/ensembles", label: "Browse" },
+        { href: "/ensembles/create", label: "Create" },
         { href: "/ensemble-llms", label: "LLMs" },
+        { href: "/ensemble-llms/create", label: "Create LLM" },
+      ],
+    },
+    {
+      href: "/chat",
+      label: "Playground",
+      subLinks: [
+        { href: "/chat", label: "Chat" },
+        { href: "/vector", label: "Vector" },
       ],
     },
     {

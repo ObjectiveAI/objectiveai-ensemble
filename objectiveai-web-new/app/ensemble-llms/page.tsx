@@ -96,11 +96,40 @@ export default function EnsembleLlmsPage() {
         boxSizing: 'border-box',
       }}>
         {/* Header */}
-        <div style={{ marginBottom: isMobile ? "24px" : "32px" }}>
-          <h1 className="heading2" style={{ marginBottom: "8px" }}>Ensemble LLMs</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: isMobile ? "15px" : "17px" }}>
-            Individual LLM configurations with models, prompts, and parameters
-          </p>
+        <div style={{
+          marginBottom: isMobile ? "24px" : "32px",
+          display: "flex",
+          flexDirection: isMobile ? "column" : "row",
+          justifyContent: "space-between",
+          alignItems: isMobile ? "flex-start" : "flex-end",
+          gap: isMobile ? "16px" : "24px",
+        }}>
+          <div>
+            <h1 className="heading2" style={{ marginBottom: "8px" }}>Ensemble LLMs</h1>
+            <p style={{ color: "var(--text-muted)", fontSize: isMobile ? "15px" : "17px" }}>
+              Individual LLM configurations with models, prompts, and parameters
+            </p>
+          </div>
+          <Link
+            href="/ensemble-llms/create"
+            className="pillBtn"
+            style={{
+              padding: "12px 24px",
+              fontSize: "14px",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              textDecoration: "none",
+              flexShrink: 0,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Create New
+          </Link>
         </div>
 
         {/* Sticky Search Bar Row with Filter Button */}
