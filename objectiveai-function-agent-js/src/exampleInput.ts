@@ -11,5 +11,4 @@ export const ExampleInputSchema = z.object({
     .nullable()
     .describe("Expected output length for vector functions"),
 });
-
 export type ExampleInput = z.infer<typeof ExampleInputSchema>;
