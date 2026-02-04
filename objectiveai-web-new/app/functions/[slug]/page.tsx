@@ -5,11 +5,14 @@ import Link from "next/link";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
 import { useIsMobile } from "../../../hooks/useIsMobile";
+import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
 import { SchemaFormBuilder } from "../../../components/SchemaForm";
 import type { InputSchema, InputValue, ValidationError } from "../../../components/SchemaForm/types";
 import SplitItemDisplay from "../../../components/SplitItemDisplay";
 import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/split-item-utils";
 import { compileFunctionInputSplit } from "../../../lib/wasm-validation";
+import { Functions, EnsembleLlm } from "objectiveai";
+import { ObjectiveAIFetchError } from "objectiveai";
 
 interface FunctionDetails {
   owner: string;
@@ -41,6 +44,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const isMobile = useIsMobile();
+  const { getClient } = useObjectiveAI();
   const [isSaved, setIsSaved] = useState(false);
   const [showPinnedColor, setShowPinnedColor] = useState(false);
   const [splitItems, setSplitItems] = useState<InputValue[] | null>(null);
@@ -186,7 +190,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     }
   };
 
-  // Fetch model names when results contain votes
+  // Fetch model names when results contain votes using SDK
   useEffect(() => {
     if (!results?.tasks || !Array.isArray(results.tasks) || results.tasks.length === 0) return;
 
@@ -198,30 +202,29 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
     if (idsToFetch.length === 0) return;
 
-    // Fetch in parallel
-    Promise.all(
-      idsToFetch.map(async (id) => {
-        try {
-          const res = await fetch(`/api/ensemble-llms/${id}`);
-          if (res.ok) {
-            const data = await res.json();
-            return { id, model: data.model as string };
+    // Fetch in parallel using SDK
+    (async () => {
+      const client = await getClient();
+      const fetchResults = await Promise.all(
+        idsToFetch.map(async (id) => {
+          try {
+            const llm = await EnsembleLlm.retrieve(client, id);
+            return { id, model: llm.model as string };
+          } catch {
+            // Ignore errors, fall back to cryptic ID
+            return null;
           }
-        } catch {
-          // Ignore errors, fall back to cryptic ID
-        }
-        return null;
-      })
-    ).then((results) => {
+        })
+      );
       const newNames: Record<string, string> = {};
-      for (const r of results) {
+      for (const r of fetchResults) {
         if (r) newNames[r.id] = r.model;
       }
       if (Object.keys(newNames).length > 0) {
         setModelNames(prev => ({ ...prev, ...newNames }));
       }
-    });
-  }, [results?.tasks, modelNames]);
+    })();
+  }, [results?.tasks, modelNames, getClient]);
 
   // Compute split items for vector results visualization
   useEffect(() => {
@@ -255,7 +258,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     computeSplitItems();
   }, [results?.output, results?.inputSnapshot, functionDetails]);
 
-  // Execute function via server API route with streaming
+  // Execute function via client-side SDK with streaming
   const handleRun = async () => {
     const selectedProfile = availableProfiles[selectedProfileIndex];
     if (!functionDetails || !selectedProfile) return;
@@ -268,9 +271,17 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     setExpandedVotes(new Set());
 
     try {
-      // Build execution options with optional reasoning
-      const executionOptions = {
-        ...DEV_EXECUTION_OPTIONS,
+      // Get authenticated client (or public client for anonymous users)
+      const client = await getClient();
+
+      // Build execution options with streaming and optional reasoning
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Type bridge: local InputValue and SDK's have minor structural differences
+      const executionBody = {
+        input: formData as any,
+        stream: true as const,
+        from_cache: DEV_EXECUTION_OPTIONS.from_cache,
+        from_rng: DEV_EXECUTION_OPTIONS.from_rng,
         reasoning: reasoningEnabled ? {
           model: {
             model: reasoningModel,
@@ -279,182 +290,137 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         } : undefined,
       };
 
-      const response = await fetch("/api/functions/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          functionRef: {
-            owner: functionDetails.owner,
-            repository: functionDetails.repository,
-            commit: functionDetails.commit,
-          },
-          profileRef: {
-            owner: selectedProfile.owner,
-            repository: selectedProfile.repository,
-            commit: selectedProfile.commit,
-          },
-          input: formData,
-          options: executionOptions,
-        }),
-      });
+      // Execute using SDK with streaming
+      const stream = await Functions.Executions.create(
+        client,
+        {
+          owner: functionDetails.owner,
+          repository: functionDetails.repository,
+          commit: functionDetails.commit,
+        },
+        {
+          owner: selectedProfile.owner,
+          repository: selectedProfile.repository,
+          commit: selectedProfile.commit,
+        },
+        executionBody
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
+      // Accumulated state for merging chunks
+      type AccumulatedTask = NonNullable<typeof results>["tasks"] extends (infer T)[] | undefined ? T : never;
+      let accumulatedOutput: number | number[] | undefined;
+      let accumulatedTasks: AccumulatedTask[] = [];
+      let accumulatedUsage: NonNullable<typeof results>["usage"] | undefined;
+      let accumulatedReasoningContent = "";
 
-      // Check if streaming response
-      const contentType = response.headers.get("content-type");
-      if (contentType?.includes("text/event-stream")) {
-        // Handle SSE streaming with proper chunk merging
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
+      // Helper: Merge completions by model, accumulating delta content
+      type CompletionType = NonNullable<AccumulatedTask["completions"]>[number];
+      const mergeCompletions = (existing: CompletionType[] | undefined, incoming: CompletionType[] | undefined): CompletionType[] | undefined => {
+        if (!Array.isArray(incoming) || incoming.length === 0) return existing;
+        if (!Array.isArray(existing) || existing.length === 0) return incoming;
 
-        // Accumulated state - properly merged across chunks
-        type AccumulatedTask = NonNullable<typeof results>["tasks"] extends (infer T)[] | undefined ? T : never;
-        let accumulatedOutput: number | number[] | undefined;
-        let accumulatedTasks: AccumulatedTask[] = [];
-        let accumulatedUsage: NonNullable<typeof results>["usage"] | undefined;
-        let accumulatedReasoningContent = "";
+        const result = [...existing];
+        for (const comp of incoming) {
+          if (!comp) continue;
+          const existingIdx = result.findIndex(c => c.model === comp.model);
+          if (existingIdx === -1) {
+            result.push(comp);
+          } else {
+            const existingComp = result[existingIdx];
+            const existingContent = existingComp.choices?.[0]?.delta?.content || existingComp.choices?.[0]?.message?.content || "";
+            const incomingContent = comp.choices?.[0]?.delta?.content || "";
+            const mergedContent = existingContent + incomingContent;
 
-        // Helper: Merge completions by model, accumulating delta content
-        type CompletionType = NonNullable<AccumulatedTask["completions"]>[number];
-        const mergeCompletions = (existing: CompletionType[] | undefined, incoming: CompletionType[] | undefined): CompletionType[] | undefined => {
-          if (!Array.isArray(incoming) || incoming.length === 0) return existing;
-          if (!Array.isArray(existing) || existing.length === 0) return incoming;
-
-          const result = [...existing];
-          for (const comp of incoming) {
-            if (!comp) continue;
-            const existingIdx = result.findIndex(c => c.model === comp.model);
-            if (existingIdx === -1) {
-              result.push(comp);
-            } else {
-              // Merge: accumulate delta content
-              const existingComp = result[existingIdx];
-              const existingContent = existingComp.choices?.[0]?.delta?.content || existingComp.choices?.[0]?.message?.content || "";
-              const incomingContent = comp.choices?.[0]?.delta?.content || "";
-              const mergedContent = existingContent + incomingContent;
-
-              result[existingIdx] = {
-                ...existingComp,
-                choices: [{
-                  ...existingComp.choices?.[0],
-                  delta: { content: mergedContent },
-                  message: comp.choices?.[0]?.message || existingComp.choices?.[0]?.message,
-                }],
-              };
-            }
-          }
-          return result;
-        };
-
-        // Helper: Merge tasks by index (like SDK's TaskChunk.mergedList)
-        const mergeTasks = (existing: AccumulatedTask[], incoming: AccumulatedTask[]): AccumulatedTask[] => {
-          const result = [...existing];
-          for (const task of incoming) {
-            if (!task) continue;
-            const taskIndex = (task as { index?: number }).index;
-            const existingIdx = result.findIndex(t => t && (t as { index?: number }).index === taskIndex);
-            if (existingIdx === -1) {
-              // New task, add it
-              result.push(task);
-            } else {
-              // Merge existing task - combine votes, completions (with delta accumulation), scores
-              const existingTask = result[existingIdx];
-              result[existingIdx] = {
-                ...existingTask,
-                votes: Array.isArray(task.votes) && task.votes.length > 0 ? task.votes : existingTask?.votes,
-                completions: mergeCompletions(existingTask?.completions, task.completions),
-                scores: Array.isArray(task.scores) && task.scores.length > 0 ? task.scores : existingTask?.scores,
-              };
-            }
-          }
-          return result;
-        };
-
-        if (!reader) {
-          throw new Error("Response body is not readable");
-        }
-
-        try {
-          while (true) {
-            const readResult = await reader.read();
-            if (readResult.done) break;
-            if (!readResult.value) continue;
-
-            buffer += decoder.decode(readResult.value, { stream: true });
-            const lines = buffer.split("\n\n");
-            buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") continue;
-              if (!data) continue;
-
-              try {
-                const chunk = JSON.parse(data);
-                if (chunk.error) {
-                  throw new Error(chunk.error);
-                }
-
-                // Merge output (take latest)
-                if (chunk.output !== undefined) accumulatedOutput = chunk.output;
-
-                // Merge tasks by index
-                if (chunk.tasks && Array.isArray(chunk.tasks)) {
-                  accumulatedTasks = mergeTasks(accumulatedTasks, chunk.tasks);
-                }
-
-                // Merge usage (take latest)
-                if (chunk.usage) accumulatedUsage = chunk.usage;
-
-                // Merge reasoning delta content (concatenate like SDK's mergedString)
-                if (chunk.reasoning?.choices?.[0]?.delta?.content) {
-                  accumulatedReasoningContent += chunk.reasoning.choices[0].delta.content;
-                } else if (chunk.reasoning?.choices?.[0]?.message?.content) {
-                  // Full message (non-streaming fallback)
-                  accumulatedReasoningContent = chunk.reasoning.choices[0].message.content;
-                }
-
-                // Update UI progressively
-                setResults({
-                  output: accumulatedOutput,
-                  inputSnapshot: typeof formData === 'object' && formData !== null ? { ...(formData as Record<string, unknown>) } : {},
-                  usage: accumulatedUsage,
-                  tasks: accumulatedTasks.length > 0 ? accumulatedTasks : undefined,
-                  reasoning: accumulatedReasoningContent ? {
-                    choices: [{ message: { content: accumulatedReasoningContent } }]
-                  } : undefined,
-                });
-              } catch (parseErr) {
-                console.error("Failed to parse chunk:", parseErr);
-              }
-            }
+            result[existingIdx] = {
+              ...existingComp,
+              choices: [{
+                ...existingComp.choices?.[0],
+                delta: { content: mergedContent },
+                message: comp.choices?.[0]?.message || existingComp.choices?.[0]?.message,
+              }],
+            };
           }
         }
-        } catch (streamErr) {
-          console.error("Stream reading error:", streamErr);
-          throw streamErr;
+        return result;
+      };
+
+      // Helper: Merge tasks by index
+      const mergeTasks = (existing: AccumulatedTask[], incoming: AccumulatedTask[]): AccumulatedTask[] => {
+        const result = [...existing];
+        for (const task of incoming) {
+          if (!task) continue;
+          const taskIndex = (task as { index?: number }).index;
+          const existingIdx = result.findIndex(t => t && (t as { index?: number }).index === taskIndex);
+          if (existingIdx === -1) {
+            result.push(task);
+          } else {
+            const existingTask = result[existingIdx];
+            result[existingIdx] = {
+              ...existingTask,
+              votes: Array.isArray(task.votes) && task.votes.length > 0 ? task.votes : existingTask?.votes,
+              completions: mergeCompletions(existingTask?.completions, task.completions),
+              scores: Array.isArray(task.scores) && task.scores.length > 0 ? task.scores : existingTask?.scores,
+            };
+          }
         }
-      } else {
-        // Non-streaming fallback
-        const result = await response.json();
-        if ("output" in result) {
-          setResults({
-            output: result.output as number | number[],
-            inputSnapshot: typeof formData === 'object' && formData !== null ? { ...(formData as Record<string, unknown>) } : {},
-            usage: result.usage,
-            tasks: result.tasks,
-            reasoning: result.reasoning,
-          });
+        return result;
+      };
+
+      // Stream chunks and update UI progressively
+      for await (const chunk of stream) {
+        // Check for errors in chunk
+        if (chunk.error) {
+          throw new Error(typeof chunk.error === 'object' ? JSON.stringify(chunk.error) : String(chunk.error));
         }
+
+        // Merge output (take latest)
+        if (chunk.output !== undefined) {
+          accumulatedOutput = chunk.output as number | number[];
+        }
+
+        // Merge tasks
+        if (chunk.tasks && Array.isArray(chunk.tasks)) {
+          accumulatedTasks = mergeTasks(accumulatedTasks, chunk.tasks as AccumulatedTask[]);
+        }
+
+        // Merge usage (take latest)
+        if (chunk.usage) {
+          accumulatedUsage = chunk.usage as NonNullable<typeof results>["usage"];
+        }
+
+        // Merge reasoning content
+        const reasoningChunk = chunk.reasoning as { choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }> } | undefined;
+        if (reasoningChunk?.choices?.[0]?.delta?.content) {
+          accumulatedReasoningContent += reasoningChunk.choices[0].delta.content;
+        } else if (reasoningChunk?.choices?.[0]?.message?.content) {
+          accumulatedReasoningContent = reasoningChunk.choices[0].message.content;
+        }
+
+        // Update UI progressively
+        setResults({
+          output: accumulatedOutput,
+          inputSnapshot: typeof formData === 'object' && formData !== null ? { ...(formData as Record<string, unknown>) } : {},
+          usage: accumulatedUsage,
+          tasks: accumulatedTasks.length > 0 ? accumulatedTasks : undefined,
+          reasoning: accumulatedReasoningContent ? {
+            choices: [{ message: { content: accumulatedReasoningContent } }]
+          } : undefined,
+        });
       }
     } catch (err) {
       console.error("Function execution failed:", err);
-      setRunError(err instanceof Error ? err.message : "Execution failed");
+      if (err instanceof ObjectiveAIFetchError) {
+        const code = err.code;
+        if (code === 401 || code === 403) {
+          setRunError("Authentication required. Please sign in to execute functions.");
+        } else if (code === 429) {
+          setRunError("Rate limit exceeded. Please try again later.");
+        } else {
+          setRunError(err.message || `API error (${code})`);
+        }
+      } else {
+        setRunError(err instanceof Error ? err.message : "Execution failed");
+      }
     } finally {
       setIsRunning(false);
     }

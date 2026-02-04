@@ -3,7 +3,10 @@
 import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "../../../hooks/useIsMobile";
+import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
 import { COPY_FEEDBACK_DURATION_MS } from "../../../lib/constants";
+import { Auth } from "objectiveai";
+import { ObjectiveAIFetchError } from "objectiveai";
 
 interface ApiKey {
   api_key: string;
@@ -21,6 +24,7 @@ const BYPASS_AUTH = true;
 export default function ApiKeysPage() {
   const { user, isLoading } = useAuth();
   const isMobile = useIsMobile();
+  const { getClient } = useObjectiveAI();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
   const [keysError, setKeysError] = useState<string | null>(null);
@@ -33,23 +37,28 @@ export default function ApiKeysPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDisabling, setIsDisabling] = useState<string | null>(null);
 
-  // Fetch keys from API
+  // Fetch keys using SDK
   const fetchKeys = useCallback(async () => {
     try {
       setKeysLoading(true);
       setKeysError(null);
-      const response = await fetch('/api/auth/keys');
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch keys');
-      }
-      setKeys(data.data || []);
+      const client = await getClient();
+      const result = await Auth.ApiKey.list(client);
+      setKeys((result.data || []) as ApiKey[]);
     } catch (error) {
-      setKeysError(error instanceof Error ? error.message : 'Failed to fetch keys');
+      if (error instanceof ObjectiveAIFetchError) {
+        if (error.code === 401 || error.code === 403) {
+          setKeysError('Please sign in to view API keys');
+        } else {
+          setKeysError(error.message || `API error (${error.code})`);
+        }
+      } else {
+        setKeysError(error instanceof Error ? error.message : 'Failed to fetch keys');
+      }
     } finally {
       setKeysLoading(false);
     }
-  }, []);
+  }, [getClient]);
 
   // Fetch keys when user is authenticated (or bypass enabled)
   useEffect(() => {
@@ -63,28 +72,26 @@ export default function ApiKeysPage() {
 
     try {
       setIsCreating(true);
-      const response = await fetch('/api/auth/keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newKeyName,
-          expires: newKeyExpires || undefined,
-          description: newKeyDescription || undefined,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create key');
-      }
+      const client = await getClient();
+      const result = await Auth.ApiKey.create(
+        client,
+        newKeyName,
+        newKeyExpires ? new Date(newKeyExpires) : undefined,
+        newKeyDescription || undefined
+      );
       // Show the full key to user (only time it's visible)
-      setNewlyCreatedKey(data.api_key);
+      setNewlyCreatedKey(result.api_key);
       setNewKeyName("");
       setNewKeyExpires("");
       setNewKeyDescription("");
       // Refresh the keys list
       fetchKeys();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to create key');
+      if (error instanceof ObjectiveAIFetchError) {
+        alert(error.message || `API error (${error.code})`);
+      } else {
+        alert(error instanceof Error ? error.message : 'Failed to create key');
+      }
     } finally {
       setIsCreating(false);
     }
@@ -95,19 +102,16 @@ export default function ApiKeysPage() {
 
     try {
       setIsDisabling(apiKey);
-      const response = await fetch('/api/auth/keys', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to disable key');
-      }
+      const client = await getClient();
+      await Auth.ApiKey.disable(client, apiKey);
       // Refresh the keys list
       fetchKeys();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to disable key');
+      if (error instanceof ObjectiveAIFetchError) {
+        alert(error.message || `API error (${error.code})`);
+      } else {
+        alert(error instanceof Error ? error.message : 'Failed to disable key');
+      }
     } finally {
       setIsDisabling(null);
     }

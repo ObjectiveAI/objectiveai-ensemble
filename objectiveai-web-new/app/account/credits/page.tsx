@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { useIsMobile } from "../../../hooks/useIsMobile";
+import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
+import { Auth } from "objectiveai";
+import { ObjectiveAIFetchError } from "objectiveai";
 
 interface CreditsData {
   credits: number;
@@ -17,27 +20,33 @@ const BYPASS_AUTH = true;
 export default function CreditsPage() {
   const { user, isLoading } = useAuth();
   const isMobile = useIsMobile();
+  const { getClient } = useObjectiveAI();
   const [creditsData, setCreditsData] = useState<CreditsData | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditsError, setCreditsError] = useState<string | null>(null);
 
-  // Fetch credits from API
+  // Fetch credits using SDK
   const fetchCredits = useCallback(async () => {
     try {
       setCreditsLoading(true);
       setCreditsError(null);
-      const response = await fetch('/api/auth/credits');
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch credits');
-      }
-      setCreditsData(data);
+      const client = await getClient();
+      const result = await Auth.Credits.retrieve(client);
+      setCreditsData(result as CreditsData);
     } catch (error) {
-      setCreditsError(error instanceof Error ? error.message : 'Failed to fetch credits');
+      if (error instanceof ObjectiveAIFetchError) {
+        if (error.code === 401 || error.code === 403) {
+          setCreditsError('Please sign in to view credits');
+        } else {
+          setCreditsError(error.message || `API error (${error.code})`);
+        }
+      } else {
+        setCreditsError(error instanceof Error ? error.message : 'Failed to fetch credits');
+      }
     } finally {
       setCreditsLoading(false);
     }
-  }, []);
+  }, [getClient]);
 
   // Fetch credits when user is authenticated (or bypass enabled)
   useEffect(() => {
