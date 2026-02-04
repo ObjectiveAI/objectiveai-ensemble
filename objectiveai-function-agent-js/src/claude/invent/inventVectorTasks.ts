@@ -1,25 +1,25 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { AgentOptions, LogFn } from "../../agentOptions";
+import {
+  getCurrentRevision,
+  resetToRevision,
+  hasUncommittedChanges,
+  hasUntrackedFiles,
+  resetAndUpdateSubmodule,
+  pushOrCreateUpstream,
+} from "../../github";
 import { promptResources } from "../promptResources";
 import { getNextPlanIndex, getPlanPath } from "../planIndex";
 import { createFileLogger } from "../../logging";
+import { prepare } from "../prepare";
 
 // Main loop for inventing a new function (no issues)
 async function inventVectorTasksLoop(
   log: LogFn,
   sessionId?: string,
 ): Promise<string | undefined> {
-  const {
-    getCurrentRevision,
-    resetToRevision,
-    hasUncommittedChanges,
-    hasUntrackedFiles,
-    resetAndUpdateSubmodule,
-    pushOrCreateUpstream,
-  } = await import("../../github");
-  const { execSync } = await import("child_process");
-
   const nextPlanIndex = getNextPlanIndex();
   const planPath = getPlanPath(nextPlanIndex);
 
@@ -329,7 +329,6 @@ Please try again. Remember to:
 
 // Main entry point for inventing a new function
 export async function inventVectorTasks(options: AgentOptions = {}): Promise<void> {
-  const { prepare } = await import("../prepare");
   const log = options.log ?? createFileLogger().log;
 
   // Run preparation (init + steps 1-8)

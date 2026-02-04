@@ -1,5 +1,6 @@
 import { AgentOptions } from "../../agentOptions";
 import { createFileLogger } from "../../logging";
+import { init } from "../../init";
 import { learnSubmodule } from "./learnSubmodule";
 import { learnExamples } from "./learnExamples";
 import { spec } from "./spec";
@@ -13,7 +14,6 @@ import { handleOpenIssues } from "./handleOpenIssues";
 export async function prepare(
   options: AgentOptions = {},
 ): Promise<string | undefined> {
-  const { init } = await import("../../init");
   const log = options.log ?? createFileLogger().log;
 
   // Initialize the workspace

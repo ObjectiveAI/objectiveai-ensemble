@@ -1,27 +1,27 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { AgentOptions, LogFn } from "../agentOptions";
+import {
+  getCurrentRevision,
+  resetToRevision,
+  fetchOpenIssues,
+  hasUncommittedChanges,
+  hasUntrackedFiles,
+  resetAndUpdateSubmodule,
+  pushOrCreateUpstream,
+  closeIssue,
+} from "../github";
 import { promptResources } from "./promptResources";
 import { getNextPlanIndex, getPlanPath } from "./planIndex";
 import { createFileLogger } from "../logging";
+import { prepare } from "./prepare";
 
 // Main loop for handling issues on an existing function
 async function handleIssuesLoop(
   log: LogFn,
   sessionId?: string,
 ): Promise<string | undefined> {
-  const {
-    getCurrentRevision,
-    resetToRevision,
-    fetchOpenIssues,
-    hasUncommittedChanges,
-    hasUntrackedFiles,
-    resetAndUpdateSubmodule,
-    pushOrCreateUpstream,
-    closeIssue,
-  } = await import("../github");
-  const { execSync } = await import("child_process");
-
   const nextPlanIndex = getNextPlanIndex();
   const planPath = getPlanPath(nextPlanIndex);
 
@@ -354,7 +354,6 @@ Please try again. Remember to:
 
 // Main entry point for handling issues on an existing function
 export async function handleIssues(options: AgentOptions = {}): Promise<void> {
-  const { prepare } = await import("./prepare");
   const log = options.log ?? createFileLogger().log;
 
   // Run preparation (init + steps 1-8) - but spec already exists

@@ -1,10 +1,10 @@
 'use strict';
 
 var fs = require('fs');
-var claudeAgentSdk = require('@anthropic-ai/claude-agent-sdk');
 var child_process = require('child_process');
 var path = require('path');
 var objectiveai = require('objectiveai');
+var claudeAgentSdk = require('@anthropic-ai/claude-agent-sdk');
 var z = require('zod');
 var promises = require('fs/promises');
 
@@ -13,14 +13,20 @@ function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
 var z__default = /*#__PURE__*/_interopDefault(z);
 
 var __defProp = Object.defineProperty;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+
+// src/claude/index.ts
+var claude_exports = {};
+__export(claude_exports, {
+  handleIssues: () => handleIssues,
+  invent: () => invent,
+  inventFunctionTasks: () => inventFunctionTasks,
+  inventVectorTasks: () => inventVectorTasks,
+  prepare: () => prepare
+});
 function getNextLogIndex() {
   const logsDir = "logs";
   let nextIndex = 1;
@@ -68,10 +74,352 @@ function getLatestLogPath() {
   const maxIndex = Math.max(...logNumbers);
   return `${logsDir}/${maxIndex}.txt`;
 }
-var init_logging = __esm({
-  "src/logging.ts"() {
+
+// assets/function/description.json.txt
+var description_json_default = "null";
+
+// assets/function/input_maps.json.txt
+var input_maps_json_default = "null";
+
+// assets/function/input_merge.json.txt
+var input_merge_json_default = "null";
+
+// assets/function/input_schema.json.txt
+var input_schema_json_default = "null";
+
+// assets/function/input_split.json.txt
+var input_split_json_default = "null";
+
+// assets/function/output.json.txt
+var output_json_default = "null";
+
+// assets/function/output_length.json.txt
+var output_length_json_default = "null";
+
+// assets/function/tasks.json.txt
+var tasks_json_default = "null";
+
+// assets/function/type.json.txt
+var type_json_default = "null";
+
+// assets/github/description.json.txt
+var description_json_default2 = "null";
+
+// assets/github/name.json.txt
+var name_json_default = "null";
+
+// assets/.gitignore.txt
+var gitignore_default = "node_modules\n.env\n.claude/settings.local.json\nserverLog.txt\ncompiledTasks.json\nresolvedIssues.json\nbuild.ts\ntest.ts\ntsconfig.json\npackage.json\npackage-lock.json\n_runner.ts";
+
+// assets/build.ts.txt
+var build_ts_default = 'import { writeFunctionJson, writeProfileJson, spawnApiServer, createLocalObjectiveAI, runTests } from "@objectiveai/function-agent";\nimport { execSync } from "child_process";\nimport "dotenv/config";\n\nasync function main(): Promise<void> {\n  // Discard any changes to the objectiveai submodule\n  execSync("git -C objectiveai checkout -- .", { stdio: "inherit" });\n\n  // Install dependencies\n  execSync("npm install", { stdio: "inherit" });\n\n  // Build\n  writeFunctionJson();\n  writeProfileJson();\n\n  // Test\n  const apiBase = process.env.ONLY_SET_IF_YOU_KNOW_WHAT_YOURE_DOING;\n  const port = Math.floor(Math.random() * 50000) + 10000;\n\n  const apiProcess = await spawnApiServer({ apiBase, port });\n  const objectiveai = createLocalObjectiveAI({ apiBase, port });\n\n  try {\n    await runTests({ objectiveai });\n  } finally {\n    apiProcess?.kill();\n  }\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
+
+// assets/package.json.txt
+var package_json_default = '{\n  "name": "objectiveai-function",\n  "version": "1.0.0",\n  "main": "main.ts",\n  "scripts": {\n    "check": "ts-node build.ts && ts-node test.ts"\n  },\n  "type": "commonjs",\n  "devDependencies": {\n    "@types/node": "^25.0.9",\n    "ts-node": "^10.9.2",\n    "typescript": "^5.9.3"\n  },\n  "dependencies": {\n    "dotenv": "^17.2.3",\n    "objectiveai": "file:./objectiveai/objectiveai-js",\n    "@objectiveai/function-agent": "file:./objectiveai/objectiveai-function-agent-js",\n    "zod": "^4.3.5"\n  }\n}\n';
+
+// assets/README.md.txt
+var README_md_default = "";
+
+// assets/tsconfig.json.txt
+var tsconfig_json_default = '{\n  "compilerOptions": {\n    "target": "ES2020",\n    "module": "node20",\n    "moduleResolution": "node16",\n    "esModuleInterop": true,\n    "strict": true,\n    "skipLibCheck": true,\n    "outDir": "./dist",\n    "resolveJsonModule": true\n  },\n  "ts-node": {\n    "compilerOptions": {\n      "module": "commonjs",\n      "allowImportingTsExtensions": true,\n      "noEmit": true\n    }\n  }\n}\n';
+
+// assets/fetchOpenIssues.ts.txt
+var fetchOpenIssues_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst issues = GitHub.fetchOpenIssues();\nconsole.log(JSON.stringify(issues, null, 2));\n';
+
+// assets/fetchClosedIssues.ts.txt
+var fetchClosedIssues_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst issues = GitHub.fetchClosedIssues();\nconsole.log(JSON.stringify(issues, null, 2));\n';
+
+// assets/commentOnIssue.ts.txt
+var commentOnIssue_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst issueNumber = parseInt(process.argv[2], 10);\nconst comment = process.argv[3];\n\nif (isNaN(issueNumber) || !comment) {\n  console.error("Usage: ts-node commentOnIssue.ts <issue_number> <comment>");\n  process.exit(1);\n}\n\nGitHub.commentOnIssue(issueNumber, comment);\nconsole.log(`Commented on issue #${issueNumber}`);\n';
+
+// assets/closeIssue.ts.txt
+var closeIssue_ts_default = 'import { existsSync, readFileSync, writeFileSync } from "fs";\n\nconst issueNumber = parseInt(process.argv[2], 10);\n\nif (isNaN(issueNumber)) {\n  console.error("Usage: ts-node closeIssue.ts <issue_number>");\n  process.exit(1);\n}\n\n// Read existing resolved issues\nconst resolvedIssuesPath = "resolvedIssues.json";\nlet resolvedIssues: number[] = [];\nif (existsSync(resolvedIssuesPath)) {\n  resolvedIssues = JSON.parse(readFileSync(resolvedIssuesPath, "utf-8"));\n}\n\n// Add this issue if not already present\nif (!resolvedIssues.includes(issueNumber)) {\n  resolvedIssues.push(issueNumber);\n  writeFileSync(resolvedIssuesPath, JSON.stringify(resolvedIssues, null, 2));\n}\n\nconsole.log(`Marked issue #${issueNumber} for closing`);\n';
+
+// assets/commitAndPush.ts.txt
+var commitAndPush_ts_default = 'import { execSync } from "child_process";\n\nconst message = process.argv[2];\n\nif (!message) {\n  console.error("Usage: ts-node commitAndPush.ts <commit_message>");\n  process.exit(1);\n}\n\n// Discard any changes to the objectiveai submodule\nexecSync("git -C objectiveai checkout -- .", { stdio: "inherit" });\n\n// Stage all changes\nexecSync("git add -A", { stdio: "pipe" });\n\n// Check if there are changes to commit\ntry {\n  execSync("git diff --cached --quiet", { stdio: "pipe" });\n  console.log("No changes to commit.");\n} catch {\n  // There are changes, commit them\n  execSync(`git commit -m "${message.replace(/"/g, \'\\\\"\')}"`, { stdio: "inherit" });\n  console.log("Committed and pushed successfully.");\n}\n';
+
+// assets/spawnFunctionAgents.ts.txt
+var spawnFunctionAgents_ts_default = 'import { execSync, spawn } from "child_process";\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";\nimport { join } from "path";\n\ninterface AgentResult {\n  owner: string;\n  repository: string;\n  commit: string;\n}\n\ninterface AgentError {\n  error: string;\n}\n\ninterface AgentSkipped {\n  skipped: true;\n}\n\ntype Result = AgentResult | AgentError | AgentSkipped;\n\n// Read current depth from parameters.json\nfunction getCurrentDepth(): number {\n  if (!existsSync("parameters.json")) {\n    return 0;\n  }\n  const content = readFileSync("parameters.json", "utf-8");\n  const params = JSON.parse(content) as { depth: number };\n  return params.depth ?? 0;\n}\n\nasync function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {\n  // Skip if spec is null\n  if (spec === null) {\n    return { skipped: true };\n  }\n\n  const subdir = join("sub_functions", String(index));\n\n  // Delete existing directory if it exists (for retries)\n  if (existsSync(subdir)) {\n    console.log(`Deleting existing directory: ${subdir}`);\n    rmSync(subdir, { recursive: true, force: true });\n  }\n\n  // Create subdirectory\n  mkdirSync(subdir, { recursive: true });\n\n  // Write a runner script that will be executed in the subdirectory\n  const runnerScript = `\nimport { Claude } from "@objectiveai/function-agent";\n\nasync function main(): Promise<void> {\n  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n`;\n\n  const runnerPath = join(subdir, "_runner.ts");\n  writeFileSync(runnerPath, runnerScript);\n\n  return new Promise<Result>((resolve) => {\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\n      cwd: subdir,\n      stdio: ["inherit", "pipe", "pipe"],\n      shell: true,\n    });\n\n    // Capture but discard output to avoid context overload in parent\n    child.stdout?.on("data", () => {});\n    child.stderr?.on("data", () => {});\n\n    child.on("close", (code) => {\n      if (code !== 0) {\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\n        return;\n      }\n\n      // Extract owner/repo/commit from the completed function\n      try {\n        const nameJsonPath = join(subdir, "github", "name.json");\n        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;\n\n        // Get owner from git remote\n        const remote = execSync("git remote get-url origin", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\n        const owner = match?.[1] ?? "unknown";\n        const repository = match?.[2] ?? name;\n\n        // Get latest commit\n        const commit = execSync("git rev-parse HEAD", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        resolve({ owner, repository, commit });\n      } catch (err) {\n        resolve({ error: `Failed to extract result: ${err}` });\n      }\n    });\n\n    child.on("error", (err) => {\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\n    });\n  });\n}\n\nasync function main(): Promise<void> {\n  const specsArg = process.argv[2];\n\n  if (!specsArg) {\n    console.error("Usage: ts-node spawnFunctionAgents.ts \'<json_array_of_specs>\'");\n    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");\n    process.exit(1);\n  }\n\n  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];\n\n  if (!Array.isArray(specs) || specs.length === 0) {\n    console.error("Specs must be a non-empty array of strings or nulls");\n    process.exit(1);\n  }\n\n  // Calculate child depth (current depth - 1)\n  const currentDepth = getCurrentDepth();\n  const childDepth = Math.max(0, currentDepth - 1);\n\n  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);\n\n  // Run all agents in parallel\n  const results = await Promise.all(\n    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))\n  );\n\n  // Output results as JSON\n  console.log("\\n=== SPAWN_RESULTS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
+
+// assets/cloneSubFunctions.ts.txt
+var cloneSubFunctions_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst latest = process.argv.includes("--latest");\n\nconst cloned = GitHub.cloneSubFunctions({ latest });\n\nconsole.log("\\n=== CLONE_RESULTS ===");\nconsole.log(JSON.stringify(cloned, null, 2));\n';
+
+// assets/getSubFunctionCommits.ts.txt
+var getSubFunctionCommits_ts_default = 'import { execSync } from "child_process";\nimport { existsSync, readdirSync, readFileSync } from "fs";\n\ninterface SubFunctionInfo {\n  index: number;\n  owner: string;\n  repository: string;\n  commit: string;\n  path: string;\n}\n\nfunction main(): void {\n  const subFunctionsDir = "sub_functions";\n\n  if (!existsSync(subFunctionsDir)) {\n    console.log("No sub_functions directory found.");\n    console.log("\\n=== SUB_FUNCTION_COMMITS ===");\n    console.log("[]");\n    return;\n  }\n\n  const entries = readdirSync(subFunctionsDir);\n  const results: SubFunctionInfo[] = [];\n\n  for (const entry of entries) {\n    // Skip non-numeric directories (like .gitignore)\n    const index = parseInt(entry, 10);\n    if (isNaN(index)) continue;\n\n    const subFunctionPath = `${subFunctionsDir}/${entry}`;\n\n    // Get the commit SHA from git\n    let commit: string;\n    try {\n      commit = execSync("git rev-parse HEAD", {\n        cwd: subFunctionPath,\n        encoding: "utf-8",\n        stdio: "pipe",\n      }).trim();\n    } catch {\n      console.log(`Failed to get commit for ${subFunctionPath}`);\n      continue;\n    }\n\n    // Get owner/repository from github/name.json if it exists\n    let owner = "";\n    let repository = "";\n    const namePath = `${subFunctionPath}/github/name.json`;\n    if (existsSync(namePath)) {\n      const name = JSON.parse(readFileSync(namePath, "utf-8")) as string;\n      const parts = name.split("/");\n      if (parts.length === 2) {\n        owner = parts[0];\n        repository = parts[1];\n      }\n    }\n\n    results.push({\n      index,\n      owner,\n      repository,\n      commit,\n      path: subFunctionPath,\n    });\n  }\n\n  // Sort by index\n  results.sort((a, b) => a.index - b.index);\n\n  console.log("\\n=== SUB_FUNCTION_COMMITS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain();\n';
+
+// assets/installRustLogs.ts.txt
+var installRustLogs_ts_default = 'import { execSync } from "child_process";\n\n// Rebuild the ObjectiveAI packages with any changes made to the Rust source\n// This rebuilds objectiveai-js (which includes WASM) and objectiveai-function-agent-js\n\nconsole.log("Rebuilding ObjectiveAI packages...");\n\n// Install dependencies in the submodule workspace\nexecSync("npm install", { cwd: "objectiveai", stdio: "inherit" });\n\n// Build objectiveai-js first (includes WASM rebuild)\nexecSync("npm run build -w objectiveai-js", { cwd: "objectiveai", stdio: "inherit" });\n\n// Build objectiveai-function-agent-js (depends on objectiveai-js)\nexecSync("npm run build -w objectiveai-function-agent-js", { cwd: "objectiveai", stdio: "inherit" });\n\n// Reinstall in function workspace to pick up the rebuilt packages\nexecSync("npm install", { stdio: "inherit" });\n\nconsole.log("Rebuild complete. Run ts-node build.ts to test.");\n';
+
+// assets/plans/.gitkeep.txt
+var gitkeep_default = "";
+
+// assets/logs/.gitignore.txt
+var gitignore_default2 = "*\n!.gitignore\n";
+
+// assets/ESSAY.md.txt
+var ESSAY_md_default = "";
+
+// assets/ESSAY_TASKS.md.txt
+var ESSAY_TASKS_md_default = "";
+
+// assets/sub_functions/.gitignore.txt
+var gitignore_default3 = "*\n!.gitignore\n";
+
+// assets/inputs.json.txt
+var inputs_json_default = "[]\n";
+
+// src/assets.ts
+var assets = {
+  "function/description.json": description_json_default,
+  "function/input_maps.json": input_maps_json_default,
+  "function/input_merge.json": input_merge_json_default,
+  "function/input_schema.json": input_schema_json_default,
+  "function/input_split.json": input_split_json_default,
+  "function/output.json": output_json_default,
+  "function/output_length.json": output_length_json_default,
+  "function/tasks.json": tasks_json_default,
+  "function/type.json": type_json_default,
+  "github/description.json": description_json_default2,
+  "github/name.json": name_json_default,
+  ".gitignore": gitignore_default,
+  "build.ts": build_ts_default,
+  "package.json": package_json_default,
+  "README.md": README_md_default,
+  "tsconfig.json": tsconfig_json_default,
+  "fetchOpenIssues.ts": fetchOpenIssues_ts_default,
+  "fetchClosedIssues.ts": fetchClosedIssues_ts_default,
+  "commentOnIssue.ts": commentOnIssue_ts_default,
+  "closeIssue.ts": closeIssue_ts_default,
+  "commitAndPush.ts": commitAndPush_ts_default,
+  "spawnFunctionAgents.ts": spawnFunctionAgents_ts_default,
+  "cloneSubFunctions.ts": cloneSubFunctions_ts_default,
+  "getSubFunctionCommits.ts": getSubFunctionCommits_ts_default,
+  "installRustLogs.ts": installRustLogs_ts_default,
+  "plans/.gitkeep": gitkeep_default,
+  "logs/.gitignore": gitignore_default2,
+  "sub_functions/.gitignore": gitignore_default3,
+  "inputs.json": inputs_json_default,
+  "ESSAY.md": ESSAY_md_default,
+  "ESSAY_TASKS.md": ESSAY_TASKS_md_default
+};
+
+// src/init.ts
+function exec(command) {
+  try {
+    return child_process.execSync(command, { encoding: "utf-8", stdio: "pipe" }).trim();
+  } catch {
+    return "";
   }
-});
+}
+function execLog(command) {
+  console.log(`> ${command}`);
+  child_process.execSync(command, { stdio: "inherit" });
+}
+function isGitRepo() {
+  return fs.existsSync(".git");
+}
+function initializeGit() {
+  console.log("Initializing git repository...");
+  execLog("git init");
+  execLog(
+    "git submodule add -b function-agent-js https://github.com/ObjectiveAI/objectiveai objectiveai"
+  );
+  execLog("git submodule update --init --recursive");
+}
+function updateSubmodules() {
+  console.log("Updating git submodules...");
+  execLog("git submodule update --init --recursive --remote --force");
+}
+function runNpmInstall() {
+  console.log("Installing dependencies...");
+  execLog("npm install");
+  exec("git -C objectiveai checkout -- .");
+}
+function hasChanges() {
+  const status = exec("git status --porcelain");
+  return status.length > 0;
+}
+function isFirstCommit() {
+  const result = exec("git rev-parse HEAD");
+  return result.length === 0;
+}
+function commitChanges() {
+  if (!hasChanges()) {
+    return;
+  }
+  const message = isFirstCommit() ? "initial commit" : "update sandbox";
+  console.log(`Creating commit: ${message}...`);
+  execLog("git add -A");
+  execLog(`git commit -m "${message}"`);
+}
+function getFunctionPath(ref) {
+  return path.join(
+    "examples",
+    "functions",
+    ref.owner,
+    ref.repository,
+    ref.commit,
+    "function.json"
+  );
+}
+function getProfilePath(ref) {
+  return path.join(
+    "examples",
+    "profiles",
+    ref.owner,
+    ref.repository,
+    ref.commit,
+    "profile.json"
+  );
+}
+function functionExists(ref) {
+  return fs.existsSync(getFunctionPath(ref));
+}
+function profileExists(ref) {
+  return fs.existsSync(getProfilePath(ref));
+}
+function writeFunction(ref, data) {
+  const path$1 = getFunctionPath(ref);
+  fs.mkdirSync(path.dirname(path$1), { recursive: true });
+  fs.writeFileSync(path$1, JSON.stringify(data, null, 2));
+}
+function writeProfile(ref, data) {
+  const path$1 = getProfilePath(ref);
+  fs.mkdirSync(path.dirname(path$1), { recursive: true });
+  fs.writeFileSync(path$1, JSON.stringify(data, null, 2));
+}
+async function fetchFunctionRecursively(objectiveai$1, ref) {
+  if (functionExists(ref)) {
+    return;
+  }
+  console.log(
+    `Fetching function: ${ref.owner}/${ref.repository}/${ref.commit}`
+  );
+  const func = await objectiveai.Functions.retrieve(
+    objectiveai$1,
+    ref.owner,
+    ref.repository,
+    ref.commit
+  );
+  writeFunction(ref, func);
+  for (const task of func.tasks) {
+    if (task.type === "scalar.function" || task.type === "vector.function") {
+      const subRef = {
+        owner: task.owner,
+        repository: task.repository,
+        commit: task.commit
+      };
+      await fetchFunctionRecursively(objectiveai$1, subRef);
+    }
+  }
+}
+function isRemoteProfileTask(task) {
+  return "owner" in task && "repository" in task && "commit" in task && !("tasks" in task) && !("ensemble" in task);
+}
+function isInlineProfileTask(task) {
+  return "tasks" in task && !("ensemble" in task);
+}
+async function fetchProfileRecursively(objectiveai$1, ref) {
+  if (profileExists(ref)) {
+    return;
+  }
+  console.log(`Fetching profile: ${ref.owner}/${ref.repository}/${ref.commit}`);
+  const profile = await objectiveai.Functions.Profiles.retrieve(
+    objectiveai$1,
+    ref.owner,
+    ref.repository,
+    ref.commit
+  );
+  writeProfile(ref, profile);
+  async function processTaskProfiles(tasks) {
+    for (const task of tasks) {
+      if (isRemoteProfileTask(task)) {
+        const subRef = {
+          owner: task.owner,
+          repository: task.repository,
+          commit: task.commit
+        };
+        await fetchProfileRecursively(objectiveai$1, subRef);
+      } else if (isInlineProfileTask(task)) {
+        await processTaskProfiles(task.tasks);
+      }
+    }
+  }
+  await processTaskProfiles(profile.tasks);
+}
+async function fetchExamples(apiBase) {
+  if (fs.existsSync(path.join("examples", "examples.json"))) {
+    console.log("examples/examples.json already exists, skipping fetch.");
+    return;
+  }
+  const objectiveai$1 = new objectiveai.ObjectiveAI({ apiBase });
+  const { data: pairs } = await objectiveai.Functions.listPairs(objectiveai$1);
+  const shuffled = pairs.sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, Math.min(10, shuffled.length));
+  console.log(`Selected ${selected.length} function-profile pairs`);
+  for (const pair of selected) {
+    const funcRef = {
+      owner: pair.function.owner,
+      repository: pair.function.repository,
+      commit: pair.function.commit
+    };
+    const profileRef = {
+      owner: pair.profile.owner,
+      repository: pair.profile.repository,
+      commit: pair.profile.commit
+    };
+    await fetchFunctionRecursively(objectiveai$1, funcRef);
+    await fetchProfileRecursively(objectiveai$1, profileRef);
+  }
+  fs.mkdirSync("examples", { recursive: true });
+  fs.writeFileSync(
+    path.join("examples", "examples.json"),
+    JSON.stringify(selected, null, 2)
+  );
+  console.log("Examples fetched. Root pairs saved to examples/examples.json");
+}
+function writeAssets() {
+  console.log("Writing asset files...");
+  for (const [relativePath, content] of Object.entries(assets)) {
+    const dir = path.dirname(relativePath);
+    if (dir !== ".") {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    const trimmed = content.trim();
+    const isEmpty = trimmed === "" || trimmed === "null";
+    if (isEmpty && fs.existsSync(relativePath)) {
+      continue;
+    }
+    const exists = fs.existsSync(relativePath);
+    fs.writeFileSync(relativePath, content);
+    console.log(`  ${exists ? "Updated" : "Created"}: ${relativePath}`);
+  }
+}
+async function init(options = {}) {
+  if (!isGitRepo()) {
+    initializeGit();
+  } else {
+    updateSubmodules();
+  }
+  writeAssets();
+  runNpmInstall();
+  await fetchExamples(options.apiBase);
+  const specPath = "SPEC.md";
+  const specExists = fs.existsSync(specPath) && fs.readFileSync(specPath, "utf-8").trim().length > 0;
+  if (!specExists) {
+    console.log("Writing SPEC.md...");
+    fs.writeFileSync(specPath, options.spec ?? "");
+  }
+  if (!fs.existsSync("parameters.json")) {
+    const parameters = {
+      depth: options.depth ?? 0
+    };
+    console.log("Writing parameters.json...");
+    fs.writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
+  }
+  commitChanges();
+  console.log("Initialization complete.");
+}
 async function learnSubmodule(log, sessionId) {
   const indexPath = "OBJECTIVEAI_INDEX.md";
   const indexNonEmpty = (() => {
@@ -174,10 +522,6 @@ async function learnSubmodule(log, sessionId) {
   }
   return sessionId;
 }
-var init_learnSubmodule = __esm({
-  "src/claude/prepare/learnSubmodule.ts"() {
-  }
-});
 async function learnExamples(log, sessionId) {
   const stream = claudeAgentSdk.query({
     prompt: "1. Read `examples/examples.json` to see the root function-profile pairs\n2. For each pair, open and study:\n- `examples/functions/{owner}/{repository}/{commit}/function.json`\n- `examples/profiles/{owner}/{repository}/{commit}/profile.json`\n3. If any function contains sub-tasks, open those sub-function files\n4. If any profile contains sub-profiles, open those sub-profile files",
@@ -206,10 +550,6 @@ async function learnExamples(log, sessionId) {
   }
   return sessionId;
 }
-var init_learnExamples = __esm({
-  "src/claude/prepare/learnExamples.ts"() {
-  }
-});
 async function spec(log, sessionId) {
   const specPath = "SPEC.md";
   const specNonEmpty = (() => {
@@ -312,10 +652,6 @@ async function spec(log, sessionId) {
   }
   return sessionId;
 }
-var init_spec = __esm({
-  "src/claude/prepare/spec.ts"() {
-  }
-});
 
 // src/claude/promptResources.ts
 function promptResources(resources) {
@@ -326,10 +662,8 @@ function promptResources(resources) {
   }
   return prompt;
 }
-var init_promptResources = __esm({
-  "src/claude/promptResources.ts"() {
-  }
-});
+
+// src/claude/prepare/functionType.ts
 async function createFunctionTypeJson(log, sessionId) {
   const functionTypePath = "function/type.json";
   const functionTypeValid = () => {
@@ -416,11 +750,6 @@ async function createFunctionTypeJson(log, sessionId) {
   }
   return sessionId;
 }
-var init_functionType = __esm({
-  "src/claude/prepare/functionType.ts"() {
-    init_promptResources();
-  }
-});
 async function createGitHubNameJson(log, sessionId) {
   const githubNamePath = "github/name.json";
   const githubNameNonEmpty = () => {
@@ -512,11 +841,6 @@ async function createGitHubNameJson(log, sessionId) {
   }
   return sessionId;
 }
-var init_githubName = __esm({
-  "src/claude/prepare/githubName.ts"() {
-    init_promptResources();
-  }
-});
 async function essay(log, sessionId) {
   const essayPath = "ESSAY.md";
   const essayNonEmpty = (() => {
@@ -624,11 +948,6 @@ async function essay(log, sessionId) {
   }
   return sessionId;
 }
-var init_essay = __esm({
-  "src/claude/prepare/essay.ts"() {
-    init_promptResources();
-  }
-});
 async function essayTasks(log, sessionId) {
   const essayTasksPath = "ESSAY_TASKS.md";
   const essayTasksNonEmpty = (() => {
@@ -737,11 +1056,6 @@ async function essayTasks(log, sessionId) {
   }
   return sessionId;
 }
-var init_essayTasks = __esm({
-  "src/claude/prepare/essayTasks.ts"() {
-    init_promptResources();
-  }
-});
 
 // src/github/index.ts
 var github_exports = {};
@@ -1063,13 +1377,10 @@ function cloneSubFunctions(options = {}) {
   }
   return cloned;
 }
-var init_github = __esm({
-  "src/github/index.ts"() {
-  }
-});
+
+// src/claude/prepare/handleOpenIssues.ts
 async function handleOpenIssues(log, sessionId) {
-  const { hasOpenIssues: hasOpenIssues2 } = await Promise.resolve().then(() => (init_github(), github_exports));
-  if (!hasOpenIssues2()) {
+  if (!hasOpenIssues()) {
     return sessionId;
   }
   const stream = claudeAgentSdk.query({
@@ -1109,568 +1420,12 @@ async function handleOpenIssues(log, sessionId) {
   }
   return sessionId;
 }
-var init_handleOpenIssues = __esm({
-  "src/claude/prepare/handleOpenIssues.ts"() {
-    init_promptResources();
-  }
-});
-
-// assets/function/description.json.txt
-var description_json_default;
-var init_description_json = __esm({
-  "assets/function/description.json.txt"() {
-    description_json_default = "null";
-  }
-});
-
-// assets/function/input_maps.json.txt
-var input_maps_json_default;
-var init_input_maps_json = __esm({
-  "assets/function/input_maps.json.txt"() {
-    input_maps_json_default = "null";
-  }
-});
-
-// assets/function/input_merge.json.txt
-var input_merge_json_default;
-var init_input_merge_json = __esm({
-  "assets/function/input_merge.json.txt"() {
-    input_merge_json_default = "null";
-  }
-});
-
-// assets/function/input_schema.json.txt
-var input_schema_json_default;
-var init_input_schema_json = __esm({
-  "assets/function/input_schema.json.txt"() {
-    input_schema_json_default = "null";
-  }
-});
-
-// assets/function/input_split.json.txt
-var input_split_json_default;
-var init_input_split_json = __esm({
-  "assets/function/input_split.json.txt"() {
-    input_split_json_default = "null";
-  }
-});
-
-// assets/function/output.json.txt
-var output_json_default;
-var init_output_json = __esm({
-  "assets/function/output.json.txt"() {
-    output_json_default = "null";
-  }
-});
-
-// assets/function/output_length.json.txt
-var output_length_json_default;
-var init_output_length_json = __esm({
-  "assets/function/output_length.json.txt"() {
-    output_length_json_default = "null";
-  }
-});
-
-// assets/function/tasks.json.txt
-var tasks_json_default;
-var init_tasks_json = __esm({
-  "assets/function/tasks.json.txt"() {
-    tasks_json_default = "null";
-  }
-});
-
-// assets/function/type.json.txt
-var type_json_default;
-var init_type_json = __esm({
-  "assets/function/type.json.txt"() {
-    type_json_default = "null";
-  }
-});
-
-// assets/github/description.json.txt
-var description_json_default2;
-var init_description_json2 = __esm({
-  "assets/github/description.json.txt"() {
-    description_json_default2 = "null";
-  }
-});
-
-// assets/github/name.json.txt
-var name_json_default;
-var init_name_json = __esm({
-  "assets/github/name.json.txt"() {
-    name_json_default = "null";
-  }
-});
-
-// assets/.gitignore.txt
-var gitignore_default;
-var init_gitignore = __esm({
-  "assets/.gitignore.txt"() {
-    gitignore_default = "node_modules\n.env\n.claude/settings.local.json\nserverLog.txt\ncompiledTasks.json\nresolvedIssues.json\nbuild.ts\ntest.ts\ntsconfig.json\npackage.json\npackage-lock.json\n_runner.ts";
-  }
-});
-
-// assets/build.ts.txt
-var build_ts_default;
-var init_build_ts = __esm({
-  "assets/build.ts.txt"() {
-    build_ts_default = 'import { writeFunctionJson, writeProfileJson, spawnApiServer, createLocalObjectiveAI, runTests } from "@objectiveai/function-agent";\nimport { execSync } from "child_process";\nimport "dotenv/config";\n\nasync function main(): Promise<void> {\n  // Discard any changes to the objectiveai submodule\n  execSync("git -C objectiveai checkout -- .", { stdio: "inherit" });\n\n  // Install dependencies\n  execSync("npm install", { stdio: "inherit" });\n\n  // Build\n  writeFunctionJson();\n  writeProfileJson();\n\n  // Test\n  const apiBase = process.env.ONLY_SET_IF_YOU_KNOW_WHAT_YOURE_DOING;\n  const port = Math.floor(Math.random() * 50000) + 10000;\n\n  const apiProcess = await spawnApiServer({ apiBase, port });\n  const objectiveai = createLocalObjectiveAI({ apiBase, port });\n\n  try {\n    await runTests({ objectiveai });\n  } finally {\n    apiProcess?.kill();\n  }\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
-  }
-});
-
-// assets/package.json.txt
-var package_json_default;
-var init_package_json = __esm({
-  "assets/package.json.txt"() {
-    package_json_default = '{\n  "name": "objectiveai-function",\n  "version": "1.0.0",\n  "main": "main.ts",\n  "scripts": {\n    "check": "ts-node build.ts && ts-node test.ts"\n  },\n  "type": "commonjs",\n  "devDependencies": {\n    "@types/node": "^25.0.9",\n    "ts-node": "^10.9.2",\n    "typescript": "^5.9.3"\n  },\n  "dependencies": {\n    "dotenv": "^17.2.3",\n    "objectiveai": "file:./objectiveai/objectiveai-js",\n    "@objectiveai/function-agent": "file:./objectiveai/objectiveai-function-agent-js",\n    "zod": "^4.3.5"\n  }\n}\n';
-  }
-});
-
-// assets/README.md.txt
-var README_md_default;
-var init_README_md = __esm({
-  "assets/README.md.txt"() {
-    README_md_default = "";
-  }
-});
-
-// assets/tsconfig.json.txt
-var tsconfig_json_default;
-var init_tsconfig_json = __esm({
-  "assets/tsconfig.json.txt"() {
-    tsconfig_json_default = '{\n  "compilerOptions": {\n    "target": "ES2020",\n    "module": "node20",\n    "moduleResolution": "node16",\n    "esModuleInterop": true,\n    "strict": true,\n    "skipLibCheck": true,\n    "outDir": "./dist",\n    "resolveJsonModule": true\n  },\n  "ts-node": {\n    "compilerOptions": {\n      "module": "commonjs",\n      "allowImportingTsExtensions": true,\n      "noEmit": true\n    }\n  }\n}\n';
-  }
-});
-
-// assets/fetchOpenIssues.ts.txt
-var fetchOpenIssues_ts_default;
-var init_fetchOpenIssues_ts = __esm({
-  "assets/fetchOpenIssues.ts.txt"() {
-    fetchOpenIssues_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst issues = GitHub.fetchOpenIssues();\nconsole.log(JSON.stringify(issues, null, 2));\n';
-  }
-});
-
-// assets/fetchClosedIssues.ts.txt
-var fetchClosedIssues_ts_default;
-var init_fetchClosedIssues_ts = __esm({
-  "assets/fetchClosedIssues.ts.txt"() {
-    fetchClosedIssues_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst issues = GitHub.fetchClosedIssues();\nconsole.log(JSON.stringify(issues, null, 2));\n';
-  }
-});
-
-// assets/commentOnIssue.ts.txt
-var commentOnIssue_ts_default;
-var init_commentOnIssue_ts = __esm({
-  "assets/commentOnIssue.ts.txt"() {
-    commentOnIssue_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst issueNumber = parseInt(process.argv[2], 10);\nconst comment = process.argv[3];\n\nif (isNaN(issueNumber) || !comment) {\n  console.error("Usage: ts-node commentOnIssue.ts <issue_number> <comment>");\n  process.exit(1);\n}\n\nGitHub.commentOnIssue(issueNumber, comment);\nconsole.log(`Commented on issue #${issueNumber}`);\n';
-  }
-});
-
-// assets/closeIssue.ts.txt
-var closeIssue_ts_default;
-var init_closeIssue_ts = __esm({
-  "assets/closeIssue.ts.txt"() {
-    closeIssue_ts_default = 'import { existsSync, readFileSync, writeFileSync } from "fs";\n\nconst issueNumber = parseInt(process.argv[2], 10);\n\nif (isNaN(issueNumber)) {\n  console.error("Usage: ts-node closeIssue.ts <issue_number>");\n  process.exit(1);\n}\n\n// Read existing resolved issues\nconst resolvedIssuesPath = "resolvedIssues.json";\nlet resolvedIssues: number[] = [];\nif (existsSync(resolvedIssuesPath)) {\n  resolvedIssues = JSON.parse(readFileSync(resolvedIssuesPath, "utf-8"));\n}\n\n// Add this issue if not already present\nif (!resolvedIssues.includes(issueNumber)) {\n  resolvedIssues.push(issueNumber);\n  writeFileSync(resolvedIssuesPath, JSON.stringify(resolvedIssues, null, 2));\n}\n\nconsole.log(`Marked issue #${issueNumber} for closing`);\n';
-  }
-});
-
-// assets/commitAndPush.ts.txt
-var commitAndPush_ts_default;
-var init_commitAndPush_ts = __esm({
-  "assets/commitAndPush.ts.txt"() {
-    commitAndPush_ts_default = 'import { execSync } from "child_process";\n\nconst message = process.argv[2];\n\nif (!message) {\n  console.error("Usage: ts-node commitAndPush.ts <commit_message>");\n  process.exit(1);\n}\n\n// Discard any changes to the objectiveai submodule\nexecSync("git -C objectiveai checkout -- .", { stdio: "inherit" });\n\n// Stage all changes\nexecSync("git add -A", { stdio: "pipe" });\n\n// Check if there are changes to commit\ntry {\n  execSync("git diff --cached --quiet", { stdio: "pipe" });\n  console.log("No changes to commit.");\n} catch {\n  // There are changes, commit them\n  execSync(`git commit -m "${message.replace(/"/g, \'\\\\"\')}"`, { stdio: "inherit" });\n  console.log("Committed and pushed successfully.");\n}\n';
-  }
-});
-
-// assets/spawnFunctionAgents.ts.txt
-var spawnFunctionAgents_ts_default;
-var init_spawnFunctionAgents_ts = __esm({
-  "assets/spawnFunctionAgents.ts.txt"() {
-    spawnFunctionAgents_ts_default = 'import { execSync, spawn } from "child_process";\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";\nimport { join } from "path";\n\ninterface AgentResult {\n  owner: string;\n  repository: string;\n  commit: string;\n}\n\ninterface AgentError {\n  error: string;\n}\n\ninterface AgentSkipped {\n  skipped: true;\n}\n\ntype Result = AgentResult | AgentError | AgentSkipped;\n\n// Read current depth from parameters.json\nfunction getCurrentDepth(): number {\n  if (!existsSync("parameters.json")) {\n    return 0;\n  }\n  const content = readFileSync("parameters.json", "utf-8");\n  const params = JSON.parse(content) as { depth: number };\n  return params.depth ?? 0;\n}\n\nasync function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {\n  // Skip if spec is null\n  if (spec === null) {\n    return { skipped: true };\n  }\n\n  const subdir = join("sub_functions", String(index));\n\n  // Delete existing directory if it exists (for retries)\n  if (existsSync(subdir)) {\n    console.log(`Deleting existing directory: ${subdir}`);\n    rmSync(subdir, { recursive: true, force: true });\n  }\n\n  // Create subdirectory\n  mkdirSync(subdir, { recursive: true });\n\n  // Write a runner script that will be executed in the subdirectory\n  const runnerScript = `\nimport { Claude } from "@objectiveai/function-agent";\n\nasync function main(): Promise<void> {\n  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n`;\n\n  const runnerPath = join(subdir, "_runner.ts");\n  writeFileSync(runnerPath, runnerScript);\n\n  return new Promise<Result>((resolve) => {\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\n      cwd: subdir,\n      stdio: ["inherit", "pipe", "pipe"],\n      shell: true,\n    });\n\n    // Capture but discard output to avoid context overload in parent\n    child.stdout?.on("data", () => {});\n    child.stderr?.on("data", () => {});\n\n    child.on("close", (code) => {\n      if (code !== 0) {\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\n        return;\n      }\n\n      // Extract owner/repo/commit from the completed function\n      try {\n        const nameJsonPath = join(subdir, "github", "name.json");\n        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;\n\n        // Get owner from git remote\n        const remote = execSync("git remote get-url origin", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\n        const owner = match?.[1] ?? "unknown";\n        const repository = match?.[2] ?? name;\n\n        // Get latest commit\n        const commit = execSync("git rev-parse HEAD", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        resolve({ owner, repository, commit });\n      } catch (err) {\n        resolve({ error: `Failed to extract result: ${err}` });\n      }\n    });\n\n    child.on("error", (err) => {\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\n    });\n  });\n}\n\nasync function main(): Promise<void> {\n  const specsArg = process.argv[2];\n\n  if (!specsArg) {\n    console.error("Usage: ts-node spawnFunctionAgents.ts \'<json_array_of_specs>\'");\n    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");\n    process.exit(1);\n  }\n\n  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];\n\n  if (!Array.isArray(specs) || specs.length === 0) {\n    console.error("Specs must be a non-empty array of strings or nulls");\n    process.exit(1);\n  }\n\n  // Calculate child depth (current depth - 1)\n  const currentDepth = getCurrentDepth();\n  const childDepth = Math.max(0, currentDepth - 1);\n\n  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);\n\n  // Run all agents in parallel\n  const results = await Promise.all(\n    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))\n  );\n\n  // Output results as JSON\n  console.log("\\n=== SPAWN_RESULTS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
-  }
-});
-
-// assets/cloneSubFunctions.ts.txt
-var cloneSubFunctions_ts_default;
-var init_cloneSubFunctions_ts = __esm({
-  "assets/cloneSubFunctions.ts.txt"() {
-    cloneSubFunctions_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst latest = process.argv.includes("--latest");\n\nconst cloned = GitHub.cloneSubFunctions({ latest });\n\nconsole.log("\\n=== CLONE_RESULTS ===");\nconsole.log(JSON.stringify(cloned, null, 2));\n';
-  }
-});
-
-// assets/getSubFunctionCommits.ts.txt
-var getSubFunctionCommits_ts_default;
-var init_getSubFunctionCommits_ts = __esm({
-  "assets/getSubFunctionCommits.ts.txt"() {
-    getSubFunctionCommits_ts_default = 'import { execSync } from "child_process";\nimport { existsSync, readdirSync, readFileSync } from "fs";\n\ninterface SubFunctionInfo {\n  index: number;\n  owner: string;\n  repository: string;\n  commit: string;\n  path: string;\n}\n\nfunction main(): void {\n  const subFunctionsDir = "sub_functions";\n\n  if (!existsSync(subFunctionsDir)) {\n    console.log("No sub_functions directory found.");\n    console.log("\\n=== SUB_FUNCTION_COMMITS ===");\n    console.log("[]");\n    return;\n  }\n\n  const entries = readdirSync(subFunctionsDir);\n  const results: SubFunctionInfo[] = [];\n\n  for (const entry of entries) {\n    // Skip non-numeric directories (like .gitignore)\n    const index = parseInt(entry, 10);\n    if (isNaN(index)) continue;\n\n    const subFunctionPath = `${subFunctionsDir}/${entry}`;\n\n    // Get the commit SHA from git\n    let commit: string;\n    try {\n      commit = execSync("git rev-parse HEAD", {\n        cwd: subFunctionPath,\n        encoding: "utf-8",\n        stdio: "pipe",\n      }).trim();\n    } catch {\n      console.log(`Failed to get commit for ${subFunctionPath}`);\n      continue;\n    }\n\n    // Get owner/repository from github/name.json if it exists\n    let owner = "";\n    let repository = "";\n    const namePath = `${subFunctionPath}/github/name.json`;\n    if (existsSync(namePath)) {\n      const name = JSON.parse(readFileSync(namePath, "utf-8")) as string;\n      const parts = name.split("/");\n      if (parts.length === 2) {\n        owner = parts[0];\n        repository = parts[1];\n      }\n    }\n\n    results.push({\n      index,\n      owner,\n      repository,\n      commit,\n      path: subFunctionPath,\n    });\n  }\n\n  // Sort by index\n  results.sort((a, b) => a.index - b.index);\n\n  console.log("\\n=== SUB_FUNCTION_COMMITS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain();\n';
-  }
-});
-
-// assets/installRustLogs.ts.txt
-var installRustLogs_ts_default;
-var init_installRustLogs_ts = __esm({
-  "assets/installRustLogs.ts.txt"() {
-    installRustLogs_ts_default = 'import { execSync } from "child_process";\n\n// Rebuild the ObjectiveAI packages with any changes made to the Rust source\n// This rebuilds objectiveai-js (which includes WASM) and objectiveai-function-agent-js\n\nconsole.log("Rebuilding ObjectiveAI packages...");\n\n// Install dependencies in the submodule workspace\nexecSync("npm install", { cwd: "objectiveai", stdio: "inherit" });\n\n// Build objectiveai-js first (includes WASM rebuild)\nexecSync("npm run build -w objectiveai-js", { cwd: "objectiveai", stdio: "inherit" });\n\n// Build objectiveai-function-agent-js (depends on objectiveai-js)\nexecSync("npm run build -w objectiveai-function-agent-js", { cwd: "objectiveai", stdio: "inherit" });\n\n// Reinstall in function workspace to pick up the rebuilt packages\nexecSync("npm install", { stdio: "inherit" });\n\nconsole.log("Rebuild complete. Run ts-node build.ts to test.");\n';
-  }
-});
-
-// assets/plans/.gitkeep.txt
-var gitkeep_default;
-var init_gitkeep = __esm({
-  "assets/plans/.gitkeep.txt"() {
-    gitkeep_default = "";
-  }
-});
-
-// assets/logs/.gitignore.txt
-var gitignore_default2;
-var init_gitignore2 = __esm({
-  "assets/logs/.gitignore.txt"() {
-    gitignore_default2 = "*\n!.gitignore\n";
-  }
-});
-
-// assets/ESSAY.md.txt
-var ESSAY_md_default;
-var init_ESSAY_md = __esm({
-  "assets/ESSAY.md.txt"() {
-    ESSAY_md_default = "";
-  }
-});
-
-// assets/ESSAY_TASKS.md.txt
-var ESSAY_TASKS_md_default;
-var init_ESSAY_TASKS_md = __esm({
-  "assets/ESSAY_TASKS.md.txt"() {
-    ESSAY_TASKS_md_default = "";
-  }
-});
-
-// assets/sub_functions/.gitignore.txt
-var gitignore_default3;
-var init_gitignore3 = __esm({
-  "assets/sub_functions/.gitignore.txt"() {
-    gitignore_default3 = "*\n!.gitignore\n";
-  }
-});
-
-// assets/inputs.json.txt
-var inputs_json_default;
-var init_inputs_json = __esm({
-  "assets/inputs.json.txt"() {
-    inputs_json_default = "[]\n";
-  }
-});
-
-// src/assets.ts
-exports.assets = void 0;
-var init_assets = __esm({
-  "src/assets.ts"() {
-    init_description_json();
-    init_input_maps_json();
-    init_input_merge_json();
-    init_input_schema_json();
-    init_input_split_json();
-    init_output_json();
-    init_output_length_json();
-    init_tasks_json();
-    init_type_json();
-    init_description_json2();
-    init_name_json();
-    init_gitignore();
-    init_build_ts();
-    init_package_json();
-    init_README_md();
-    init_tsconfig_json();
-    init_fetchOpenIssues_ts();
-    init_fetchClosedIssues_ts();
-    init_commentOnIssue_ts();
-    init_closeIssue_ts();
-    init_commitAndPush_ts();
-    init_spawnFunctionAgents_ts();
-    init_cloneSubFunctions_ts();
-    init_getSubFunctionCommits_ts();
-    init_installRustLogs_ts();
-    init_gitkeep();
-    init_gitignore2();
-    init_ESSAY_md();
-    init_ESSAY_TASKS_md();
-    init_gitignore3();
-    init_inputs_json();
-    exports.assets = {
-      "function/description.json": description_json_default,
-      "function/input_maps.json": input_maps_json_default,
-      "function/input_merge.json": input_merge_json_default,
-      "function/input_schema.json": input_schema_json_default,
-      "function/input_split.json": input_split_json_default,
-      "function/output.json": output_json_default,
-      "function/output_length.json": output_length_json_default,
-      "function/tasks.json": tasks_json_default,
-      "function/type.json": type_json_default,
-      "github/description.json": description_json_default2,
-      "github/name.json": name_json_default,
-      ".gitignore": gitignore_default,
-      "build.ts": build_ts_default,
-      "package.json": package_json_default,
-      "README.md": README_md_default,
-      "tsconfig.json": tsconfig_json_default,
-      "fetchOpenIssues.ts": fetchOpenIssues_ts_default,
-      "fetchClosedIssues.ts": fetchClosedIssues_ts_default,
-      "commentOnIssue.ts": commentOnIssue_ts_default,
-      "closeIssue.ts": closeIssue_ts_default,
-      "commitAndPush.ts": commitAndPush_ts_default,
-      "spawnFunctionAgents.ts": spawnFunctionAgents_ts_default,
-      "cloneSubFunctions.ts": cloneSubFunctions_ts_default,
-      "getSubFunctionCommits.ts": getSubFunctionCommits_ts_default,
-      "installRustLogs.ts": installRustLogs_ts_default,
-      "plans/.gitkeep": gitkeep_default,
-      "logs/.gitignore": gitignore_default2,
-      "sub_functions/.gitignore": gitignore_default3,
-      "inputs.json": inputs_json_default,
-      "ESSAY.md": ESSAY_md_default,
-      "ESSAY_TASKS.md": ESSAY_TASKS_md_default
-    };
-  }
-});
-
-// src/init.ts
-var init_exports = {};
-__export(init_exports, {
-  init: () => init
-});
-function exec(command) {
-  try {
-    return child_process.execSync(command, { encoding: "utf-8", stdio: "pipe" }).trim();
-  } catch {
-    return "";
-  }
-}
-function execLog(command) {
-  console.log(`> ${command}`);
-  child_process.execSync(command, { stdio: "inherit" });
-}
-function isGitRepo() {
-  return fs.existsSync(".git");
-}
-function initializeGit() {
-  console.log("Initializing git repository...");
-  execLog("git init");
-  execLog(
-    "git submodule add -b function-agent-js https://github.com/ObjectiveAI/objectiveai objectiveai"
-  );
-  execLog("git submodule update --init --recursive");
-}
-function updateSubmodules() {
-  console.log("Updating git submodules...");
-  execLog("git submodule update --init --recursive --remote --force");
-}
-function runNpmInstall() {
-  console.log("Installing dependencies...");
-  execLog("npm install");
-  exec("git -C objectiveai checkout -- .");
-}
-function hasChanges() {
-  const status = exec("git status --porcelain");
-  return status.length > 0;
-}
-function isFirstCommit() {
-  const result = exec("git rev-parse HEAD");
-  return result.length === 0;
-}
-function commitChanges() {
-  if (!hasChanges()) {
-    return;
-  }
-  const message = isFirstCommit() ? "initial commit" : "update sandbox";
-  console.log(`Creating commit: ${message}...`);
-  execLog("git add -A");
-  execLog(`git commit -m "${message}"`);
-}
-function getFunctionPath(ref) {
-  return path.join(
-    "examples",
-    "functions",
-    ref.owner,
-    ref.repository,
-    ref.commit,
-    "function.json"
-  );
-}
-function getProfilePath(ref) {
-  return path.join(
-    "examples",
-    "profiles",
-    ref.owner,
-    ref.repository,
-    ref.commit,
-    "profile.json"
-  );
-}
-function functionExists(ref) {
-  return fs.existsSync(getFunctionPath(ref));
-}
-function profileExists(ref) {
-  return fs.existsSync(getProfilePath(ref));
-}
-function writeFunction(ref, data) {
-  const path$1 = getFunctionPath(ref);
-  fs.mkdirSync(path.dirname(path$1), { recursive: true });
-  fs.writeFileSync(path$1, JSON.stringify(data, null, 2));
-}
-function writeProfile(ref, data) {
-  const path$1 = getProfilePath(ref);
-  fs.mkdirSync(path.dirname(path$1), { recursive: true });
-  fs.writeFileSync(path$1, JSON.stringify(data, null, 2));
-}
-async function fetchFunctionRecursively(objectiveai$1, ref) {
-  if (functionExists(ref)) {
-    return;
-  }
-  console.log(
-    `Fetching function: ${ref.owner}/${ref.repository}/${ref.commit}`
-  );
-  const func = await objectiveai.Functions.retrieve(
-    objectiveai$1,
-    ref.owner,
-    ref.repository,
-    ref.commit
-  );
-  writeFunction(ref, func);
-  for (const task of func.tasks) {
-    if (task.type === "scalar.function" || task.type === "vector.function") {
-      const subRef = {
-        owner: task.owner,
-        repository: task.repository,
-        commit: task.commit
-      };
-      await fetchFunctionRecursively(objectiveai$1, subRef);
-    }
-  }
-}
-function isRemoteProfileTask(task) {
-  return "owner" in task && "repository" in task && "commit" in task && !("tasks" in task) && !("ensemble" in task);
-}
-function isInlineProfileTask(task) {
-  return "tasks" in task && !("ensemble" in task);
-}
-async function fetchProfileRecursively(objectiveai$1, ref) {
-  if (profileExists(ref)) {
-    return;
-  }
-  console.log(`Fetching profile: ${ref.owner}/${ref.repository}/${ref.commit}`);
-  const profile = await objectiveai.Functions.Profiles.retrieve(
-    objectiveai$1,
-    ref.owner,
-    ref.repository,
-    ref.commit
-  );
-  writeProfile(ref, profile);
-  async function processTaskProfiles(tasks) {
-    for (const task of tasks) {
-      if (isRemoteProfileTask(task)) {
-        const subRef = {
-          owner: task.owner,
-          repository: task.repository,
-          commit: task.commit
-        };
-        await fetchProfileRecursively(objectiveai$1, subRef);
-      } else if (isInlineProfileTask(task)) {
-        await processTaskProfiles(task.tasks);
-      }
-    }
-  }
-  await processTaskProfiles(profile.tasks);
-}
-async function fetchExamples(apiBase) {
-  if (fs.existsSync(path.join("examples", "examples.json"))) {
-    console.log("examples/examples.json already exists, skipping fetch.");
-    return;
-  }
-  const objectiveai$1 = new objectiveai.ObjectiveAI({ apiBase });
-  const { data: pairs } = await objectiveai.Functions.listPairs(objectiveai$1);
-  const shuffled = pairs.sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, Math.min(10, shuffled.length));
-  console.log(`Selected ${selected.length} function-profile pairs`);
-  for (const pair of selected) {
-    const funcRef = {
-      owner: pair.function.owner,
-      repository: pair.function.repository,
-      commit: pair.function.commit
-    };
-    const profileRef = {
-      owner: pair.profile.owner,
-      repository: pair.profile.repository,
-      commit: pair.profile.commit
-    };
-    await fetchFunctionRecursively(objectiveai$1, funcRef);
-    await fetchProfileRecursively(objectiveai$1, profileRef);
-  }
-  fs.mkdirSync("examples", { recursive: true });
-  fs.writeFileSync(
-    path.join("examples", "examples.json"),
-    JSON.stringify(selected, null, 2)
-  );
-  console.log("Examples fetched. Root pairs saved to examples/examples.json");
-}
-function writeAssets() {
-  console.log("Writing asset files...");
-  for (const [relativePath, content] of Object.entries(exports.assets)) {
-    const dir = path.dirname(relativePath);
-    if (dir !== ".") {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    const trimmed = content.trim();
-    const isEmpty = trimmed === "" || trimmed === "null";
-    if (isEmpty && fs.existsSync(relativePath)) {
-      continue;
-    }
-    const exists = fs.existsSync(relativePath);
-    fs.writeFileSync(relativePath, content);
-    console.log(`  ${exists ? "Updated" : "Created"}: ${relativePath}`);
-  }
-}
-async function init(options = {}) {
-  if (!isGitRepo()) {
-    initializeGit();
-  } else {
-    updateSubmodules();
-  }
-  writeAssets();
-  runNpmInstall();
-  await fetchExamples(options.apiBase);
-  const specPath = "SPEC.md";
-  const specExists = fs.existsSync(specPath) && fs.readFileSync(specPath, "utf-8").trim().length > 0;
-  if (!specExists) {
-    console.log("Writing SPEC.md...");
-    fs.writeFileSync(specPath, options.spec ?? "");
-  }
-  if (!fs.existsSync("parameters.json")) {
-    const parameters = {
-      depth: options.depth ?? 0
-    };
-    console.log("Writing parameters.json...");
-    fs.writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
-  }
-  commitChanges();
-  console.log("Initialization complete.");
-}
-var init_init = __esm({
-  "src/init.ts"() {
-    init_assets();
-  }
-});
 
 // src/claude/prepare/index.ts
-var prepare_exports = {};
-__export(prepare_exports, {
-  prepare: () => prepare
-});
 async function prepare(options = {}) {
-  const { init: init2 } = await Promise.resolve().then(() => (init_init(), init_exports));
   const log = options.log ?? createFileLogger().log;
   log("=== Initializing workspace ===");
-  await init2({ spec: options.spec, apiBase: options.apiBase });
+  await init({ spec: options.spec, apiBase: options.apiBase });
   let sessionId = options.sessionId;
   log("=== Step 1: Learning about ObjectiveAI ===");
   sessionId = await learnSubmodule(log, sessionId);
@@ -1690,33 +1445,6 @@ async function prepare(options = {}) {
   sessionId = await handleOpenIssues(log, sessionId);
   return sessionId;
 }
-var init_prepare = __esm({
-  "src/claude/prepare/index.ts"() {
-    init_logging();
-    init_learnSubmodule();
-    init_learnExamples();
-    init_spec();
-    init_functionType();
-    init_githubName();
-    init_essay();
-    init_essayTasks();
-    init_handleOpenIssues();
-  }
-});
-
-// src/claude/index.ts
-var claude_exports = {};
-__export(claude_exports, {
-  handleIssues: () => handleIssues,
-  invent: () => invent,
-  inventFunctionTasks: () => inventFunctionTasks,
-  inventVectorTasks: () => inventVectorTasks,
-  prepare: () => prepare
-});
-init_prepare();
-
-// src/claude/invent/inventFunctionTasks.ts
-init_promptResources();
 function getNextPlanIndex() {
   const plansDir = "plans";
   let nextPlanIndex = 1;
@@ -1734,20 +1462,10 @@ function getPlanPath(index) {
 }
 
 // src/claude/invent/inventFunctionTasks.ts
-init_logging();
 async function inventFunctionTasksLoop(log, sessionId) {
-  const {
-    getCurrentRevision: getCurrentRevision2,
-    resetToRevision: resetToRevision2,
-    hasUncommittedChanges: hasUncommittedChanges2,
-    hasUntrackedFiles: hasUntrackedFiles2,
-    resetAndUpdateSubmodule: resetAndUpdateSubmodule2,
-    pushOrCreateUpstream: pushOrCreateUpstream2
-  } = await Promise.resolve().then(() => (init_github(), github_exports));
-  const { execSync: execSync3 } = await import('child_process');
   const nextPlanIndex = getNextPlanIndex();
   const planPath = getPlanPath(nextPlanIndex);
-  const initialRevision = getCurrentRevision2();
+  const initialRevision = getCurrentRevision();
   const maxAttempts = 5;
   let attempt = 0;
   let success = false;
@@ -2005,11 +1723,11 @@ Please try again. Remember to:
     }
     log("Validating assistant's work...");
     log("Resetting and updating objectiveai submodule...");
-    resetAndUpdateSubmodule2();
+    resetAndUpdateSubmodule();
     log("Running build and tests...");
     let buildSuccess = false;
     try {
-      execSync3("ts-node build.ts", { stdio: "inherit" });
+      child_process.execSync("ts-node build.ts", { stdio: "inherit" });
       buildSuccess = true;
     } catch {
       log("Build or tests failed.");
@@ -2021,7 +1739,7 @@ Please try again. Remember to:
       );
       log("Failed: Build or tests failed.");
     }
-    const hasChanges2 = hasUncommittedChanges2() || hasUntrackedFiles2();
+    const hasChanges2 = hasUncommittedChanges() || hasUntrackedFiles();
     if (hasChanges2) {
       lastFailureReasons.push(
         "There are uncommitted changes or untracked files. Commit them with ts-node commitAndPush.ts <message>."
@@ -2059,38 +1777,24 @@ Please try again. Remember to:
   }
   if (!success) {
     log("All attempts failed. Resetting to initial revision.");
-    resetToRevision2(initialRevision);
+    resetToRevision(initialRevision);
     throw new Error("Invent loop failed after maximum attempts.");
   }
   log("Pushing commits...");
-  pushOrCreateUpstream2();
+  pushOrCreateUpstream();
   return sessionId;
 }
 async function inventFunctionTasks(options = {}) {
-  const { prepare: prepare2 } = await Promise.resolve().then(() => (init_prepare(), prepare_exports));
   const log = options.log ?? createFileLogger().log;
-  const sessionId = await prepare2({ ...options, log });
+  const sessionId = await prepare({ ...options, log });
   log("=== Invent Loop: Creating new function ===");
   await inventFunctionTasksLoop(log, sessionId);
   log("=== ObjectiveAI Function invention complete ===");
 }
-
-// src/claude/invent/inventVectorTasks.ts
-init_promptResources();
-init_logging();
 async function inventVectorTasksLoop(log, sessionId) {
-  const {
-    getCurrentRevision: getCurrentRevision2,
-    resetToRevision: resetToRevision2,
-    hasUncommittedChanges: hasUncommittedChanges2,
-    hasUntrackedFiles: hasUntrackedFiles2,
-    resetAndUpdateSubmodule: resetAndUpdateSubmodule2,
-    pushOrCreateUpstream: pushOrCreateUpstream2
-  } = await Promise.resolve().then(() => (init_github(), github_exports));
-  const { execSync: execSync3 } = await import('child_process');
   const nextPlanIndex = getNextPlanIndex();
   const planPath = getPlanPath(nextPlanIndex);
-  const initialRevision = getCurrentRevision2();
+  const initialRevision = getCurrentRevision();
   const maxAttempts = 5;
   let attempt = 0;
   let success = false;
@@ -2302,11 +2006,11 @@ Please try again. Remember to:
     }
     log("Validating assistant's work...");
     log("Resetting and updating objectiveai submodule...");
-    resetAndUpdateSubmodule2();
+    resetAndUpdateSubmodule();
     log("Running build and tests...");
     let buildSuccess = false;
     try {
-      execSync3("ts-node build.ts", { stdio: "inherit" });
+      child_process.execSync("ts-node build.ts", { stdio: "inherit" });
       buildSuccess = true;
     } catch {
       log("Build or tests failed.");
@@ -2318,7 +2022,7 @@ Please try again. Remember to:
       );
       log("Failed: Build or tests failed.");
     }
-    const hasChanges2 = hasUncommittedChanges2() || hasUntrackedFiles2();
+    const hasChanges2 = hasUncommittedChanges() || hasUntrackedFiles();
     if (hasChanges2) {
       lastFailureReasons.push(
         "There are uncommitted changes or untracked files. Commit them with ts-node commitAndPush.ts <message>."
@@ -2356,17 +2060,16 @@ Please try again. Remember to:
   }
   if (!success) {
     log("All attempts failed. Resetting to initial revision.");
-    resetToRevision2(initialRevision);
+    resetToRevision(initialRevision);
     throw new Error("Invent loop failed after maximum attempts.");
   }
   log("Pushing commits...");
-  pushOrCreateUpstream2();
+  pushOrCreateUpstream();
   return sessionId;
 }
 async function inventVectorTasks(options = {}) {
-  const { prepare: prepare2 } = await Promise.resolve().then(() => (init_prepare(), prepare_exports));
   const log = options.log ?? createFileLogger().log;
-  const sessionId = await prepare2({ ...options, log });
+  const sessionId = await prepare({ ...options, log });
   log("=== Invent Loop: Creating new function ===");
   await inventVectorTasksLoop(log, sessionId);
   log("=== ObjectiveAI Function invention complete ===");
@@ -2381,25 +2084,10 @@ async function invent(options = {}) {
     await inventFunctionTasks(options);
   }
 }
-
-// src/claude/handleIssues.ts
-init_promptResources();
-init_logging();
 async function handleIssuesLoop(log, sessionId) {
-  const {
-    getCurrentRevision: getCurrentRevision2,
-    resetToRevision: resetToRevision2,
-    fetchOpenIssues: fetchOpenIssues2,
-    hasUncommittedChanges: hasUncommittedChanges2,
-    hasUntrackedFiles: hasUntrackedFiles2,
-    resetAndUpdateSubmodule: resetAndUpdateSubmodule2,
-    pushOrCreateUpstream: pushOrCreateUpstream2,
-    closeIssue: closeIssue2
-  } = await Promise.resolve().then(() => (init_github(), github_exports));
-  const { execSync: execSync3 } = await import('child_process');
   const nextPlanIndex = getNextPlanIndex();
   const planPath = getPlanPath(nextPlanIndex);
-  const initialRevision = getCurrentRevision2();
+  const initialRevision = getCurrentRevision();
   const maxAttempts = 5;
   let attempt = 0;
   let success = false;
@@ -2628,11 +2316,11 @@ Please try again. Remember to:
     }
     log("Validating assistant's work...");
     log("Resetting and updating objectiveai submodule...");
-    resetAndUpdateSubmodule2();
+    resetAndUpdateSubmodule();
     log("Running build and tests...");
     let buildSuccess = false;
     try {
-      execSync3("ts-node build.ts", { stdio: "inherit" });
+      child_process.execSync("ts-node build.ts", { stdio: "inherit" });
       buildSuccess = true;
     } catch {
       log("Build or tests failed.");
@@ -2649,7 +2337,7 @@ Please try again. Remember to:
     if (fs.existsSync(resolvedIssuesPath2)) {
       resolvedIssues = JSON.parse(fs.readFileSync(resolvedIssuesPath2, "utf-8"));
     }
-    const openIssues = fetchOpenIssues2();
+    const openIssues = fetchOpenIssues();
     const unresolvedIssues = openIssues.filter(
       (issue) => !resolvedIssues.includes(issue.number)
     );
@@ -2660,7 +2348,7 @@ Please try again. Remember to:
       );
       log(`Failed: Unresolved issues: ${nums}`);
     }
-    const hasChanges2 = hasUncommittedChanges2() || hasUntrackedFiles2();
+    const hasChanges2 = hasUncommittedChanges() || hasUntrackedFiles();
     if (hasChanges2) {
       lastFailureReasons.push(
         "There are uncommitted changes or untracked files. Commit them with ts-node commitAndPush.ts <message>."
@@ -2674,11 +2362,11 @@ Please try again. Remember to:
   }
   if (!success) {
     log("All attempts failed. Resetting to initial revision.");
-    resetToRevision2(initialRevision);
+    resetToRevision(initialRevision);
     throw new Error("Issue loop failed after maximum attempts.");
   }
   log("Pushing commits...");
-  pushOrCreateUpstream2();
+  pushOrCreateUpstream();
   const resolvedIssuesPath = "resolvedIssues.json";
   if (fs.existsSync(resolvedIssuesPath)) {
     const resolvedIssues = JSON.parse(
@@ -2687,7 +2375,7 @@ Please try again. Remember to:
     for (const issueNumber of resolvedIssues) {
       log(`Closing issue #${issueNumber}...`);
       try {
-        closeIssue2(issueNumber);
+        closeIssue(issueNumber);
       } catch (err) {
         log(`Failed to close issue #${issueNumber}: ${err}`);
       }
@@ -2696,18 +2384,12 @@ Please try again. Remember to:
   return sessionId;
 }
 async function handleIssues(options = {}) {
-  const { prepare: prepare2 } = await Promise.resolve().then(() => (init_prepare(), prepare_exports));
   const log = options.log ?? createFileLogger().log;
-  const sessionId = await prepare2({ ...options, log });
+  const sessionId = await prepare({ ...options, log });
   log("=== Issue Loop: Handling issues on existing function ===");
   await handleIssuesLoop(log, sessionId);
   log("=== ObjectiveAI Function issue handling complete ===");
 }
-
-// src/index.ts
-init_github();
-init_init();
-init_assets();
 var defaultVectorCompletionTaskProfile = {
   ensemble: {
     llms: [
@@ -3254,12 +2936,10 @@ function createLocalObjectiveAI(options = {}) {
   });
 }
 
-// src/index.ts
-init_logging();
-
 exports.Claude = claude_exports;
 exports.ExampleInputSchema = ExampleInputSchema;
 exports.GitHub = github_exports;
+exports.assets = assets;
 exports.buildFunction = buildFunction;
 exports.buildProfile = buildProfile;
 exports.compiledTasksEqual = compiledTasksEqual;
