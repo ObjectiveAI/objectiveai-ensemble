@@ -233,9 +233,26 @@ export function FAQ({
   session?: Provider.TokenSession;
 }): ReactElement {
   return (
-    <main className={cn("h-[100dvh]", "w-[100dvw]", "flex", "flex-col")}>
+    <main
+      className={cn(
+        "h-[100dvh]",
+        "w-[100dvw]",
+        "flex",
+        "flex-col",
+        "overflow-x-hidden"
+      )}
+    >
       <SharedHeader session={session} />
-      <div className={cn("flex-grow", "flex", "overflow-hidden", "mt-1")}>
+      <div
+        className={cn(
+          "flex-grow",
+          "flex",
+          "overflow-hidden",
+          "mt-1",
+          "flex-col",
+          "md:flex-row"
+        )}
+      >
         <Sidebar />
         <div
           className={cn(
@@ -244,7 +261,8 @@ export function FAQ({
             "flex-col",
             "overflow-auto",
             "basis-0",
-            "px-1"
+            "px-3",
+            "md:px-1"
           )}
         >
           <div
@@ -253,24 +271,29 @@ export function FAQ({
               "max-w-full",
               "space-y-8",
               "mx-auto",
-              "my-8"
+              "my-6",
+              "md:my-8"
             )}
           >
-            <div className={cn("space-y-4")}>
-              <h3
-                className={cn(
-                  "text-2xl",
-                  "sm:text-3xl",
-                  "font-medium",
-                  "border-b",
-                  "border-muted-secondary",
-                  "pb-4"
-                )}
-              >
-                FAQ
-              </h3>
-              <MarkdownContent content={content} />
-            </div>
+            <details className={cn("space-y-4")} open>
+              <summary className={cn("list-none", "cursor-pointer")}>
+                <h3
+                  className={cn(
+                    "text-2xl",
+                    "sm:text-3xl",
+                    "font-medium",
+                    "border-b",
+                    "border-muted-secondary",
+                    "pb-4"
+                  )}
+                >
+                  FAQ
+                </h3>
+              </summary>
+              <div className={cn("pt-2")}>
+                <MarkdownContent content={content} />
+              </div>
+            </details>
           </div>
         </div>
       </div>

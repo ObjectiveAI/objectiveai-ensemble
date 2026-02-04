@@ -25,9 +25,25 @@ export function EndpointDocs({
   responseBodyStreaming?: z.ZodType;
 }): ReactElement {
   return (
-    <main className={cn("h-[100dvh]", "w-[100dvw]", "flex", "flex-col")}>
+    <main
+      className={cn(
+        "h-[100dvh]",
+        "w-[100dvw]",
+        "flex",
+        "flex-col",
+        "overflow-x-hidden"
+      )}
+    >
       <SharedHeader session={session} />
-      <div className={cn("flex-grow", "flex", "overflow-hidden")}>
+      <div
+        className={cn(
+          "flex-grow",
+          "flex",
+          "overflow-hidden",
+          "flex-col",
+          "md:flex-row"
+        )}
+      >
         <Sidebar />
         <div
           className={cn(
@@ -36,7 +52,8 @@ export function EndpointDocs({
             "flex-col",
             "overflow-auto",
             "basis-0",
-            "px-4"
+            "px-3",
+            "md:px-4"
           )}
         >
           <div
@@ -45,7 +62,8 @@ export function EndpointDocs({
               "max-w-full",
               "space-y-8",
               "mx-auto",
-              "my-8"
+              "my-6",
+              "md:my-8"
             )}
           >
             {requestHeaders && (
@@ -168,7 +186,14 @@ export function Property({
   } else {
     return (
       <div className={cn(className)}>
-        <div className={cn("space-x-2")}>
+        <div
+          className={cn(
+            "flex",
+            "flex-wrap",
+            "items-center",
+            "gap-2"
+          )}
+        >
           {(name || params.title) && (
             <span
               className={cn(
