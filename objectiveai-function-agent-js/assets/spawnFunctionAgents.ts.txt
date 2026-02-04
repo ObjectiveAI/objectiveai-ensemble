@@ -18,7 +18,17 @@ interface AgentSkipped {
 
 type Result = AgentResult | AgentError | AgentSkipped;
 
-async function runAgentInSubdir(spec: string | null, index: number): Promise<Result> {
+// Read current depth from parameters.json
+function getCurrentDepth(): number {
+  if (!existsSync("parameters.json")) {
+    return 0;
+  }
+  const content = readFileSync("parameters.json", "utf-8");
+  const params = JSON.parse(content) as { depth: number };
+  return params.depth ?? 0;
+}
+
+async function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {
   // Skip if spec is null
   if (spec === null) {
     return { skipped: true };
@@ -40,7 +50,7 @@ async function runAgentInSubdir(spec: string | null, index: number): Promise<Res
 import { Claude } from "@objectiveai/function-agent";
 
 async function main(): Promise<void> {
-  await Claude.invent({ spec: ${JSON.stringify(spec)} });
+  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });
 }
 
 main().catch((err) => {
@@ -119,11 +129,15 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`Spawning ${specs.length} function agents...`);
+  // Calculate child depth (current depth - 1)
+  const currentDepth = getCurrentDepth();
+  const childDepth = Math.max(0, currentDepth - 1);
+
+  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);
 
   // Run all agents in parallel
   const results = await Promise.all(
-    specs.map((spec, index) => runAgentInSubdir(spec, index))
+    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))
   );
 
   // Output results as JSON

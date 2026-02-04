@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, writeFileSync, readdirSync, appendFileSync, readFileSync } from 'fs';
+#!/usr/bin/env node
+import { existsSync, mkdirSync, writeFileSync, appendFileSync, readdirSync, readFileSync } from 'fs';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
-// src/logging.ts
 function getNextLogIndex() {
   const logsDir = "logs";
   let nextIndex = 1;
@@ -35,19 +35,6 @@ function createFileLogger() {
     console.log(...args);
   };
   return { log, logPath };
-}
-function getLatestLogPath() {
-  const logsDir = "logs";
-  if (!existsSync(logsDir)) {
-    return null;
-  }
-  const files = readdirSync(logsDir);
-  const logNumbers = files.filter((f) => /^\d+\.txt$/.test(f)).map((f) => parseInt(f.replace(".txt", ""), 10)).filter((n) => !isNaN(n));
-  if (logNumbers.length === 0) {
-    return null;
-  }
-  const maxIndex = Math.max(...logNumbers);
-  return `${logsDir}/${maxIndex}.txt`;
 }
 async function learnSubmodule(log, sessionId) {
   const indexPath = "OBJECTIVEAI_INDEX.md";
@@ -686,7 +673,7 @@ async function essayTasks(log, sessionId) {
   return sessionId;
 }
 async function handleOpenIssues(log, sessionId) {
-  const { hasOpenIssues } = await import('./github-6SAU5HSY.js');
+  const { hasOpenIssues } = await import('./github-LSQGDLDW.js');
   if (!hasOpenIssues()) {
     return sessionId;
   }
@@ -730,7 +717,7 @@ async function handleOpenIssues(log, sessionId) {
 
 // src/claude/prepare/index.ts
 async function prepare(options = {}) {
-  const { init } = await import('./init-4NIXSBTO.js');
+  const { init } = await import('./init-JW4O73JG.js');
   const log = options.log ?? createFileLogger().log;
   log("=== Initializing workspace ===");
   await init({ spec: options.spec, apiBase: options.apiBase });
@@ -754,4 +741,4 @@ async function prepare(options = {}) {
   return sessionId;
 }
 
-export { createFileLogger, getLatestLogPath, prepare, promptResources };
+export { createFileLogger, prepare, promptResources };

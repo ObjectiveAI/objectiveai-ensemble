@@ -1,8 +1,9 @@
-#!/usr/bin/env node
 import { execSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { ObjectiveAI, Functions } from 'objectiveai';
+
+// src/init.ts
 
 // assets/function/description.json.txt
 var description_json_default = "null";
@@ -68,7 +69,7 @@ var closeIssue_ts_default = 'import { existsSync, readFileSync, writeFileSync } 
 var commitAndPush_ts_default = 'import { execSync } from "child_process";\n\nconst message = process.argv[2];\n\nif (!message) {\n  console.error("Usage: ts-node commitAndPush.ts <commit_message>");\n  process.exit(1);\n}\n\n// Discard any changes to the objectiveai submodule\nexecSync("git -C objectiveai checkout -- .", { stdio: "inherit" });\n\n// Stage all changes\nexecSync("git add -A", { stdio: "pipe" });\n\n// Check if there are changes to commit\ntry {\n  execSync("git diff --cached --quiet", { stdio: "pipe" });\n  console.log("No changes to commit.");\n} catch {\n  // There are changes, commit them\n  execSync(`git commit -m "${message.replace(/"/g, \'\\\\"\')}"`, { stdio: "inherit" });\n  console.log("Committed and pushed successfully.");\n}\n';
 
 // assets/spawnFunctionAgents.ts.txt
-var spawnFunctionAgents_ts_default = 'import { execSync, spawn } from "child_process";\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";\nimport { join } from "path";\n\ninterface AgentResult {\n  owner: string;\n  repository: string;\n  commit: string;\n}\n\ninterface AgentError {\n  error: string;\n}\n\ninterface AgentSkipped {\n  skipped: true;\n}\n\ntype Result = AgentResult | AgentError | AgentSkipped;\n\nasync function runAgentInSubdir(spec: string | null, index: number): Promise<Result> {\n  // Skip if spec is null\n  if (spec === null) {\n    return { skipped: true };\n  }\n\n  const subdir = join("sub_functions", String(index));\n\n  // Delete existing directory if it exists (for retries)\n  if (existsSync(subdir)) {\n    console.log(`Deleting existing directory: ${subdir}`);\n    rmSync(subdir, { recursive: true, force: true });\n  }\n\n  // Create subdirectory\n  mkdirSync(subdir, { recursive: true });\n\n  // Write a runner script that will be executed in the subdirectory\n  const runnerScript = `\nimport { Claude } from "@objectiveai/function-agent";\n\nasync function main(): Promise<void> {\n  await Claude.invent({ spec: ${JSON.stringify(spec)} });\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n`;\n\n  const runnerPath = join(subdir, "_runner.ts");\n  writeFileSync(runnerPath, runnerScript);\n\n  return new Promise<Result>((resolve) => {\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\n      cwd: subdir,\n      stdio: ["inherit", "pipe", "pipe"],\n      shell: true,\n    });\n\n    // Capture but discard output to avoid context overload in parent\n    child.stdout?.on("data", () => {});\n    child.stderr?.on("data", () => {});\n\n    child.on("close", (code) => {\n      if (code !== 0) {\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\n        return;\n      }\n\n      // Extract owner/repo/commit from the completed function\n      try {\n        const nameJsonPath = join(subdir, "github", "name.json");\n        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;\n\n        // Get owner from git remote\n        const remote = execSync("git remote get-url origin", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\n        const owner = match?.[1] ?? "unknown";\n        const repository = match?.[2] ?? name;\n\n        // Get latest commit\n        const commit = execSync("git rev-parse HEAD", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        resolve({ owner, repository, commit });\n      } catch (err) {\n        resolve({ error: `Failed to extract result: ${err}` });\n      }\n    });\n\n    child.on("error", (err) => {\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\n    });\n  });\n}\n\nasync function main(): Promise<void> {\n  const specsArg = process.argv[2];\n\n  if (!specsArg) {\n    console.error("Usage: ts-node spawnFunctionAgents.ts \'<json_array_of_specs>\'");\n    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");\n    process.exit(1);\n  }\n\n  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];\n\n  if (!Array.isArray(specs) || specs.length === 0) {\n    console.error("Specs must be a non-empty array of strings or nulls");\n    process.exit(1);\n  }\n\n  console.log(`Spawning ${specs.length} function agents...`);\n\n  // Run all agents in parallel\n  const results = await Promise.all(\n    specs.map((spec, index) => runAgentInSubdir(spec, index))\n  );\n\n  // Output results as JSON\n  console.log("\\n=== SPAWN_RESULTS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
+var spawnFunctionAgents_ts_default = 'import { execSync, spawn } from "child_process";\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";\nimport { join } from "path";\n\ninterface AgentResult {\n  owner: string;\n  repository: string;\n  commit: string;\n}\n\ninterface AgentError {\n  error: string;\n}\n\ninterface AgentSkipped {\n  skipped: true;\n}\n\ntype Result = AgentResult | AgentError | AgentSkipped;\n\n// Read current depth from parameters.json\nfunction getCurrentDepth(): number {\n  if (!existsSync("parameters.json")) {\n    return 0;\n  }\n  const content = readFileSync("parameters.json", "utf-8");\n  const params = JSON.parse(content) as { depth: number };\n  return params.depth ?? 0;\n}\n\nasync function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {\n  // Skip if spec is null\n  if (spec === null) {\n    return { skipped: true };\n  }\n\n  const subdir = join("sub_functions", String(index));\n\n  // Delete existing directory if it exists (for retries)\n  if (existsSync(subdir)) {\n    console.log(`Deleting existing directory: ${subdir}`);\n    rmSync(subdir, { recursive: true, force: true });\n  }\n\n  // Create subdirectory\n  mkdirSync(subdir, { recursive: true });\n\n  // Write a runner script that will be executed in the subdirectory\n  const runnerScript = `\nimport { Claude } from "@objectiveai/function-agent";\n\nasync function main(): Promise<void> {\n  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n`;\n\n  const runnerPath = join(subdir, "_runner.ts");\n  writeFileSync(runnerPath, runnerScript);\n\n  return new Promise<Result>((resolve) => {\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\n      cwd: subdir,\n      stdio: ["inherit", "pipe", "pipe"],\n      shell: true,\n    });\n\n    // Capture but discard output to avoid context overload in parent\n    child.stdout?.on("data", () => {});\n    child.stderr?.on("data", () => {});\n\n    child.on("close", (code) => {\n      if (code !== 0) {\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\n        return;\n      }\n\n      // Extract owner/repo/commit from the completed function\n      try {\n        const nameJsonPath = join(subdir, "github", "name.json");\n        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;\n\n        // Get owner from git remote\n        const remote = execSync("git remote get-url origin", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\n        const owner = match?.[1] ?? "unknown";\n        const repository = match?.[2] ?? name;\n\n        // Get latest commit\n        const commit = execSync("git rev-parse HEAD", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        resolve({ owner, repository, commit });\n      } catch (err) {\n        resolve({ error: `Failed to extract result: ${err}` });\n      }\n    });\n\n    child.on("error", (err) => {\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\n    });\n  });\n}\n\nasync function main(): Promise<void> {\n  const specsArg = process.argv[2];\n\n  if (!specsArg) {\n    console.error("Usage: ts-node spawnFunctionAgents.ts \'<json_array_of_specs>\'");\n    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");\n    process.exit(1);\n  }\n\n  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];\n\n  if (!Array.isArray(specs) || specs.length === 0) {\n    console.error("Specs must be a non-empty array of strings or nulls");\n    process.exit(1);\n  }\n\n  // Calculate child depth (current depth - 1)\n  const currentDepth = getCurrentDepth();\n  const childDepth = Math.max(0, currentDepth - 1);\n\n  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);\n\n  // Run all agents in parallel\n  const results = await Promise.all(\n    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))\n  );\n\n  // Output results as JSON\n  console.log("\\n=== SPAWN_RESULTS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
 
 // assets/cloneSubFunctions.ts.txt
 var cloneSubFunctions_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\n\nconst latest = process.argv.includes("--latest");\n\nconst cloned = GitHub.cloneSubFunctions({ latest });\n\nconsole.log("\\n=== CLONE_RESULTS ===");\nconsole.log(JSON.stringify(cloned, null, 2));\n';
@@ -305,9 +306,7 @@ async function fetchExamples(apiBase) {
     join("examples", "examples.json"),
     JSON.stringify(selected, null, 2)
   );
-  console.log(
-    "Examples fetched. Root pairs saved to examples/examples.json"
-  );
+  console.log("Examples fetched. Root pairs saved to examples/examples.json");
 }
 function writeAssets() {
   console.log("Writing asset files...");
@@ -335,16 +334,21 @@ async function init(options = {}) {
   writeAssets();
   runNpmInstall();
   await fetchExamples(options.apiBase);
-  if (options.spec) {
-    const specPath = "SPEC.md";
-    const specExists = existsSync(specPath) && readFileSync(specPath, "utf-8").trim().length > 0;
-    if (!specExists) {
-      console.log("Writing SPEC.md...");
-      writeFileSync(specPath, options.spec);
-    }
+  const specPath = "SPEC.md";
+  const specExists = existsSync(specPath) && readFileSync(specPath, "utf-8").trim().length > 0;
+  if (!specExists) {
+    console.log("Writing SPEC.md...");
+    writeFileSync(specPath, options.spec ?? "");
+  }
+  if (!existsSync("parameters.json")) {
+    const parameters = {
+      depth: options.depth ?? 0
+    };
+    console.log("Writing parameters.json...");
+    writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
   }
   commitChanges();
   console.log("Initialization complete.");
 }
 
-export { init };
+export { assets, init };

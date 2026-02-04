@@ -1,12 +1,12 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { existsSync, readFileSync } from "fs";
-import { AgentOptions, LogFn } from "../agentOptions";
-import { promptResources } from "./promptResources";
-import { getNextPlanIndex, getPlanPath } from "./planIndex";
-import { createFileLogger } from "../logging";
+import { AgentOptions, LogFn } from "../../agentOptions";
+import { promptResources } from "../promptResources";
+import { getNextPlanIndex, getPlanPath } from "../planIndex";
+import { createFileLogger } from "../../logging";
 
 // Main loop for inventing a new function (no issues)
-async function inventLoop(
+async function inventFunctionTasksLoop(
   log: LogFn,
   sessionId?: string,
 ): Promise<string | undefined> {
@@ -17,7 +17,7 @@ async function inventLoop(
     hasUntrackedFiles,
     checkoutSubmodule,
     pushOrCreateUpstream,
-  } = await import("../github");
+  } = await import("../../github");
   const { execSync } = await import("child_process");
 
   const nextPlanIndex = getNextPlanIndex();
@@ -81,26 +81,21 @@ Write your implementation plan to \`${planPath}\`. Include:
 
 Create a TODO list and execute each item:
 
-### Task Structure Decision
+### Task Structure
 
-Analyze ESSAY_TASKS.md to determine the task structure:
+This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create **at least 2 sub-functions** by spawning child agents:
 
-**Option A: Single Vector Completion Task**
-If the function can be implemented with a single evaluation (mapped or unmapped):
-- Create an inline vector completion task in \`function/tasks.json\`
-- Use \`map\` if the task needs to iterate over input items
-- The task's prompt and responses define what gets evaluated
-
-**Option B: Multiple Sub-Functions**
-If ESSAY_TASKS.md describes multiple distinct evaluations that each warrant their own function:
-1. Create a spec for each sub-function describing:
+1. Analyze ESSAY_TASKS.md and create a spec for each sub-function describing:
    - What it evaluates (purpose, not implementation details)
    - The input schema it expects
    - Whether it's scalar or vector
    - Key evaluation criteria
+
 2. Run \`ts-node spawnFunctionAgents.ts '<json_array_of_specs>'\`
    - Example: \`ts-node spawnFunctionAgents.ts '["Spec for task 0...", "Spec for task 1..."]'\`
+
 3. Parse the output after \`=== SPAWN_RESULTS ===\` to get \`{owner, repository, commit}\` for each
+
 4. Create function tasks in \`function/tasks.json\` referencing those sub-functions:
    \`\`\`json
    {
@@ -111,6 +106,7 @@ If ESSAY_TASKS.md describes multiple distinct evaluations that each warrant thei
      "input": {"$starlark": "..."}
    }
    \`\`\`
+
 5. Handle any errors in the spawn results
 
 **Retrying Failed Sub-Functions**
@@ -378,8 +374,8 @@ Please try again. Remember to:
 }
 
 // Main entry point for inventing a new function
-export async function invent(options: AgentOptions = {}): Promise<void> {
-  const { prepare } = await import("./prepare");
+export async function inventFunctionTasks(options: AgentOptions = {}): Promise<void> {
+  const { prepare } = await import("../prepare");
   const log = options.log ?? createFileLogger().log;
 
   // Run preparation (init + steps 1-8)
@@ -387,7 +383,7 @@ export async function invent(options: AgentOptions = {}): Promise<void> {
 
   // Run invent loop
   log("=== Invent Loop: Creating new function ===");
-  await inventLoop(log, sessionId);
+  await inventFunctionTasksLoop(log, sessionId);
 
   log("=== ObjectiveAI Function invention complete ===");
 }

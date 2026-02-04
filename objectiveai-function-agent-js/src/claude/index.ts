@@ -5,7 +5,7 @@ export { type AgentOptions } from "../agentOptions";
 export { prepare } from "./prepare";
 
 // Re-export from invent
-export { invent } from "./invent";
+export { invent, inventFunctionTasks, inventVectorTasks } from "./invent";
 
 // Re-export from issue
 export { handleIssues } from "./handleIssues";

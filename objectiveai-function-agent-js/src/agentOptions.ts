@@ -5,4 +5,5 @@ export interface AgentOptions {
   apiBase?: string;
   sessionId?: string;
   log?: LogFn;
+  depth?: number;
 }

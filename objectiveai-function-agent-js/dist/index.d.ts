@@ -8,9 +8,14 @@ interface AgentOptions {
     apiBase?: string;
     sessionId?: string;
     log?: LogFn;
+    depth?: number;
 }
 
 declare function prepare(options?: AgentOptions): Promise<string | undefined>;
+
+declare function inventFunctionTasks(options?: AgentOptions): Promise<void>;
+
+declare function inventVectorTasks(options?: AgentOptions): Promise<void>;
 
 declare function invent(options?: AgentOptions): Promise<void>;
 
@@ -19,9 +24,11 @@ declare function handleIssues(options?: AgentOptions): Promise<void>;
 type index$1_AgentOptions = AgentOptions;
 declare const index$1_handleIssues: typeof handleIssues;
 declare const index$1_invent: typeof invent;
+declare const index$1_inventFunctionTasks: typeof inventFunctionTasks;
+declare const index$1_inventVectorTasks: typeof inventVectorTasks;
 declare const index$1_prepare: typeof prepare;
 declare namespace index$1 {
-  export { type index$1_AgentOptions as AgentOptions, index$1_handleIssues as handleIssues, index$1_invent as invent, index$1_prepare as prepare };
+  export { type index$1_AgentOptions as AgentOptions, index$1_handleIssues as handleIssues, index$1_invent as invent, index$1_inventFunctionTasks as inventFunctionTasks, index$1_inventVectorTasks as inventVectorTasks, index$1_prepare as prepare };
 }
 
 interface IssueComment {
@@ -121,11 +128,10 @@ declare namespace index {
   export { type index_CloneSubFunctionsOptions as CloneSubFunctionsOptions, type index_ClonedSubFunction as ClonedSubFunction, type index_CommitAndPushOptions as CommitAndPushOptions, type index_CreateRepositoryOptions as CreateRepositoryOptions, type index_FunctionTask as FunctionTask, type index_Issue as Issue, type index_IssueComment as IssueComment, index_checkoutSubmodule as checkoutSubmodule, index_cloneSubFunctions as cloneSubFunctions, index_closeIssue as closeIssue, index_commentOnIssue as commentOnIssue, index_commitAndPush as commitAndPush, index_commitOnly as commitOnly, index_createRepository as createRepository, index_fetchClosedIssues as fetchClosedIssues, index_fetchIssueComments as fetchIssueComments, index_fetchOpenIssues as fetchOpenIssues, index_getCurrentRevision as getCurrentRevision, index_hasOpenIssues as hasOpenIssues, index_hasUncommittedChanges as hasUncommittedChanges, index_hasUntrackedFiles as hasUntrackedFiles, index_markIssueResolved as markIssueResolved, index_push as push, index_pushOrCreateUpstream as pushOrCreateUpstream, index_resetToRevision as resetToRevision };
 }
 
-interface InitOptions {
-    apiBase?: string;
-    spec?: string;
+interface Parameters {
+    depth: number;
 }
-declare function init(options?: InitOptions): Promise<void>;
+declare function init(options?: AgentOptions): Promise<void>;
 
 declare const assets: Record<string, string>;
 
@@ -23453,4 +23459,4 @@ declare function createFileLogger(): {
  */
 declare function getLatestLogPath(): string | null;
 
-export { type AgentOptions, type ApiServerOptions, index$1 as Claude, type ExampleInput, ExampleInputSchema, type FunctionFields, index as GitHub, type InitOptions, type LogFn, type ProfileOptions, type RunTestsOptions, assets, buildFunction, buildProfile, compiledTasksEqual, createFileLogger, createLocalObjectiveAI, defaultVectorCompletionTaskProfile, getLatestLogPath, init, runTests, spawnApiServer, test, testAsync, writeFunctionJson, writeProfileJson };
+export { type AgentOptions, type ApiServerOptions, index$1 as Claude, type ExampleInput, ExampleInputSchema, type FunctionFields, index as GitHub, type LogFn, type Parameters, type ProfileOptions, type RunTestsOptions, assets, buildFunction, buildProfile, compiledTasksEqual, createFileLogger, createLocalObjectiveAI, defaultVectorCompletionTaskProfile, getLatestLogPath, init, runTests, spawnApiServer, test, testAsync, writeFunctionJson, writeProfileJson };

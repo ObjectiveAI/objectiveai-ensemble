@@ -115,6 +115,41 @@ export async function runTests(options: RunTestsOptions): Promise<void> {
   test("Profile Schema Validation", () =>
     Functions.RemoteProfileSchema.parse(profile));
 
+  // Read parameters.json for depth-based validation
+  const parameters = existsSync("parameters.json")
+    ? (readJsonFile("parameters.json") as { depth: number })
+    : { depth: 0 };
+
+  if (parameters.depth === 0) {
+    test("Task Type Validation", () => {
+      if (func.tasks.length === 0) {
+        throw new Error("There must be at least 1 task");
+      }
+      for (const task of func.tasks) {
+        if (task.type !== "vector.completion") {
+          throw new Error(
+            `All tasks must be vector.completion, but found task of type: ${task.type}`,
+          );
+        }
+      }
+    });
+  } else {
+    test("Task Type Validation", () => {
+      for (const task of func.tasks) {
+        if (task.type !== "scalar.function" && task.type !== "vector.function") {
+          throw new Error(
+            `All tasks must be function tasks (scalar.function or vector.function), but found task of type: ${task.type}`,
+          );
+        }
+      }
+      if (func.tasks.length < 2) {
+        throw new Error(
+          `There must be at least 2 tasks, but found ${func.tasks.length}`,
+        );
+      }
+    });
+  }
+
   test("Example Inputs Schema Validation", () => {
     for (const input of inputs) {
       ExampleInputSchema.parse(input);

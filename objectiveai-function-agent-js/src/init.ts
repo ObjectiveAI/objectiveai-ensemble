@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { ObjectiveAI, Functions } from "objectiveai";
 import { assets } from "./assets";
+import { AgentOptions } from "./agentOptions";
 
 // Helper to execute commands silently
 function exec(command: string): string {
@@ -246,9 +247,7 @@ async function fetchExamples(apiBase?: string): Promise<void> {
     JSON.stringify(selected, null, 2),
   );
 
-  console.log(
-    "Examples fetched. Root pairs saved to examples/examples.json",
-  );
+  console.log("Examples fetched. Root pairs saved to examples/examples.json");
 }
 
 function writeAssets(): void {
@@ -274,12 +273,11 @@ function writeAssets(): void {
   }
 }
 
-export interface InitOptions {
-  apiBase?: string;
-  spec?: string;
+export interface Parameters {
+  depth: number;
 }
 
-export async function init(options: InitOptions = {}): Promise<void> {
+export async function init(options: AgentOptions = {}): Promise<void> {
   // Step 1: Git setup
   if (!isGitRepo()) {
     initializeGit();
@@ -296,17 +294,25 @@ export async function init(options: InitOptions = {}): Promise<void> {
   // Step 4: Fetch examples if needed
   await fetchExamples(options.apiBase);
 
-  // Step 5: Write SPEC.md if provided and doesn't already exist non-empty
-  if (options.spec) {
-    const specPath = "SPEC.md";
-    const specExists = existsSync(specPath) && readFileSync(specPath, "utf-8").trim().length > 0;
-    if (!specExists) {
-      console.log("Writing SPEC.md...");
-      writeFileSync(specPath, options.spec);
-    }
+  // Step 5: Write SPEC.md if doesn't already exist non-empty
+  const specPath = "SPEC.md";
+  const specExists =
+    existsSync(specPath) && readFileSync(specPath, "utf-8").trim().length > 0;
+  if (!specExists) {
+    console.log("Writing SPEC.md...");
+    writeFileSync(specPath, options.spec ?? "");
   }
 
-  // Step 6: Commit changes if any
+  // Step 6: Write parameters.json if missing
+  if (!existsSync("parameters.json")) {
+    const parameters: Parameters = {
+      depth: options.depth ?? 0,
+    };
+    console.log("Writing parameters.json...");
+    writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
+  }
+
+  // Step 7: Commit changes if any
   commitChanges();
 
   console.log("Initialization complete.");

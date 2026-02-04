@@ -1271,7 +1271,7 @@ var init_commitAndPush_ts = __esm({
 var spawnFunctionAgents_ts_default;
 var init_spawnFunctionAgents_ts = __esm({
   "assets/spawnFunctionAgents.ts.txt"() {
-    spawnFunctionAgents_ts_default = 'import { execSync, spawn } from "child_process";\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";\nimport { join } from "path";\n\ninterface AgentResult {\n  owner: string;\n  repository: string;\n  commit: string;\n}\n\ninterface AgentError {\n  error: string;\n}\n\ninterface AgentSkipped {\n  skipped: true;\n}\n\ntype Result = AgentResult | AgentError | AgentSkipped;\n\nasync function runAgentInSubdir(spec: string | null, index: number): Promise<Result> {\n  // Skip if spec is null\n  if (spec === null) {\n    return { skipped: true };\n  }\n\n  const subdir = join("sub_functions", String(index));\n\n  // Delete existing directory if it exists (for retries)\n  if (existsSync(subdir)) {\n    console.log(`Deleting existing directory: ${subdir}`);\n    rmSync(subdir, { recursive: true, force: true });\n  }\n\n  // Create subdirectory\n  mkdirSync(subdir, { recursive: true });\n\n  // Write a runner script that will be executed in the subdirectory\n  const runnerScript = `\nimport { Claude } from "@objectiveai/function-agent";\n\nasync function main(): Promise<void> {\n  await Claude.invent({ spec: ${JSON.stringify(spec)} });\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n`;\n\n  const runnerPath = join(subdir, "_runner.ts");\n  writeFileSync(runnerPath, runnerScript);\n\n  return new Promise<Result>((resolve) => {\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\n      cwd: subdir,\n      stdio: ["inherit", "pipe", "pipe"],\n      shell: true,\n    });\n\n    // Capture but discard output to avoid context overload in parent\n    child.stdout?.on("data", () => {});\n    child.stderr?.on("data", () => {});\n\n    child.on("close", (code) => {\n      if (code !== 0) {\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\n        return;\n      }\n\n      // Extract owner/repo/commit from the completed function\n      try {\n        const nameJsonPath = join(subdir, "github", "name.json");\n        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;\n\n        // Get owner from git remote\n        const remote = execSync("git remote get-url origin", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\n        const owner = match?.[1] ?? "unknown";\n        const repository = match?.[2] ?? name;\n\n        // Get latest commit\n        const commit = execSync("git rev-parse HEAD", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        resolve({ owner, repository, commit });\n      } catch (err) {\n        resolve({ error: `Failed to extract result: ${err}` });\n      }\n    });\n\n    child.on("error", (err) => {\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\n    });\n  });\n}\n\nasync function main(): Promise<void> {\n  const specsArg = process.argv[2];\n\n  if (!specsArg) {\n    console.error("Usage: ts-node spawnFunctionAgents.ts \'<json_array_of_specs>\'");\n    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");\n    process.exit(1);\n  }\n\n  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];\n\n  if (!Array.isArray(specs) || specs.length === 0) {\n    console.error("Specs must be a non-empty array of strings or nulls");\n    process.exit(1);\n  }\n\n  console.log(`Spawning ${specs.length} function agents...`);\n\n  // Run all agents in parallel\n  const results = await Promise.all(\n    specs.map((spec, index) => runAgentInSubdir(spec, index))\n  );\n\n  // Output results as JSON\n  console.log("\\n=== SPAWN_RESULTS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
+    spawnFunctionAgents_ts_default = 'import { execSync, spawn } from "child_process";\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";\nimport { join } from "path";\n\ninterface AgentResult {\n  owner: string;\n  repository: string;\n  commit: string;\n}\n\ninterface AgentError {\n  error: string;\n}\n\ninterface AgentSkipped {\n  skipped: true;\n}\n\ntype Result = AgentResult | AgentError | AgentSkipped;\n\n// Read current depth from parameters.json\nfunction getCurrentDepth(): number {\n  if (!existsSync("parameters.json")) {\n    return 0;\n  }\n  const content = readFileSync("parameters.json", "utf-8");\n  const params = JSON.parse(content) as { depth: number };\n  return params.depth ?? 0;\n}\n\nasync function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {\n  // Skip if spec is null\n  if (spec === null) {\n    return { skipped: true };\n  }\n\n  const subdir = join("sub_functions", String(index));\n\n  // Delete existing directory if it exists (for retries)\n  if (existsSync(subdir)) {\n    console.log(`Deleting existing directory: ${subdir}`);\n    rmSync(subdir, { recursive: true, force: true });\n  }\n\n  // Create subdirectory\n  mkdirSync(subdir, { recursive: true });\n\n  // Write a runner script that will be executed in the subdirectory\n  const runnerScript = `\nimport { Claude } from "@objectiveai/function-agent";\n\nasync function main(): Promise<void> {\n  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n`;\n\n  const runnerPath = join(subdir, "_runner.ts");\n  writeFileSync(runnerPath, runnerScript);\n\n  return new Promise<Result>((resolve) => {\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\n      cwd: subdir,\n      stdio: ["inherit", "pipe", "pipe"],\n      shell: true,\n    });\n\n    // Capture but discard output to avoid context overload in parent\n    child.stdout?.on("data", () => {});\n    child.stderr?.on("data", () => {});\n\n    child.on("close", (code) => {\n      if (code !== 0) {\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\n        return;\n      }\n\n      // Extract owner/repo/commit from the completed function\n      try {\n        const nameJsonPath = join(subdir, "github", "name.json");\n        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;\n\n        // Get owner from git remote\n        const remote = execSync("git remote get-url origin", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\n        const owner = match?.[1] ?? "unknown";\n        const repository = match?.[2] ?? name;\n\n        // Get latest commit\n        const commit = execSync("git rev-parse HEAD", {\n          cwd: subdir,\n          encoding: "utf-8",\n        }).trim();\n\n        resolve({ owner, repository, commit });\n      } catch (err) {\n        resolve({ error: `Failed to extract result: ${err}` });\n      }\n    });\n\n    child.on("error", (err) => {\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\n    });\n  });\n}\n\nasync function main(): Promise<void> {\n  const specsArg = process.argv[2];\n\n  if (!specsArg) {\n    console.error("Usage: ts-node spawnFunctionAgents.ts \'<json_array_of_specs>\'");\n    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");\n    process.exit(1);\n  }\n\n  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];\n\n  if (!Array.isArray(specs) || specs.length === 0) {\n    console.error("Specs must be a non-empty array of strings or nulls");\n    process.exit(1);\n  }\n\n  // Calculate child depth (current depth - 1)\n  const currentDepth = getCurrentDepth();\n  const childDepth = Math.max(0, currentDepth - 1);\n\n  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);\n\n  // Run all agents in parallel\n  const results = await Promise.all(\n    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))\n  );\n\n  // Output results as JSON\n  console.log("\\n=== SPAWN_RESULTS ===");\n  console.log(JSON.stringify(results, null, 2));\n}\n\nmain().catch((err) => {\n  console.error(err);\n  process.exit(1);\n});\n';
   }
 });
 
@@ -1595,9 +1595,7 @@ async function fetchExamples(apiBase) {
     path.join("examples", "examples.json"),
     JSON.stringify(selected, null, 2)
   );
-  console.log(
-    "Examples fetched. Root pairs saved to examples/examples.json"
-  );
+  console.log("Examples fetched. Root pairs saved to examples/examples.json");
 }
 function writeAssets() {
   console.log("Writing asset files...");
@@ -1625,13 +1623,18 @@ async function init(options = {}) {
   writeAssets();
   runNpmInstall();
   await fetchExamples(options.apiBase);
-  if (options.spec) {
-    const specPath = "SPEC.md";
-    const specExists = fs.existsSync(specPath) && fs.readFileSync(specPath, "utf-8").trim().length > 0;
-    if (!specExists) {
-      console.log("Writing SPEC.md...");
-      fs.writeFileSync(specPath, options.spec);
-    }
+  const specPath = "SPEC.md";
+  const specExists = fs.existsSync(specPath) && fs.readFileSync(specPath, "utf-8").trim().length > 0;
+  if (!specExists) {
+    console.log("Writing SPEC.md...");
+    fs.writeFileSync(specPath, options.spec ?? "");
+  }
+  if (!fs.existsSync("parameters.json")) {
+    const parameters = {
+      depth: options.depth ?? 0
+    };
+    console.log("Writing parameters.json...");
+    fs.writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
   }
   commitChanges();
   console.log("Initialization complete.");
@@ -1690,11 +1693,13 @@ var claude_exports = {};
 __export(claude_exports, {
   handleIssues: () => handleIssues,
   invent: () => invent,
+  inventFunctionTasks: () => inventFunctionTasks,
+  inventVectorTasks: () => inventVectorTasks,
   prepare: () => prepare
 });
 init_prepare();
 
-// src/claude/invent.ts
+// src/claude/invent/inventFunctionTasks.ts
 init_promptResources();
 function getNextPlanIndex() {
   const plansDir = "plans";
@@ -1712,9 +1717,9 @@ function getPlanPath(index) {
   return `plans/${index}.md`;
 }
 
-// src/claude/invent.ts
+// src/claude/invent/inventFunctionTasks.ts
 init_logging();
-async function inventLoop(log, sessionId) {
+async function inventFunctionTasksLoop(log, sessionId) {
   const {
     getCurrentRevision: getCurrentRevision2,
     resetToRevision: resetToRevision2,
@@ -1727,7 +1732,7 @@ async function inventLoop(log, sessionId) {
   const nextPlanIndex = getNextPlanIndex();
   const planPath = getPlanPath(nextPlanIndex);
   const initialRevision = getCurrentRevision2();
-  const maxAttempts = 3;
+  const maxAttempts = 5;
   let attempt = 0;
   let success = false;
   let lastFailureReasons = [];
@@ -1778,26 +1783,21 @@ Write your implementation plan to \`${planPath}\`. Include:
 
 Create a TODO list and execute each item:
 
-### Task Structure Decision
+### Task Structure
 
-Analyze ESSAY_TASKS.md to determine the task structure:
+This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create **at least 2 sub-functions** by spawning child agents:
 
-**Option A: Single Vector Completion Task**
-If the function can be implemented with a single evaluation (mapped or unmapped):
-- Create an inline vector completion task in \`function/tasks.json\`
-- Use \`map\` if the task needs to iterate over input items
-- The task's prompt and responses define what gets evaluated
-
-**Option B: Multiple Sub-Functions**
-If ESSAY_TASKS.md describes multiple distinct evaluations that each warrant their own function:
-1. Create a spec for each sub-function describing:
+1. Analyze ESSAY_TASKS.md and create a spec for each sub-function describing:
    - What it evaluates (purpose, not implementation details)
    - The input schema it expects
    - Whether it's scalar or vector
    - Key evaluation criteria
+
 2. Run \`ts-node spawnFunctionAgents.ts '<json_array_of_specs>'\`
    - Example: \`ts-node spawnFunctionAgents.ts '["Spec for task 0...", "Spec for task 1..."]'\`
+
 3. Parse the output after \`=== SPAWN_RESULTS ===\` to get \`{owner, repository, commit}\` for each
+
 4. Create function tasks in \`function/tasks.json\` referencing those sub-functions:
    \`\`\`json
    {
@@ -1808,6 +1808,7 @@ If ESSAY_TASKS.md describes multiple distinct evaluations that each warrant thei
      "input": {"$starlark": "..."}
    }
    \`\`\`
+
 5. Handle any errors in the spawn results
 
 **Retrying Failed Sub-Functions**
@@ -2049,13 +2050,320 @@ Please try again. Remember to:
   pushOrCreateUpstream2();
   return sessionId;
 }
-async function invent(options = {}) {
+async function inventFunctionTasks(options = {}) {
   const { prepare: prepare2 } = await Promise.resolve().then(() => (init_prepare(), prepare_exports));
   const log = options.log ?? createFileLogger().log;
   const sessionId = await prepare2({ ...options, log });
   log("=== Invent Loop: Creating new function ===");
-  await inventLoop(log, sessionId);
+  await inventFunctionTasksLoop(log, sessionId);
   log("=== ObjectiveAI Function invention complete ===");
+}
+
+// src/claude/invent/inventVectorTasks.ts
+init_promptResources();
+init_logging();
+async function inventVectorTasksLoop(log, sessionId) {
+  const {
+    getCurrentRevision: getCurrentRevision2,
+    resetToRevision: resetToRevision2,
+    hasUncommittedChanges: hasUncommittedChanges2,
+    hasUntrackedFiles: hasUntrackedFiles2,
+    checkoutSubmodule: checkoutSubmodule2,
+    pushOrCreateUpstream: pushOrCreateUpstream2
+  } = await Promise.resolve().then(() => (init_github(), github_exports));
+  const { execSync: execSync3 } = await import('child_process');
+  const nextPlanIndex = getNextPlanIndex();
+  const planPath = getPlanPath(nextPlanIndex);
+  const initialRevision = getCurrentRevision2();
+  const maxAttempts = 5;
+  let attempt = 0;
+  let success = false;
+  let lastFailureReasons = [];
+  while (attempt < maxAttempts && !success) {
+    attempt++;
+    log(`Invent loop attempt ${attempt}/${maxAttempts}`);
+    let prompt;
+    if (attempt === 1) {
+      prompt = `${promptResources([
+        "OBJECTIVEAI_INDEX.md",
+        "SPEC.md",
+        "ESSAY.md",
+        "ESSAY_TASKS.md",
+        "function/type.json",
+        "function/tasks.json",
+        "function/description.json",
+        "function/input_schema.json",
+        "function/input_maps.json",
+        "function/output.json",
+        "function/output_length.json",
+        "function/input_split.json",
+        "function/input_merge.json",
+        "github/name.json",
+        "github/description.json",
+        "inputs.json",
+        "serverLog.txt",
+        "compiledTasks.json",
+        "ts-node build.ts",
+        "ts-node commitAndPush.ts <message>",
+        "ts-node installRustLogs.ts"
+      ])}
+You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and leave the repository in a clean state.
+
+## Important: Schema References. Read schema definitions in objectiveai-js in order to understand what types should be contained by files within function/.
+
+## Phase 1: Planning
+
+Write your implementation plan to \`${planPath}\`. Include:
+- The input schema structure and field descriptions
+- Whether any input maps are needed for mapped task execution
+- What the function definition will look like
+- What expressions need to be written
+- What test inputs will cover edge cases and diverse scenarios
+
+## Phase 2: Implementation
+
+Create a TODO list and execute each item:
+
+### Task Structure
+
+This function must use **vector completion tasks** (type: \`vector.completion\`). Create 1 or more inline vector completion tasks in \`function/tasks.json\`:
+- Use \`map\` if a task needs to iterate over input items
+- Each task's prompt and responses define what gets evaluated
+
+### Function Definition
+- Edit files in \`function/\` directory to define the function
+- **Use Starlark expressions** (\`{"$starlark": "..."}\`) for most expressions - it's Python-like and more readable
+- Only use JMESPath (\`{"$jmespath": "..."}\`) for very simple field access expressions
+- Starlark example: \`{"$starlark": "input['items'][0]"}\`
+- JMESPath example: \`{"$jmespath": "input.name"}\` (simple field access only)
+
+### Expression Context
+Expressions receive a single object with these fields:
+- \`input\` - Always present, the function input
+- \`map\` - Present in mapped tasks, the current map element
+- \`tasks\` - Present in output expressions, array of task results
+
+### Test Inputs
+- Edit \`inputs.json\` to add diverse test inputs (minimum 10, maximum 100)
+- **Diversity in structure**: Include edge cases like empty arrays, single items, boundary values, missing optional fields, maximum lengths
+- **Diversity in intended output**: Cover the full range of expected scores (low, medium, high quality inputs that should produce different outputs)
+
+### Build and Test
+- Run \`ts-node build.ts\` to compile function.json and execute tests
+- If tests fail, read \`serverLog.txt\` and \`compiledTasks.json\` for error details
+- Fix issues and repeat until all tests pass
+
+### Debugging
+- Read \`compiledTasks.json\` to see how expressions are compiled for each input
+- If expression errors occur, check the Starlark/JMESPath syntax
+
+### Rust Logging (Advanced Debugging)
+If you need deeper debugging into the ObjectiveAI runtime:
+1. Edit files in the objectiveai submodule to add logging:
+   - \`objectiveai/objectiveai-rs/src/\` - Core Rust SDK
+   - \`objectiveai/objectiveai-api/src/\` - API server logic
+   - \`objectiveai/objectiveai-rs-wasm-js/src/\` - WASM bindings
+2. Run \`ts-node installRustLogs.ts\` to rebuild the WASM with your changes
+3. Run \`ts-node build.ts\` to test - logs will appear in \`serverLog.txt\`
+
+## Phase 3: Verify SPEC.md Compliance
+
+Before finalizing, verify that everything adheres to SPEC.md:
+- Re-read SPEC.md carefully
+- Ensure the function definition, inputs, and outputs match what SPEC.md describes
+- If anything contradicts SPEC.md, fix it to match the spec
+- **SPEC.md is the universal source of truth** - the final product must not contradict it
+
+## Phase 4: Finalize
+
+Once all tests pass and SPEC.md compliance is verified:
+- Commit your changes using \`ts-node commitAndPush.ts "<message>"\`
+- Ensure there are no uncommitted changes or untracked files
+
+## Important Notes
+
+- **SPEC.md is the universal source of truth** - never contradict it
+- **No API key is needed for tests** - tests run against a local server
+- **Prefer Starlark over JMESPath** - Starlark is more readable and powerful
+- **Only modify function/*.json files when necessary**:
+  - If the build fails due to invalid/missing values
+  - If a field is undefined and needs to be set
+- **Always use relative paths** - when editing or writing files, use paths like \`inputs.json\` or \`function/tasks.json\`, never absolute paths
+`;
+    } else {
+      prompt = `Your previous attempt failed:
+${lastFailureReasons.map((r) => `- ${r}`).join("\n")}
+
+Please try again. Remember to:
+1. Run \`ts-node build.ts\` to compile and test
+2. Commit your changes using \`ts-node commitAndPush.ts "<message>"\`
+`;
+    }
+    const stream = claudeAgentSdk.query({
+      prompt,
+      options: {
+        allowedTools: [
+          "Bash(ls*)",
+          "Bash(cd)",
+          "Bash(cat)",
+          "Bash(diff)",
+          "Bash(ts-node build.ts)",
+          "Bash(npx ts-node build.ts)",
+          "Bash(ts-node commitAndPush.ts *)",
+          "Bash(npx ts-node commitAndPush.ts *)",
+          "Bash(ts-node installRustLogs.ts)",
+          "Bash(npx ts-node installRustLogs.ts)",
+          "Glob",
+          "Grep",
+          "Read",
+          "WebFetch",
+          "WebSearch",
+          "Edit(inputs.json)",
+          "Edit(./inputs.json)",
+          "Write(inputs.json)",
+          "Write(./inputs.json)",
+          "Edit(function/description.json)",
+          "Edit(./function/description.json)",
+          "Write(function/description.json)",
+          "Write(./function/description.json)",
+          "Edit(function/input_schema.json)",
+          "Edit(./function/input_schema.json)",
+          "Write(function/input_schema.json)",
+          "Write(./function/input_schema.json)",
+          "Edit(function/input_maps.json)",
+          "Edit(./function/input_maps.json)",
+          "Write(function/input_maps.json)",
+          "Write(./function/input_maps.json)",
+          "Edit(function/tasks.json)",
+          "Edit(./function/tasks.json)",
+          "Write(function/tasks.json)",
+          "Write(./function/tasks.json)",
+          "Edit(function/output.json)",
+          "Edit(./function/output.json)",
+          "Write(function/output.json)",
+          "Write(./function/output.json)",
+          "Edit(function/output_length.json)",
+          "Edit(./function/output_length.json)",
+          "Write(function/output_length.json)",
+          "Write(./function/output_length.json)",
+          "Edit(function/input_split.json)",
+          "Edit(./function/input_split.json)",
+          "Write(function/input_split.json)",
+          "Write(./function/input_split.json)",
+          "Edit(function/input_merge.json)",
+          "Edit(./function/input_merge.json)",
+          "Write(function/input_merge.json)",
+          "Write(./function/input_merge.json)",
+          "Edit(github/description.json)",
+          "Edit(./github/description.json)",
+          "Write(github/description.json)",
+          "Write(./github/description.json)",
+          "Edit(README.md)",
+          "Edit(./README.md)",
+          "Write(README.md)",
+          "Write(./README.md)",
+          `Edit(plans/${nextPlanIndex}.md)`,
+          `Edit(./plans/${nextPlanIndex}.md)`,
+          `Write(plans/${nextPlanIndex}.md)`,
+          `Write(./plans/${nextPlanIndex}.md)`,
+          "Edit(./objectiveai/objectiveai-api/src/**)",
+          "Edit(objectiveai/objectiveai-api/src/**)",
+          "Edit(./objectiveai/objectiveai-rs/src/**)",
+          "Edit(objectiveai/objectiveai-rs/src/**)",
+          "Edit(./objectiveai/objectiveai-rs-wasm-js/src/**)",
+          "Edit(objectiveai/objectiveai-rs-wasm-js/src/**)"
+        ],
+        disallowedTools: ["AskUserQuestion"],
+        permissionMode: "dontAsk",
+        resume: sessionId
+      }
+    });
+    for await (const message of stream) {
+      if (message.type === "system" && message.subtype === "init") {
+        sessionId = message.session_id;
+      }
+      log(message);
+    }
+    log("Validating assistant's work...");
+    log("Checking out objectiveai submodule changes...");
+    checkoutSubmodule2();
+    log("Running build and tests...");
+    let buildSuccess = false;
+    try {
+      execSync3("ts-node build.ts", { stdio: "inherit" });
+      buildSuccess = true;
+    } catch {
+      log("Build or tests failed.");
+    }
+    lastFailureReasons = [];
+    if (!buildSuccess) {
+      lastFailureReasons.push(
+        "Build or tests failed. Read serverLog.txt and compiledTasks.json for details."
+      );
+      log("Failed: Build or tests failed.");
+    }
+    const hasChanges2 = hasUncommittedChanges2() || hasUntrackedFiles2();
+    if (hasChanges2) {
+      lastFailureReasons.push(
+        "There are uncommitted changes or untracked files. Commit them with ts-node commitAndPush.ts <message>."
+      );
+      log("Failed: There are uncommitted changes or untracked files.");
+    }
+    const descriptionPath = "github/description.json";
+    const hasDescription = (() => {
+      if (!fs.existsSync(descriptionPath)) return false;
+      let content = fs.readFileSync(descriptionPath, "utf-8").trim();
+      if (!content || content === "null") return false;
+      if (content.startsWith('"') && content.endsWith('"')) {
+        content = content.slice(1, -1);
+      }
+      return content.length > 0;
+    })();
+    if (!hasDescription) {
+      lastFailureReasons.push(
+        "github/description.json is empty. Write a description for the GitHub repository."
+      );
+      log("Failed: github/description.json is empty.");
+    }
+    const readmePath = "README.md";
+    const hasReadme = fs.existsSync(readmePath) && fs.readFileSync(readmePath, "utf-8").trim().length > 0;
+    if (!hasReadme) {
+      lastFailureReasons.push(
+        "README.md is empty. Write a README for the repository."
+      );
+      log("Failed: README.md is empty.");
+    }
+    if (lastFailureReasons.length === 0) {
+      success = true;
+      log("Success: All conditions met.");
+    }
+  }
+  if (!success) {
+    log("All attempts failed. Resetting to initial revision.");
+    resetToRevision2(initialRevision);
+    throw new Error("Invent loop failed after maximum attempts.");
+  }
+  log("Pushing commits...");
+  pushOrCreateUpstream2();
+  return sessionId;
+}
+async function inventVectorTasks(options = {}) {
+  const { prepare: prepare2 } = await Promise.resolve().then(() => (init_prepare(), prepare_exports));
+  const log = options.log ?? createFileLogger().log;
+  const sessionId = await prepare2({ ...options, log });
+  log("=== Invent Loop: Creating new function ===");
+  await inventVectorTasksLoop(log, sessionId);
+  log("=== ObjectiveAI Function invention complete ===");
+}
+
+// src/claude/invent/index.ts
+async function invent(options = {}) {
+  const depth = options.depth ?? 0;
+  if (depth === 0) {
+    await inventVectorTasks(options);
+  } else {
+    await inventFunctionTasks(options);
+  }
 }
 
 // src/claude/handleIssues.ts
@@ -2076,7 +2384,7 @@ async function handleIssuesLoop(log, sessionId) {
   const nextPlanIndex = getNextPlanIndex();
   const planPath = getPlanPath(nextPlanIndex);
   const initialRevision = getCurrentRevision2();
-  const maxAttempts = 3;
+  const maxAttempts = 5;
   let attempt = 0;
   let success = false;
   let lastFailureReasons = [];
@@ -2565,6 +2873,36 @@ async function runTests(options) {
   const inputs = options.inputs ?? readJsonFile2("inputs.json");
   test("Function Schema Validation", () => objectiveai.Functions.RemoteFunctionSchema.parse(func));
   test("Profile Schema Validation", () => objectiveai.Functions.RemoteProfileSchema.parse(profile));
+  const parameters = fs.existsSync("parameters.json") ? readJsonFile2("parameters.json") : { depth: 0 };
+  if (parameters.depth === 0) {
+    test("Task Type Validation", () => {
+      if (func.tasks.length === 0) {
+        throw new Error("There must be at least 1 task");
+      }
+      for (const task of func.tasks) {
+        if (task.type !== "vector.completion") {
+          throw new Error(
+            `All tasks must be vector.completion, but found task of type: ${task.type}`
+          );
+        }
+      }
+    });
+  } else {
+    test("Task Type Validation", () => {
+      for (const task of func.tasks) {
+        if (task.type !== "scalar.function" && task.type !== "vector.function") {
+          throw new Error(
+            `All tasks must be function tasks (scalar.function or vector.function), but found task of type: ${task.type}`
+          );
+        }
+      }
+      if (func.tasks.length < 2) {
+        throw new Error(
+          `There must be at least 2 tasks, but found ${func.tasks.length}`
+        );
+      }
+    });
+  }
   test("Example Inputs Schema Validation", () => {
     for (const input of inputs) {
       ExampleInputSchema.parse(input);

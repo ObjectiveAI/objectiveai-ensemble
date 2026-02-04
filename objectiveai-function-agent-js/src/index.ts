@@ -6,7 +6,7 @@
 
 export * as Claude from "./claude";
 export * as GitHub from "./github";
-export { init, type InitOptions } from "./init";
+export { init, type Parameters } from "./init";
 export { assets } from "./assets";
 export {
   buildFunction,
