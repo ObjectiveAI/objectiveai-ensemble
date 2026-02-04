@@ -1,7 +1,7 @@
 export { github_exports as GitHub } from './chunk-HNOJIQ7Y.js';
 export { assets, init } from './chunk-TXQZHFXF.js';
-import { prepare, createFileLogger, promptResources } from './chunk-IMK4KQWA.js';
-export { createFileLogger, getLatestLogPath } from './chunk-IMK4KQWA.js';
+import { prepare, createFileLogger, promptResources } from './chunk-VZZDHPOP.js';
+export { createFileLogger, getLatestLogPath } from './chunk-VZZDHPOP.js';
 import { __export } from './chunk-MLKGABMK.js';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { existsSync, readFileSync, readdirSync, writeFileSync, unlinkSync, createWriteStream } from 'fs';
@@ -225,10 +225,15 @@ Please try again. Remember to:
           "Bash(cat)",
           "Bash(diff)",
           "Bash(ts-node build.ts)",
+          "Bash(npx ts-node build.ts)",
           "Bash(ts-node commitAndPush.ts *)",
+          "Bash(npx ts-node commitAndPush.ts *)",
           "Bash(ts-node spawnFunctionAgents.ts *)",
+          "Bash(npx ts-node spawnFunctionAgents.ts *)",
           "Bash(ts-node getSubFunctionCommits.ts)",
+          "Bash(npx ts-node getSubFunctionCommits.ts)",
           "Bash(ts-node installRustLogs.ts)",
+          "Bash(npx ts-node installRustLogs.ts)",
           "Glob",
           "Grep",
           "Read",
@@ -364,7 +369,7 @@ Please try again. Remember to:
   return sessionId;
 }
 async function invent(options = {}) {
-  const { prepare: prepare2 } = await import('./prepare-SEYZ2UKQ.js');
+  const { prepare: prepare2 } = await import('./prepare-3LQHXJ37.js');
   const log = options.log ?? createFileLogger().log;
   const sessionId = await prepare2({ ...options, log });
   log("=== Invent Loop: Creating new function ===");
@@ -523,14 +528,23 @@ Please try again. Remember to:
           "Bash(cat)",
           "Bash(diff)",
           "Bash(ts-node build.ts)",
+          "Bash(npx ts-node build.ts)",
           "Bash(ts-node fetchOpenIssues.ts)",
+          "Bash(npx ts-node fetchOpenIssues.ts)",
           "Bash(ts-node fetchClosedIssues.ts)",
+          "Bash(npx ts-node fetchClosedIssues.ts)",
           "Bash(ts-node commentOnIssue.ts *)",
+          "Bash(npx ts-node commentOnIssue.ts *)",
           "Bash(ts-node closeIssue.ts *)",
+          "Bash(npx ts-node closeIssue.ts *)",
           "Bash(ts-node commitAndPush.ts *)",
+          "Bash(npx ts-node commitAndPush.ts *)",
           "Bash(ts-node cloneSubFunctions.ts)",
+          "Bash(npx ts-node cloneSubFunctions.ts)",
           "Bash(ts-node cloneSubFunctions.ts --latest)",
+          "Bash(npx ts-node cloneSubFunctions.ts --latest)",
           "Bash(ts-node installRustLogs.ts)",
+          "Bash(npx ts-node installRustLogs.ts)",
           "Glob",
           "Grep",
           "Read",
@@ -672,7 +686,7 @@ Please try again. Remember to:
   return sessionId;
 }
 async function handleIssues(options = {}) {
-  const { prepare: prepare2 } = await import('./prepare-SEYZ2UKQ.js');
+  const { prepare: prepare2 } = await import('./prepare-3LQHXJ37.js');
   const log = options.log ?? createFileLogger().log;
   const sessionId = await prepare2({ ...options, log });
   log("=== Issue Loop: Handling issues on existing function ===");

@@ -35,6 +35,7 @@ export async function handleOpenIssues(
         "Bash(cat)",
         "Bash(diff)",
         "Bash(ts-node fetchOpenIssues.ts)",
+        "Bash(npx ts-node fetchOpenIssues.ts)",
         "Glob",
         "Grep",
         "Read",

@@ -694,6 +694,7 @@ async function handleOpenIssues(log, sessionId) {
         "Bash(cat)",
         "Bash(diff)",
         "Bash(ts-node fetchOpenIssues.ts)",
+        "Bash(npx ts-node fetchOpenIssues.ts)",
         "Glob",
         "Grep",
         "Read",
