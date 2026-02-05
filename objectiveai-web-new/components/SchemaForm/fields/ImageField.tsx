@@ -64,9 +64,9 @@ export default function ImageField({
             alignItems: "center",
             gap: "12px",
             padding: "12px",
-            border: `1px solid ${hasError ? "var(--color-error, #ef4444)" : "var(--border, #333)"}`,
+            border: `1px solid ${hasError ? "var(--color-error)" : "var(--border)"}`,
             borderRadius: "8px",
-            background: "var(--page-bg, #0a0a0a)",
+            background: "var(--page-bg)",
           }}
         >
           <img
@@ -77,11 +77,11 @@ export default function ImageField({
               height: isMobile ? "60px" : "80px",
               objectFit: "cover",
               borderRadius: "6px",
-              border: "1px solid var(--border, #333)",
+              border: "1px solid var(--border)",
             }}
           />
           <div style={{ flex: 1 }}>
-            <span style={{ fontSize: "13px", color: "var(--text-muted, #888)" }}>
+            <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>
               Image uploaded
             </span>
           </div>
@@ -90,7 +90,7 @@ export default function ImageField({
             onClick={handleRemove}
             disabled={disabled}
             className="iconBtn iconBtn-sm"
-            style={{ color: "var(--color-error, #ef4444)" }}
+            style={{ color: "var(--color-error)" }}
             aria-label="Remove image"
           >
             <CloseIcon />
@@ -108,25 +108,25 @@ export default function ImageField({
             gap: "8px",
             width: "100%",
             padding: isMobile ? "16px" : "14px",
-            border: `1px dashed ${hasError ? "var(--color-error, #ef4444)" : "var(--border, #333)"}`,
+            border: `1px dashed ${hasError ? "var(--color-error)" : "var(--border)"}`,
             borderRadius: "8px",
             background: "transparent",
-            color: "var(--text-muted, #888)",
+            color: "var(--text-muted)",
             cursor: disabled ? "not-allowed" : "pointer",
             fontSize: "14px",
             transition: "border-color 0.2s, color 0.2s",
           }}
           onMouseEnter={(e) => {
             if (!disabled) {
-              e.currentTarget.style.borderColor = "var(--accent, #6B5CFF)";
-              e.currentTarget.style.color = "var(--accent, #6B5CFF)";
+              e.currentTarget.style.borderColor = "var(--accent)";
+              e.currentTarget.style.color = "var(--accent)";
             }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = hasError
-              ? "var(--color-error, #ef4444)"
-              : "var(--border, #333)";
-            e.currentTarget.style.color = "var(--text-muted, #888)";
+              ? "var(--color-error)"
+              : "var(--border)";
+            e.currentTarget.style.color = "var(--text-muted)";
           }}
         >
           <ImageIcon />

@@ -133,9 +133,9 @@ export default function SchemaField(props: FieldProps<InputValue>) {
     <div
       style={{
         padding: "12px",
-        border: "1px dashed var(--border, #333)",
+        border: "1px dashed var(--border)",
         borderRadius: "8px",
-        color: "var(--text-muted, #888)",
+        color: "var(--text-muted)",
         fontSize: "13px",
       }}
     >

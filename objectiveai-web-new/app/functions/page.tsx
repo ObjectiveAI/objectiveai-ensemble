@@ -169,14 +169,7 @@ export default function FunctionsPage() {
 
   return (
     <div className="page">
-      <div style={{
-        width: '100%',
-        maxWidth: '1400px',
-        marginLeft: 'auto',
-        marginRight: 'auto',
-        padding: isMobile ? '0 16px' : '0 32px',
-        boxSizing: 'border-box',
-      }}>
+      <div className="containerWide">
         {/* Header */}
         <div style={{ marginBottom: isMobile ? '24px' : '32px' }}>
           <h1 className="heading2" style={{ marginBottom: '8px' }}>Functions</h1>

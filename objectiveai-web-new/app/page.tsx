@@ -140,8 +140,8 @@ export default function Home() {
       </section>
 
       {/* Featured Functions Section */}
-      <section style={{ padding: isMobile ? '0 16px' : '0 32px' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+      <section>
+        <div className="container">
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',

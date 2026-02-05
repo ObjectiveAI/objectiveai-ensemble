@@ -444,7 +444,7 @@ export default function InformationPage() {
                         borderRadius: '4px',
                         flexShrink: 0,
                         lineHeight: 1,
-                        color: endpoint.method === 'GET' ? '#10b981' :
+                        color: endpoint.method === 'GET' ? 'var(--method-get)' :
                                endpoint.method === 'POST' ? 'var(--accent)' :
                                endpoint.method === 'DELETE' ? 'var(--color-error)' : 'var(--text)',
                       }}>

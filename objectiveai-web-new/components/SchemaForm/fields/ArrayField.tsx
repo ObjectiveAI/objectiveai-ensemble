@@ -72,7 +72,7 @@ export default function ArrayField({
                 padding: "12px",
                 background: bg,
                 borderRadius: "8px",
-                border: "1px solid var(--border, #333)",
+                border: "1px solid var(--border)",
               }}
             >
               {/* Index indicator */}
@@ -80,7 +80,7 @@ export default function ArrayField({
                 style={{
                   fontSize: "12px",
                   fontWeight: 500,
-                  color: "var(--text-muted, #888)",
+                  color: "var(--text-muted)",
                   minWidth: "24px",
                   paddingTop: "10px",
                   fontFamily: "var(--font-mono, monospace)",
@@ -111,7 +111,7 @@ export default function ArrayField({
                   disabled={disabled}
                   className="iconBtn iconBtn-sm"
                   style={{
-                    color: "var(--color-error, #ef4444)",
+                    color: "var(--color-error)",
                     marginTop: "6px",
                   }}
                   aria-label="Remove item"
@@ -135,23 +135,23 @@ export default function ArrayField({
               justifyContent: "center",
               gap: "6px",
               padding: isMobile ? "12px" : "10px",
-              border: "1px dashed var(--border, #333)",
+              border: "1px dashed var(--border)",
               borderRadius: "8px",
               background: "transparent",
-              color: "var(--text-muted, #888)",
+              color: "var(--text-muted)",
               cursor: disabled ? "not-allowed" : "pointer",
               fontSize: "13px",
               transition: "border-color 0.2s, color 0.2s",
             }}
             onMouseEnter={(e) => {
               if (!disabled) {
-                e.currentTarget.style.borderColor = "var(--accent, #6B5CFF)";
-                e.currentTarget.style.color = "var(--accent, #6B5CFF)";
+                e.currentTarget.style.borderColor = "var(--accent)";
+                e.currentTarget.style.color = "var(--accent)";
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border, #333)";
-              e.currentTarget.style.color = "var(--text-muted, #888)";
+              e.currentTarget.style.borderColor = "var(--border)";
+              e.currentTarget.style.color = "var(--text-muted)";
             }}
           >
             <PlusIcon />

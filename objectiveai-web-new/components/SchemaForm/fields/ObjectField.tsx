@@ -86,7 +86,7 @@ export default function ObjectField({
           padding: "16px",
           background: bg,
           borderRadius: "8px",
-          border: "1px solid var(--border, #333)",
+          border: "1px solid var(--border)",
         }}
       >
         {content}
@@ -124,12 +124,12 @@ function FieldLabel({
           gap: "6px",
           fontSize: isMobile ? "14px" : "13px",
           fontWeight: 500,
-          color: "var(--text, #EDEDF2)",
+          color: "var(--text)",
         }}
       >
         {displayName}
         {required && (
-          <span style={{ color: "var(--color-error, #ef4444)", fontSize: "12px" }}>*</span>
+          <span style={{ color: "var(--color-error)", fontSize: "12px" }}>*</span>
         )}
       </label>
       {description && (
@@ -137,7 +137,7 @@ function FieldLabel({
           style={{
             display: "block",
             fontSize: "12px",
-            color: "var(--text-muted, #888)",
+            color: "var(--text-muted)",
             marginTop: "2px",
           }}
         >

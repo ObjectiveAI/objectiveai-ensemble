@@ -37,7 +37,7 @@ export default function NumberField({
       <div
         className="aiTextField"
         style={{
-          borderColor: hasError ? "var(--color-error, #ef4444)" : undefined,
+          borderColor: hasError ? "var(--color-error)" : undefined,
         }}
       >
         <input

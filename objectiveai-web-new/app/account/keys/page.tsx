@@ -197,7 +197,7 @@ export default function ApiKeysPage() {
 
   return (
     <div className="page">
-      <div className="container" style={{ padding: isMobile ? '0 16px' : '0 32px' }}>
+      <div className="container">
         {/* Page Header */}
         <div style={{
           marginBottom: isMobile ? '32px' : '40px',

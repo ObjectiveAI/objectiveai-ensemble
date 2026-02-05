@@ -29,7 +29,7 @@ export default function StringField({
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           style={{
-            borderColor: hasError ? "var(--color-error, #ef4444)" : undefined,
+            borderColor: hasError ? "var(--color-error)" : undefined,
             width: "100%",
             padding: isMobile ? "12px" : "10px 12px",
             fontSize: isMobile ? "16px" : "14px",
@@ -52,7 +52,7 @@ export default function StringField({
       <div
         className="aiTextField"
         style={{
-          borderColor: hasError ? "var(--color-error, #ef4444)" : undefined,
+          borderColor: hasError ? "var(--color-error)" : undefined,
         }}
       >
         <textarea

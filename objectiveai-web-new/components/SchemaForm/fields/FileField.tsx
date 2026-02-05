@@ -64,9 +64,9 @@ export default function FileField({
             alignItems: "center",
             gap: "12px",
             padding: "12px",
-            border: `1px solid ${hasError ? "var(--color-error, #ef4444)" : "var(--border, #333)"}`,
+            border: `1px solid ${hasError ? "var(--color-error)" : "var(--border)"}`,
             borderRadius: "8px",
-            background: "var(--page-bg, #0a0a0a)",
+            background: "var(--page-bg)",
           }}
         >
           <div
@@ -77,8 +77,8 @@ export default function FileField({
               width: "48px",
               height: "48px",
               borderRadius: "6px",
-              background: "var(--accent-10, rgba(107, 92, 255, 0.1))",
-              color: "var(--accent, #6B5CFF)",
+              background: "var(--accent-light)",
+              color: "var(--accent)",
             }}
           >
             <FileIcon />
@@ -87,7 +87,7 @@ export default function FileField({
             <span
               style={{
                 fontSize: "13px",
-                color: "var(--text, #EDEDF2)",
+                color: "var(--text)",
                 display: "block",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -102,7 +102,7 @@ export default function FileField({
             onClick={handleRemove}
             disabled={disabled}
             className="iconBtn iconBtn-sm"
-            style={{ color: "var(--color-error, #ef4444)" }}
+            style={{ color: "var(--color-error)" }}
             aria-label="Remove file"
           >
             <CloseIcon />
@@ -120,25 +120,25 @@ export default function FileField({
             gap: "8px",
             width: "100%",
             padding: isMobile ? "16px" : "14px",
-            border: `1px dashed ${hasError ? "var(--color-error, #ef4444)" : "var(--border, #333)"}`,
+            border: `1px dashed ${hasError ? "var(--color-error)" : "var(--border)"}`,
             borderRadius: "8px",
             background: "transparent",
-            color: "var(--text-muted, #888)",
+            color: "var(--text-muted)",
             cursor: disabled ? "not-allowed" : "pointer",
             fontSize: "14px",
             transition: "border-color 0.2s, color 0.2s",
           }}
           onMouseEnter={(e) => {
             if (!disabled) {
-              e.currentTarget.style.borderColor = "var(--accent, #6B5CFF)";
-              e.currentTarget.style.color = "var(--accent, #6B5CFF)";
+              e.currentTarget.style.borderColor = "var(--accent)";
+              e.currentTarget.style.color = "var(--accent)";
             }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = hasError
-              ? "var(--color-error, #ef4444)"
-              : "var(--border, #333)";
-            e.currentTarget.style.color = "var(--text-muted, #888)";
+              ? "var(--color-error)"
+              : "var(--border)";
+            e.currentTarget.style.color = "var(--text-muted)";
           }}
         >
           <FileIcon />

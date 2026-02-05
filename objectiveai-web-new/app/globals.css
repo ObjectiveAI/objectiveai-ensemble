@@ -63,6 +63,23 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-full: 50px;
+
+  /* Method colors (for API docs) */
+  --method-get: #10b981;
+  --method-post: #3b82f6;
+  --method-put: #f59e0b;
+  --method-delete: #ef4444;
+
+  /* Font size scale */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+
+  /* Transition durations */
+  --transition-fast: 0.15s;
+  --transition-normal: 0.2s;
 }
 
 /* Dark Theme Variables */

@@ -80,7 +80,8 @@ export default function CreditsPage() {
           justifyContent: 'center',
           minHeight: '50vh',
           textAlign: 'center',
-          padding: isMobile ? '40px 20px' : '60px 32px',
+          paddingTop: isMobile ? '40px' : '60px',
+          paddingBottom: isMobile ? '40px' : '60px',
         }}>
           <svg
             width="48"

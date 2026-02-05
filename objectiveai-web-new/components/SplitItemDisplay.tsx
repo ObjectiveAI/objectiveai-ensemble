@@ -101,7 +101,7 @@ function BooleanDisplay({ value, className }: { value: boolean; className?: stri
       className={className}
       style={{
         fontFamily: "var(--font-mono, monospace)",
-        color: value ? "var(--score-green, rgb(34, 197, 94))" : "var(--score-red, rgb(239, 68, 68))",
+        color: value ? "var(--color-success)" : "var(--color-error)",
       }}
     >
       {value ? "true" : "false"}
@@ -128,7 +128,7 @@ function ImageDisplay({
         maxHeight: "60px",
         objectFit: "contain",
         borderRadius: "4px",
-        border: "1px solid var(--border, #333)",
+        border: "1px solid var(--border)",
       }}
     />
   );
@@ -138,7 +138,7 @@ function AudioDisplay({ format, className }: { format: string; className?: strin
   return (
     <div className={className} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
       <AudioIcon />
-      <span style={{ fontSize: "12px", color: "var(--text-muted, #888)" }}>
+      <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
         {format.toUpperCase()}
       </span>
     </div>
@@ -161,7 +161,7 @@ function VideoDisplay({
     return (
       <div className={className} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
         <VideoIcon />
-        <span style={{ fontSize: "12px", color: "var(--text-muted, #888)" }}>Video</span>
+        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Video</span>
       </div>
     );
   }
@@ -188,7 +188,7 @@ function FileDisplay({ filename, className }: { filename: string; className?: st
       <span
         style={{
           fontSize: "13px",
-          color: "var(--text-muted, #888)",
+          color: "var(--text-muted)",
           maxWidth: "150px",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -220,7 +220,7 @@ function ObjectDisplay({
         className={className}
         style={{
           fontSize: "12px",
-          color: "var(--text-muted, #888)",
+          color: "var(--text-muted)",
           fontFamily: "var(--font-mono, monospace)",
         }}
       >
@@ -236,7 +236,7 @@ function ObjectDisplay({
       className={className}
       style={{
         fontSize: "11px",
-        background: "var(--page-bg, #0a0a0a)",
+        background: "var(--page-bg)",
         padding: "8px",
         borderRadius: "4px",
         overflow: "auto",
@@ -267,7 +267,7 @@ function ArrayDisplay({
         className={className}
         style={{
           fontSize: "12px",
-          color: "var(--text-muted, #888)",
+          color: "var(--text-muted)",
           fontFamily: "var(--font-mono, monospace)",
         }}
       >
@@ -282,7 +282,7 @@ function ArrayDisplay({
       className={className}
       style={{
         fontSize: "11px",
-        background: "var(--page-bg, #0a0a0a)",
+        background: "var(--page-bg)",
         padding: "8px",
         borderRadius: "4px",
         overflow: "auto",
@@ -328,7 +328,7 @@ function AudioIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{ color: "var(--text-muted, #888)" }}
+      style={{ color: "var(--text-muted)" }}
     >
       <path d="M9 18V5l12-2v13" />
       <circle cx="6" cy="18" r="3" />
@@ -348,7 +348,7 @@ function VideoIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{ color: "var(--text-muted, #888)" }}
+      style={{ color: "var(--text-muted)" }}
     >
       <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
       <line x1="7" y1="2" x2="7" y2="22" />
@@ -373,7 +373,7 @@ function FileIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={{ color: "var(--text-muted, #888)" }}
+      style={{ color: "var(--text-muted)" }}
     >
       <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
       <polyline points="13 2 13 9 20 9" />

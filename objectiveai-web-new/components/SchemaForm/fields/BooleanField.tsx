@@ -37,14 +37,14 @@ export default function BooleanField({
           style={{
             width: "18px",
             height: "18px",
-            accentColor: "var(--accent, #6B5CFF)",
+            accentColor: "var(--accent)",
             cursor: disabled ? "not-allowed" : "pointer",
           }}
         />
         <span
           style={{
             fontSize: "14px",
-            color: hasError ? "var(--color-error, #ef4444)" : "var(--text, #EDEDF2)",
+            color: hasError ? "var(--color-error)" : "var(--text)",
           }}
         >
           {schema.description || "Enable"}
