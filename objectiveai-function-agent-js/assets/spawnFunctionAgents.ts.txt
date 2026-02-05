@@ -1,6 +1,38 @@
-import { execSync, spawn } from "child_process";
+import { ChildProcess, execSync, spawn } from "child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
+
+// Track all spawned child processes for cleanup
+const childProcesses: ChildProcess[] = [];
+
+function killAllChildren(): void {
+  for (const child of childProcesses) {
+    if (!child.killed && child.pid) {
+      try {
+        process.kill(child.pid);
+      } catch {}
+    }
+  }
+}
+
+// Register cleanup handlers to prevent orphan processes
+process.on("exit", killAllChildren);
+process.on("SIGINT", () => {
+  killAllChildren();
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  killAllChildren();
+  process.exit(143);
+});
+process.on("uncaughtException", (err) => {
+  killAllChildren();
+  throw err;
+});
+process.on("unhandledRejection", (err) => {
+  killAllChildren();
+  throw err;
+});
 
 interface AgentResult {
   owner: string;
@@ -68,6 +100,9 @@ main().catch((err) => {
       stdio: ["inherit", "pipe", "pipe"],
       shell: true,
     });
+
+    // Track child process for cleanup
+    childProcesses.push(child);
 
     // Capture but discard output to avoid context overload in parent
     child.stdout?.on("data", () => {});
