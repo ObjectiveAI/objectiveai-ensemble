@@ -5,6 +5,10 @@ import { join } from "path";
 // Track all spawned child processes for cleanup
 const childProcesses: ChildProcess[] = [];
 
+// Progress tracking
+let totalAgents = 0;
+let finishedAgents = 0;
+
 function killAllChildren(): void {
   for (const child of childProcesses) {
     if (!child.killed && child.pid) {
@@ -109,6 +113,7 @@ main().catch((err) => {
     child.stderr?.on("data", () => {});
 
     child.on("close", (code) => {
+      finishedAgents++;
       if (code !== 0) {
         resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });
         return;
@@ -143,6 +148,7 @@ main().catch((err) => {
     });
 
     child.on("error", (err) => {
+      finishedAgents++;
       resolve({ error: `Failed to spawn agent: ${err.message}` });
     });
   });
@@ -170,10 +176,22 @@ async function main(): Promise<void> {
 
   console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);
 
+  // Count non-null specs for progress tracking
+  totalAgents = specs.filter((s) => s !== null).length;
+
+  // Start progress reporting every 60 seconds
+  const progressInterval = setInterval(() => {
+    const running = totalAgents - finishedAgents;
+    console.log(`[Progress] ${running}/${totalAgents} agents running, ${finishedAgents}/${totalAgents} agents finished`);
+  }, 60000);
+
   // Run all agents in parallel
   const results = await Promise.all(
     specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))
   );
+
+  // Stop progress reporting
+  clearInterval(progressInterval);
 
   // Output results as JSON
   console.log("\n=== SPAWN_RESULTS ===");
