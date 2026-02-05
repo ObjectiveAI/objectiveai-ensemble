@@ -7,7 +7,6 @@ import React, {
   useEffect,
   useRef,
   ReactNode,
-  CSSProperties,
 } from "react";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../lib/constants";

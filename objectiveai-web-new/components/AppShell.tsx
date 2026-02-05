@@ -9,8 +9,14 @@ import UserMenu from "./UserMenu";
 // Constants for sticky calculations
 const SAFE_GAP = 24; // Gap below nav for content breathing room
 
+// Initialize theme from localStorage (client-side only)
+function getInitialTheme(): string {
+  if (typeof window === "undefined") return "light";
+  return localStorage.getItem("theme") || "light";
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(getInitialTheme);
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -18,11 +24,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- required for hydration
     setMounted(true);
-    const savedTheme = localStorage.getItem("theme") || "light";
-    setTheme(savedTheme);
-    document.documentElement.dataset.theme = savedTheme;
-  }, []);
+    // Sync document attribute with state (theme already initialized from localStorage)
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   // Track viewport size
   useEffect(() => {
@@ -52,6 +58,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Close mobile menu on route change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on navigation
     setMobileMenuOpen(false);
   }, [pathname]);
 

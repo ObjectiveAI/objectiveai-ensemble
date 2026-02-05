@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateValue, getErrorsForPath, hasErrors, getErrorMessage } from "../validation";
-import type { InputSchema, ValidationError } from "../types";
+import type { ValidationError } from "../types";
 import {
   simpleStringSchema,
   stringEnumSchema,

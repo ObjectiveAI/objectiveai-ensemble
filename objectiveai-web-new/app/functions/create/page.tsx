@@ -49,142 +49,19 @@ const DEFAULT_FUNCTION: FunctionDefinition = {
   output: { type: "jmespath", value: "tasks[0].output" },
 };
 
-export default function FunctionCreatePage() {
-  const isMobile = useIsMobile();
-  const [func, setFunc] = useState<FunctionDefinition>(DEFAULT_FUNCTION);
-  const [showJsonPreview, setShowJsonPreview] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
-
-  // Build the function JSON for the API
-  const buildFunctionJson = () => {
-    const result: Record<string, unknown> = {
-      type: func.type,
-    };
-
-    if (func.type === "vector" && func.output_length) {
-      result.output_length = func.output_length;
-    }
-
-    if (func.input_maps.length > 0) {
-      result.input_maps = func.input_maps.map(formatExpression);
-    }
-
-    if (func.tasks.length > 0) {
-      result.tasks = func.tasks.map((task) => {
-        if (task.type === "vector") {
-          const t: Record<string, unknown> = {
-            prompt: task.prompt,
-            responses: task.responses,
-          };
-          if (task.ensemble) t.ensemble = task.ensemble;
-          if (task.skip) t.skip = formatExpression(task.skip);
-          if (task.map !== undefined) t.map = task.map;
-          if (task.input) t.input = formatExpression(task.input);
-          return t;
-        } else {
-          const t: Record<string, unknown> = {
-            function: {
-              owner: task.owner,
-              repository: task.repository,
-            },
-          };
-          if (task.commit) (t.function as Record<string, unknown>).commit = task.commit;
-          if (task.skip) t.skip = formatExpression(task.skip);
-          if (task.map !== undefined) t.map = task.map;
-          if (task.input) t.input = formatExpression(task.input);
-          return t;
-        }
-      });
-    }
-
-    result.output = formatExpression(func.output);
-
-    return result;
-  };
-
-  const formatExpression = (expr: Expression): unknown => {
-    if (expr.type === "static") {
-      try {
-        return JSON.parse(expr.value);
-      } catch {
-        return expr.value;
-      }
-    }
-    return { [`$${expr.type}`]: expr.value };
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(JSON.stringify(buildFunctionJson(), null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
-  };
-
-  const addInputMap = () => {
-    setFunc({
-      ...func,
-      input_maps: [...func.input_maps, { type: "jmespath", value: "" }],
-    });
-  };
-
-  const updateInputMap = (index: number, expr: Expression) => {
-    const updated = [...func.input_maps];
-    updated[index] = expr;
-    setFunc({ ...func, input_maps: updated });
-  };
-
-  const removeInputMap = (index: number) => {
-    setFunc({
-      ...func,
-      input_maps: func.input_maps.filter((_, i) => i !== index),
-    });
-  };
-
-  const addVectorTask = () => {
-    const newTask: VectorTask = {
-      type: "vector",
-      prompt: "",
-      responses: ["", ""],
-    };
-    setFunc({ ...func, tasks: [...func.tasks, newTask] });
-    setActiveTaskIndex(func.tasks.length);
-  };
-
-  const addFunctionTask = () => {
-    const newTask: FunctionTask = {
-      type: "function",
-      owner: "",
-      repository: "",
-    };
-    setFunc({ ...func, tasks: [...func.tasks, newTask] });
-    setActiveTaskIndex(func.tasks.length);
-  };
-
-  const updateTask = (index: number, task: Task) => {
-    const updated = [...func.tasks];
-    updated[index] = task;
-    setFunc({ ...func, tasks: updated });
-  };
-
-  const removeTask = (index: number) => {
-    setFunc({
-      ...func,
-      tasks: func.tasks.filter((_, i) => i !== index),
-    });
-    setActiveTaskIndex(null);
-  };
-
-  const ExpressionEditor = ({
-    label,
-    expression,
-    onChange,
-    placeholder,
-  }: {
-    label: string;
-    expression: Expression;
-    onChange: (expr: Expression) => void;
-    placeholder?: string;
-  }) => (
+// Expression editor component (moved outside to avoid recreating on each render)
+function ExpressionEditor({
+  label,
+  expression,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  expression: Expression;
+  onChange: (expr: Expression) => void;
+  placeholder?: string;
+}) {
+  return (
     <div style={{ marginBottom: "16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
         <label style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-muted)" }}>
@@ -218,8 +95,11 @@ export default function FunctionCreatePage() {
       </div>
     </div>
   );
+}
 
-  const VectorTaskEditor = ({ task, onChange }: { task: VectorTask; onChange: (t: VectorTask) => void }) => (
+// Vector task editor component (moved outside to avoid recreating on each render)
+function VectorTaskEditor({ task, onChange }: { task: VectorTask; onChange: (t: VectorTask) => void }) {
+  return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       {/* Prompt */}
       <div>
@@ -355,8 +235,11 @@ export default function FunctionCreatePage() {
       </div>
     </div>
   );
+}
 
-  const FunctionTaskEditor = ({ task, onChange }: { task: FunctionTask; onChange: (t: FunctionTask) => void }) => (
+// Function task editor component (moved outside to avoid recreating on each render)
+function FunctionTaskEditor({ task, onChange }: { task: FunctionTask; onChange: (t: FunctionTask) => void }) {
+  return (
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       {/* Function Reference */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -440,6 +323,132 @@ export default function FunctionCreatePage() {
       </div>
     </div>
   );
+}
+
+export default function FunctionCreatePage() {
+  const isMobile = useIsMobile();
+  const [func, setFunc] = useState<FunctionDefinition>(DEFAULT_FUNCTION);
+  const [showJsonPreview, setShowJsonPreview] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [activeTaskIndex, setActiveTaskIndex] = useState<number | null>(null);
+
+  // Build the function JSON for the API
+  const buildFunctionJson = () => {
+    const result: Record<string, unknown> = {
+      type: func.type,
+    };
+
+    if (func.type === "vector" && func.output_length) {
+      result.output_length = func.output_length;
+    }
+
+    if (func.input_maps.length > 0) {
+      result.input_maps = func.input_maps.map(formatExpression);
+    }
+
+    if (func.tasks.length > 0) {
+      result.tasks = func.tasks.map((task) => {
+        if (task.type === "vector") {
+          const t: Record<string, unknown> = {
+            prompt: task.prompt,
+            responses: task.responses,
+          };
+          if (task.ensemble) t.ensemble = task.ensemble;
+          if (task.skip) t.skip = formatExpression(task.skip);
+          if (task.map !== undefined) t.map = task.map;
+          if (task.input) t.input = formatExpression(task.input);
+          return t;
+        } else {
+          const t: Record<string, unknown> = {
+            function: {
+              owner: task.owner,
+              repository: task.repository,
+            },
+          };
+          if (task.commit) (t.function as Record<string, unknown>).commit = task.commit;
+          if (task.skip) t.skip = formatExpression(task.skip);
+          if (task.map !== undefined) t.map = task.map;
+          if (task.input) t.input = formatExpression(task.input);
+          return t;
+        }
+      });
+    }
+
+    result.output = formatExpression(func.output);
+
+    return result;
+  };
+
+  const formatExpression = (expr: Expression): unknown => {
+    if (expr.type === "static") {
+      try {
+        return JSON.parse(expr.value);
+      } catch {
+        return expr.value;
+      }
+    }
+    return { [`$${expr.type}`]: expr.value };
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(JSON.stringify(buildFunctionJson(), null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
+  };
+
+  const addInputMap = () => {
+    setFunc({
+      ...func,
+      input_maps: [...func.input_maps, { type: "jmespath", value: "" }],
+    });
+  };
+
+  const updateInputMap = (index: number, expr: Expression) => {
+    const updated = [...func.input_maps];
+    updated[index] = expr;
+    setFunc({ ...func, input_maps: updated });
+  };
+
+  const removeInputMap = (index: number) => {
+    setFunc({
+      ...func,
+      input_maps: func.input_maps.filter((_, i) => i !== index),
+    });
+  };
+
+  const addVectorTask = () => {
+    const newTask: VectorTask = {
+      type: "vector",
+      prompt: "",
+      responses: ["", ""],
+    };
+    setFunc({ ...func, tasks: [...func.tasks, newTask] });
+    setActiveTaskIndex(func.tasks.length);
+  };
+
+  const addFunctionTask = () => {
+    const newTask: FunctionTask = {
+      type: "function",
+      owner: "",
+      repository: "",
+    };
+    setFunc({ ...func, tasks: [...func.tasks, newTask] });
+    setActiveTaskIndex(func.tasks.length);
+  };
+
+  const updateTask = (index: number, task: Task) => {
+    const updated = [...func.tasks];
+    updated[index] = task;
+    setFunc({ ...func, tasks: updated });
+  };
+
+  const removeTask = (index: number) => {
+    setFunc({
+      ...func,
+      tasks: func.tasks.filter((_, i) => i !== index),
+    });
+    setActiveTaskIndex(null);
+  };
 
   return (
     <div className="page">

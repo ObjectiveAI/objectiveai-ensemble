@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { EMAIL_SENT_FEEDBACK_DURATION_MS } from "../../lib/constants";
 

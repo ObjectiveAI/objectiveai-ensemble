@@ -1,6 +1,6 @@
 "use client";
 
-import type { FieldProps, InputSchema, InputValue } from "./types";
+import type { FieldProps, InputValue } from "./types";
 import {
   isAnyOfSchema,
   isObjectSchema,

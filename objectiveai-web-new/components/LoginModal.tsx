@@ -28,6 +28,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const [view, setView] = useState<ModalView>("signin");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- required for portal hydration
     setMounted(true);
   }, []);
 
@@ -48,6 +49,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on close
       setView("signin");
       clearError();
     }

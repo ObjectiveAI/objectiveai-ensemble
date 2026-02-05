@@ -9,7 +9,6 @@ import {
   deepEqual,
   getDisplayMode,
   type InputValue,
-  type DisplayItem,
 } from "../../lib/split-item-utils";
 
 describe("isPlainObject", () => {

@@ -1,11 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useIsMobile } from "../../../hooks/useIsMobile";
 
 export default function PrivacyPage() {
-  const isMobile = useIsMobile();
-
   const sectionStyle = {
     marginBottom: '32px',
   };
@@ -61,7 +58,7 @@ export default function PrivacyPage() {
         <div>
           <div style={sectionStyle}>
             <p style={paragraphStyle}>
-              Objective Artificial Intelligence, Inc. ("ObjectiveAI," "we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our API and website (together, the "Service"). By using our Service, you agree to the practices described in this policy. If you do not agree, you may not use the Service.
+              Objective Artificial Intelligence, Inc. (&ldquo;ObjectiveAI,&rdquo; &ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our API and website (together, the &ldquo;Service&rdquo;). By using our Service, you agree to the practices described in this policy. If you do not agree, you may not use the Service.
             </p>
           </div>
 
@@ -160,7 +157,7 @@ export default function PrivacyPage() {
           <div style={sectionStyle}>
             <h2 style={headingStyle}>9. Changes</h2>
             <p style={paragraphStyle}>
-              We may update this Privacy Policy from time to time. Updates will be posted on this page with a new "Last Updated" date. Continued use of the Service means you accept the updated policy.
+              We may update this Privacy Policy from time to time. Updates will be posted on this page with a new &ldquo;Last Updated&rdquo; date. Continued use of the Service means you accept the updated policy.
             </p>
           </div>
 

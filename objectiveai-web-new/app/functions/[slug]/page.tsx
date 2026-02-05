@@ -7,7 +7,7 @@ import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
 import { SchemaFormBuilder } from "../../../components/SchemaForm";
-import type { InputSchema, InputValue, ValidationError } from "../../../components/SchemaForm/types";
+import type { InputSchema, InputValue } from "../../../components/SchemaForm/types";
 import SplitItemDisplay from "../../../components/SplitItemDisplay";
 import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/split-item-utils";
 import { compileFunctionInputSplit } from "../../../lib/wasm-validation";
@@ -41,7 +41,6 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
   const [formData, setFormData] = useState<InputValue>({});
   const [rawInput, setRawInput] = useState("{}");
-  const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const isMobile = useIsMobile();
   const { getClient } = useObjectiveAI();
@@ -275,10 +274,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       const client = await getClient();
 
       // Build execution options with streaming and optional reasoning
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // Type bridge: local InputValue and SDK's have minor structural differences
       const executionBody = {
-        input: formData as any,
+        input: formData as Record<string, unknown>,
         stream: true as const,
         from_cache: DEV_EXECUTION_OPTIONS.from_cache,
         from_rng: DEV_EXECUTION_OPTIONS.from_rng,

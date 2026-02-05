@@ -36,7 +36,6 @@ export default function FunctionsPage() {
   const [sortBy, setSortBy] = useState("name");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [pinnedFunctions, setPinnedFunctions] = useState<string[]>([]);
-  const [recentFunctions, setRecentFunctions] = useState<string[]>([]);
   const [navOffset, setNavOffset] = useState(96);
   const { isMobile, isTablet } = useResponsive();
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);

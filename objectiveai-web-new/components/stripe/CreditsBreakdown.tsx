@@ -10,6 +10,11 @@ interface CreditsBreakdownProps {
   confirmingOrConfirmed?: boolean;
 }
 
+// Simple loading indicator component (moved outside to avoid recreating on each render)
+const LoadingDots = () => (
+  <span style={{ color: "var(--text-muted)" }}>...</span>
+);
+
 /**
  * Displays the payment breakdown (credits, fees, subtotal/tax/total).
  */
@@ -53,10 +58,6 @@ export function CreditsBreakdown({
       totalZero: total === 0,
     };
   }, [paymentIntent, paymentIntentPreview]);
-
-  const LoadingDots = () => (
-    <span style={{ color: "var(--text-muted)" }}>...</span>
-  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>

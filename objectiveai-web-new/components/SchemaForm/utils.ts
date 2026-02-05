@@ -8,7 +8,6 @@
 import type {
   InputSchema,
   InputValue,
-  FieldPath,
   ImageRichContentPart,
   AudioRichContentPart,
   VideoRichContentPart,

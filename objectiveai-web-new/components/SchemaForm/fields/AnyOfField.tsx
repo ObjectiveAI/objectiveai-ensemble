@@ -34,7 +34,7 @@ export default function AnyOfField({
     onChange(getDefaultValue(schema.anyOf[newIndex]));
   };
 
-  const getOptionLabel = (schemaOption: typeof schema.anyOf[0], index: number): string => {
+  const getOptionLabel = (schemaOption: typeof schema.anyOf[0]): string => {
     // Use description if available
     if ("description" in schemaOption && schemaOption.description) {
       return schemaOption.description;
@@ -77,7 +77,7 @@ export default function AnyOfField({
           >
             {schema.anyOf.map((opt, idx) => (
               <option key={idx} value={idx}>
-                {getOptionLabel(opt, idx)}
+                {getOptionLabel(opt)}
               </option>
             ))}
           </select>

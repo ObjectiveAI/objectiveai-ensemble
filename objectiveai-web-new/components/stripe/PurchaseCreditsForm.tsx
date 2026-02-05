@@ -45,7 +45,7 @@ export function PurchaseCreditsForm({
 
   // Customer session
   const [customerSession, setCustomerSession] = useState<CustomerSession | null>();
-  const [_billingAddress, setBillingAddress] =
+  const [, setBillingAddress] =
     useState<StripeAddressElementChangeEvent["value"]>();
 
   // Amount in cents
