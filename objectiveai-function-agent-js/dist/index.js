@@ -487,6 +487,7 @@ function allowedTools(tools) {
       }
     }
   }
+  console.log(result);
   return result;
 }
 

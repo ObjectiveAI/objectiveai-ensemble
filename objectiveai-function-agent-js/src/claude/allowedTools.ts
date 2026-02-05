@@ -79,5 +79,7 @@ export function allowedTools(tools: AllowedTool[]): string[] {
     }
   }
 
+  console.log(result);
+
   return result;
 }
