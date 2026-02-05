@@ -1,13 +1,31 @@
 //! Function types and client-side compilation.
+//!
+//! # Output Computation
+//!
+//! Functions do **not** have a top-level output expression. Instead, each task has its
+//! own `output` expression that transforms its raw result into a [`FunctionOutput`].
+//! The function's final output is computed as a **weighted average** of all task outputs
+//! using profile weights.
+//!
+//! - If a function has only 1 task, that task's output becomes the function's output directly
+//! - If a function has multiple tasks, each task's output is weighted and averaged
+//!
+//! Each task's `output` expression must return a valid `FunctionOutput` for the function's type:
+//! - **Scalar functions**: each task must return `Scalar(value)` where value is in [0, 1]
+//! - **Vector functions**: each task must return `Vector(values)` where values sum to ~1
+//!
+//! [`FunctionOutput`]: super::expression::FunctionOutput
 
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
 
 /// A Function definition, either remote (GitHub-hosted) or inline.
 ///
 /// Functions are composable scoring pipelines that transform structured input
-/// into scores. Use [`compile_tasks`](Self::compile_tasks) and
-/// [`compile_output`](Self::compile_output) to preview how expressions resolve
+/// into scores. Each task has an `output` expression that transforms its raw result
+/// into a `FunctionOutput`. The function's final output is the weighted average of
+/// all task outputs using profile weights.
+///
+/// Use [`compile_tasks`](Self::compile_tasks) to preview how task expressions resolve
 /// for given inputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -84,7 +102,7 @@ impl Function {
                 let params = super::expression::Params::Ref(
                     super::expression::ParamsRef {
                         input,
-                        tasks: &[],
+                        output: None,
                         map: None,
                     },
                 );
@@ -115,10 +133,6 @@ impl Function {
         Vec<Option<super::CompiledTask>>,
         super::expression::ExpressionError,
     > {
-        static EMPTY_TASKS: LazyLock<
-            Vec<Option<super::expression::TaskOutput>>,
-        > = LazyLock::new(|| Vec::new());
-
         // extract input_maps expression and task expressions
         let (input_maps_expr, task_exprs) = match self {
             Function::Remote(RemoteFunction::Scalar {
@@ -147,7 +161,7 @@ impl Function {
         let mut params =
             super::expression::Params::Ref(super::expression::ParamsRef {
                 input,
-                tasks: &EMPTY_TASKS,
+                output: None,
                 map: None,
             });
 
@@ -209,106 +223,103 @@ impl Function {
         Ok(tasks)
     }
 
-    /// Computes the final output given input and task outputs.
-    ///
-    /// Evaluates the function's output expression using the provided input data
-    /// and task results. Also validates that the output meets constraints:
-    /// - Scalar functions: output must be in [0, 1]
-    /// - Vector functions: output must sum to approximately 1
-    pub fn compile_output(
-        self,
-        input: &super::expression::Input,
-        task_outputs: &[Option<super::expression::TaskOutput>],
-    ) -> Result<
-        super::expression::CompiledFunctionOutput,
-        super::expression::ExpressionError,
-    > {
-        #[derive(Clone, Copy)]
-        enum FunctionType {
-            Scalar,
-            Vector,
-        }
-        static EMPTY_TASKS: LazyLock<
-            Vec<Option<super::expression::TaskOutput>>,
-        > = LazyLock::new(|| Vec::new());
+    // /// Computes the final output given input and task outputs.
+    // ///
+    // /// Evaluates the function's output expression using the provided input data
+    // /// and task results. Also validates that the output meets constraints:
+    // /// - Scalar functions: output must be in [0, 1]
+    // /// - Vector functions: output must sum to approximately 1
+    // pub fn compile_output(
+    //     self,
+    //     input: &super::expression::Input,
+    //     task_outputs: &[Option<super::expression::TaskOutput>],
+    // ) -> Result<
+    //     super::expression::CompiledFunctionOutput,
+    //     super::expression::ExpressionError,
+    // > {
+    //     #[derive(Clone, Copy)]
+    //     enum FunctionType {
+    //         Scalar,
+    //         Vector,
+    //     }
 
-        // prepare params for compiling output_length expression
-        let mut params =
-            super::expression::Params::Ref(super::expression::ParamsRef {
-                input,
-                tasks: &EMPTY_TASKS,
-                map: None,
-            });
+    //     // prepare params for compiling output_length expression
+    //     let mut params =
+    //         super::expression::Params::Ref(super::expression::ParamsRef {
+    //             input,
+    //             output: None,
+    //             map: None,
+    //         });
 
-        // extract output expression and output_length
-        let (function_type, output_expr, output_length) = match self {
-            Function::Remote(RemoteFunction::Scalar { output, .. }) => {
-                (FunctionType::Scalar, output, None)
-            }
-            Function::Remote(RemoteFunction::Vector {
-                output,
-                output_length,
-                ..
-            }) => (
-                FunctionType::Vector,
-                output,
-                Some(output_length.compile_one(&params)?),
-            ),
-            Function::Inline(InlineFunction::Scalar { output, .. }) => {
-                (FunctionType::Scalar, output, None)
-            }
-            Function::Inline(InlineFunction::Vector { output, .. }) => {
-                (FunctionType::Vector, output, None)
-            }
-        };
+    //     // extract output expression and output_length
+    //     let (function_type, output_expr, output_length) = match self {
+    //         Function::Remote(RemoteFunction::Scalar { output, .. }) => {
+    //             (FunctionType::Scalar, output, None)
+    //         }
+    //         Function::Remote(RemoteFunction::Vector {
+    //             output,
+    //             output_length,
+    //             ..
+    //         }) => (
+    //             FunctionType::Vector,
+    //             output,
+    //             Some(output_length.compile_one(&params)?),
+    //         ),
+    //         Function::Inline(InlineFunction::Scalar { output, .. }) => {
+    //             (FunctionType::Scalar, output, None)
+    //         }
+    //         Function::Inline(InlineFunction::Vector { output, .. }) => {
+    //             (FunctionType::Vector, output, None)
+    //         }
+    //     };
 
-        // prepare params for compiling output expression
-        match &mut params {
-            super::expression::Params::Ref(params_ref) => {
-                params_ref.tasks = task_outputs;
-            }
-            _ => unreachable!(),
-        }
+    //     // prepare params for compiling output expression
+    //     match &mut params {
+    //         super::expression::Params::Ref(params_ref) => {
+    //             params_ref.tasks = task_outputs;
+    //         }
+    //         _ => unreachable!(),
+    //     }
 
-        // compile output
-        let output = output_expr
-            .compile_one::<super::expression::FunctionOutput>(&params)?;
+    //     // compile output
+    //     let output = output_expr
+    //         .compile_one::<super::expression::FunctionOutput>(&params)?;
 
-        // validate output
-        let valid = match (function_type, &output, output_length) {
-            (
-                FunctionType::Scalar,
-                &super::expression::FunctionOutput::Scalar(scalar),
-                _,
-            ) => {
-                scalar >= rust_decimal::Decimal::ZERO
-                    && scalar <= rust_decimal::Decimal::ONE
-            }
-            (
-                FunctionType::Vector,
-                super::expression::FunctionOutput::Vector(vector),
-                Some(length),
-            ) => {
-                let sum = vector.iter().sum::<rust_decimal::Decimal>();
-                vector.len() == length as usize
-                    && sum >= rust_decimal::dec!(0.99)
-                    && sum <= rust_decimal::dec!(1.01)
-            }
-            (
-                FunctionType::Vector,
-                super::expression::FunctionOutput::Vector(vector),
-                None,
-            ) => {
-                let sum = vector.iter().sum::<rust_decimal::Decimal>();
-                sum >= rust_decimal::dec!(0.99)
-                    && sum <= rust_decimal::dec!(1.01)
-            }
-            _ => false,
-        };
+    //     // validate output
+    //     let valid = match (function_type, &output, output_length) {
+    //         (
+    //             FunctionType::Scalar,
+    //             &super::expression::FunctionOutput::Scalar(scalar),
+    //             _,
+    //         ) => {
+    //             scalar >= rust_decimal::Decimal::ZERO
+    //                 && scalar <= rust_decimal::Decimal::ONE
+    //         }
+    //         (
+    //             FunctionType::Vector,
+    //             super::expression::FunctionOutput::Vector(vector),
+    //             Some(length),
+    //         ) => {
+    //             let sum = vector.iter().sum::<rust_decimal::Decimal>();
+    //             vector.len() == length as usize
+    //                 && sum >= rust_decimal::dec!(0.99)
+    //                 && sum <= rust_decimal::dec!(1.01)
+    //         }
+    //         (
+    //             FunctionType::Vector,
+    //             super::expression::FunctionOutput::Vector(vector),
+    //             None,
+    //         ) => {
+    //             let sum = vector.iter().sum::<rust_decimal::Decimal>();
+    //             sum >= rust_decimal::dec!(0.99)
+    //                 && sum <= rust_decimal::dec!(1.01)
+    //         }
+    //         _ => false,
+    //     };
 
-        // compiled output
-        Ok(super::expression::CompiledFunctionOutput { output, valid })
-    }
+    //     // compiled output
+    //     Ok(super::expression::CompiledFunctionOutput { output, valid })
+    // }
 
     /// Computes the expected output length for a vector function.
     ///
@@ -343,7 +354,7 @@ impl Function {
                 let params = super::expression::Params::Ref(
                     super::expression::ParamsRef {
                         input,
-                        tasks: &[],
+                        output: None,
                         map: None,
                     },
                 );
@@ -393,7 +404,7 @@ impl Function {
                 let params = super::expression::Params::Ref(
                     super::expression::ParamsRef {
                         input,
-                        tasks: &[],
+                        output: None,
                         map: None,
                     },
                 );
@@ -443,7 +454,7 @@ impl Function {
                 let params = super::expression::Params::Ref(
                     super::expression::ParamsRef {
                         input,
-                        tasks: &[],
+                        output: None,
                         map: None,
                     },
                 );
@@ -496,14 +507,6 @@ impl Function {
         match self {
             Function::Remote(remote_function) => remote_function.tasks(),
             Function::Inline(inline_function) => inline_function.tasks(),
-        }
-    }
-
-    /// Returns the function's output expression.
-    pub fn output(&self) -> &super::expression::Expression {
-        match self {
-            Function::Remote(remote_function) => remote_function.output(),
-            Function::Inline(inline_function) => inline_function.output(),
         }
     }
 
@@ -570,9 +573,6 @@ pub enum RemoteFunction {
         /// Each instance is compiled with `map` set to that element's value.
         /// Receives: `input`, `map` (if mapped).
         tasks: Vec<super::TaskExpression>,
-        /// Expression computing the final score from task results.
-        /// Receives: `input`, `tasks`.
-        output: super::expression::Expression,
     },
     /// Produces a vector of scores that sums to 1.
     #[serde(rename = "vector.function")]
@@ -594,10 +594,7 @@ pub enum RemoteFunction {
         /// Each instance is compiled with `map` set to that element's value.
         /// Receives: `input`, `map` (if mapped).
         tasks: Vec<super::TaskExpression>,
-        /// Expression computing the final score vector from task results.
-        /// Receives: `input`, `tasks`.
-        output: super::expression::Expression,
-        /// Expression computing the expected output vector length.
+        /// Expression computing the expected output vector length for task outputs.
         /// Receives: `input`.
         output_length: super::expression::WithExpression<u64>,
         /// Expression transforming input into an input array of the output_length
@@ -655,14 +652,6 @@ impl RemoteFunction {
         }
     }
 
-    /// Returns the function's output expression.
-    pub fn output(&self) -> &super::expression::Expression {
-        match self {
-            RemoteFunction::Scalar { output, .. } => output,
-            RemoteFunction::Vector { output, .. } => output,
-        }
-    }
-
     /// Returns the function's expected output length, if defined (vector functions only).
     pub fn output_length(
         &self,
@@ -717,9 +706,6 @@ pub enum InlineFunction {
         /// Each instance is compiled with `map` set to that element's value.
         /// Receives: `input`, `map` (if mapped).
         tasks: Vec<super::TaskExpression>,
-        /// Expression computing the final score from task results.
-        /// Receives: `input`, `tasks`.
-        output: super::expression::Expression,
     },
     /// Produces a vector of scores that sums to 1.
     #[serde(rename = "vector.function")]
@@ -734,9 +720,6 @@ pub enum InlineFunction {
         /// Each instance is compiled with `map` set to that element's value.
         /// Receives: `input`, `map` (if mapped).
         tasks: Vec<super::TaskExpression>,
-        /// Expression computing the final score vector from task results.
-        /// Receives: `input`, `tasks`.
-        output: super::expression::Expression,
         /// Expression transforming input into an input array of the output_length
         /// When the Function is executed with any input from the array,
         /// The output_length should be 1.
@@ -768,14 +751,6 @@ impl InlineFunction {
         match self {
             InlineFunction::Scalar { tasks, .. } => tasks,
             InlineFunction::Vector { tasks, .. } => tasks,
-        }
-    }
-
-    /// Returns the function's output expression.
-    pub fn output(&self) -> &super::expression::Expression {
-        match self {
-            InlineFunction::Scalar { output, .. } => output,
-            InlineFunction::Vector { output, .. } => output,
         }
     }
 

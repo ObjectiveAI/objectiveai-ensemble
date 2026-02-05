@@ -147,42 +147,47 @@ Each task can have:
 
 - **`input`**: Expression defining task input from function input and map context.
 
-### Output Expression
+### Task Output Expressions
 
-Computes final result from input and task outputs:
+Each task has an `output` expression that transforms its raw result into a FunctionOutput. The function's final output is the **weighted average** of all task outputs using profile weights.
 
 ```json
-{"$jmespath": "tasks[0].output"}
+{
+  "type": "vector.completion",
+  "prompt": "...",
+  "responses": [...],
+  "output": {"$starlark": "output['scores'][0]"}
+}
 ```
-or with Starlark:
-```json
-{"$starlark": "tasks[0]['output']"}
-```
+
+**Task output expression receives:**
+- For vector completion tasks: `output` is a VectorCompletionOutput (or array if mapped)
+- For function tasks: `output` is a FunctionOutput (or array if mapped)
 
 **Constraints:**
-- Scalar functions: output must be in [0, 1]
-- Vector functions: output must sum ≈ 1 and match `output_length` if specified
+- Each task's output must be valid for the parent function's type
+- Scalar functions: task outputs must be in [0, 1]
+- Vector functions: task outputs must sum ≈ 1 and match `output_length` if specified
 
 ### Expression Context
 
 Available variables during compilation:
 - `input`: Original function input
-- `tasks`: Array of task outputs (indexed, null if skipped)
 - `map`: Current map element (only in mapped task context)
+- `output`: Raw task result (only in task output expressions)
 
 ### Compilation Methods
 
 Client-side compilation is for **previewing during authoring**, not required before execution:
 
 - **`compile_tasks(input)`**: Shows what final tasks look like for given input
-- **`compile_output(input, task_outputs)`**: Shows final output given input and task results
 - **`compile_one()`**: Expects exactly one value. OK for single value or 1-element array. Error for null, empty array, or multi-element array.
 
 **Validation checks:**
-- Output type matches function type (scalar vs vector)
-- Scalar outputs in [0, 1]
-- Vector outputs sum ≈ 1
-- Vector outputs match `output_length` if specified
+- Each task's output type matches function type (scalar vs vector)
+- Scalar task outputs in [0, 1]
+- Vector task outputs sum ≈ 1
+- Vector task outputs match `output_length` if specified
 
 ## Usage Response Fields
 
@@ -246,9 +251,22 @@ Exports:
 - `validateEnsembleLlm(llm)` - Validate and compute Ensemble LLM ID
 - `validateEnsemble(ensemble)` - Validate and compute Ensemble ID
 - `compileFunctionTasks(function, input)` - Compile tasks client-side
-- `compileFunctionOutput(function, input, taskOutputs)` - Compile output client-side
 
 Enables browser-based validation and preview without server round-trips.
+
+## Development
+
+**npm commands should always be run from the workspace root**, not from individual package directories:
+
+```bash
+# Good - from workspace root
+npm install
+npm run build --workspace=@objectiveai/function-agent
+npm run build --workspace=objectiveai
+
+# Bad - from package directory
+cd objectiveai-js && npm run build
+```
 
 ## Design Principles
 

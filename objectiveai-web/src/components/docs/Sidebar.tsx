@@ -12,278 +12,330 @@ export function Sidebar({ className }: { className?: string }): ReactElement {
   }, []);
   return (
     <div className={cn("flex", className)}>
+      {/* Desktop sidebar with original layout */}
       <aside
-        className={cn("overflow-y-auto", "pr-1", "mr-3", !open && "hidden")}
+        className={cn(
+          "overflow-y-auto",
+          "pr-1",
+          "mr-3",
+          // never show on mobile
+          "hidden",
+          "md:block",
+          // collapse on desktop when closed
+          !open && "md:hidden"
+        )}
       >
-        <table className={cn("space-y-0.5", "my-8")}>
-          <SidebarSection title="Overview" />
-          <SidebarItem
-            href="/docs"
-            title="FAQ"
-            description="Frequently Asked Questions"
-          >
-            {({ className }) => <QuestionIcon className={className} />}
-          </SidebarItem>
-          <SidebarItemSpacer />
-          <SidebarItem
-            href="/docs/sdks"
-            title="SDKs"
-            description="Use an Official Open-Source ObjectiveAI SDK"
-          >
-            {({ className }) => <CodeSlashIcon className={className} />}
-          </SidebarItem>
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Ensemble LLMs" />
-          <SidebarApiItem
-            method="GET"
-            path="/ensemble_llms"
-            href="/docs/api/get/ensemble_llms"
-            description="List all ObjectiveAI Ensemble LLMs"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/ensemble_llms/{id}"
-            href="/docs/api/get/ensemble_llms/id"
-            description="Retrieve an ObjectiveAI Ensemble LLM"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/ensemble_llms/{id}/usage"
-            href="/docs/api/get/ensemble_llms/id/usage"
-            description="Retrieve historical usage for an ObjectiveAI Ensemble LLM"
-          />
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Ensembles" />
-          <SidebarApiItem
-            method="GET"
-            path="/ensembles"
-            href="/docs/api/get/ensembles"
-            description="List all ObjectiveAI Ensembles"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/ensembles/{id}"
-            href="/docs/api/get/ensembles/id"
-            description="Retrieve an ObjectiveAI Ensemble"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/ensembles/{id}/usage"
-            href="/docs/api/get/ensembles/id/usage"
-            description="Retrieve historical usage for an ObjectiveAI Ensemble"
-          />
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Functions" />
-          <SidebarApiItem
-            method="GET"
-            path="/functions"
-            href="/docs/api/get/functions"
-            description="List all remote ObjectiveAI Functions"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/{fowner}/{frepository}/{fcommit}"
-            href="/docs/api/get/functions/fowner/frepository/fcommit"
-            description="Retrieve a remote ObjectiveAI Function"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/{fowner}/{frepository}/{fcommit}/usage"
-            href="/docs/api/get/functions/fowner/frepository/fcommit/usage"
-            description="Retrieve historical usage for a remote ObjectiveAI Function"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/functions"
-            href="/docs/api/post/functions"
-            description="Execute an inline ObjectiveAI Function with an inline Profile"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/functions/{fowner}/{frepository}/{fcommit}"
-            href="/docs/api/post/functions/fowner/frepository/fcommit"
-            description="Execute a remote ObjectiveAI Function with an inline Profile"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/functions/profiles/{powner}/{prepository}/{pcommit}"
-            href="/docs/api/post/functions/profiles/powner/prepository/pcommit"
-            description="Execute an inline ObjectiveAI Function with a remote Profile"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
-            href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
-            description="Execute a remote ObjectiveAI Function with a remote Profile"
-          />
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Function Profiles" />
-          <SidebarApiItem
-            method="POST"
-            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/compute"
-            href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/compute"
-            description="Compute an ObjectiveAI Function Profile from your own Data (remote Function)"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/functions/profiles/compute"
-            href="/docs/api/post/functions/profiles/compute"
-            description="Compute an ObjectiveAI Function Profile from your own Data (inline Function)"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/profiles"
-            href="/docs/api/get/functions/profiles"
-            description="List all remote ObjectiveAI Function Profiles"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/profiles/{powner}/{prepository}/{pcommit}"
-            href="/docs/api/get/functions/profiles/powner/prepository/pcommit"
-            description="Retrieve a remote ObjectiveAI Function Profile"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/profiles/{powner}/{prepository}/{pcommit}/usage"
-            href="/docs/api/get/functions/profiles/powner/prepository/pcommit/usage"
-            description="Retrieve historical usage for a remote ObjectiveAI Function Profile"
-          />
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Function-Profile Pairs" />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/profiles/pairs"
-            href="/docs/api/get/functions/profiles/pairs"
-            description="List all remote ObjectiveAI Function-Profile pairs"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
-            href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
-            description="Retrieve a remote ObjectiveAI Function-Profile pair"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}/usage"
-            href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit/usage"
-            description="Retrieve historical usage for a remote ObjectiveAI Function-Profile pair"
-          />
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Vector" />
-          <SidebarApiItem
-            method="POST"
-            path="/vector/completions"
-            href="/docs/api/post/vector/completions"
-            description="Create a new Vector Completion"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/vector/completions/{id}"
-            href="/docs/api/get/vector/completions/id"
-            description="Retrieve votes from a historical Vector Completion"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/vector/completions/cache"
-            href="/docs/api/get/vector/completions/cache"
-            description="Request a cached vote from the global ObjectiveAI vote cache"
-          />
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Chat" />
-          <SidebarApiItem
-            method="POST"
-            path="/chat/completions"
-            href="/docs/api/post/chat/completions"
-            description="Create a new Chat Completion"
-          />
-
-          <SidebarSectionSpacer />
-
-          <SidebarSection title="Auth" />
-          <SidebarApiItem
-            method="GET"
-            path="/auth/credits"
-            href="/docs/api/get/auth/credits"
-            description="Retrieve your available credits"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/auth/keys"
-            href="/docs/api/get/auth/keys"
-            description="List your API keys"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/auth/keys"
-            href="/docs/api/post/auth/keys"
-            description="Create a new API key"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="DELETE"
-            path="/auth/keys"
-            href="/docs/api/delete/auth/keys"
-            description="Disable an API key"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="GET"
-            path="/auth/keys/openrouter"
-            href="/docs/api/get/auth/keys/openrouter"
-            description="Retrieve your BYOK OpenRouter API key"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="POST"
-            path="/auth/keys/openrouter"
-            href="/docs/api/post/auth/keys/openrouter"
-            description="Set your BYOK OpenRouter API key"
-          />
-          <SidebarItemSpacer />
-          <SidebarApiItem
-            method="DELETE"
-            path="/auth/keys/openrouter"
-            href="/docs/api/delete/auth/keys/openrouter"
-            description="Remove your BYOK OpenRouter API key"
-          />
-        </table>
+        <SidebarTable />
       </aside>
-      <SidebarSlider onClick={() => setOpen((prev) => !prev)} open={open} />
+      <div className={cn("hidden", "md:block")}>
+        <SidebarSlider onClick={() => setOpen((prev) => !prev)} open={open} />
+      </div>
+
+      {/* Mobile collapsible navigation */}
+      <details
+        className={cn(
+          "md:hidden",
+          "w-full",
+          "border-b",
+          "border-muted-secondary",
+          "px-1.5",
+          "py-2"
+        )}
+      >
+        <summary
+          className={cn(
+            "list-none",
+            "cursor-pointer",
+            "bg-background-primary",
+            "flex",
+            "items-center",
+            "justify-between",
+            "pl-2",
+            "text-sm",
+            "font-medium",
+            "text-primary"
+          )}
+        >
+          <span> Navigation</span>
+        </summary>
+        <div
+          className={cn("mt-1", "max-h-[60vh]", "overflow-y-auto", "pr-1")}
+        >
+          <SidebarTable />
+        </div>
+      </details>
     </div>
+  );
+}
+
+function SidebarTable(): ReactElement {
+  return (
+    <table className={cn("space-y-0.5", "my-2")}>
+      <SidebarSection title="Overview" />
+      <SidebarItem
+        href="/docs"
+        title="FAQ"
+        description="Frequently Asked Questions"
+      >
+        {({ className }) => <QuestionIcon className={className} />}
+      </SidebarItem>
+      <SidebarItemSpacer />
+      <SidebarItem
+        href="/docs/sdks"
+        title="SDKs"
+        description="Use an Official Open-Source ObjectiveAI SDK"
+      >
+        {({ className }) => <CodeSlashIcon className={className} />}
+      </SidebarItem>
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Ensemble LLMs" />
+      <SidebarApiItem
+        method="GET"
+        path="/ensemble_llms"
+        href="/docs/api/get/ensemble_llms"
+        description="List all ObjectiveAI Ensemble LLMs"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/ensemble_llms/{id}"
+        href="/docs/api/get/ensemble_llms/id"
+        description="Retrieve an ObjectiveAI Ensemble LLM"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/ensemble_llms/{id}/usage"
+        href="/docs/api/get/ensemble_llms/id/usage"
+        description="Retrieve historical usage for an ObjectiveAI Ensemble LLM"
+      />
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Ensembles" />
+      <SidebarApiItem
+        method="GET"
+        path="/ensembles"
+        href="/docs/api/get/ensembles"
+        description="List all ObjectiveAI Ensembles"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/ensembles/{id}"
+        href="/docs/api/get/ensembles/id"
+        description="Retrieve an ObjectiveAI Ensemble"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/ensembles/{id}/usage"
+        href="/docs/api/get/ensembles/id/usage"
+        description="Retrieve historical usage for an ObjectiveAI Ensemble"
+      />
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Functions" />
+      <SidebarApiItem
+        method="GET"
+        path="/functions"
+        href="/docs/api/get/functions"
+        description="List all remote ObjectiveAI Functions"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/{fowner}/{frepository}/{fcommit}"
+        href="/docs/api/get/functions/fowner/frepository/fcommit"
+        description="Retrieve a remote ObjectiveAI Function"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/{fowner}/{frepository}/{fcommit}/usage"
+        href="/docs/api/get/functions/fowner/frepository/fcommit/usage"
+        description="Retrieve historical usage for a remote ObjectiveAI Function"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="POST"
+        path="/functions"
+        href="/docs/api/post/functions"
+        description="Execute an inline ObjectiveAI Function with an inline Profile"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="POST"
+        path="/functions/{fowner}/{frepository}/{fcommit}"
+        href="/docs/api/post/functions/fowner/frepository/fcommit"
+        description="Execute a remote ObjectiveAI Function with an inline Profile"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="POST"
+        path="/functions/profiles/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/post/functions/profiles/powner/prepository/pcommit"
+        description="Execute an inline ObjectiveAI Function with a remote Profile"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="POST"
+        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
+        description="Execute a remote ObjectiveAI Function with a remote Profile"
+      />
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Function Profiles" />
+      <SidebarApiItem
+        method="POST"
+        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/compute"
+        href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/compute"
+        description="Compute an ObjectiveAI Function Profile from your own Data (remote Function)"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="POST"
+        path="/functions/profiles/compute"
+        href="/docs/api/post/functions/profiles/compute"
+        description="Compute an ObjectiveAI Function Profile from your own Data (inline Function)"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/profiles"
+        href="/docs/api/get/functions/profiles"
+        description="List all remote ObjectiveAI Function Profiles"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/profiles/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/get/functions/profiles/powner/prepository/pcommit"
+        description="Retrieve a remote ObjectiveAI Function Profile"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/profiles/{powner}/{prepository}/{pcommit}/usage"
+        href="/docs/api/get/functions/profiles/powner/prepository/pcommit/usage"
+        description="Retrieve historical usage for a remote ObjectiveAI Function Profile"
+      />
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Function-Profile Pairs" />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/profiles/pairs"
+        href="/docs/api/get/functions/profiles/pairs"
+        description="List all remote ObjectiveAI Function-Profile pairs"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
+        description="Retrieve a remote ObjectiveAI Function-Profile pair"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}/usage"
+        href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit/usage"
+        description="Retrieve historical usage for a remote ObjectiveAI Function-Profile pair"
+      />
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Vector" />
+      <SidebarApiItem
+        method="POST"
+        path="/vector/completions"
+        href="/docs/api/post/vector/completions"
+        description="Create a new Vector Completion"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/vector/completions/{id}"
+        href="/docs/api/get/vector/completions/id"
+        description="Retrieve votes from a historical Vector Completion"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/vector/completions/cache"
+        href="/docs/api/get/vector/completions/cache"
+        description="Request a cached vote from the global ObjectiveAI vote cache"
+      />
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Chat" />
+      <SidebarApiItem
+        method="POST"
+        path="/chat/completions"
+        href="/docs/api/post/chat/completions"
+        description="Create a new Chat Completion"
+      />
+
+      <SidebarSectionSpacer />
+
+      <SidebarSection title="Auth" />
+      <SidebarApiItem
+        method="GET"
+        path="/auth/credits"
+        href="/docs/api/get/auth/credits"
+        description="Retrieve your available credits"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/auth/keys"
+        href="/docs/api/get/auth/keys"
+        description="List your API keys"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="POST"
+        path="/auth/keys"
+        href="/docs/api/post/auth/keys"
+        description="Create a new API key"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="DELETE"
+        path="/auth/keys"
+        href="/docs/api/delete/auth/keys"
+        description="Disable an API key"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="GET"
+        path="/auth/keys/openrouter"
+        href="/docs/api/get/auth/keys/openrouter"
+        description="Retrieve your BYOK OpenRouter API key"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="POST"
+        path="/auth/keys/openrouter"
+        href="/docs/api/post/auth/keys/openrouter"
+        description="Set your BYOK OpenRouter API key"
+      />
+      <SidebarItemSpacer />
+      <SidebarApiItem
+        method="DELETE"
+        path="/auth/keys/openrouter"
+        href="/docs/api/delete/auth/keys/openrouter"
+        description="Remove your BYOK OpenRouter API key"
+      />
+    </table>
   );
 }
 

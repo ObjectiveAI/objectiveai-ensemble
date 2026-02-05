@@ -1,0 +1,151 @@
+import { execSync, spawn } from "child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
+import { join } from "path";
+
+interface AgentResult {
+  owner: string;
+  repository: string;
+  commit: string;
+}
+
+interface AgentError {
+  error: string;
+}
+
+interface AgentSkipped {
+  skipped: true;
+}
+
+type Result = AgentResult | AgentError | AgentSkipped;
+
+// Read current depth from parameters.json
+function getCurrentDepth(): number {
+  if (!existsSync("parameters.json")) {
+    return 0;
+  }
+  const content = readFileSync("parameters.json", "utf-8");
+  const params = JSON.parse(content) as { depth: number };
+  return params.depth ?? 0;
+}
+
+async function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {
+  // Skip if spec is null
+  if (spec === null) {
+    return { skipped: true };
+  }
+
+  const subdir = join("sub_functions", String(index));
+
+  // Delete existing directory if it exists (for retries)
+  if (existsSync(subdir)) {
+    console.log(`Deleting existing directory: ${subdir}`);
+    rmSync(subdir, { recursive: true, force: true });
+  }
+
+  // Create subdirectory
+  mkdirSync(subdir, { recursive: true });
+
+  // Write a runner script that will be executed in the subdirectory
+  const runnerScript = `
+import { Claude } from "@objectiveai/function-agent";
+
+async function main(): Promise<void> {
+  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+`;
+
+  const runnerPath = join(subdir, "_runner.ts");
+  writeFileSync(runnerPath, runnerScript);
+
+  return new Promise<Result>((resolve) => {
+    const child = spawn("npx", ["ts-node", "_runner.ts"], {
+      cwd: subdir,
+      stdio: ["inherit", "pipe", "pipe"],
+      shell: true,
+    });
+
+    // Capture but discard output to avoid context overload in parent
+    child.stdout?.on("data", () => {});
+    child.stderr?.on("data", () => {});
+
+    child.on("close", (code) => {
+      if (code !== 0) {
+        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });
+        return;
+      }
+
+      // Extract owner/repo/commit from the completed function
+      try {
+        const nameJsonPath = join(subdir, "github", "name.json");
+        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;
+
+        // Get owner from git remote
+        const remote = execSync("git remote get-url origin", {
+          cwd: subdir,
+          encoding: "utf-8",
+        }).trim();
+
+        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)
+        const match = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
+        const owner = match?.[1] ?? "unknown";
+        const repository = match?.[2] ?? name;
+
+        // Get latest commit
+        const commit = execSync("git rev-parse HEAD", {
+          cwd: subdir,
+          encoding: "utf-8",
+        }).trim();
+
+        resolve({ owner, repository, commit });
+      } catch (err) {
+        resolve({ error: `Failed to extract result: ${err}` });
+      }
+    });
+
+    child.on("error", (err) => {
+      resolve({ error: `Failed to spawn agent: ${err.message}` });
+    });
+  });
+}
+
+async function main(): Promise<void> {
+  const specsArg = process.argv[2];
+
+  if (!specsArg) {
+    console.error("Usage: ts-node spawnFunctionAgents.ts '<json_array_of_specs>'");
+    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");
+    process.exit(1);
+  }
+
+  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];
+
+  if (!Array.isArray(specs) || specs.length === 0) {
+    console.error("Specs must be a non-empty array of strings or nulls");
+    process.exit(1);
+  }
+
+  // Calculate child depth (current depth - 1)
+  const currentDepth = getCurrentDepth();
+  const childDepth = Math.max(0, currentDepth - 1);
+
+  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);
+
+  // Run all agents in parallel
+  const results = await Promise.all(
+    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))
+  );
+
+  // Output results as JSON
+  console.log("\n=== SPAWN_RESULTS ===");
+  console.log(JSON.stringify(results, null, 2));
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

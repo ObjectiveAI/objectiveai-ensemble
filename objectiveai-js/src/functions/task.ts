@@ -31,6 +31,17 @@ export const TaskExpressionMapSchema = z
   );
 export type TaskExpressionMap = z.infer<typeof TaskExpressionMapSchema>;
 
+export const TaskOutputExpressionSchema = ExpressionSchema.describe(
+  "An expression which transforms the task result into a FunctionOutput. " +
+  "Receives 'output' as one of 4 variants depending on task type: " +
+  "a single FunctionOutput (for non-mapped function tasks), an array of FunctionOutputs (for mapped function tasks), " +
+  "a VectorCompletionOutput (for non-mapped vector completion tasks), or an array of VectorCompletionOutputs (for mapped vector completion tasks). " +
+  "Must return a FunctionOutput valid for the parent function's type: " +
+  "scalar functions require a number in [0,1], vector functions require an array of numbers summing to ~1. " +
+  "The function's final output is the weighted average of all task outputs using profile weights.",
+);
+export type TaskOutputExpression = z.infer<typeof TaskOutputExpressionSchema>;
+
 export const ScalarFunctionTaskExpressionSchema = z
   .object({
     type: z.literal("scalar.function"),
@@ -48,6 +59,7 @@ export const ScalarFunctionTaskExpressionSchema = z
     skip: TaskExpressionSkipSchema.optional().nullable(),
     map: TaskExpressionMapSchema.optional().nullable(),
     input: InputValueExpressionSchema,
+    output: TaskOutputExpressionSchema,
   })
   .describe("A scalar function task expression.");
 export type ScalarFunctionTaskExpression = z.infer<
@@ -71,6 +83,7 @@ export const VectorFunctionTaskExpressionSchema = z
     skip: TaskExpressionSkipSchema.optional().nullable(),
     map: TaskExpressionMapSchema.optional().nullable(),
     input: InputValueExpressionSchema,
+    output: TaskOutputExpressionSchema,
   })
   .describe("A vector function task expression.");
 export type VectorFunctionTaskExpression = z.infer<
@@ -89,6 +102,7 @@ export const VectorCompletionTaskExpressionSchema = z
         `${ToolsExpressionSchema.description} These are readonly and will only be useful for explaining prior tool calls or otherwise influencing behavior.`,
       ),
     responses: VectorResponsesExpressionSchema,
+    output: TaskOutputExpressionSchema,
   })
   .describe("A vector completion task expression.");
 export type VectorCompletion = z.infer<
@@ -130,6 +144,9 @@ export const ScalarFunctionTaskSchema = z
         "The commit SHA of the GitHub repository containing the function.",
       ),
     input: InputValueSchema,
+    output: ExpressionSchema.describe(
+      "Expression to transform the task result. Receives: input (function input), output (the raw FunctionOutput from the nested function).",
+    ),
   })
   .describe("A scalar function task.");
 export type ScalarFunctionTask = z.infer<typeof ScalarFunctionTaskSchema>;
@@ -149,6 +166,9 @@ export const VectorFunctionTaskSchema = z
         "The commit SHA of the GitHub repository containing the function.",
       ),
     input: InputValueSchema,
+    output: ExpressionSchema.describe(
+      "Expression to transform the task result. Receives: input (function input), output (the raw FunctionOutput from the nested function).",
+    ),
   })
   .describe("A vector function task.");
 export type VectorFunctionTask = z.infer<typeof VectorFunctionTaskSchema>;
@@ -159,6 +179,9 @@ export const VectorCompletionTaskSchema = z
     messages: MessagesSchema,
     tools: ToolsSchema.optional(),
     responses: VectorResponsesSchema,
+    output: ExpressionSchema.describe(
+      "Expression to transform the task result. Receives: input (function input), output (the raw VectorCompletionOutput).",
+    ),
   })
   .describe("A vector completion task.");
 export type VectorCompletionTask = z.infer<typeof VectorCompletionTaskSchema>;

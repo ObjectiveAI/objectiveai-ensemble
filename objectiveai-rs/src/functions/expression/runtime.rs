@@ -14,8 +14,8 @@ use crate::chat;
 use std::sync::LazyLock;
 
 /// Global JMESPath runtime instance with custom functions.
-pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
-    || {
+pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
+    LazyLock::new(|| {
         use jmespath::{
             Context, ErrorReason, JmespathError, Rcvar, Runtime, RuntimeError,
             Variable,
@@ -303,158 +303,6 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
             )),
         );
 
-        // parse JSON into native JMESPath variable
-        runtime.register_function(
-            "json_parse",
-            Box::new(CustomFunction::new(
-                Signature::new(vec![ArgumentType::String], None),
-                Box::new(|args: &[Rcvar], ctx: &mut Context| {
-                    let string = string_arg(args, ctx, 0, 1)?;
-                    let variable: jmespath::Variable =
-                        serde_json::from_str(&string)
-                            .unwrap_or(jmespath::Variable::Null);
-                    Ok(Rc::new(variable))
-                }),
-            )),
-        );
-
-        // check if value is null
-        runtime.register_function(
-            "is_null",
-            Box::new(CustomFunction::new(
-                Signature::new(vec![ArgumentType::Any], None),
-                Box::new(|args: &[Rcvar], ctx: &mut Context| {
-                    let value = any_arg(args, ctx, 0, 1)?;
-                    Ok(Rc::new(Variable::Bool(value.is_null())))
-                }),
-            )),
-        );
-
-        // conditional expression
-        // if(cond, then, else)
-        runtime.register_function(
-            "if",
-            Box::new(CustomFunction::new(
-                Signature::new(
-                    vec![
-                        ArgumentType::Any,
-                        ArgumentType::Any,
-                        ArgumentType::Any,
-                    ],
-                    None,
-                ),
-                Box::new(|args: &[Rcvar], ctx: &mut Context| {
-                    let condition = any_arg(args, ctx, 0, 3)?;
-                    let then_branch = any_arg(args, ctx, 1, 3)?;
-                    let else_branch = any_arg(args, ctx, 2, 3)?;
-                    if condition.is_truthy() {
-                        Ok(then_branch)
-                    } else {
-                        Ok(else_branch)
-                    }
-                }),
-            )),
-        );
-
-        // input_value_switch function
-        // selects output based on the type of the input value
-        // evaluates exprefs if necessary
-        runtime.register_function(
-            "input_value_switch",
-            Box::new(CustomFunction::new(
-                Signature::new(
-                    vec![
-                        ArgumentType::Any, // Input Value
-                        ArgumentType::Any, // Object
-                        ArgumentType::Any, // Array
-                        ArgumentType::Any, // String
-                        ArgumentType::Any, // Integer
-                        ArgumentType::Any, // Number
-                        ArgumentType::Any, // Boolean
-                        ArgumentType::Any, // Image
-                        ArgumentType::Any, // Audio
-                        ArgumentType::Any, // Video
-                        ArgumentType::Any, // File
-                    ],
-                    None,
-                ),
-                Box::new(|args: &[Rcvar], ctx: &mut Context| {
-                    // first arg is input value
-                    let input_value = any_arg(args, ctx, 0, 11)?;
-                    // output_value depends on the type of input_value
-                    let output_value = match serde_json::from_value::<
-                        super::Input,
-                    >(
-                        serde_json::to_value(&input_value)
-                            .unwrap_or(serde_json::Value::Null),
-                    ) {
-                        Ok(super::Input::Object(_)) => Ok(
-                            any_arg(args, ctx, 1, 11)?,
-                        ),
-                        Ok(super::Input::Array(_)) => Ok(
-                            any_arg(args, ctx, 2, 11)?,
-                        ),
-                        Ok(super::Input::String(_)) => Ok(
-                            any_arg(args, ctx, 3, 11)?,
-                        ),
-                        Ok(super::Input::Integer(_)) => Ok(
-                            any_arg(args, ctx, 4, 11)?,
-                        ),
-                        Ok(super::Input::Number(_)) => Ok(
-                            any_arg(args, ctx, 5, 11)?,
-                        ),
-                        Ok(super::Input::Boolean(_)) => Ok(
-                            any_arg(args, ctx, 6, 11)?,
-                        ),
-                        Ok(super::Input::RichContentPart(
-                            chat::completions::request::RichContentPart::ImageUrl {
-                                ..
-                            }
-                        )) => Ok(any_arg(args, ctx, 7, 11)?),
-                        Ok(super::Input::RichContentPart(
-                            chat::completions::request::RichContentPart::InputAudio {
-                                ..
-                            }
-                        )) => Ok(any_arg(args, ctx, 8, 11)?),
-                        Ok(super::Input::RichContentPart(
-                            chat::completions::request::RichContentPart::InputVideo {
-                                ..
-                            }
-                        )) => Ok(any_arg(args, ctx, 9, 11)?),
-                        Ok(super::Input::RichContentPart(
-                            chat::completions::request::RichContentPart::VideoUrl {
-                                ..
-                            }
-                        )) => Ok(any_arg(args, ctx, 9, 11)?),
-                        Ok(super::Input::RichContentPart(
-                            chat::completions::request::RichContentPart::File {
-                                ..
-                            }
-                        )) => Ok(any_arg(args, ctx, 10, 11)?),
-                        Ok(super::Input::RichContentPart(
-                            chat::completions::request::RichContentPart::Text {
-                                ..
-                            }
-                        )) => Ok(any_arg(args, ctx, 1, 11)?),
-                        Err(_) => Err(JmespathError::new(
-                            ctx.expression,
-                            ctx.offset,
-                            ErrorReason::Runtime(RuntimeError::InvalidType {
-                                expected: "valid Input type".to_string(),
-                                actual: input_value.get_type().to_string(),
-                                position: 0,
-                            }),
-                        )),
-                    }?;
-                    if let Some(ast) = output_value.as_expref() {
-                        jmespath::interpret(&input_value, &ast, ctx)
-                    } else {
-                        Ok(output_value)
-                    }
-                }),
-            )),
-        );
-
         // zips a 2D array and maps each column with an expref
         // if sub-arrays are of different lengths, fills missing values with null
         runtime.register_function(
@@ -494,26 +342,6 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
                         )?);
                     }
                     Ok(Rc::new(Variable::Array(output_array)))
-                }),
-            )),
-        );
-
-        // Repeat given value n times in an array
-        runtime.register_function(
-            "repeat",
-            Box::new(CustomFunction::new(
-                Signature::new(
-                    vec![ArgumentType::Any, ArgumentType::Number],
-                    None,
-                ),
-                Box::new(|args: &[Rcvar], ctx: &mut Context| {
-                    let value = any_arg(args, ctx, 0, 2)?;
-                    let n = number_arg(args, ctx, 1, 2)? as usize;
-                    let mut array = Vec::with_capacity(n);
-                    for _ in 0..n {
-                        array.push(value.clone());
-                    }
-                    Ok(Rc::new(Variable::Array(array)))
                 }),
             )),
         );
@@ -560,5 +388,4 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> = LazyLock::new(
         );
 
         runtime
-    },
-);
+    });

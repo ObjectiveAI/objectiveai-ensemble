@@ -15,9 +15,26 @@ export function SDKs({
   session?: Provider.TokenSession;
 }): ReactElement {
   return (
-    <main className={cn("h-[100dvh]", "w-[100dvw]", "flex", "flex-col")}>
+    <main
+      className={cn(
+        "h-[100dvh]",
+        "w-[100dvw]",
+        "flex",
+        "flex-col",
+        "overflow-x-hidden"
+      )}
+    >
       <SharedHeader session={session} />
-      <div className={cn("flex-grow", "flex", "overflow-hidden", "mt-1")}>
+      <div
+        className={cn(
+          "flex-grow",
+          "flex",
+          "overflow-hidden",
+          "mt-1",
+          "flex-col",
+          "md:flex-row"
+        )}
+      >
         <Sidebar />
         <div
           className={cn(
@@ -26,7 +43,8 @@ export function SDKs({
             "flex-col",
             "overflow-auto",
             "basis-0",
-            "px-1"
+            "px-3",
+            "md:px-1"
           )}
         >
           <div
@@ -35,7 +53,8 @@ export function SDKs({
               "max-w-full",
               "space-y-8",
               "mx-auto",
-              "my-8"
+              "my-6",
+              "md:my-8"
             )}
           >
             <div className={cn("space-y-4")}>

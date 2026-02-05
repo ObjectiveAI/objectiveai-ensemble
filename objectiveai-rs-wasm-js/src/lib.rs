@@ -203,50 +203,51 @@ pub fn compileFunctionTasks(
     Ok(tasks)
 }
 
-/// Computes the final output of a Function given input and task results.
-///
-/// Evaluates the function's output expression using the provided input data
-/// and task outputs. Also validates that the output meets constraints:
-/// - Scalar functions: output must be in [0, 1]
-/// - Vector functions: output must sum to approximately 1
-///
-/// # Arguments
-///
-/// * `function` - JavaScript object representing a Function definition
-/// * `input` - JavaScript object representing the function input
-/// * `task_outputs` - Array of task outputs (from actual execution or mocked)
-///
-/// # Returns
-///
-/// An object with:
-/// - `output`: The computed scalar or vector output
-/// - `valid`: Boolean indicating if the output meets constraints
-///
-/// # Errors
-///
-/// Returns an error string if expression evaluation fails.
-#[wasm_bindgen]
-pub fn compileFunctionOutput(
-    function: JsValue,
-    input: JsValue,
-    task_outputs: JsValue,
-) -> Result<JsValue, JsValue> {
-    // deserialize
-    let function: objectiveai::functions::Function =
-        serde_wasm_bindgen::from_value(function)?;
-    let input: objectiveai::functions::expression::Input =
-        serde_wasm_bindgen::from_value(input)?;
-    let task_outputs: Vec<
-        Option<objectiveai::functions::expression::TaskOutput<'static>>,
-    > = serde_wasm_bindgen::from_value(task_outputs)?;
-    // compile output
-    let output = function
-        .compile_output(&input, &task_outputs)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-    // serialize
-    let output: JsValue = serde_wasm_bindgen::to_value(&output)?;
-    Ok(output)
-}
+// TODO: Update for new per-task output expression architecture
+// /// Computes the final output of a Function given input and task results.
+// ///
+// /// Evaluates the function's output expression using the provided input data
+// /// and task outputs. Also validates that the output meets constraints:
+// /// - Scalar functions: output must be in [0, 1]
+// /// - Vector functions: output must sum to approximately 1
+// ///
+// /// # Arguments
+// ///
+// /// * `function` - JavaScript object representing a Function definition
+// /// * `input` - JavaScript object representing the function input
+// /// * `task_outputs` - Array of task outputs (from actual execution or mocked)
+// ///
+// /// # Returns
+// ///
+// /// An object with:
+// /// - `output`: The computed scalar or vector output
+// /// - `valid`: Boolean indicating if the output meets constraints
+// ///
+// /// # Errors
+// ///
+// /// Returns an error string if expression evaluation fails.
+// #[wasm_bindgen]
+// pub fn compileFunctionOutput(
+//     function: JsValue,
+//     input: JsValue,
+//     task_outputs: JsValue,
+// ) -> Result<JsValue, JsValue> {
+//     // deserialize
+//     let function: objectiveai::functions::Function =
+//         serde_wasm_bindgen::from_value(function)?;
+//     let input: objectiveai::functions::expression::Input =
+//         serde_wasm_bindgen::from_value(input)?;
+//     let task_outputs: Vec<
+//         Option<objectiveai::functions::expression::TaskOutput<'static>>,
+//     > = serde_wasm_bindgen::from_value(task_outputs)?;
+//     // compile output
+//     let output = function
+//         .compile_output(&input, &task_outputs)
+//         .map_err(|e| JsValue::from_str(&e.to_string()))?;
+//     // serialize
+//     let output: JsValue = serde_wasm_bindgen::to_value(&output)?;
+//     Ok(output)
+// }
 
 /// Computes the expected output length for a vector Function.
 ///

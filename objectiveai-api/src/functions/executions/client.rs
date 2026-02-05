@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     hash::Hasher,
-    sync::{Arc, LazyLock},
+    sync::Arc,
     time,
 };
 
@@ -24,6 +24,203 @@ pub fn scalar_response_id(created: u64) -> String {
 pub fn vector_response_id(created: u64) -> String {
     let uuid = uuid::Uuid::new_v4();
     format!("vctfnc-{}-{}", uuid.simple(), created)
+}
+
+/// Computes the final function output as a weighted average of task outputs.
+///
+/// All task outputs are already validated `FunctionOutput` (scalar or vector)
+/// by their respective output expressions. This function is deterministically
+/// infallible - all inputs are assumed valid.
+///
+/// The weights are L1-normalized for the indices that are present (non-None, non-error).
+fn compute_weighted_function_output(
+    function_type: &functions::FunctionType,
+    profile_weights: &[rust_decimal::Decimal],
+    task_outputs: &[Option<objectiveai::functions::expression::FunctionOutput>],
+) -> objectiveai::functions::expression::FunctionOutput {
+    use objectiveai::functions::expression::FunctionOutput;
+    use rust_decimal::Decimal;
+
+    // Collect (weight, FunctionOutput) pairs from present task outputs
+    let mut weighted_outputs: Vec<(Decimal, &FunctionOutput)> = Vec::new();
+    let mut total_weight = Decimal::ZERO;
+
+    for (i, task_output) in task_outputs.iter().enumerate() {
+        let weight = profile_weights.get(i).copied().unwrap_or(Decimal::ZERO);
+        if weight == Decimal::ZERO {
+            continue;
+        }
+
+        let fn_output = match task_output {
+            Some(output) => output,
+            None => continue,
+        };
+
+        // Skip error outputs (these shouldn't be here, but just in case)
+        if matches!(fn_output, FunctionOutput::Err(_)) {
+            continue;
+        }
+
+        total_weight += weight;
+        weighted_outputs.push((weight, fn_output));
+    }
+
+    // If no valid outputs, return error (shouldn't happen if caller filters properly)
+    if weighted_outputs.is_empty() || total_weight == Decimal::ZERO {
+        return FunctionOutput::Err(serde_json::Value::Null);
+    }
+
+    // Compute weighted average with L1-normalized weights
+    match function_type {
+        functions::FunctionType::Scalar => {
+            let mut weighted_sum = Decimal::ZERO;
+            for (weight, fn_output) in &weighted_outputs {
+                match fn_output {
+                    FunctionOutput::Scalar(s) => {
+                        // L1-normalize: weight / total_weight
+                        weighted_sum += (*weight / total_weight) * s;
+                    }
+                    _ => {
+                        panic!("expected scalar output in scalar function, got {:?}", fn_output);
+                    }
+                }
+            }
+            FunctionOutput::Scalar(weighted_sum)
+        }
+        functions::FunctionType::Vector { .. } => {
+            // Get vector length from first output
+            let vec_len = weighted_outputs
+                .iter()
+                .find_map(|(_, o)| match o {
+                    FunctionOutput::Vector(v) => Some(v.len()),
+                    _ => None,
+                })
+                .expect("expected at least one vector output");
+
+            // Compute weighted average for each element with L1-normalized weights
+            let mut result = vec![Decimal::ZERO; vec_len];
+            for (weight, fn_output) in &weighted_outputs {
+                match fn_output {
+                    FunctionOutput::Vector(v) => {
+                        if v.len() != vec_len {
+                            panic!("vector length mismatch: expected {}, got {}", vec_len, v.len());
+                        }
+                        let normalized_weight = *weight / total_weight;
+                        for (j, val) in v.iter().enumerate() {
+                            result[j] += normalized_weight * val;
+                        }
+                    }
+                    _ => {
+                        panic!("expected vector output in vector function, got {:?}", fn_output);
+                    }
+                }
+            }
+            FunctionOutput::Vector(result)
+        }
+    }
+}
+/// Applies a task's output expression to transform a raw task output into a FunctionOutput.
+///
+/// The expression receives `output` which is one of 4 variants:
+/// - `Function(FunctionOutput)` - single function task result
+/// - `MapFunction(Vec<FunctionOutput>)` - mapped function task results
+/// - `VectorCompletion(VectorCompletionOutput)` - single vector completion result
+/// - `MapVectorCompletion(Vec<VectorCompletionOutput>)` - mapped vector completion results
+///
+/// The expression transforms this into a `FunctionOutput`. The output is validated against
+/// the function type (scalar vs vector) and optional output length.
+///
+/// Returns the output (possibly as `FunctionOutput::Err` if invalid) and an optional error.
+fn apply_task_output_expression(
+    input: &objectiveai::functions::expression::Input,
+    task_output: objectiveai::functions::expression::TaskOutputOwned,
+    output_expression: &objectiveai::functions::expression::Expression,
+    function_type: &functions::FunctionType,
+) -> (
+    objectiveai::functions::expression::FunctionOutput,
+    Option<objectiveai::error::ResponseError>,
+) {
+    use objectiveai::functions::expression::{FunctionOutput, TaskOutput, Params, ParamsRef};
+    use rust_decimal::Decimal;
+
+    // Build params with input and the task output (one of 4 variants)
+    let params = Params::Ref(ParamsRef {
+        input,
+        output: Some(TaskOutput::Owned(task_output)),
+        map: None,
+    });
+
+    // Evaluate the expression - it transforms the raw output into FunctionOutput
+    let result = match output_expression.compile_one::<FunctionOutput>(&params) {
+        Ok(result) => result,
+        Err(e) => {
+            return (
+                FunctionOutput::Err(serde_json::Value::Null),
+                Some(objectiveai::error::ResponseError::from(
+                    &super::Error::InvalidAppExpression(e),
+                )),
+            );
+        }
+    };
+
+    // Validate the output against the function type
+    match (function_type, result) {
+        // Scalar function must return scalar output (allow -0.01 to 1.01 for floating point tolerance)
+        (functions::FunctionType::Scalar, FunctionOutput::Scalar(s)) => {
+            if s >= rust_decimal::dec!(-0.01) && s <= rust_decimal::dec!(1.01) {
+                (FunctionOutput::Scalar(s), None)
+            } else {
+                (
+                    FunctionOutput::Scalar(s).into_err(),
+                    Some(objectiveai::error::ResponseError::from(
+                        &super::Error::InvalidScalarOutput,
+                    )),
+                )
+            }
+        }
+        // Scalar function got vector output - error
+        (functions::FunctionType::Scalar, result @ FunctionOutput::Vector(_)) => (
+            result.into_err(),
+            Some(objectiveai::error::ResponseError::from(
+                &super::Error::InvalidScalarOutput,
+            )),
+        ),
+        // Vector function must return vector output
+        (functions::FunctionType::Vector { output_length, .. }, FunctionOutput::Vector(v)) => {
+            let sum: Decimal = v.iter().cloned().sum();
+            let len_ok = output_length.is_none_or(|len| len == v.len() as u64);
+            let sum_ok = sum >= rust_decimal::dec!(0.99) && sum <= rust_decimal::dec!(1.01);
+            if len_ok && sum_ok {
+                (FunctionOutput::Vector(v), None)
+            } else {
+                let err_len = output_length.unwrap_or(v.len() as u64) as usize;
+                (
+                    FunctionOutput::Vector(v).into_err(),
+                    Some(objectiveai::error::ResponseError::from(
+                        &super::Error::InvalidVectorOutput(err_len),
+                    )),
+                )
+            }
+        }
+        // Vector function got scalar output - error
+        (functions::FunctionType::Vector { output_length, .. }, result @ FunctionOutput::Scalar(_)) => (
+            result.into_err(),
+            Some(objectiveai::error::ResponseError::from(
+                &super::Error::InvalidVectorOutput(output_length.unwrap_or_default() as usize),
+            )),
+        ),
+        // Error output passes through - this means the expression itself produced an error value
+        (_, FunctionOutput::Err(err_val)) => (
+            FunctionOutput::Err(err_val.clone()),
+            Some(objectiveai::error::ResponseError {
+                code: 400,
+                message: serde_json::json!({
+                    "kind": "task_output_expression_error",
+                    "error": err_val,
+                }),
+            }),
+        ),
+    }
 }
 
 /// Client for executing Functions.
@@ -257,10 +454,6 @@ where
         + 'static,
         super::Error,
     >{
-        static EMPTY_TASKS: LazyLock<
-            Vec<Option<objectiveai::functions::expression::TaskOutput>>,
-        > = LazyLock::new(|| Vec::new());
-
         // timestamp the completion
         let created = time::SystemTime::now()
             .duration_since(time::UNIX_EPOCH)
@@ -472,7 +665,7 @@ where
                 &objectiveai::functions::expression::Params::Ref(
                     objectiveai::functions::expression::ParamsRef {
                         input: &request.base().input,
-                        tasks: &EMPTY_TASKS,
+                        output: None,
                         map: None,
                     }
                 ),
@@ -496,7 +689,7 @@ where
                             input: objectiveai::functions::expression::Input::Array(
                                 chunk.to_vec(),
                             ),
-                            tasks: Vec::new(),
+                            output: None,
                             map: None,
                         }
                     )
@@ -800,7 +993,7 @@ where
                                         input: objectiveai::functions::expression::Input::Array(
                                             chunk.to_vec(),
                                         ),
-                                        tasks: Vec::new(),
+                                        output: None,
                                         map: None,
                                     }
                                 )
@@ -1293,6 +1486,7 @@ where
                         ),
                     },
                     input.unwrap_or_else(|| body.base.input.clone()),
+                    None, // Root-level function has no parent task output expression
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1318,6 +1512,7 @@ where
                         commit: path.pcommit.clone(),
                     },
                     input.unwrap_or_else(|| body.base.input.clone()),
+                    None, // Root-level function has no parent task output expression
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1343,6 +1538,7 @@ where
                         ),
                     },
                     input.unwrap_or_else(|| body.base.input.clone()),
+                    None, // Root-level function has no parent task output expression
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1367,6 +1563,7 @@ where
                         commit: path.pcommit.clone(),
                     },
                     input.unwrap_or_else(|| body.input.clone()),
+                    None, // Root-level function has no parent task output expression
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1580,33 +1777,64 @@ where
         // initialize task indices
         let task_indices = ftp.task_indices();
 
-        // initialize output_input
+        // extract output expressions from each task for later transformation
+        let task_output_expressions: Vec<Option<objectiveai::functions::expression::Expression>> =
+            ftp.tasks
+                .iter()
+                .map(|task| {
+                    task.as_ref().and_then(|t| match t {
+                        functions::FlatTaskProfile::Function(f) => f.task_output.clone(),
+                        functions::FlatTaskProfile::MapFunction(mf) => Some(mf.task_output.clone()),
+                        functions::FlatTaskProfile::VectorCompletion(vc) => Some(vc.output.clone()),
+                        functions::FlatTaskProfile::MapVectorCompletion(mvc) => Some(mvc.task_output.clone()),
+                    })
+                })
+                .collect();
+
+        // store function input and type for expression evaluation
+        let ftp_input = ftp.input.clone();
+        let ftp_type = ftp.r#type.clone();
+
+        // initialize output_input (stores validated FunctionOutputs directly)
+        // and collect errors from task output expressions
         let tasks_len = ftp.tasks.len();
-        let mut output_input = Vec::with_capacity(tasks_len);
-        for task in &ftp.tasks {
-            output_input.push(
-                if task.as_ref().is_some_and(|task| task.len() == 0) {
-                    // empty map task
-                    match task.as_ref() {
-                        Some(functions::FlatTaskProfile::MapFunction(_)) => {
-                            Some(objectiveai::functions::expression::TaskOutput::Owned(
-                                objectiveai::functions::expression::TaskOutputOwned::MapFunction(Vec::new()),
-                            ))
-                        }
-                        Some(functions::FlatTaskProfile::MapVectorCompletion(_)) => {
-                            Some(objectiveai::functions::expression::TaskOutput::Owned(
-                                objectiveai::functions::expression::TaskOutputOwned::MapVectorCompletion(
-                                    Vec::new(),
-                                ),
-                            ))
-                        }
-                        _ => panic!("encountered non-map FlatTaskProfile with length of 0"),
+        let mut output_input: Vec<Option<objectiveai::functions::expression::FunctionOutput>> =
+            Vec::with_capacity(tasks_len);
+        let mut task_output_errors: Vec<super::TaskOutputExpressionError> = Vec::new();
+
+        for (i, task) in ftp.tasks.iter().enumerate() {
+            if task.as_ref().is_some_and(|task| task.len() == 0) {
+                // empty map task - apply output expression to empty result
+                let raw_output = match task.as_ref() {
+                    Some(functions::FlatTaskProfile::MapFunction(_)) => {
+                        objectiveai::functions::expression::TaskOutputOwned::MapFunction(Vec::new())
                     }
+                    Some(functions::FlatTaskProfile::MapVectorCompletion(_)) => {
+                        objectiveai::functions::expression::TaskOutputOwned::MapVectorCompletion(
+                            Vec::new(),
+                        )
+                    }
+                    _ => panic!("encountered non-map FlatTaskProfile with length of 0"),
+                };
+                let (transformed, error) = apply_task_output_expression(
+                    &ftp_input,
+                    raw_output,
+                    task_output_expressions[i].as_ref().expect("empty map task must have output expression"),
+                    &ftp_type,
+                );
+                if let Some(err) = error {
+                    task_output_errors.push(super::TaskOutputExpressionError {
+                        task_index: i,
+                        message: err.message.to_string(),
+                    });
+                    output_input.push(None);
                 } else {
-                    // skipped task or unrun task
-                    None
-                },
-            );
+                    output_input.push(Some(transformed));
+                }
+            } else {
+                // skipped task or unrun task
+                output_input.push(None);
+            }
         }
 
         // initialize retry token
@@ -1769,78 +1997,43 @@ where
                             .unwrap();
                         // insert retry token into correct position
                         retry_token.insert(local_index, chunk_retry_token);
-                        // insert output into correct position
-                        output_input[local_index] = Some(
-                            objectiveai::functions::expression::TaskOutput::Owned(chunk_output),
+                        // apply task output expression to transform raw output into FunctionOutput
+                        // All non-skipped tasks have required output expressions
+                        let (transformed_output, transform_error) = apply_task_output_expression(
+                            &ftp_input,
+                            chunk_output,
+                            task_output_expressions[local_index].as_ref().expect("non-skipped task must have output expression"),
+                            &ftp_type,
                         );
+                        // collect error if any
+                        if let Some(err) = transform_error {
+                            task_output_errors.push(super::TaskOutputExpressionError {
+                                task_index: local_index,
+                                message: err.message.to_string(),
+                            });
+                            // don't store invalid outputs
+                        } else {
+                            // insert transformed output into correct position
+                            output_input[local_index] = Some(transformed_output);
+                        }
                     }
                 }
             }
 
-            // compile final output
-            let params = objectiveai::functions::expression::Params::Ref(
-                objectiveai::functions::expression::ParamsRef {
-                    input: &ftp.input,
-                    tasks: &output_input,
-                    map: None,
-                },
+            // compute final output as weighted average of task outputs
+            let output = compute_weighted_function_output(
+                &ftp.r#type,
+                &ftp.profile,
+                &output_input,
             );
-            let (output, output_error): (
-                objectiveai::functions::expression::FunctionOutput,
-                Option<objectiveai::error::ResponseError>,
-            ) = match (
-                ftp.r#type,
-                ftp.output.compile_one(&params),
-            ) {
-                (
-                    functions::FunctionType::Scalar,
-                    Ok(objectiveai::functions::expression::FunctionOutput::Scalar(scalar)),
-                ) if {
-                    scalar >= rust_decimal::Decimal::ZERO &&
-                        scalar <= rust_decimal::Decimal::ONE
-                } => (
-                    objectiveai::functions::expression::FunctionOutput::Scalar(scalar),
-                    None,
-                ),
-                (
-                    functions::FunctionType::Scalar,
-                    Ok(output)
-                ) => (
-                    output.into_err(),
-                    Some(objectiveai::error::ResponseError::from(
-                        &super::Error::InvalidScalarOutput,
-                    )),
-                ),
-                (
-                    functions::FunctionType::Vector { output_length, .. },
-                    Ok(objectiveai::functions::expression::FunctionOutput::Vector(vector)),
-                ) if {
-                    output_length.is_none_or(|len| len == vector.len() as u64)
-                        && {
-                            let sum: rust_decimal::Decimal =
-                                vector.iter().cloned().sum();
-                            sum >= rust_decimal::dec!(0.99) &&
-                                sum <= rust_decimal::dec!(1.01)
-                        }
-                } => (
-                    objectiveai::functions::expression::FunctionOutput::Vector(vector),
-                    None,
-                ),
-                (
-                    functions::FunctionType::Vector { output_length, .. },
-                    Ok(output)
-                ) => (
-                    output.into_err(),
-                    Some(objectiveai::error::ResponseError::from(
-                        &super::Error::InvalidVectorOutput(
-                            output_length.unwrap_or_default() as usize,
-                        ),
-                    )),
-                ),
-                (_, Err(e)) => (
-                    objectiveai::functions::expression::FunctionOutput::Err(serde_json::Value::Null),
-                    Some(objectiveai::error::ResponseError::from(&super::Error::from(e))),
-                ),
+
+            // build error from task output expression errors if any
+            let output_error = if !task_output_errors.is_empty() {
+                Some(objectiveai::error::ResponseError::from(
+                    &super::Error::TaskOutputExpressionErrors(task_output_errors),
+                ))
+            } else {
+                None
             };
 
             // yield final inner function chunk
@@ -1856,7 +2049,7 @@ where
                     inner: objectiveai::functions::executions::response::streaming::FunctionExecutionChunk {
                         id: response_id.clone(),
                         tasks: Vec::new(),
-                        tasks_errors: if tasks_errors {
+                        tasks_errors: if tasks_errors || output_error.is_some() {
                             Some(true)
                         } else {
                             None

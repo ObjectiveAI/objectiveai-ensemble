@@ -13,11 +13,8 @@ export const InlineScalarFunctionSchema = z
     type: z.literal("scalar.function"),
     input_maps: InputMapsExpressionSchema.optional().nullable(),
     tasks: TaskExpressionsSchema,
-    output: ExpressionSchema.describe(
-      "An expression which evaluates to a single number. This is the output of the scalar function. Will be provided with the outputs of all tasks."
-    ),
   })
-  .describe("A scalar function defined inline.")
+  .describe("A scalar function defined inline. Each task's output expression must return a number in [0,1]. The function's output is the weighted average of all task outputs using profile weights. If there is only one task, its output becomes the function's output directly.")
   .meta({ title: "InlineScalarFunction" });
 export type InlineScalarFunction = z.infer<typeof InlineScalarFunctionSchema>;
 
@@ -26,9 +23,6 @@ export const InlineVectorFunctionSchema = z
     type: z.literal("vector.function"),
     input_maps: InputMapsExpressionSchema.optional().nullable(),
     tasks: TaskExpressionsSchema,
-    output: ExpressionSchema.describe(
-      "An expression which evaluates to an array of numbers. This is the output of the vector function. Will be provided with the outputs of all tasks."
-    ),
     input_split: ExpressionSchema.optional()
       .nullable()
       .describe(
@@ -40,7 +34,7 @@ export const InlineVectorFunctionSchema = z
         "An expression transforming an array of inputs (computed by input_split) into a single Input object for the Function. Only required if the request uses a strategy that needs input splitting (e.g., swiss_system)."
       ),
   })
-  .describe("A vector function defined inline.")
+  .describe("A vector function defined inline. Each task's output expression must return an array of numbers summing to ~1. The function's output is the weighted average of all task outputs using profile weights. If there is only one task, its output becomes the function's output directly.")
   .meta({ title: "InlineVectorFunction" });
 export type InlineVectorFunction = z.infer<typeof InlineVectorFunctionSchema>;
 

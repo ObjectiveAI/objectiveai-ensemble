@@ -1,0 +1,61 @@
+{
+  "name": "@objectiveai/function-agent",
+  "version": "0.1.0",
+  "description": "ObjectiveAI Function Agent SDK for JavaScript/TypeScript",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "bin": {
+    "objectiveai-function-agent": "./dist/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ObjectiveAI/objectiveai.git"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "shx rm -rf dist && tsup",
+    "test": "node test/test-cjs.cjs && node test/test-esm.mjs",
+    "start": "node dist/index.js"
+  },
+  "author": {
+    "name": "ObjectiveAI",
+    "email": "admin@objective-ai.io",
+    "url": "https://objective-ai.io"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.29",
+    "objectiveai": "*",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0",
+    "shx": "^0.4.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "llm",
+    "ai",
+    "agent",
+    "function",
+    "objectiveai"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ]
+}

@@ -1,0 +1,8 @@
+import { GitHub } from "@objectiveai/function-agent";
+
+const latest = process.argv.includes("--latest");
+
+const cloned = GitHub.cloneSubFunctions({ latest });
+
+console.log("\n=== CLONE_RESULTS ===");
+console.log(JSON.stringify(cloned, null, 2));

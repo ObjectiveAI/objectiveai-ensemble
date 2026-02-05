@@ -3,6 +3,27 @@
 //! Tasks are the building blocks of Functions. Each task either calls another
 //! Function or runs a Vector Completion. Tasks can be conditionally skipped
 //! or mapped over arrays of inputs.
+//!
+//! # Output Expressions
+//!
+//! Each task has an `output` expression that transforms its raw result into a
+//! [`FunctionOutput`](super::expression::FunctionOutput). The expression receives
+//! an `output` parameter that is one of four variants:
+//!
+//! - `Function(FunctionOutput)` - for non-mapped function tasks
+//! - `MapFunction(Vec<FunctionOutput>)` - for mapped function tasks
+//! - `VectorCompletion(VectorCompletionOutput)` - for non-mapped vector completion tasks
+//! - `MapVectorCompletion(Vec<VectorCompletionOutput>)` - for mapped vector completion tasks
+//!
+//! The expression must return a `FunctionOutput` valid for the parent function's type:
+//! - **Scalar functions**: must return `Scalar(value)` where value is in [0, 1]
+//! - **Vector functions**: must return `Vector(values)` where values sum to ~1 and match the expected length
+//!
+//! # Output Aggregation
+//!
+//! The function's final output is computed as a **weighted average** of all task outputs
+//! using profile weights. If a function has only one task, that task's output becomes
+//! the function's output directly (with weight 1.0).
 
 use crate::chat;
 use serde::{Deserialize, Serialize};
@@ -79,6 +100,29 @@ pub enum Task {
     VectorCompletion(VectorCompletionTask),
 }
 
+impl Task {
+    pub fn compile_output(
+        &self,
+        input: &super::expression::Input,
+        raw_output: super::expression::TaskOutput,
+    ) -> Result<
+        super::expression::FunctionOutput,
+        super::expression::ExpressionError,
+    > {
+        match self {
+            Task::ScalarFunction(task) => {
+                task.compile_output(input, raw_output)
+            }
+            Task::VectorFunction(task) => {
+                task.compile_output(input, raw_output)
+            }
+            Task::VectorCompletion(task) => {
+                task.compile_output(input, raw_output)
+            }
+        }
+    }
+}
+
 /// Expression for a task that calls a scalar function (pre-compilation).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScalarFunctionTaskExpression {
@@ -102,6 +146,23 @@ pub struct ScalarFunctionTaskExpression {
     /// Receives: `input`, `map` (if mapped).
     pub input:
         super::expression::WithExpression<super::expression::InputExpression>,
+
+    /// Expression to transform the task result into a valid function output.
+    ///
+    /// Receives `output` which is one of 4 variants depending on task type:
+    /// - `Function(FunctionOutput)` - for non-mapped function tasks
+    /// - `MapFunction(Vec<FunctionOutput>)` - for mapped function tasks
+    /// - `VectorCompletion(VectorCompletionOutput)` - for non-mapped vector completion tasks
+    /// - `MapVectorCompletion(Vec<VectorCompletionOutput>)` - for mapped vector completion tasks
+    ///
+    /// The expression must return a `FunctionOutput` that is valid for the parent function's type:
+    /// - For scalar functions: must return `Scalar(value)` where value is in [0, 1]
+    /// - For vector functions: must return `Vector(values)` where values sum to ~1 and match the expected length
+    ///
+    /// The function's final output is computed as a weighted average of all task outputs using
+    /// profile weights. If a function has only one task, that task's output becomes the function's
+    /// output directly.
+    pub output: super::expression::Expression,
 }
 
 impl ScalarFunctionTaskExpression {
@@ -116,6 +177,7 @@ impl ScalarFunctionTaskExpression {
             repository: self.repository,
             commit: self.commit,
             input,
+            output: self.output,
         })
     }
 }
@@ -131,6 +193,32 @@ pub struct ScalarFunctionTask {
     pub commit: String,
     /// The resolved input to pass to the function.
     pub input: super::expression::Input,
+    /// Expression to transform the task result into a valid function output.
+    ///
+    /// Receives `output` as `Function(FunctionOutput)` containing the nested function's result.
+    /// Must return a `FunctionOutput` valid for the parent function's type (scalar or vector).
+    /// See [`ScalarFunctionTaskExpression::output`] for full documentation.
+    pub output: super::expression::Expression,
+}
+
+impl ScalarFunctionTask {
+    pub fn compile_output(
+        &self,
+        input: &super::expression::Input,
+        raw_output: super::expression::TaskOutput,
+    ) -> Result<
+        super::expression::FunctionOutput,
+        super::expression::ExpressionError,
+    > {
+        let params =
+            super::expression::Params::Ref(super::expression::ParamsRef {
+                input,
+                output: Some(raw_output),
+                map: None,
+            });
+        let compiled_output = self.output.compile_one(&params)?;
+        Ok(compiled_output)
+    }
 }
 
 /// Expression for a task that calls a vector function (pre-compilation).
@@ -156,6 +244,23 @@ pub struct VectorFunctionTaskExpression {
     /// Receives: `input`, `map` (if mapped).
     pub input:
         super::expression::WithExpression<super::expression::InputExpression>,
+
+    /// Expression to transform the task result into a valid function output.
+    ///
+    /// Receives `output` which is one of 4 variants depending on task type:
+    /// - `Function(FunctionOutput)` - for non-mapped function tasks
+    /// - `MapFunction(Vec<FunctionOutput>)` - for mapped function tasks
+    /// - `VectorCompletion(VectorCompletionOutput)` - for non-mapped vector completion tasks
+    /// - `MapVectorCompletion(Vec<VectorCompletionOutput>)` - for mapped vector completion tasks
+    ///
+    /// The expression must return a `FunctionOutput` that is valid for the parent function's type:
+    /// - For scalar functions: must return `Scalar(value)` where value is in [0, 1]
+    /// - For vector functions: must return `Vector(values)` where values sum to ~1 and match the expected length
+    ///
+    /// The function's final output is computed as a weighted average of all task outputs using
+    /// profile weights. If a function has only one task, that task's output becomes the function's
+    /// output directly.
+    pub output: super::expression::Expression,
 }
 
 impl VectorFunctionTaskExpression {
@@ -170,6 +275,7 @@ impl VectorFunctionTaskExpression {
             repository: self.repository,
             commit: self.commit,
             input,
+            output: self.output,
         })
     }
 }
@@ -185,6 +291,32 @@ pub struct VectorFunctionTask {
     pub commit: String,
     /// The resolved input to pass to the function.
     pub input: super::expression::Input,
+    /// Expression to transform the task result into a valid function output.
+    ///
+    /// Receives `output` as `Function(FunctionOutput)` containing the nested function's result.
+    /// Must return a `FunctionOutput` valid for the parent function's type (scalar or vector).
+    /// See [`VectorFunctionTaskExpression::output`] for full documentation.
+    pub output: super::expression::Expression,
+}
+
+impl VectorFunctionTask {
+    pub fn compile_output(
+        &self,
+        input: &super::expression::Input,
+        raw_output: super::expression::TaskOutput,
+    ) -> Result<
+        super::expression::FunctionOutput,
+        super::expression::ExpressionError,
+    > {
+        let params =
+            super::expression::Params::Ref(super::expression::ParamsRef {
+                input,
+                output: Some(raw_output),
+                map: None,
+            });
+        let compiled_output = self.output.compile_one(&params)?;
+        Ok(compiled_output)
+    }
 }
 
 /// Expression for a task that runs a vector completion (pre-compilation).
@@ -231,6 +363,20 @@ pub struct VectorCompletionTaskExpression {
             >,
         >,
     >,
+
+    /// Expression to transform the task result into a valid function output.
+    ///
+    /// Receives `output` as `VectorCompletion(VectorCompletionOutput)` containing
+    /// the completion result with `votes`, `scores`, and `weights` fields.
+    ///
+    /// The expression must return a `FunctionOutput` that is valid for the parent function's type:
+    /// - For scalar functions: must return `Scalar(value)` where value is in [0, 1]
+    /// - For vector functions: must return `Vector(values)` where values sum to ~1 and match the expected length
+    ///
+    /// The function's final output is computed as a weighted average of all task outputs using
+    /// profile weights. If a function has only one task, that task's output becomes the function's
+    /// output directly.
+    pub output: super::expression::Expression,
 }
 
 impl VectorCompletionTaskExpression {
@@ -299,6 +445,7 @@ impl VectorCompletionTaskExpression {
             messages: compiled_messages,
             tools,
             responses: compiled_responses,
+            output: self.output,
         })
     }
 }
@@ -313,6 +460,33 @@ pub struct VectorCompletionTask {
     pub tools: Option<Vec<chat::completions::request::Tool>>,
     /// The resolved response options the LLMs can vote for.
     pub responses: Vec<chat::completions::request::RichContent>,
+    /// Expression to transform the task result into a valid function output.
+    ///
+    /// Receives `output` as `VectorCompletion(VectorCompletionOutput)` containing
+    /// the completion result with `votes`, `scores`, and `weights` fields.
+    /// Must return a `FunctionOutput` valid for the parent function's type (scalar or vector).
+    /// See [`VectorCompletionTaskExpression::output`] for full documentation.
+    pub output: super::expression::Expression,
+}
+
+impl VectorCompletionTask {
+    pub fn compile_output(
+        &self,
+        input: &super::expression::Input,
+        raw_output: super::expression::TaskOutput,
+    ) -> Result<
+        super::expression::FunctionOutput,
+        super::expression::ExpressionError,
+    > {
+        let params =
+            super::expression::Params::Ref(super::expression::ParamsRef {
+                input,
+                output: Some(raw_output),
+                map: None,
+            });
+        let compiled_output = self.output.compile_one(&params)?;
+        Ok(compiled_output)
+    }
 }
 
 /// The result of compiling a task expression.

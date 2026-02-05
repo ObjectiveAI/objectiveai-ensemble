@@ -1,0 +1,24 @@
+import { execSync } from "child_process";
+
+const message = process.argv[2];
+
+if (!message) {
+  console.error("Usage: ts-node commitAndPush.ts <commit_message>");
+  process.exit(1);
+}
+
+// Discard any changes to the objectiveai submodule
+execSync("git -C objectiveai checkout -- .", { stdio: "inherit" });
+
+// Stage all changes
+execSync("git add -A", { stdio: "pipe" });
+
+// Check if there are changes to commit
+try {
+  execSync("git diff --cached --quiet", { stdio: "pipe" });
+  console.log("No changes to commit.");
+} catch {
+  // There are changes, commit them
+  execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { stdio: "inherit" });
+  console.log("Committed and pushed successfully.");
+}

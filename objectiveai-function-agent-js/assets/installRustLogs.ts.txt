@@ -1,0 +1,20 @@
+import { execSync } from "child_process";
+
+// Rebuild the ObjectiveAI packages with any changes made to the Rust source
+// This rebuilds objectiveai-js (which includes WASM) and objectiveai-function-agent-js
+
+console.log("Rebuilding ObjectiveAI packages...");
+
+// Install dependencies in the submodule workspace
+execSync("npm install", { cwd: "objectiveai", stdio: "inherit" });
+
+// Build objectiveai-js first (includes WASM rebuild)
+execSync("npm run build -w objectiveai-js", { cwd: "objectiveai", stdio: "inherit" });
+
+// Build objectiveai-function-agent-js (depends on objectiveai-js)
+execSync("npm run build -w objectiveai-function-agent-js", { cwd: "objectiveai", stdio: "inherit" });
+
+// Reinstall in function workspace to pick up the rebuilt packages
+execSync("npm install", { stdio: "inherit" });
+
+console.log("Rebuild complete. Run ts-node build.ts to test.");

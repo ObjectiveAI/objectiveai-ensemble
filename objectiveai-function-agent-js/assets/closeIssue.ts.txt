@@ -1,0 +1,23 @@
+import { existsSync, readFileSync, writeFileSync } from "fs";
+
+const issueNumber = parseInt(process.argv[2], 10);
+
+if (isNaN(issueNumber)) {
+  console.error("Usage: ts-node closeIssue.ts <issue_number>");
+  process.exit(1);
+}
+
+// Read existing resolved issues
+const resolvedIssuesPath = "resolvedIssues.json";
+let resolvedIssues: number[] = [];
+if (existsSync(resolvedIssuesPath)) {
+  resolvedIssues = JSON.parse(readFileSync(resolvedIssuesPath, "utf-8"));
+}
+
+// Add this issue if not already present
+if (!resolvedIssues.includes(issueNumber)) {
+  resolvedIssues.push(issueNumber);
+  writeFileSync(resolvedIssuesPath, JSON.stringify(resolvedIssues, null, 2));
+}
+
+console.log(`Marked issue #${issueNumber} for closing`);

@@ -1,7 +1,7 @@
 //! Starlark expression evaluation engine.
 //!
 //! Provides a sandboxed Starlark runtime for evaluating expressions.
-//! Variables `input`, `tasks`, and `map` are injected into the global scope.
+//! Variables `input`, `output`, and `map` are injected into the global scope.
 
 use serde_json::Value;
 use starlark::environment::{Globals, GlobalsBuilder, Module};
@@ -26,11 +26,15 @@ pub static STARLARK_GLOBALS: LazyLock<Globals> = LazyLock::new(|| {
 #[starlark_module]
 fn register_custom_functions(builder: &mut GlobalsBuilder) {
     /// Sum of a list of numbers. Returns 0 for empty list.
-    fn sum<'v>(#[starlark(require = pos)] xs: &ListRef<'v>) -> starlark::Result<f64> {
+    fn sum<'v>(
+        #[starlark(require = pos)] xs: &ListRef<'v>,
+    ) -> starlark::Result<f64> {
         let mut total = 0.0;
         for x in xs.iter() {
             let n = UnpackFloat::unpack_value(x)
-                .map_err(|e| starlark::Error::new_other(anyhow::anyhow!("{}", e)))?
+                .map_err(|e| {
+                    starlark::Error::new_other(anyhow::anyhow!("{}", e))
+                })?
                 .ok_or_else(|| {
                     starlark::Error::new_other(anyhow::anyhow!(
                         "sum: expected number, got {}",
@@ -48,18 +52,25 @@ fn register_custom_functions(builder: &mut GlobalsBuilder) {
     }
 
     /// Convert to float.
-    fn float(#[starlark(require = pos)] x: UnpackFloat) -> starlark::Result<f64> {
+    fn float(
+        #[starlark(require = pos)] x: UnpackFloat,
+    ) -> starlark::Result<f64> {
         Ok(x.0)
     }
 
     /// Round a number to the nearest integer.
-    fn round(#[starlark(require = pos)] x: UnpackFloat) -> starlark::Result<i64> {
+    fn round(
+        #[starlark(require = pos)] x: UnpackFloat,
+    ) -> starlark::Result<i64> {
         Ok(x.0.round() as i64)
     }
 }
 
 /// Evaluate a Starlark expression with the given parameters.
-pub fn starlark_eval(code: &str, params: &super::Params) -> Result<Value, ExpressionError> {
+pub fn starlark_eval(
+    code: &str,
+    params: &super::Params,
+) -> Result<Value, ExpressionError> {
     // Serialize params to JSON for injection
     let params_json = serde_json::to_value(params)
         .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?;
@@ -75,11 +86,11 @@ pub fn starlark_eval(code: &str, params: &super::Params) -> Result<Value, Expres
             module.set("input", input_value);
         }
 
-        // Inject `tasks`
-        if let Some(tasks) = params_json.get("tasks") {
-            let tasks_value = json_to_starlark(heap, tasks);
-            module.set("tasks", tasks_value);
-        }
+        // Inject `output` unconditionally, using None when null or missing
+        let output_json =
+            params_json.get("output").cloned().unwrap_or(Value::Null);
+        let output_value = json_to_starlark(heap, &output_json);
+        module.set("output", output_value);
 
         // Inject `map` unconditionally, using None when null or missing
         let map_json = params_json.get("map").cloned().unwrap_or(Value::Null);
@@ -88,8 +99,9 @@ pub fn starlark_eval(code: &str, params: &super::Params) -> Result<Value, Expres
     }
 
     // Parse the expression directly
-    let ast = AstModule::parse("expression", code.to_string(), &Dialect::Extended)
-        .map_err(|e| ExpressionError::StarlarkParseError(e.to_string()))?;
+    let ast =
+        AstModule::parse("expression", code.to_string(), &Dialect::Extended)
+            .map_err(|e| ExpressionError::StarlarkParseError(e.to_string()))?;
 
     // Evaluate - eval_module returns the value of the last statement
     let mut eval = Evaluator::new(&module);
@@ -119,7 +131,8 @@ fn json_to_starlark<'v>(heap: &'v Heap, json: &Value) -> SValue<'v> {
         }
         Value::String(s) => heap.alloc_str(s).to_value(),
         Value::Array(arr) => {
-            let items: Vec<SValue> = arr.iter().map(|v| json_to_starlark(heap, v)).collect();
+            let items: Vec<SValue> =
+                arr.iter().map(|v| json_to_starlark(heap, v)).collect();
             heap.alloc(items)
         }
         Value::Object(obj) => {
@@ -136,7 +149,8 @@ fn json_to_starlark<'v>(heap: &'v Heap, json: &Value) -> SValue<'v> {
 mod tests {
     use super::*;
     use crate::functions::expression::{
-        FunctionOutput, Input, Params, ParamsOwned, TaskOutputOwned, VectorCompletionOutput,
+        FunctionOutput, Input, Params, ParamsOwned, TaskOutputOwned,
+        VectorCompletionOutput,
     };
     use indexmap::IndexMap;
     use rust_decimal::dec;
@@ -145,21 +159,21 @@ mod tests {
         Input::Object(IndexMap::new())
     }
 
-    fn make_params(input: Input) -> Params<'static, 'static, 'static, 'static> {
+    fn make_params(input: Input) -> Params<'static, 'static, 'static> {
         Params::Owned(ParamsOwned {
             input,
-            tasks: vec![],
+            output: None,
             map: None,
         })
     }
 
-    fn make_params_with_tasks(
+    fn make_params_with_output(
         input: Input,
-        tasks: Vec<Option<TaskOutputOwned>>,
-    ) -> Params<'static, 'static, 'static, 'static> {
+        output: TaskOutputOwned,
+    ) -> Params<'static, 'static, 'static> {
         Params::Owned(ParamsOwned {
             input,
-            tasks,
+            output: Some(output),
             map: None,
         })
     }
@@ -167,29 +181,31 @@ mod tests {
     fn make_params_with_map(
         input: Input,
         map: Input,
-    ) -> Params<'static, 'static, 'static, 'static> {
+    ) -> Params<'static, 'static, 'static> {
         Params::Owned(ParamsOwned {
             input,
-            tasks: vec![],
+            output: None,
             map: Some(map),
         })
     }
 
     fn make_full_params(
         input: Input,
-        tasks: Vec<Option<TaskOutputOwned>>,
+        output: TaskOutputOwned,
         map: Input,
-    ) -> Params<'static, 'static, 'static, 'static> {
+    ) -> Params<'static, 'static, 'static> {
         Params::Owned(ParamsOwned {
             input,
-            tasks,
+            output: Some(output),
             map: Some(map),
         })
     }
 
     // Helper to build an object Input
     fn obj(pairs: Vec<(&str, Input)>) -> Input {
-        Input::Object(pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect())
+        Input::Object(
+            pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
+        )
     }
 
     // Helper to build an array Input
@@ -215,7 +231,10 @@ mod tests {
     fn test_boolean_literal() {
         let params = make_params(empty_input());
         assert_eq!(starlark_eval("True", &params).unwrap(), Value::Bool(true));
-        assert_eq!(starlark_eval("False", &params).unwrap(), Value::Bool(false));
+        assert_eq!(
+            starlark_eval("False", &params).unwrap(),
+            Value::Bool(false)
+        );
     }
 
     #[test]
@@ -262,11 +281,16 @@ mod tests {
             "user",
             obj(vec![(
                 "profile",
-                obj(vec![("email", Input::String("test@example.com".to_string()))]),
+                obj(vec![(
+                    "email",
+                    Input::String("test@example.com".to_string()),
+                )]),
             )]),
         )]);
         let params = make_params(input);
-        let result = starlark_eval("input['user']['profile']['email']", &params).unwrap();
+        let result =
+            starlark_eval("input['user']['profile']['email']", &params)
+                .unwrap();
         assert_eq!(result, Value::String("test@example.com".to_string()));
     }
 
@@ -302,7 +326,9 @@ mod tests {
             ]),
         )]);
         let params = make_params(input);
-        let result = starlark_eval("[x * 2 for x in input['numbers']]", &params).unwrap();
+        let result =
+            starlark_eval("[x * 2 for x in input['numbers']]", &params)
+                .unwrap();
         assert_eq!(
             result,
             Value::Array(vec![
@@ -327,7 +353,11 @@ mod tests {
             ]),
         )]);
         let params = make_params(input);
-        let result = starlark_eval("[x for x in input['numbers'] if x % 2 == 0]", &params).unwrap();
+        let result = starlark_eval(
+            "[x for x in input['numbers'] if x % 2 == 0]",
+            &params,
+        )
+        .unwrap();
         assert_eq!(
             result,
             Value::Array(vec![
@@ -341,36 +371,71 @@ mod tests {
     #[test]
     fn test_arithmetic() {
         let params = make_params(empty_input());
-        assert_eq!(starlark_eval("1 + 2", &params).unwrap(), Value::Number(3.into()));
-        assert_eq!(starlark_eval("10 - 3", &params).unwrap(), Value::Number(7.into()));
-        assert_eq!(starlark_eval("4 * 5", &params).unwrap(), Value::Number(20.into()));
-        assert_eq!(starlark_eval("15 // 4", &params).unwrap(), Value::Number(3.into()));
-        assert_eq!(starlark_eval("15 % 4", &params).unwrap(), Value::Number(3.into()));
+        assert_eq!(
+            starlark_eval("1 + 2", &params).unwrap(),
+            Value::Number(3.into())
+        );
+        assert_eq!(
+            starlark_eval("10 - 3", &params).unwrap(),
+            Value::Number(7.into())
+        );
+        assert_eq!(
+            starlark_eval("4 * 5", &params).unwrap(),
+            Value::Number(20.into())
+        );
+        assert_eq!(
+            starlark_eval("15 // 4", &params).unwrap(),
+            Value::Number(3.into())
+        );
+        assert_eq!(
+            starlark_eval("15 % 4", &params).unwrap(),
+            Value::Number(3.into())
+        );
     }
 
     #[test]
     fn test_builtin_functions() {
         let params = make_params(empty_input());
-        assert_eq!(starlark_eval("min([3, 1, 2])", &params).unwrap(), Value::Number(1.into()));
-        assert_eq!(starlark_eval("max([3, 1, 2])", &params).unwrap(), Value::Number(3.into()));
-        assert_eq!(starlark_eval("len([1, 2, 3])", &params).unwrap(), Value::Number(3.into()));
-        assert_eq!(starlark_eval("sorted([3, 1, 2])", &params).unwrap(), Value::Array(vec![
-            Value::Number(1.into()),
-            Value::Number(2.into()),
-            Value::Number(3.into()),
-        ]));
+        assert_eq!(
+            starlark_eval("min([3, 1, 2])", &params).unwrap(),
+            Value::Number(1.into())
+        );
+        assert_eq!(
+            starlark_eval("max([3, 1, 2])", &params).unwrap(),
+            Value::Number(3.into())
+        );
+        assert_eq!(
+            starlark_eval("len([1, 2, 3])", &params).unwrap(),
+            Value::Number(3.into())
+        );
+        assert_eq!(
+            starlark_eval("sorted([3, 1, 2])", &params).unwrap(),
+            Value::Array(vec![
+                Value::Number(1.into()),
+                Value::Number(2.into()),
+                Value::Number(3.into()),
+            ])
+        );
     }
 
     #[test]
     fn test_conditional_expression() {
         let input = obj(vec![("value", Input::Integer(10))]);
         let params = make_params(input);
-        let result = starlark_eval("\"big\" if input['value'] > 5 else \"small\"", &params).unwrap();
+        let result = starlark_eval(
+            "\"big\" if input['value'] > 5 else \"small\"",
+            &params,
+        )
+        .unwrap();
         assert_eq!(result, Value::String("big".to_string()));
 
         let input2 = obj(vec![("value", Input::Integer(3))]);
         let params2 = make_params(input2);
-        let result2 = starlark_eval("\"big\" if input['value'] > 5 else \"small\"", &params2).unwrap();
+        let result2 = starlark_eval(
+            "\"big\" if input['value'] > 5 else \"small\"",
+            &params2,
+        )
+        .unwrap();
         assert_eq!(result2, Value::String("small".to_string()));
     }
 
@@ -378,7 +443,10 @@ mod tests {
     fn test_parse_error() {
         let params = make_params(empty_input());
         let result = starlark_eval("invalid syntax [[[", &params);
-        assert!(matches!(result, Err(ExpressionError::StarlarkParseError(_))));
+        assert!(matches!(
+            result,
+            Err(ExpressionError::StarlarkParseError(_))
+        ));
     }
 
     #[test]
@@ -396,7 +464,9 @@ mod tests {
         let map = obj(vec![("multiplier", Input::Integer(3))]);
         let params = make_params_with_map(input, map);
 
-        let result = starlark_eval("input['base'] * map['multiplier']", &params).unwrap();
+        let result =
+            starlark_eval("input['base'] * map['multiplier']", &params)
+                .unwrap();
         assert_eq!(result, Value::Number(300.into()));
     }
 
@@ -409,7 +479,9 @@ mod tests {
         ]);
         let params = make_params_with_map(input, map);
 
-        let result = starlark_eval("input['prefix'] + ' ' + map['name']", &params).unwrap();
+        let result =
+            starlark_eval("input['prefix'] + ' ' + map['name']", &params)
+                .unwrap();
         assert_eq!(result, Value::String("Hello World".to_string()));
 
         let result2 = starlark_eval("map['count'] * 10", &params).unwrap();
@@ -421,14 +493,19 @@ mod tests {
         let input = obj(vec![("factor", Input::Integer(2))]);
         let map = obj(vec![(
             "values",
-            arr(vec![Input::Integer(1), Input::Integer(2), Input::Integer(3)]),
+            arr(vec![
+                Input::Integer(1),
+                Input::Integer(2),
+                Input::Integer(3),
+            ]),
         )]);
         let params = make_params_with_map(input, map);
 
         let result = starlark_eval(
             "[v * input['factor'] for v in map['values']]",
             &params,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(
             result,
             Value::Array(vec![
@@ -439,85 +516,70 @@ mod tests {
         );
     }
 
-    // ==================== TESTS USING TASKS ====================
+    // ==================== TESTS USING OUTPUT ====================
 
     #[test]
-    fn test_tasks_scalar_output() {
+    fn test_output_scalar() {
         let input = empty_input();
-        let tasks = vec![
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.75)))),
-        ];
-        let params = make_params_with_tasks(input, tasks);
+        let output =
+            TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.75)));
+        let params = make_params_with_output(input, output);
 
         // FunctionOutput::Scalar serializes as just the decimal value (float)
-        let result = starlark_eval("tasks[0]", &params).unwrap();
+        let result = starlark_eval("output", &params).unwrap();
         assert_eq!(result.as_f64().unwrap(), 0.75);
     }
 
     #[test]
-    fn test_tasks_vector_output() {
+    fn test_output_vector() {
         let input = empty_input();
-        let tasks = vec![Some(TaskOutputOwned::Function(FunctionOutput::Vector(vec![
+        let output = TaskOutputOwned::Function(FunctionOutput::Vector(vec![
             dec!(0.1),
             dec!(0.2),
             dec!(0.7),
-        ])))];
-        let params = make_params_with_tasks(input, tasks);
+        ]));
+        let params = make_params_with_output(input, output);
 
         // FunctionOutput::Vector serializes as just the array of decimals
-        let result = starlark_eval("len(tasks[0])", &params).unwrap();
+        let result = starlark_eval("len(output)", &params).unwrap();
         assert_eq!(result, Value::Number(3.into()));
     }
 
     #[test]
-    fn test_tasks_vector_completion_scores() {
+    fn test_output_vector_completion_scores() {
         let input = empty_input();
-        let tasks = vec![Some(TaskOutputOwned::VectorCompletion(
-            VectorCompletionOutput {
-                votes: vec![],
-                scores: vec![dec!(0.25), dec!(0.25), dec!(0.5)],
-                weights: vec![dec!(1.0), dec!(1.0), dec!(2.0)],
-            },
-        ))];
-        let params = make_params_with_tasks(input, tasks);
+        let output = TaskOutputOwned::VectorCompletion(VectorCompletionOutput {
+            votes: vec![],
+            scores: vec![dec!(0.25), dec!(0.25), dec!(0.5)],
+            weights: vec![dec!(1.0), dec!(1.0), dec!(2.0)],
+        });
+        let params = make_params_with_output(input, output);
 
-        let result = starlark_eval("len(tasks[0]['scores'])", &params).unwrap();
+        let result = starlark_eval("len(output['scores'])", &params).unwrap();
         assert_eq!(result, Value::Number(3.into()));
 
-        let result2 = starlark_eval("len(tasks[0]['weights'])", &params).unwrap();
+        let result2 = starlark_eval("len(output['weights'])", &params).unwrap();
         assert_eq!(result2, Value::Number(3.into()));
     }
 
     #[test]
-    fn test_tasks_with_none() {
+    fn test_output_none() {
         let input = empty_input();
-        let tasks = vec![
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.5)))),
-            None,
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.8)))),
-        ];
-        let params = make_params_with_tasks(input, tasks);
+        let params = make_params(input);
 
-        let result = starlark_eval("tasks[1] == None", &params).unwrap();
+        let result = starlark_eval("output == None", &params).unwrap();
         assert_eq!(result, Value::Bool(true));
-
-        let result2 = starlark_eval("tasks[0] != None", &params).unwrap();
-        assert_eq!(result2, Value::Bool(true));
     }
 
     #[test]
-    fn test_tasks_multiple_outputs() {
+    fn test_output_not_none() {
         let input = obj(vec![("threshold", Input::Number(0.5))]);
-        let tasks = vec![
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.3)))),
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.7)))),
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.9)))),
-        ];
-        let params = make_params_with_tasks(input, tasks);
+        let output =
+            TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.7)));
+        let params = make_params_with_output(input, output);
 
-        // Count non-None tasks
-        let result = starlark_eval("len([t for t in tasks if t != None])", &params).unwrap();
-        assert_eq!(result, Value::Number(3.into()));
+        let result = starlark_eval("output != None", &params).unwrap();
+        assert_eq!(result, Value::Bool(true));
     }
 
     // ==================== TESTS USING ALL THREE ====================
@@ -525,18 +587,16 @@ mod tests {
     #[test]
     fn test_full_params_all_fields() {
         let input = obj(vec![("base_score", Input::Number(0.5))]);
-        let tasks = vec![Some(TaskOutputOwned::VectorCompletion(
-            VectorCompletionOutput {
-                votes: vec![],
-                scores: vec![dec!(0.3), dec!(0.7)],
-                weights: vec![dec!(1.0), dec!(1.0)],
-            },
-        ))];
+        let output = TaskOutputOwned::VectorCompletion(VectorCompletionOutput {
+            votes: vec![],
+            scores: vec![dec!(0.3), dec!(0.7)],
+            weights: vec![dec!(1.0), dec!(1.0)],
+        });
         let map = obj(vec![("index", Input::Integer(1))]);
-        let params = make_full_params(input, tasks, map);
+        let params = make_full_params(input, output, map);
 
-        // Access all three: input, tasks, and map
-        let result = starlark_eval("len(tasks[0]['scores'])", &params).unwrap();
+        // Access all three: input, output, and map
+        let result = starlark_eval("len(output['scores'])", &params).unwrap();
         assert_eq!(result, Value::Number(2.into()));
 
         let result2 = starlark_eval("map['index']", &params).unwrap();
@@ -545,48 +605,48 @@ mod tests {
 
     #[test]
     fn test_full_params_complex_expression() {
-        let input = obj(vec![
-            ("items", arr(vec![
+        let input = obj(vec![(
+            "items",
+            arr(vec![
                 Input::String("a".to_string()),
                 Input::String("b".to_string()),
                 Input::String("c".to_string()),
-            ])),
-        ]);
-        let tasks = vec![
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.2)))),
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.5)))),
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.3)))),
-        ];
+            ]),
+        )]);
+        let output =
+            TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.5)));
         let map = obj(vec![("selected_index", Input::Integer(1))]);
-        let params = make_full_params(input, tasks, map);
+        let params = make_full_params(input, output, map);
 
         // Use map to index into input
-        let result = starlark_eval("input['items'][map['selected_index']]", &params).unwrap();
+        let result =
+            starlark_eval("input['items'][map['selected_index']]", &params)
+                .unwrap();
         assert_eq!(result, Value::String("b".to_string()));
 
-        // Check task count equals input items count
-        let result2 = starlark_eval("len(tasks) == len(input['items'])", &params).unwrap();
-        assert_eq!(result2, Value::Bool(true));
+        // Verify output is accessible
+        let result2 = starlark_eval("output", &params).unwrap();
+        assert_eq!(result2.as_f64().unwrap(), 0.5);
     }
 
     #[test]
     fn test_map_function_outputs() {
         let input = empty_input();
-        let tasks = vec![Some(TaskOutputOwned::MapFunction(vec![
+        let output = TaskOutputOwned::MapFunction(vec![
             FunctionOutput::Scalar(dec!(0.1)),
             FunctionOutput::Scalar(dec!(0.5)),
             FunctionOutput::Scalar(dec!(0.9)),
-        ]))];
-        let params = make_params_with_tasks(input, tasks);
+        ]);
+        let params = make_params_with_output(input, output);
 
-        let result = starlark_eval("len(tasks[0])", &params).unwrap();
+        let result = starlark_eval("len(output)", &params).unwrap();
         assert_eq!(result, Value::Number(3.into()));
     }
 
     #[test]
     fn test_map_vector_completion_outputs() {
         let input = empty_input();
-        let tasks = vec![Some(TaskOutputOwned::MapVectorCompletion(vec![
+        let output = TaskOutputOwned::MapVectorCompletion(vec![
             VectorCompletionOutput {
                 votes: vec![],
                 scores: vec![dec!(0.5), dec!(0.5)],
@@ -597,15 +657,16 @@ mod tests {
                 scores: vec![dec!(0.3), dec!(0.7)],
                 weights: vec![dec!(0.5), dec!(0.5)],
             },
-        ]))];
-        let params = make_params_with_tasks(input, tasks);
+        ]);
+        let params = make_params_with_output(input, output);
 
         // Access first mapped output's scores length
-        let result = starlark_eval("len(tasks[0][0]['scores'])", &params).unwrap();
+        let result = starlark_eval("len(output[0]['scores'])", &params).unwrap();
         assert_eq!(result, Value::Number(2.into()));
 
         // Access second mapped output
-        let result2 = starlark_eval("len(tasks[0][1]['weights'])", &params).unwrap();
+        let result2 =
+            starlark_eval("len(output[1]['weights'])", &params).unwrap();
         assert_eq!(result2, Value::Number(2.into()));
     }
 
@@ -694,7 +755,8 @@ mod tests {
     #[test]
     fn test_average_simple() {
         let params = make_params(empty_input());
-        let result = starlark_eval("sum([2, 4, 6]) / len([2, 4, 6])", &params).unwrap();
+        let result =
+            starlark_eval("sum([2, 4, 6]) / len([2, 4, 6])", &params).unwrap();
         assert_eq!(result.as_f64().unwrap(), 4.0);
     }
 
@@ -710,22 +772,28 @@ mod tests {
             ]),
         )]);
         let params = make_params(input);
-        let result = starlark_eval("sum(input['scores']) / len(input['scores'])", &params).unwrap();
+        let result = starlark_eval(
+            "sum(input['scores']) / len(input['scores'])",
+            &params,
+        )
+        .unwrap();
         assert_eq!(result.as_f64().unwrap(), 0.75);
     }
 
     #[test]
-    fn test_average_task_outputs() {
+    fn test_average_mapped_outputs() {
         let input = empty_input();
-        let tasks = vec![
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.2)))),
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.4)))),
-            Some(TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.6)))),
-        ];
-        let params = make_params_with_tasks(input, tasks);
+        // MapFunction contains multiple scalar outputs from mapped task execution
+        let output = TaskOutputOwned::MapFunction(vec![
+            FunctionOutput::Scalar(dec!(0.2)),
+            FunctionOutput::Scalar(dec!(0.4)),
+            FunctionOutput::Scalar(dec!(0.6)),
+        ]);
+        let params = make_params_with_output(input, output);
 
         // FunctionOutput::Scalar serializes as just the float value
-        let result = starlark_eval("sum(tasks) / len(tasks)", &params).unwrap();
+        let result =
+            starlark_eval("sum(output) / len(output)", &params).unwrap();
         assert!((result.as_f64().unwrap() - 0.4).abs() < 0.0001);
     }
 
@@ -738,7 +806,8 @@ mod tests {
         let result = starlark_eval(
             "[x / sum([abs(y) for y in [2, 3, 5]]) for x in [2, 3, 5]]",
             &params,
-        ).unwrap();
+        )
+        .unwrap();
         let arr = result.as_array().unwrap();
         assert_eq!(arr.len(), 3);
         assert_eq!(arr[0].as_f64().unwrap(), 0.2);
@@ -753,7 +822,8 @@ mod tests {
         let result = starlark_eval(
             "[x / sum([abs(y) for y in [-2, 3, -5]]) for x in [-2, 3, -5]]",
             &params,
-        ).unwrap();
+        )
+        .unwrap();
         let arr = result.as_array().unwrap();
         assert_eq!(arr.len(), 3);
         assert_eq!(arr[0].as_f64().unwrap(), -0.2);
@@ -776,7 +846,8 @@ mod tests {
         let result = starlark_eval(
             "[w / sum(input['weights']) for w in input['weights']]",
             &params,
-        ).unwrap();
+        )
+        .unwrap();
         let arr = result.as_array().unwrap();
         assert_eq!(arr.len(), 3);
         assert_eq!(arr[0].as_f64().unwrap(), 0.2);
@@ -800,7 +871,8 @@ mod tests {
         let result = starlark_eval(
             "sum([v / sum(input['values']) for v in input['values']])",
             &params,
-        ).unwrap();
+        )
+        .unwrap();
         assert!((result.as_f64().unwrap() - 1.0).abs() < 0.0001);
     }
 }

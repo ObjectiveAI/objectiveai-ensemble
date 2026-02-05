@@ -30,25 +30,14 @@ ARG IP_RSA_PUBLIC_KEY
 ENV IP_RSA_PUBLIC_KEY=${IP_RSA_PUBLIC_KEY}
 ARG USER_IP_HEADER
 ENV USER_IP_HEADER=${USER_IP_HEADER}
-# --- install rust + wasm-pack ---
-RUN apt-get update \
-  && apt-get install -y curl build-essential pkg-config libssl-dev \
-  && curl https://sh.rustup.rs -sSf | sh -s -- -y \
-  && /root/.cargo/bin/rustup target add wasm32-unknown-unknown \
-  && /root/.cargo/bin/cargo install wasm-pack
-ENV PATH="/root/.cargo/bin:${PATH}"
 # Install workspace
 WORKDIR /root
-COPY package.json package-lock.json Cargo.toml Cargo.lock ./
-COPY objectiveai-api/ objectiveai-api/
-COPY objectiveai-rs/ objectiveai-rs/
-COPY objectiveai-rs-wasm-js/ objectiveai-rs-wasm-js/
+COPY package.json package-lock.json ./
 COPY objectiveai-js/ objectiveai-js/
 COPY objectiveai-web/package.json objectiveai-web/
 RUN npm install --include=dev
 # Build workspace
-COPY . .
-RUN npm run build --workspace=objectiveai-js
+COPY objectiveai-web/ objectiveai-web/
 RUN npm run build --workspace=objectiveai-web
 # Remove symlinks
 WORKDIR /root/objectiveai-web

@@ -1,0 +1,12 @@
+node_modules
+.env
+.claude/settings.local.json
+serverLog.txt
+compiledTasks.json
+resolvedIssues.json
+build.ts
+test.ts
+tsconfig.json
+package.json
+package-lock.json
+_runner.ts

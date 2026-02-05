@@ -2,7 +2,7 @@ import {
   validateFunctionInput as wasmValidateFunctionInput,
   compileFunctionInputMaps as wasmCompileFunctionInputMaps,
   compileFunctionTasks as wasmCompileFunctionTasks,
-  compileFunctionOutput as wasmCompileFunctionOutput,
+  // compileFunctionOutput as wasmCompileFunctionOutput, // TODO: Update for new per-task output expression architecture
   compileFunctionOutputLength as wasmCompileFunctionOutputLength,
   compileFunctionInputSplit as wasmCompileFunctionInputSplit,
   compileFunctionInputMerge as wasmCompileFunctionInputMerge,
@@ -39,15 +39,16 @@ export function compileFunctionTasks(
   return unmapped as CompiledTasks;
 }
 
-export function compileFunctionOutput(
-  function_: Function,
-  input: InputValue,
-  task_outputs: TaskOutputs,
-): CompiledFunctionOutput {
-  const value = wasmCompileFunctionOutput(function_, input, task_outputs);
-  const unmapped = mapsToRecords(value);
-  return unmapped as CompiledFunctionOutput;
-}
+// TODO: Update for new per-task output expression architecture
+// export function compileFunctionOutput(
+//   function_: Function,
+//   input: InputValue,
+//   task_outputs: TaskOutputs,
+// ): CompiledFunctionOutput {
+//   const value = wasmCompileFunctionOutput(function_, input, task_outputs);
+//   const unmapped = mapsToRecords(value);
+//   return unmapped as CompiledFunctionOutput;
+// }
 
 export function compileFunctionOutputLength(
   function_: Function,

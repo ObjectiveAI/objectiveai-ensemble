@@ -7,11 +7,7 @@
 
 use crate::ctx;
 use futures::FutureExt;
-use std::{
-    pin::Pin,
-    sync::{Arc, LazyLock},
-    task::Poll,
-};
+use std::{pin::Pin, sync::Arc, task::Poll};
 
 /// A flattened task ready for execution.
 ///
@@ -129,6 +125,9 @@ pub struct MapFunctionFlatTaskProfile {
     pub path: Vec<u64>,
     /// The individual flattened function tasks, one per element in the mapped array.
     pub functions: Vec<FunctionFlatTaskProfile>,
+    /// Expression to transform the task result from the parent task definition.
+    /// Receives: `input` (function input), `output` (the raw FunctionOutput).
+    pub task_output: objectiveai::functions::expression::Expression,
 }
 
 impl MapFunctionFlatTaskProfile {
@@ -166,10 +165,14 @@ pub struct FunctionFlatTaskProfile {
     pub input: objectiveai::functions::expression::Input,
     /// The flattened child tasks (None if task was skipped).
     pub tasks: Vec<Option<FlatTaskProfile>>,
-    /// The output expression for computing the final score.
-    pub output: objectiveai::functions::expression::Expression,
+    /// The weights for each task from the Profile (for weighted averaging).
+    pub profile: Vec<rust_decimal::Decimal>,
     /// The Function type (scalar or vector).
     pub r#type: FunctionType,
+    /// Expression to transform the task result from the parent task definition.
+    /// Receives: `input` (function input), `output` (the raw FunctionOutput).
+    /// None for root-level functions (not called as a task from a parent).
+    pub task_output: Option<objectiveai::functions::expression::Expression>,
 }
 
 impl FunctionFlatTaskProfile {
@@ -241,6 +244,9 @@ pub struct MapVectorCompletionFlatTaskProfile {
     pub path: Vec<u64>,
     /// The individual flattened vector completion tasks.
     pub vector_completions: Vec<VectorCompletionFlatTaskProfile>,
+    /// Expression to transform the combined MapVectorCompletion output.
+    /// Receives: `input` (function input), `output` (the MapVectorCompletion variant).
+    pub task_output: objectiveai::functions::expression::Expression,
 }
 
 impl MapVectorCompletionFlatTaskProfile {
@@ -272,6 +278,9 @@ pub struct VectorCompletionFlatTaskProfile {
     pub tools: Option<Vec<objectiveai::chat::completions::request::Tool>>,
     /// The compiled response options the LLMs will vote on.
     pub responses: Vec<objectiveai::chat::completions::request::RichContent>,
+    /// Expression to transform the raw VectorCompletionOutput into a FunctionOutput.
+    /// Receives: `output` (the raw VectorCompletionOutput).
+    pub output: objectiveai::functions::expression::Expression,
 }
 
 impl VectorCompletionFlatTaskProfile {
@@ -327,6 +336,7 @@ pub async fn get_flat_task_profile<CTXEXT>(
     function: FunctionParam,
     profile: ProfileParam,
     input: objectiveai::functions::expression::Input,
+    task_output: Option<objectiveai::functions::expression::Expression>,
     function_fetcher: Arc<
         impl super::function_fetcher::Fetcher<CTXEXT> + Send + Sync + 'static,
     >,
@@ -343,10 +353,6 @@ pub async fn get_flat_task_profile<CTXEXT>(
 where
     CTXEXT: Send + Sync + 'static,
 {
-    static EMPTY_TASKS: LazyLock<
-        Vec<Option<objectiveai::functions::expression::TaskOutput>>,
-    > = LazyLock::new(|| Vec::new());
-
     // fetch function and profile if needed
     let (function_full_id, function, profile_full_id, profile): (
         Option<(String, String, String)>,
@@ -477,20 +483,29 @@ where
         }
     }
 
-    // validate profile length
+    // validate profile tasks length matches function tasks length
+    let function_tasks_len = function.tasks().len();
     if match &profile {
         objectiveai::functions::Profile::Remote(rp) => rp.tasks.len(),
         objectiveai::functions::Profile::Inline(ip) => ip.tasks.len(),
-    } != function.tasks().len()
+    } != function_tasks_len
     {
+        return Err(super::executions::Error::InvalidProfile);
+    }
+
+    // take profile weights
+    let profile_weights = match &profile {
+        objectiveai::functions::Profile::Remote(rp) => rp.profile.clone(),
+        objectiveai::functions::Profile::Inline(ip) => ip.profile.clone(),
+    };
+
+    // validate profile weights length matches function tasks length
+    if profile_weights.len() != function_tasks_len {
         return Err(super::executions::Error::InvalidProfile);
     }
 
     // take description
     let description = function.description().map(str::to_owned);
-
-    // take output
-    let output = function.output().clone();
 
     // take type, compile output_length if needed
     let r#type = match function {
@@ -508,7 +523,7 @@ where
             let params = objectiveai::functions::expression::Params::Ref(
                 objectiveai::functions::expression::ParamsRef {
                     input: &input,
-                    tasks: &EMPTY_TASKS,
+                    output: None,
                     map: None,
                 },
             );
@@ -581,14 +596,18 @@ where
                         repository,
                         commit,
                         input,
+                        output,
                     },
-                )
-                | objectiveai::functions::Task::VectorFunction(
+                ),
+            )
+            | objectiveai::functions::CompiledTask::One(
+                objectiveai::functions::Task::VectorFunction(
                     objectiveai::functions::VectorFunctionTask {
                         owner,
                         repository,
                         commit,
                         input,
+                        output,
                     },
                 ),
             ) => {
@@ -622,6 +641,7 @@ where
                             _ => return Err(super::executions::Error::InvalidProfile),
                         },
                         input,
+                        Some(output),
                         function_fetcher.clone(),
                         profile_fetcher.clone(),
                         ensemble_fetcher.clone(),
@@ -649,24 +669,30 @@ where
                     ),
                 )));
             }
-            objectiveai::functions::CompiledTask::Many(tasks)
-                if tasks.len() == 0 =>
-            {
-                flat_tasks_or_futs.push(TaskFut::Task(Some(
-                    FlatTaskProfile::MapVectorCompletion(
-                        MapVectorCompletionFlatTaskProfile {
-                            path: task_path,
-                            vector_completions: Vec::new(),
-                        },
-                    ),
-                )));
-            }
             objectiveai::functions::CompiledTask::Many(tasks) => {
-                let vector_completions = match &tasks[0] {
-                    objectiveai::functions::Task::VectorCompletion(_) => true,
-                    _ => false,
+                // Determine task type and extract shared output expression before consuming tasks
+                let (is_vector_completion, map_task_output) = match tasks
+                    .first()
+                {
+                    Some(objectiveai::functions::Task::VectorCompletion(
+                        vc,
+                    )) => (true, vc.output.clone()),
+                    Some(objectiveai::functions::Task::ScalarFunction(sf)) => {
+                        (false, sf.output.clone())
+                    }
+                    Some(objectiveai::functions::Task::VectorFunction(vf)) => {
+                        (false, vf.output.clone())
+                    }
+                    None => {
+                        // Empty mapped task - need a placeholder expression
+                        // This case shouldn't normally happen, but handle gracefully
+                        (true, objectiveai::functions::expression::Expression::JMESPath(
+                            "output".to_string()
+                        ))
+                    }
                 };
-                if vector_completions {
+
+                if is_vector_completion {
                     let mut futs = Vec::with_capacity(tasks.len());
                     for (j, task) in tasks.into_iter().enumerate() {
                         let mut task_path = task_path.clone();
@@ -694,6 +720,7 @@ where
                     }
                     flat_tasks_or_futs.push(TaskFut::MapVectorTaskFut((
                         task_path,
+                        map_task_output,
                         futures::future::try_join_all(futs),
                     )));
                 } else {
@@ -762,6 +789,8 @@ where
                                 ) => vf_task.input.clone(),
                                 _ => unreachable!(),
                             },
+                            // Pass None for individual mapped functions - the task_output is stored on MapFunctionFlatTaskProfile
+                            None,
                             function_fetcher.clone(),
                             profile_fetcher.clone(),
                             ensemble_fetcher.clone(),
@@ -769,6 +798,7 @@ where
                     }
                     flat_tasks_or_futs.push(TaskFut::MapFunctionTaskFut((
                         task_path,
+                        map_task_output,
                         futures::future::try_join_all(futs),
                     )));
                 }
@@ -787,8 +817,9 @@ where
         full_profile_id: profile_full_id,
         input,
         tasks,
-        output,
+        profile: profile_weights,
         r#type,
+        task_output,
     })
 }
 
@@ -862,6 +893,7 @@ where
         messages: task.messages,
         tools: task.tools,
         responses: task.responses,
+        output: task.output,
     })
 }
 
@@ -882,9 +914,21 @@ enum TaskFut<
     SkipTask,
     Task(Option<super::FlatTaskProfile>),
     VectorTaskFut(Pin<Box<VFUT>>),
-    MapVectorTaskFut((Vec<u64>, futures::future::TryJoinAll<VFUT>)),
+    MapVectorTaskFut(
+        (
+            Vec<u64>,
+            objectiveai::functions::expression::Expression,
+            futures::future::TryJoinAll<VFUT>,
+        ),
+    ),
     FunctionTaskFut(Pin<Box<FFUT>>),
-    MapFunctionTaskFut((Vec<u64>, futures::future::TryJoinAll<FFUT>)),
+    MapFunctionTaskFut(
+        (
+            Vec<u64>,
+            objectiveai::functions::expression::Expression,
+            futures::future::TryJoinAll<FFUT>,
+        ),
+    ),
 }
 
 impl<VFUT, FFUT> Future for TaskFut<VFUT, FFUT>
@@ -915,12 +959,13 @@ where
                 .poll(cx)
                 .map_ok(FlatTaskProfile::VectorCompletion)
                 .map_ok(Some),
-            TaskFut::MapVectorTaskFut((path, futs)) => {
+            TaskFut::MapVectorTaskFut((path, task_output, futs)) => {
                 Pin::new(futs).poll(cx).map_ok(|results| {
                     Some(FlatTaskProfile::MapVectorCompletion(
                         MapVectorCompletionFlatTaskProfile {
                             path: path.clone(),
                             vector_completions: results,
+                            task_output: task_output.clone(),
                         },
                     ))
                 })
@@ -929,12 +974,13 @@ where
                 .poll(cx)
                 .map_ok(FlatTaskProfile::Function)
                 .map_ok(Some),
-            TaskFut::MapFunctionTaskFut((path, futs)) => {
+            TaskFut::MapFunctionTaskFut((path, task_output, futs)) => {
                 Pin::new(futs).poll(cx).map_ok(|results| {
                     Some(FlatTaskProfile::MapFunction(
                         MapFunctionFlatTaskProfile {
                             path: path.clone(),
                             functions: results,
+                            task_output: task_output.clone(),
                         },
                     ))
                 })

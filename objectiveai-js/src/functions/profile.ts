@@ -28,6 +28,7 @@ export type RemoteFunctionTaskProfile = z.infer<
 
 export interface InlineFunctionTaskProfile {
   tasks: TaskProfile[];
+  profile: number[];
 }
 export const InlineFunctionTaskProfileSchema: z.ZodType<InlineFunctionTaskProfile> =
   z
@@ -39,6 +40,9 @@ export const InlineFunctionTaskProfileSchema: z.ZodType<InlineFunctionTaskProfil
             .meta({ title: "TaskProfile", recursive: true })
         )
         .describe("The list of task profiles."),
+      profile: z
+        .array(z.number())
+        .describe("The weights for each task used in weighted averaging of task outputs."),
     })
     .describe("A function profile defined inline.")
     .meta({ title: "InlineFunctionTaskProfile" });
@@ -74,6 +78,9 @@ export type TaskProfiles = z.infer<typeof TaskProfilesSchema>;
 export const InlineProfileSchema = z
   .object({
     tasks: TaskProfilesSchema,
+    profile: z
+      .array(z.number())
+      .describe("The weights for each task used in weighted averaging of task outputs."),
   })
   .describe("A function profile defined inline.")
   .meta({ title: "InlineProfile" });

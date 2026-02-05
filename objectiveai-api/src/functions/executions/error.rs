@@ -63,6 +63,21 @@ pub enum Error {
     /// Invalid Strategy
     #[error("invalid strategy: {0}")]
     InvalidStrategy(String),
+    /// No valid task outputs to combine.
+    #[error("no valid task outputs")]
+    NoValidTaskOutputs,
+    /// One or more task output expressions failed.
+    #[error("task output expression errors: {0:?}")]
+    TaskOutputExpressionErrors(Vec<TaskOutputExpressionError>),
+}
+
+/// Error from evaluating a task's output expression.
+#[derive(Debug, Clone)]
+pub struct TaskOutputExpressionError {
+    /// Index of the task that failed.
+    pub task_index: usize,
+    /// Description of the error.
+    pub message: String,
 }
 
 impl objectiveai::error::StatusError for Error {
@@ -86,6 +101,8 @@ impl objectiveai::error::StatusError for Error {
             Error::InvalidVectorOutput(_) => 400,
             Error::InvalidFunctionForStrategy(_) => 400,
             Error::InvalidStrategy(_) => 400,
+            Error::NoValidTaskOutputs => 400,
+            Error::TaskOutputExpressionErrors(_) => 400,
         }
     }
 
@@ -164,6 +181,17 @@ impl objectiveai::error::StatusError for Error {
                 Error::InvalidStrategy(msg) => serde_json::json!({
                     "kind": "invalid_strategy",
                     "error": msg,
+                }),
+                Error::NoValidTaskOutputs => serde_json::json!({
+                    "kind": "no_valid_task_outputs",
+                    "error": "no valid task outputs to combine",
+                }),
+                Error::TaskOutputExpressionErrors(errors) => serde_json::json!({
+                    "kind": "task_output_expression_errors",
+                    "errors": errors.iter().map(|e| serde_json::json!({
+                        "task_index": e.task_index,
+                        "message": e.message,
+                    })).collect::<Vec<_>>(),
                 }),
             }
         }))

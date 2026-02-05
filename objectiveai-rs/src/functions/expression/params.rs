@@ -11,16 +11,14 @@ use serde::{Deserialize, Serialize};
 /// Contains all data accessible within expressions: `input`, `tasks`, and `map`.
 #[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
-pub enum Params<'i, 't, 'to, 'm> {
+pub enum Params<'i, 'to, 'm> {
     /// Owned version (for deserialization).
     Owned(ParamsOwned),
     /// Borrowed version (for efficient evaluation).
-    Ref(ParamsRef<'i, 't, 'to, 'm>),
+    Ref(ParamsRef<'i, 'to, 'm>),
 }
 
-impl<'de> serde::Deserialize<'de>
-    for Params<'static, 'static, 'static, 'static>
-{
+impl<'de> serde::Deserialize<'de> for Params<'static, 'static, 'static> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -35,19 +33,19 @@ impl<'de> serde::Deserialize<'de>
 pub struct ParamsOwned {
     /// The function's input data.
     pub input: super::Input,
-    /// Results from executed tasks. Only populated for output expressions.
-    pub tasks: Vec<Option<TaskOutputOwned>>,
+    /// Results from executed tasks. Only populated for task output expressions.
+    pub output: Option<TaskOutputOwned>,
     /// Current map element. Only populated for mapped task expressions.
     pub map: Option<super::Input>,
 }
 
 /// Borrowed version of expression parameters.
 #[derive(Debug, Clone, Serialize)]
-pub struct ParamsRef<'i, 't, 'to, 'm> {
+pub struct ParamsRef<'i, 'to, 'm> {
     /// The function's input data.
     pub input: &'i super::Input,
-    /// Results from executed tasks. Only populated for output expressions.
-    pub tasks: &'t [Option<TaskOutput<'to>>],
+    /// Results from executed tasks. Only populated for task output expressions.
+    pub output: Option<TaskOutput<'to>>,
     /// Current map element. Only populated for mapped task expressions.
     pub map: Option<&'m super::Input>,
 }

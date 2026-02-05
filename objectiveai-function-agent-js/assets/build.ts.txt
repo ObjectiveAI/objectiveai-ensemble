@@ -1,0 +1,33 @@
+import { writeFunctionJson, writeProfileJson, spawnApiServer, createLocalObjectiveAI, runTests } from "@objectiveai/function-agent";
+import { execSync } from "child_process";
+import "dotenv/config";
+
+async function main(): Promise<void> {
+  // Discard any changes to the objectiveai submodule
+  execSync("git -C objectiveai checkout -- .", { stdio: "inherit" });
+
+  // Install dependencies
+  execSync("npm install", { stdio: "inherit" });
+
+  // Build
+  writeFunctionJson();
+  writeProfileJson();
+
+  // Test
+  const apiBase = process.env.ONLY_SET_IF_YOU_KNOW_WHAT_YOURE_DOING;
+  const port = Math.floor(Math.random() * 50000) + 10000;
+
+  const apiProcess = await spawnApiServer({ apiBase, port });
+  const objectiveai = createLocalObjectiveAI({ apiBase, port });
+
+  try {
+    await runTests({ objectiveai });
+  } finally {
+    apiProcess?.kill();
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

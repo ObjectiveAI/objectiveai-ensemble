@@ -33,6 +33,8 @@ pub struct RemoteProfile {
     pub changelog: Option<String>,
     /// Configuration for each task in the corresponding Function.
     pub tasks: Vec<TaskProfile>,
+    /// Weights for each Task in the corresponding Function.
+    pub profile: Vec<rust_decimal::Decimal>,
 }
 
 /// An inline profile definition without metadata.
@@ -40,6 +42,8 @@ pub struct RemoteProfile {
 pub struct InlineProfile {
     /// Configuration for each task in the corresponding Function.
     pub tasks: Vec<TaskProfile>,
+    /// Weights for each Task in the corresponding Function.
+    pub profile: Vec<rust_decimal::Decimal>,
 }
 
 /// Configuration for a single task within a Profile.

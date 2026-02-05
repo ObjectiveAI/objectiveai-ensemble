@@ -2,6 +2,7 @@
   "name": "objectiveai-monorepo",
   "private": true,
   "workspaces": [
+    "objectiveai-function-agent-js",
     "objectiveai-js",
     "objectiveai-web",
     "objectiveai-web-new"
