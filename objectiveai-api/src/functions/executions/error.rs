@@ -18,8 +18,8 @@ pub enum Error {
     #[error("profile not found")]
     ProfileNotFound,
     /// The Profile is invalid for the Function.
-    #[error("invalid profile")]
-    InvalidProfile,
+    #[error("invalid profile: {0}")]
+    InvalidProfile(String),
     /// Failed to fetch an Ensemble definition.
     #[error("fetch ensemble error: {0}")]
     FetchEnsemble(objectiveai::error::ResponseError),
@@ -87,7 +87,7 @@ impl objectiveai::error::StatusError for Error {
             Error::FunctionNotFound => 404,
             Error::FetchProfile(e) => e.status(),
             Error::ProfileNotFound => 404,
-            Error::InvalidProfile => 400,
+            Error::InvalidProfile(_) => 400,
             Error::FetchEnsemble(e) => e.status(),
             Error::EnsembleNotFound => 404,
             Error::InvalidEnsemble(_) => 400,
@@ -126,9 +126,9 @@ impl objectiveai::error::StatusError for Error {
                     "kind": "profile_not_found",
                     "error": "profile not found",
                 }),
-                Error::InvalidProfile => serde_json::json!({
+                Error::InvalidProfile(msg) => serde_json::json!({
                     "kind": "invalid_profile",
-                    "error": "invalid profile"
+                    "error": msg,
                 }),
                 Error::FetchEnsemble(e) => serde_json::json!({
                     "kind": "fetch_ensemble",

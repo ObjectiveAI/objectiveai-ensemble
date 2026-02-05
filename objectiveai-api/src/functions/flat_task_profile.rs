@@ -485,12 +485,15 @@ where
 
     // validate profile tasks length matches function tasks length
     let function_tasks_len = function.tasks().len();
-    if match &profile {
+    let profile_tasks_len = match &profile {
         objectiveai::functions::Profile::Remote(rp) => rp.tasks.len(),
         objectiveai::functions::Profile::Inline(ip) => ip.tasks.len(),
-    } != function_tasks_len
-    {
-        return Err(super::executions::Error::InvalidProfile);
+    };
+    if profile_tasks_len != function_tasks_len {
+        return Err(super::executions::Error::InvalidProfile(format!(
+            "profile tasks length ({}) does not match function tasks length ({})",
+            profile_tasks_len, function_tasks_len
+        )));
     }
 
     // take profile weights
@@ -501,7 +504,10 @@ where
 
     // validate profile weights length matches function tasks length
     if profile_weights.len() != function_tasks_len {
-        return Err(super::executions::Error::InvalidProfile);
+        return Err(super::executions::Error::InvalidProfile(format!(
+            "profile weights length ({}) does not match function tasks length ({})",
+            profile_weights.len(), function_tasks_len
+        )));
     }
 
     // take description
@@ -638,7 +644,9 @@ where
                                     profile,
                                 ),
                             },
-                            _ => return Err(super::executions::Error::InvalidProfile),
+                            _ => return Err(super::executions::Error::InvalidProfile(
+                                "expected function profile (RemoteFunction or InlineFunction) for function task".to_string()
+                            )),
                         },
                         input,
                         Some(output),
@@ -656,7 +664,9 @@ where
                         ensemble,
                         profile,
                     } => (ensemble, profile),
-                    _ => return Err(super::executions::Error::InvalidProfile),
+                    _ => return Err(super::executions::Error::InvalidProfile(
+                        "expected VectorCompletion profile for vector completion task".to_string()
+                    )),
                 };
                 flat_tasks_or_futs.push(TaskFut::VectorTaskFut(Box::pin(
                     get_vector_completion_flat_task_profile(
@@ -702,7 +712,9 @@ where
                                 ensemble,
                                 profile,
                             } => (ensemble.clone(), profile.clone()),
-                            _ => return Err(super::executions::Error::InvalidProfile),
+                            _ => return Err(super::executions::Error::InvalidProfile(
+                                "expected VectorCompletion profile for mapped vector completion task".to_string()
+                            )),
                         };
                         futs.push(get_vector_completion_flat_task_profile(
                             ctx.clone(),
@@ -778,7 +790,9 @@ where
                                         profile.clone(),
                                     ),
                                 },
-                                _ => return Err(super::executions::Error::InvalidProfile),
+                                _ => return Err(super::executions::Error::InvalidProfile(
+                                    "expected function profile (RemoteFunction or InlineFunction) for mapped function task".to_string()
+                                )),
                             },
                             match &task {
                                 objectiveai::functions::Task::ScalarFunction(
@@ -865,7 +879,10 @@ where
 
     // validate profile length
     if profile.len() != ensemble.llms.len() {
-        return Err(super::executions::Error::InvalidProfile);
+        return Err(super::executions::Error::InvalidProfile(format!(
+            "vector completion profile weights length ({}) does not match ensemble LLMs length ({})",
+            profile.len(), ensemble.llms.len()
+        )));
     }
 
     // construct flat task profile
