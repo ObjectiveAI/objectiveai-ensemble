@@ -15,7 +15,6 @@ export function spawnApiServer(
 ): Promise<ChildProcess | null> {
   const {
     apiBase,
-    address = "localhost",
     manifestPath = "./objectiveai/objectiveai-api/Cargo.toml",
   } = options;
 
