@@ -104,16 +104,13 @@ export default function ProfilesPage() {
         {/* Sticky Search Bar Row with Filter Button */}
         <div
           ref={searchRef}
+          className="stickySearchBar"
           style={{
-            position: 'sticky',
             top: `${searchBarTop}px`,
-            zIndex: 100,
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
             marginBottom: safeGap,
-            background: 'var(--page-bg)',
-            padding: '8px 0',
           }}
         >
           {/* Filter/Sort Button - Left of Search Bar */}

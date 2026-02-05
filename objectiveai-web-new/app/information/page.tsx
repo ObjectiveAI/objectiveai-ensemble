@@ -98,6 +98,8 @@ const faqSections: { title: string; items: FAQItem[] }[] = [
 
 export default function InformationPage() {
   const isMobile = useIsMobile();
+  const [sdksOpen, setSdksOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
 
@@ -245,74 +247,269 @@ export default function InformationPage() {
           </p>
         </div>
 
-        {/* Getting Started */}
-        <div style={{ marginBottom: isMobile ? '60px' : '100px' }}>
-          <h2 className="heading2" style={{ marginBottom: isMobile ? '24px' : '32px' }}>Getting Started</h2>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-            gap: '16px',
-          }}>
-            <Link
-              href="/sdk-first"
-              className="card"
-              style={{
-                padding: isMobile ? '20px' : '24px',
-                textDecoration: 'none',
-                display: 'block',
-              }}
-            >
-              <h3 style={{
-                fontSize: isMobile ? '18px' : '20px',
-                fontWeight: 600,
-                marginBottom: '8px',
-                color: 'var(--text)',
-              }}>
-                SDK-First
-              </h3>
-              <p style={{
-                fontSize: isMobile ? '14px' : '15px',
-                color: 'var(--text-muted)',
-                lineHeight: 1.6,
-                margin: 0,
-              }}>
-                Integrate ObjectiveAI into your applications with the TypeScript SDK.
-              </p>
-            </Link>
-            <Link
-              href="/vibe-native"
-              className="card"
-              style={{
-                padding: isMobile ? '20px' : '24px',
-                textDecoration: 'none',
-                display: 'block',
-              }}
-            >
-              <h3 style={{
-                fontSize: isMobile ? '18px' : '20px',
-                fontWeight: 600,
-                marginBottom: '8px',
-                color: 'var(--text)',
-              }}>
-                Vibe-Native
-              </h3>
-              <p style={{
-                fontSize: isMobile ? '14px' : '15px',
-                color: 'var(--text-muted)',
-                lineHeight: 1.6,
-                margin: 0,
-              }}>
-                Use ObjectiveAI functions without writing code.
-              </p>
-            </Link>
-          </div>
-        </div>
-
-        {/* FAQ Card */}
+        {/* SDKs Card - Collapsible */}
         <div
           className="card"
           style={{
-            marginBottom: isMobile ? '60px' : '100px',
+            marginBottom: '24px',
+            padding: 0,
+            overflow: 'hidden',
+            cursor: 'pointer',
+          }}
+          onClick={() => setSdksOpen(!sdksOpen)}
+        >
+          <div
+            style={{
+              padding: isMobile ? '16px' : '24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '16px',
+            }}
+          >
+            <div>
+              <h3 style={{
+                fontSize: isMobile ? '18px' : '20px',
+                fontWeight: 600,
+                marginBottom: '8px',
+                color: 'var(--text)',
+              }}>
+                SDKs
+              </h3>
+              <p style={{
+                fontSize: isMobile ? '14px' : '15px',
+                color: 'var(--text-muted)',
+                lineHeight: 1.6,
+                margin: 0,
+              }}>
+                Set up your development environment with an Open-Source SDK
+              </p>
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                flexShrink: 0,
+                transition: 'transform 0.2s',
+                transform: sdksOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+
+          {sdksOpen && (
+            <div
+              style={{
+                padding: isMobile ? '0 16px 16px' : '0 24px 24px',
+                borderTop: '1px solid var(--border)',
+                marginTop: '8px',
+                paddingTop: isMobile ? '16px' : '20px',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: isMobile ? '24px' : '32px',
+              }}>
+                {sdks.map((sdk, idx) => (
+                  <div key={idx}>
+                    <h4 style={{
+                      fontSize: isMobile ? '16px' : '18px',
+                      fontWeight: 600,
+                      marginBottom: '12px',
+                      paddingBottom: '12px',
+                      borderBottom: '1px solid var(--border)',
+                      color: 'var(--text)',
+                    }}>
+                      {sdk.lang}
+                    </h4>
+                    <div style={{
+                      display: 'flex',
+                      gap: '16px',
+                      flexWrap: 'wrap',
+                    }}>
+                      {sdk.links.map((link, linkIdx) => (
+                        <Link
+                          key={linkIdx}
+                          href={link.url}
+                          className={link.available ? 'sdkLink' : ''}
+                          style={{
+                            fontSize: '14px',
+                            color: link.available ? 'var(--text)' : 'var(--text-muted)',
+                            textDecoration: 'underline',
+                            cursor: link.available ? 'pointer' : 'default',
+                            pointerEvents: link.available ? 'auto' : 'none',
+                          }}
+                        >
+                          {link.label}
+                          {!link.available && ' (Coming Soon)'}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* API Documentation Card - Collapsible */}
+        <div
+          className="card"
+          style={{
+            marginBottom: '24px',
+            padding: 0,
+            overflow: 'hidden',
+            cursor: 'pointer',
+          }}
+          onClick={() => setDocsOpen(!docsOpen)}
+        >
+          <div
+            style={{
+              padding: isMobile ? '16px' : '24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '16px',
+            }}
+          >
+            <div>
+              <h3 style={{
+                fontSize: isMobile ? '18px' : '20px',
+                fontWeight: 600,
+                marginBottom: '8px',
+                color: 'var(--text)',
+              }}>
+                API Documentation
+              </h3>
+              <p style={{
+                fontSize: isMobile ? '14px' : '15px',
+                color: 'var(--text-muted)',
+                lineHeight: 1.6,
+                margin: 0,
+              }}>
+                REST API endpoints and reference documentation
+              </p>
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                flexShrink: 0,
+                transition: 'transform 0.2s',
+                transform: docsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+
+          {docsOpen && (
+            <div
+              style={{
+                padding: isMobile ? '0 16px 16px' : '0 24px 24px',
+                borderTop: '1px solid var(--border)',
+                marginTop: '8px',
+                paddingTop: isMobile ? '16px' : '20px',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: isMobile ? '32px' : '48px',
+              }}>
+                {apiEndpoints.map((section, idx) => (
+                  <div key={idx}>
+                    <h4 style={{
+                      fontSize: isMobile ? '16px' : '18px',
+                      fontWeight: 600,
+                      marginBottom: isMobile ? '12px' : '16px',
+                      color: 'var(--text)',
+                    }}>
+                      {section.category}
+                    </h4>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: isMobile ? '16px' : '12px',
+                    }}>
+                      {section.endpoints.map((endpoint, endIdx) => (
+                        <div
+                          key={endIdx}
+                          style={{
+                            display: 'flex',
+                            flexDirection: isMobile ? 'column' : 'row',
+                            gap: isMobile ? '4px' : '16px',
+                            alignItems: isMobile ? 'flex-start' : 'flex-start',
+                          }}
+                        >
+                          <span style={{
+                            fontSize: isMobile ? '11px' : '13px',
+                            fontWeight: 600,
+                            padding: isMobile ? '2px 6px' : '4px 8px',
+                            borderRadius: '4px',
+                            flexShrink: 0,
+                            lineHeight: 1,
+                            color: endpoint.method === 'GET' ? 'var(--method-get)' :
+                                   endpoint.method === 'POST' ? 'var(--accent)' :
+                                   endpoint.method === 'DELETE' ? 'var(--color-error)' : 'var(--text)',
+                          }}>
+                            {endpoint.method}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              className="endpointPath"
+                              style={{
+                                fontSize: isMobile ? '12px' : '14px',
+                                fontFamily: 'monospace',
+                                fontWeight: 600,
+                                color: 'var(--text)',
+                                marginBottom: '4px',
+                                lineHeight: 1.4,
+                                cursor: 'pointer',
+                                wordBreak: 'break-all',
+                              }}
+                            >
+                              {endpoint.path}
+                            </div>
+                            <div style={{
+                              fontSize: isMobile ? '13px' : '14px',
+                              color: 'var(--text-muted)',
+                              lineHeight: 1.4,
+                            }}>
+                              {endpoint.desc}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* FAQ Card - Collapsible */}
+        <div
+          className="card"
+          style={{
+            marginBottom: '24px',
             padding: 0,
             overflow: 'hidden',
             cursor: 'pointer',
@@ -465,141 +662,6 @@ export default function InformationPage() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* API Docs Section */}
-        <div style={{ marginBottom: isMobile ? '60px' : '100px' }}>
-          <h2 className="heading2" style={{ marginBottom: isMobile ? '24px' : '32px' }}>API Documentation</h2>
-
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: isMobile ? '32px' : '48px',
-          }}>
-            {apiEndpoints.map((section, idx) => (
-              <div key={idx}>
-                <h3 style={{
-                  fontSize: isMobile ? '18px' : '20px',
-                  fontWeight: 600,
-                  marginBottom: isMobile ? '12px' : '16px',
-                  color: 'var(--text)',
-                }}>
-                  {section.category}
-                </h3>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: isMobile ? '16px' : '12px',
-                }}>
-                  {section.endpoints.map((endpoint, endIdx) => (
-                    <div
-                      key={endIdx}
-                      style={{
-                        display: 'flex',
-                        flexDirection: isMobile ? 'column' : 'row',
-                        gap: isMobile ? '4px' : '16px',
-                        alignItems: isMobile ? 'flex-start' : 'flex-start',
-                      }}
-                    >
-                      <span style={{
-                        fontSize: isMobile ? '11px' : '13px',
-                        fontWeight: 600,
-                        padding: isMobile ? '2px 6px' : '4px 8px',
-                        borderRadius: '4px',
-                        flexShrink: 0,
-                        lineHeight: 1,
-                        color: endpoint.method === 'GET' ? 'var(--method-get)' :
-                               endpoint.method === 'POST' ? 'var(--accent)' :
-                               endpoint.method === 'DELETE' ? 'var(--color-error)' : 'var(--text)',
-                      }}>
-                        {endpoint.method}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          className="endpointPath"
-                          style={{
-                            fontSize: isMobile ? '12px' : '14px',
-                            fontFamily: 'monospace',
-                            fontWeight: 600,
-                            color: 'var(--text)',
-                            marginBottom: '4px',
-                            lineHeight: 1.4,
-                            cursor: 'pointer',
-                            wordBreak: 'break-all',
-                          }}
-                        >
-                          {endpoint.path}
-                        </div>
-                        <div style={{
-                          fontSize: isMobile ? '13px' : '14px',
-                          color: 'var(--text-muted)',
-                          lineHeight: 1.4,
-                        }}>
-                          {endpoint.desc}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* SDKs Section */}
-        <div style={{ marginBottom: isMobile ? '60px' : '100px' }}>
-          <h2 className="heading2" style={{ marginBottom: '12px' }}>SDKs</h2>
-          <p style={{
-            fontSize: isMobile ? '14px' : '15px',
-            color: 'var(--text-muted)',
-            marginBottom: isMobile ? '24px' : '32px',
-          }}>
-            Set up your development environment to use the ObjectiveAI API with an Open-Source SDK in your preferred language.
-          </p>
-
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: isMobile ? '24px' : '32px',
-          }}>
-            {sdks.map((sdk, idx) => (
-              <div key={idx}>
-                <h3 style={{
-                  fontSize: isMobile ? '18px' : '20px',
-                  fontWeight: 600,
-                  marginBottom: '12px',
-                  paddingBottom: '12px',
-                  borderBottom: '1px solid var(--border)',
-                  color: 'var(--text)',
-                }}>
-                  {sdk.lang}
-                </h3>
-                <div style={{
-                  display: 'flex',
-                  gap: '16px',
-                  flexWrap: 'wrap',
-                }}>
-                  {sdk.links.map((link, linkIdx) => (
-                    <Link
-                      key={linkIdx}
-                      href={link.url}
-                      className={link.available ? 'sdkLink' : ''}
-                      style={{
-                        fontSize: '14px',
-                        color: link.available ? 'var(--text)' : 'var(--text-muted)',
-                        textDecoration: 'underline',
-                        cursor: link.available ? 'pointer' : 'default',
-                        pointerEvents: link.available ? 'auto' : 'none',
-                      }}
-                    >
-                      {link.label}
-                      {!link.available && ' (Coming Soon)'}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
