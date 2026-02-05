@@ -1,6 +1,23 @@
 import { execSync } from "child_process";
 import { existsSync, readdirSync, readFileSync } from "fs";
 
+// Read JSON file that should contain a string value
+// Handles both quoted ("value") and unquoted (value) content
+function readStringJsonFile(path: string): string | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  let content = readFileSync(path, "utf-8").trim();
+  if (!content || content === "null") {
+    return null;
+  }
+  // Remove surrounding quotes if both present (only one pair)
+  if (content.startsWith('"') && content.endsWith('"')) {
+    content = content.slice(1, -1);
+  }
+  return content;
+}
+
 interface SubFunctionInfo {
   index: number;
   owner: string;
@@ -46,8 +63,8 @@ function main(): void {
     let owner = "";
     let repository = "";
     const namePath = `${subFunctionPath}/github/name.json`;
-    if (existsSync(namePath)) {
-      const name = JSON.parse(readFileSync(namePath, "utf-8")) as string;
+    const name = readStringJsonFile(namePath);
+    if (name) {
       const parts = name.split("/");
       if (parts.length === 2) {
         owner = parts[0];
