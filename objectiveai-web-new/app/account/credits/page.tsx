@@ -14,9 +14,6 @@ interface CreditsData {
   total_credits_used: number;
 }
 
-// TODO: Remove this bypass when auth is working
-const BYPASS_AUTH = true;
-
 export default function CreditsPage() {
   const { user, isLoading } = useAuth();
   const isMobile = useIsMobile();
@@ -48,9 +45,9 @@ export default function CreditsPage() {
     }
   }, [getClient]);
 
-  // Fetch credits when user is authenticated (or bypass enabled)
+  // Fetch credits when user is authenticated
   useEffect(() => {
-    if ((user || BYPASS_AUTH) && !isLoading) {
+    if (user && !isLoading) {
       fetchCredits();
     }
   }, [user, isLoading, fetchCredits]);
@@ -73,7 +70,7 @@ export default function CreditsPage() {
     );
   }
 
-  if (!user && !BYPASS_AUTH) {
+  if (!user) {
     return (
       <div className="page">
         <div className="container" style={{

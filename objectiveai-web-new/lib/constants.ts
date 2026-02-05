@@ -16,3 +16,8 @@ export const NAV_HEIGHT_CALCULATION_DELAY_MS = 100;
 // Input behavior
 export const DROPDOWN_BLUR_DELAY_MS = 150;
 export const WASM_VALIDATION_DEBOUNCE_MS = 300;
+
+// Stripe payment timing
+export const STRIPE_TAX_PROPAGATION_DELAY_MS = 10000;  // 10 seconds for tax calculation
+export const STRIPE_MIN_CREDITS_CENTS = 500;           // $5 minimum
+export const STRIPE_MAX_CREDITS_CENTS = 1_000_000;     // $10,000 maximum

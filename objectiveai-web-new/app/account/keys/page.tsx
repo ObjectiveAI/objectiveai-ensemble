@@ -18,9 +18,6 @@ interface ApiKey {
   cost: number;
 }
 
-// TODO: Remove this bypass when auth is working
-const BYPASS_AUTH = true;
-
 export default function ApiKeysPage() {
   const { user, isLoading } = useAuth();
   const isMobile = useIsMobile();
@@ -60,9 +57,9 @@ export default function ApiKeysPage() {
     }
   }, [getClient]);
 
-  // Fetch keys when user is authenticated (or bypass enabled)
+  // Fetch keys when user is authenticated
   useEffect(() => {
-    if ((user || BYPASS_AUTH) && !isLoading) {
+    if (user && !isLoading) {
       fetchKeys();
     }
   }, [user, isLoading, fetchKeys]);
@@ -155,7 +152,7 @@ export default function ApiKeysPage() {
     );
   }
 
-  if (!user && !BYPASS_AUTH) {
+  if (!user) {
     return (
       <div className="page">
         <div className="container" style={{
