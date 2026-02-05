@@ -685,6 +685,18 @@ Module loads gracefully - shows "Enter model to see ID" when WASM unavailable.
 
 ---
 
+## Conventions
+
+### Code Changes
+
+When asked to "standardize" or "apply patterns from X to Y", preserve existing functionality while adopting the visual/structural patterns. Never remove features (like filters, sorts, controls) unless explicitly told to.
+
+### Quality Checks
+
+After declaring work "complete" on multi-page tasks, enumerate all affected pages and verify each one was touched before finishing.
+
+---
+
 ## Development Workflow
 
 ### Merging from Main
