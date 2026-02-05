@@ -119,7 +119,7 @@ This function must use **vector completion tasks** (type: \`vector.completion\`)
 Expressions receive a single object with these fields:
 - \`input\` - Always present, the function input
 - \`map\` - Present in mapped tasks, the current map element
-- \`tasks\` - Present in output expressions, array of task results
+- \`output\` - Present in task output expressions, the raw task result (VectorCompletionOutput, or array of VectorCompletionOutputs if mapped)
 
 ### Test Inputs
 - Edit \`inputs.json\` to add diverse test inputs (minimum 10, maximum 100)

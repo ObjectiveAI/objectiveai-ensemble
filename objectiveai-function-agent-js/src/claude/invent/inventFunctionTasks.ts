@@ -166,7 +166,7 @@ To retrieve the current commit SHA for each sub-function:
 Expressions receive a single object with these fields:
 - \`input\` - Always present, the function input
 - \`map\` - Present in mapped tasks, the current map element
-- \`tasks\` - Present in output expressions, array of task results
+- \`output\` - Present in task output expressions, the raw task result (FunctionOutput, or array of FunctionOutputs if mapped)
 
 ### Test Inputs
 - Edit \`inputs.json\` to add diverse test inputs (minimum 10, maximum 100)
