@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectiveAI, Ensemble } from "objectiveai";
+import { requireAuth } from "@/lib/api-auth";
 
 function getServerClient(): ObjectiveAI {
   return new ObjectiveAI({
@@ -23,11 +24,14 @@ export async function GET(
 
     const client = getServerClient();
 
-    // Check if usage is requested
+    // Check if usage is requested — requires authentication (exposes spending data)
     const { searchParams } = new URL(request.url);
     const includeUsage = searchParams.get("usage") === "true";
 
     if (includeUsage) {
+      const denied = await requireAuth(request);
+      if (denied) return denied;
+
       const usage = await Ensemble.retrieveUsage(client, id);
       return NextResponse.json(usage);
     }

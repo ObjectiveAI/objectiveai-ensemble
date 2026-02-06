@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/api-auth";
 
 /**
  * Profile Training API Route (Placeholder)
@@ -28,6 +29,9 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAuth(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { function: functionRef, training_data, parameters } = body;

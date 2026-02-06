@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectiveAI, Vector } from "objectiveai";
 import { normalizeError, getErrorStatusCode } from "@/lib/error-handling";
+import { requireAuth } from "@/lib/api-auth";
 
 // Server-side client with API key from environment
 function getServerClient(): ObjectiveAI {
@@ -10,6 +11,9 @@ function getServerClient(): ObjectiveAI {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAuth(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const { messages, responses, ensemble, profile, from_cache, from_rng, stream } = body;
