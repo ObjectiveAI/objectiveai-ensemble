@@ -234,176 +234,193 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Messages Area */}
+        {/* Conversation Frame */}
         <div
           className="card"
           style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            padding: 0,
+            overflow: "hidden",
+          }}
+        >
+          {/* Messages Area */}
+          <div style={{
             flex: 1,
             overflow: "auto",
             display: "flex",
             flexDirection: "column",
             padding: isMobile ? "16px" : "24px",
-            marginBottom: isMobile ? "16px" : "20px",
-          }}
-        >
-          {messages.length === 0 ? (
-            <div style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--text-muted)",
-              textAlign: "center",
-              padding: "40px 20px",
-            }}>
-              <div>
-                <p style={{ fontSize: "32px", marginBottom: "8px", opacity: 0.5 }}>💬</p>
-                <p style={{ fontSize: "14px" }}>Start a conversation</p>
+          }}>
+            {messages.length === 0 ? (
+              <div style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--text-muted)",
+                textAlign: "center",
+                padding: "40px 20px",
+              }}>
+                <div>
+                  <p style={{ fontSize: "32px", marginBottom: "8px", opacity: 0.5 }}>💬</p>
+                  <p style={{ fontSize: "14px" }}>Start a conversation</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                  }}
-                >
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {messages.map((msg, idx) => (
                   <div
+                    key={idx}
                     style={{
-                      maxWidth: "80%",
-                      padding: isMobile ? "12px 16px" : "14px 20px",
-                      borderRadius: "16px",
-                      background: msg.role === "user"
-                        ? "var(--accent)"
-                        : "var(--page-bg)",
-                      color: msg.role === "user"
-                        ? "var(--color-light)"
-                        : "var(--text)",
-                      fontSize: isMobile ? "14px" : "15px",
-                      lineHeight: 1.6,
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
+                      display: "flex",
+                      justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
                     }}
                   >
-                    {msg.content || (isLoading && msg.role === "assistant" && (
-                      <span style={{ opacity: 0.6 }}>Thinking...</span>
-                    ))}
+                    <div
+                      style={{
+                        maxWidth: "80%",
+                        padding: isMobile ? "12px 16px" : "14px 20px",
+                        borderRadius: "16px",
+                        background: msg.role === "user"
+                          ? "var(--accent-light)"
+                          : "var(--page-bg)",
+                        color: "var(--text)",
+                        fontSize: isMobile ? "14px" : "15px",
+                        lineHeight: 1.6,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {msg.content || (isLoading && msg.role === "assistant" && (
+                        <span style={{ opacity: 0.6 }}>Thinking...</span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div style={{
+              padding: "12px 16px",
+              margin: isMobile ? "0 16px 12px" : "0 24px 12px",
+              background: "rgba(239, 68, 68, 0.1)",
+              border: "1px solid rgba(239, 68, 68, 0.2)",
+              borderRadius: "12px",
+              color: "var(--color-error)",
+              fontSize: "14px",
+            }}>
+              {error.includes("401")
+                ? "Authentication error. API key may be missing or invalid."
+                : error
+              }
             </div>
           )}
-        </div>
 
-        {/* Error Display */}
-        {error && (
-          <div style={{
-            padding: "12px 16px",
-            marginBottom: "16px",
-            background: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid rgba(239, 68, 68, 0.2)",
-            borderRadius: "12px",
-            color: "var(--color-error)",
-            fontSize: "14px",
-          }}>
-            {error.includes("401")
-              ? "Authentication error. API key may be missing or invalid."
-              : error
-            }
-          </div>
-        )}
-
-        {/* Usage Display */}
-        {usage && (
-          <div style={{
-            padding: isMobile ? "10px 12px" : "12px 16px",
-            marginBottom: "16px",
-            background: "var(--card-bg)",
-            borderRadius: "12px",
-            fontSize: isMobile ? "12px" : "13px",
-            color: "var(--text-muted)",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: isMobile ? "12px" : "16px",
-          }}>
-            <span>{usage.total_tokens.toLocaleString()} tokens</span>
-            {usage.cost !== undefined && (
-              <span style={{ color: "var(--text)" }}>
-                ${usage.cost.toFixed(4)}
-              </span>
-            )}
-            {usage.total_cost !== undefined && usage.total_cost !== usage.cost && (
-              <span>(${usage.total_cost.toFixed(4)} total)</span>
-            )}
-          </div>
-        )}
-
-        {/* Input Area */}
-        <div className="aiTextField" style={{
-          display: "flex",
-          alignItems: "flex-end",
-          gap: "12px",
-          padding: isMobile ? "12px 16px" : "16px 20px",
-        }}>
-          <textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message... (Shift+Enter for new line)"
-            rows={1}
-            style={{
-              flex: 1,
-              minHeight: "24px",
-              maxHeight: "200px",
-              resize: "none",
-            }}
-            disabled={isLoading}
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading || !inputValue.trim()}
-            style={{
-              background: "none",
-              border: "none",
-              padding: "4px",
-              cursor: isLoading || !inputValue.trim() ? "default" : "pointer",
+          {/* Usage Display */}
+          {usage && (
+            <div style={{
+              padding: isMobile ? "8px 12px" : "8px 16px",
+              margin: isMobile ? "0 16px 8px" : "0 24px 8px",
+              fontSize: isMobile ? "12px" : "13px",
+              color: "var(--text-muted)",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: isLoading || !inputValue.trim() ? 0.4 : 1,
-              transition: "opacity 0.2s",
-            }}
-          >
-            {isLoading ? (
-              <div style={{
-                width: "20px",
-                height: "20px",
-                border: "2px solid var(--border)",
-                borderTopColor: "var(--accent)",
+              flexWrap: "wrap",
+              gap: isMobile ? "12px" : "16px",
+            }}>
+              <span>{usage.total_tokens.toLocaleString()} tokens</span>
+              {usage.cost !== undefined && (
+                <span style={{ color: "var(--text)" }}>
+                  ${usage.cost.toFixed(4)}
+                </span>
+              )}
+              {usage.total_cost !== undefined && usage.total_cost !== usage.cost && (
+                <span>(${usage.total_cost.toFixed(4)} total)</span>
+              )}
+            </div>
+          )}
+
+          {/* Input Area */}
+          <div style={{
+            borderTop: "1px solid var(--border)",
+            padding: isMobile ? "12px 16px" : "16px 24px",
+            display: "flex",
+            alignItems: "flex-end",
+            gap: "12px",
+          }}>
+            <textarea
+              ref={textareaRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message..."
+              rows={1}
+              style={{
+                flex: 1,
+                minHeight: "24px",
+                maxHeight: "200px",
+                resize: "none",
+                border: "none",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: "15px",
+                fontFamily: "inherit",
+                outline: "none",
+                padding: 0,
+                lineHeight: 1.5,
+              }}
+              disabled={isLoading}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading || !inputValue.trim()}
+              style={{
+                width: "32px",
+                height: "32px",
                 borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-              }} />
-            ) : (
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            )}
-          </button>
+                border: "none",
+                background: isLoading || !inputValue.trim()
+                  ? "var(--border)"
+                  : "var(--accent)",
+                cursor: isLoading || !inputValue.trim() ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                transition: "background 0.2s",
+              }}
+            >
+              {isLoading ? (
+                <div style={{
+                  width: "16px",
+                  height: "16px",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  borderTopColor: "#fff",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                }} />
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={!inputValue.trim() ? "var(--text-muted)" : "#fff"}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="12" y1="19" x2="12" y2="5" />
+                  <polyline points="5 12 12 5 19 12" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
