@@ -184,6 +184,7 @@ Expressions receive a single object with these fields:
 - Edit \`inputs.json\` to add diverse test inputs (minimum 10, maximum 100)
 - **Diversity in structure**: Include edge cases like empty arrays, single items, boundary values, missing optional fields, maximum lengths
 - **Diversity in intended output**: Cover the full range of expected scores (low, medium, high quality inputs that should produce different outputs)
+- **Multimodal content**: For fields that accept images, audio, video, or files, use bogus/placeholder string values (e.g. \`"https://example.com/image.jpg"\`). This is fine for testing - exercise the various modalities
 
 ### Build and Test
 - Run \`ts-node build.ts\` to compile function.json and execute tests
