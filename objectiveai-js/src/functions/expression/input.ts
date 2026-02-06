@@ -50,7 +50,7 @@ export type ObjectInputSchemaToZodSchema = z.ZodObject<
   Record<string, z.ZodOptional<z.ZodType<InputValue>> | z.ZodType<InputValue>>
 >;
 
-export namespace ObjectInputSchema {
+export namespace ObjectInputSchemaExt {
   export function toZodSchema(
     self: ObjectInputSchema,
   ): ObjectInputSchemaToZodSchema {
@@ -60,7 +60,7 @@ export namespace ObjectInputSchema {
     > = {};
     const requiredSet = new Set(self.required ?? []);
     for (const key in self.properties) {
-      const inner = InputSchema.toZodSchema(self.properties[key]);
+      const inner = InputSchemaExt.toZodSchema(self.properties[key]);
       propertySchemas[key] =
         self.required && requiredSet.has(key) ? inner : inner.optional();
     }
@@ -108,11 +108,11 @@ export const ArrayInputSchemaSchema: z.ZodType<ArrayInputSchema> = z
   .meta({ title: "ArrayInputSchema" });
 export type ArrayInputSchemaToZodSchema = z.ZodArray<z.ZodType<InputValue>>;
 
-export namespace ArrayInputSchema {
+export namespace ArrayInputSchemaExt {
   export function toZodSchema(
     self: ArrayInputSchema,
   ): ArrayInputSchemaToZodSchema {
-    let schema = z.array(InputSchema.toZodSchema(self.items));
+    let schema = z.array(InputSchemaExt.toZodSchema(self.items));
     if (self.description) {
       schema = schema.describe(self.description);
     }
@@ -149,7 +149,7 @@ export type StringInputSchemaToZodSchema =
       [x: string]: string;
     }>;
 
-export namespace StringInputSchema {
+export namespace StringInputSchemaExt {
   export function toZodSchema(
     self: StringInputSchema,
   ): StringInputSchemaToZodSchema {
@@ -185,7 +185,7 @@ export const NumberInputSchemaSchema = z
 export type NumberInputSchema = z.infer<typeof NumberInputSchemaSchema>;
 export type NumberInputSchemaToZodSchema = z.ZodNumber;
 
-export namespace NumberInputSchema {
+export namespace NumberInputSchemaExt {
   export function toZodSchema(
     self: NumberInputSchema,
   ): NumberInputSchemaToZodSchema {
@@ -227,7 +227,7 @@ export const IntegerInputSchemaSchema = z
 export type IntegerInputSchema = z.infer<typeof IntegerInputSchemaSchema>;
 export type IntegerInputSchemaToZodSchema = z.ZodInt;
 
-export namespace IntegerInputSchema {
+export namespace IntegerInputSchemaExt {
   export function toZodSchema(
     self: IntegerInputSchema,
   ): IntegerInputSchemaToZodSchema {
@@ -259,7 +259,7 @@ export const BooleanInputSchemaSchema = z
 export type BooleanInputSchema = z.infer<typeof BooleanInputSchemaSchema>;
 export type BooleanInputSchemaToZodSchema = z.ZodBoolean;
 
-export namespace BooleanInputSchema {
+export namespace BooleanInputSchemaExt {
   export function toZodSchema(
     self: BooleanInputSchema,
   ): BooleanInputSchemaToZodSchema {
@@ -285,7 +285,7 @@ export const ImageInputSchemaSchema = z
 export type ImageInputSchema = z.infer<typeof ImageInputSchemaSchema>;
 export type ImageInputSchemaToZodSchema = typeof ImageRichContentPartSchema;
 
-export namespace ImageInputSchema {
+export namespace ImageInputSchemaExt {
   export function toZodSchema(
     self: ImageInputSchema,
   ): ImageInputSchemaToZodSchema {
@@ -311,7 +311,7 @@ export const AudioInputSchemaSchema = z
 export type AudioInputSchema = z.infer<typeof AudioInputSchemaSchema>;
 export type AudioInputSchemaToZodSchema = typeof AudioRichContentPartSchema;
 
-export namespace AudioInputSchema {
+export namespace AudioInputSchemaExt {
   export function toZodSchema(
     self: AudioInputSchema,
   ): AudioInputSchemaToZodSchema {
@@ -337,7 +337,7 @@ export const VideoInputSchemaSchema = z
 export type VideoInputSchema = z.infer<typeof VideoInputSchemaSchema>;
 export type VideoInputSchemaToZodSchema = typeof VideoRichContentPartSchema;
 
-export namespace VideoInputSchema {
+export namespace VideoInputSchemaExt {
   export function toZodSchema(
     self: VideoInputSchema,
   ): VideoInputSchemaToZodSchema {
@@ -363,7 +363,7 @@ export const FileInputSchemaSchema = z
 export type FileInputSchema = z.infer<typeof FileInputSchemaSchema>;
 export type FileInputSchemaToZodSchema = typeof FileRichContentPartSchema;
 
-export namespace FileInputSchema {
+export namespace FileInputSchemaExt {
   export function toZodSchema(
     self: FileInputSchema,
   ): FileInputSchemaToZodSchema {
@@ -395,11 +395,11 @@ export const AnyOfInputSchemaSchema: z.ZodType<AnyOfInputSchema> = z
   .meta({ title: "AnyOfInputSchema" });
 export type AnyOfInputSchemaToZodSchema = z.ZodUnion<z.ZodType<InputValue>[]>;
 
-export namespace AnyOfInputSchema {
+export namespace AnyOfInputSchemaExt {
   export function toZodSchema(
     self: AnyOfInputSchema,
   ): AnyOfInputSchemaToZodSchema {
-    return z.union(self.anyOf.map((schema) => InputSchema.toZodSchema(schema)));
+    return z.union(self.anyOf.map((schema) => InputSchemaExt.toZodSchema(schema)));
   }
 }
 
@@ -433,30 +433,30 @@ export type InputSchemaToZodSchema =
   | FileInputSchemaToZodSchema
   | AnyOfInputSchemaToZodSchema;
 
-export namespace InputSchema {
+export namespace InputSchemaExt {
   export function toZodSchema(self: InputSchema): InputSchemaToZodSchema {
     if ("anyOf" in self) {
-      return AnyOfInputSchema.toZodSchema(self);
+      return AnyOfInputSchemaExt.toZodSchema(self);
     } else if (self.type === "object") {
-      return ObjectInputSchema.toZodSchema(self);
+      return ObjectInputSchemaExt.toZodSchema(self);
     } else if (self.type === "array") {
-      return ArrayInputSchema.toZodSchema(self);
+      return ArrayInputSchemaExt.toZodSchema(self);
     } else if (self.type === "string") {
-      return StringInputSchema.toZodSchema(self);
+      return StringInputSchemaExt.toZodSchema(self);
     } else if (self.type === "number") {
-      return NumberInputSchema.toZodSchema(self);
+      return NumberInputSchemaExt.toZodSchema(self);
     } else if (self.type === "integer") {
-      return IntegerInputSchema.toZodSchema(self);
+      return IntegerInputSchemaExt.toZodSchema(self);
     } else if (self.type === "boolean") {
-      return BooleanInputSchema.toZodSchema(self);
+      return BooleanInputSchemaExt.toZodSchema(self);
     } else if (self.type === "image") {
-      return ImageInputSchema.toZodSchema(self);
+      return ImageInputSchemaExt.toZodSchema(self);
     } else if (self.type === "audio") {
-      return AudioInputSchema.toZodSchema(self);
+      return AudioInputSchemaExt.toZodSchema(self);
     } else if (self.type === "video") {
-      return VideoInputSchema.toZodSchema(self);
+      return VideoInputSchemaExt.toZodSchema(self);
     } else if (self.type === "file") {
-      return FileInputSchema.toZodSchema(self);
+      return FileInputSchemaExt.toZodSchema(self);
     } else {
       throw new Error(`Unsupported input schema type: ${(self as any).type}`);
     }
