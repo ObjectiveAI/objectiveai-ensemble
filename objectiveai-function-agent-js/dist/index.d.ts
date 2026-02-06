@@ -1,9 +1,10 @@
 import { Functions, ObjectiveAI } from 'objectiveai';
-import z from 'zod';
+import z, { z as z$1 } from 'zod';
 import { ChildProcess } from 'child_process';
 
 type LogFn = (...args: unknown[]) => void;
 interface AgentOptions {
+    name?: string;
     spec?: string;
     apiBase?: string;
     sessionId?: string;
@@ -23490,4 +23491,11 @@ declare function createFileLogger(): {
  */
 declare function getLatestLogPath(): string | null;
 
-export { type AgentOptions, type ApiServerOptions, index$1 as Claude, type ExampleInput, ExampleInputSchema, type FunctionFields, index as GitHub, type LogFn, type Parameters, type ProfileOptions, type RunTestsOptions, assets, buildFunction, buildProfile, compiledTasksEqual, createFileLogger, createLocalObjectiveAI, defaultVectorCompletionTaskProfile, getLatestLogPath, init, runTests, spawnApiServer, test, testAsync, writeFunctionJson, writeProfileJson };
+declare const SpawnFunctionAgentsParamsSchema: z$1.ZodArray<z$1.ZodObject<{
+    name: z$1.ZodString;
+    spec: z$1.ZodString;
+    overwrite: z$1.ZodOptional<z$1.ZodBoolean>;
+}, z$1.core.$strip>>;
+type SpawnFunctionAgentsParams = z$1.infer<typeof SpawnFunctionAgentsParamsSchema>;
+
+export { type AgentOptions, type ApiServerOptions, index$1 as Claude, type ExampleInput, ExampleInputSchema, type FunctionFields, index as GitHub, type LogFn, type Parameters, type ProfileOptions, type RunTestsOptions, type SpawnFunctionAgentsParams, SpawnFunctionAgentsParamsSchema, assets, buildFunction, buildProfile, compiledTasksEqual, createFileLogger, createLocalObjectiveAI, defaultVectorCompletionTaskProfile, getLatestLogPath, init, runTests, spawnApiServer, test, testAsync, writeFunctionJson, writeProfileJson };

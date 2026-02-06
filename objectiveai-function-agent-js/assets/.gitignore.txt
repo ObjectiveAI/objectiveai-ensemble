@@ -19,3 +19,4 @@ fetchOpenIssues.ts
 getSubFunctionCommits.ts
 installRustLogs.ts
 spawnFunctionAgents.ts
+spawnFunctionAgentsParams.json

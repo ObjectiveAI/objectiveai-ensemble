@@ -3,7 +3,7 @@ import { execSync, spawn } from 'child_process';
 import { dirname, join } from 'path';
 import { Functions, ObjectiveAI } from 'objectiveai';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import z from 'zod';
+import z, { z as z$1 } from 'zod';
 import { writeFile } from 'fs/promises';
 
 var __defProp = Object.defineProperty;
@@ -100,7 +100,7 @@ var description_json_default2 = "null";
 var name_json_default = "null";
 
 // assets/.gitignore.txt
-var gitignore_default = "node_modules\r\n.env\r\n.claude/settings.local.json\r\nserverLog.txt\r\ncompiledTasks.json\r\nresolvedIssues.json\r\nbuild.ts\r\ntest.ts\r\ntsconfig.json\r\npackage.json\r\npackage-lock.json\r\n_runner.ts\r\ncloneSubFunctions.ts\r\ncloseIssue.ts\r\ncommentOnIssue.ts\r\ncommitAndPush.ts\r\nfetchClosedIssues.ts\r\nfetchOpenIssues.ts\r\ngetSubFunctionCommits.ts\r\ninstallRustLogs.ts\r\nspawnFunctionAgents.ts";
+var gitignore_default = "node_modules\r\n.env\r\n.claude/settings.local.json\r\nserverLog.txt\r\ncompiledTasks.json\r\nresolvedIssues.json\r\nbuild.ts\r\ntest.ts\r\ntsconfig.json\r\npackage.json\r\npackage-lock.json\r\n_runner.ts\r\ncloneSubFunctions.ts\r\ncloseIssue.ts\r\ncommentOnIssue.ts\r\ncommitAndPush.ts\r\nfetchClosedIssues.ts\r\nfetchOpenIssues.ts\r\ngetSubFunctionCommits.ts\r\ninstallRustLogs.ts\r\nspawnFunctionAgents.ts\r\nspawnFunctionAgentsParams.json";
 
 // assets/build.ts.txt
 var build_ts_default = 'import { writeFunctionJson, writeProfileJson, spawnApiServer, createLocalObjectiveAI, runTests } from "@objectiveai/function-agent";\r\nimport { execSync } from "child_process";\r\nimport "dotenv/config";\r\n\r\nasync function main(): Promise<void> {\r\n  // Discard any changes to the objectiveai submodule\r\n  execSync("git -C objectiveai checkout -- .", { stdio: "inherit" });\r\n\r\n  // Install dependencies\r\n  execSync("npm install", { stdio: "inherit" });\r\n\r\n  // Build\r\n  writeFunctionJson();\r\n  writeProfileJson();\r\n\r\n  // Test\r\n  const apiBase = process.env.ONLY_SET_IF_YOU_KNOW_WHAT_YOURE_DOING;\r\n  const port = Math.floor(Math.random() * 50000) + 10000;\r\n\r\n  const apiProcess = await spawnApiServer({ apiBase, port });\r\n  const objectiveai = createLocalObjectiveAI({ apiBase, port });\r\n\r\n  try {\r\n    await runTests({ objectiveai });\r\n  } finally {\r\n    apiProcess?.kill();\r\n  }\r\n}\r\n\r\nmain().catch((err) => {\r\n  console.error(err);\r\n  process.exit(1);\r\n});\r\n';
@@ -130,13 +130,13 @@ var closeIssue_ts_default = 'import { existsSync, readFileSync, writeFileSync } 
 var commitAndPush_ts_default = 'import { execSync } from "child_process";\r\n\r\nconst message = process.argv[2];\r\n\r\nif (!message) {\r\n  console.error("Usage: ts-node commitAndPush.ts <commit_message>");\r\n  process.exit(1);\r\n}\r\n\r\n// Discard any changes to the objectiveai submodule\r\nexecSync("git -C objectiveai checkout -- .", { stdio: "inherit" });\r\n\r\n// Stage all changes\r\nexecSync("git add -A", { stdio: "pipe" });\r\n\r\n// Check if there are changes to commit\r\ntry {\r\n  execSync("git diff --cached --quiet", { stdio: "pipe" });\r\n  console.log("No changes to commit.");\r\n} catch {\r\n  // There are changes, commit them\r\n  execSync(`git commit -m "${message.replace(/"/g, \'\\\\"\')}"`, { stdio: "inherit" });\r\n  console.log("Committed and pushed successfully.");\r\n}\r\n';
 
 // assets/spawnFunctionAgents.ts.txt
-var spawnFunctionAgents_ts_default = 'import { ChildProcess, execSync, spawn } from "child_process";\r\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";\r\nimport { join } from "path";\r\n\r\n// Track all spawned child processes for cleanup\r\nconst childProcesses: ChildProcess[] = [];\r\n\r\n// Progress tracking\r\nlet totalAgents = 0;\r\nlet finishedAgents = 0;\r\n\r\nfunction killAllChildren(): void {\r\n  for (const child of childProcesses) {\r\n    if (!child.killed && child.pid) {\r\n      try {\r\n        process.kill(child.pid);\r\n      } catch {}\r\n    }\r\n  }\r\n}\r\n\r\n// Register cleanup handlers to prevent orphan processes\r\nprocess.on("exit", killAllChildren);\r\nprocess.on("SIGINT", () => {\r\n  killAllChildren();\r\n  process.exit(130);\r\n});\r\nprocess.on("SIGTERM", () => {\r\n  killAllChildren();\r\n  process.exit(143);\r\n});\r\nprocess.on("uncaughtException", (err) => {\r\n  killAllChildren();\r\n  throw err;\r\n});\r\nprocess.on("unhandledRejection", (err) => {\r\n  killAllChildren();\r\n  throw err;\r\n});\r\n\r\ninterface AgentResult {\r\n  owner: string;\r\n  repository: string;\r\n  commit: string;\r\n}\r\n\r\ninterface AgentError {\r\n  error: string;\r\n}\r\n\r\ninterface AgentSkipped {\r\n  skipped: true;\r\n}\r\n\r\ntype Result = AgentResult | AgentError | AgentSkipped;\r\n\r\n// Read current depth from parameters.json\r\nfunction getCurrentDepth(): number {\r\n  if (!existsSync("parameters.json")) {\r\n    return 0;\r\n  }\r\n  const content = readFileSync("parameters.json", "utf-8");\r\n  const params = JSON.parse(content) as { depth: number };\r\n  return params.depth ?? 0;\r\n}\r\n\r\nasync function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {\r\n  // Skip if spec is null\r\n  if (spec === null) {\r\n    return { skipped: true };\r\n  }\r\n\r\n  const subdir = join("sub_functions", String(index));\r\n\r\n  // Delete existing directory if it exists (for retries)\r\n  if (existsSync(subdir)) {\r\n    console.log(`Deleting existing directory: ${subdir}`);\r\n    rmSync(subdir, { recursive: true, force: true });\r\n  }\r\n\r\n  // Create subdirectory\r\n  mkdirSync(subdir, { recursive: true });\r\n\r\n  // Write a runner script that will be executed in the subdirectory\r\n  const runnerScript = `\r\nimport { Claude } from "@objectiveai/function-agent";\r\n\r\nasync function main(): Promise<void> {\r\n  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });\r\n}\r\n\r\nmain().catch((err) => {\r\n  console.error(err);\r\n  process.exit(1);\r\n});\r\n`;\r\n\r\n  const runnerPath = join(subdir, "_runner.ts");\r\n  writeFileSync(runnerPath, runnerScript);\r\n\r\n  return new Promise<Result>((resolve) => {\r\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\r\n      cwd: subdir,\r\n      stdio: ["inherit", "pipe", "pipe"],\r\n      shell: true,\r\n    });\r\n\r\n    // Track child process for cleanup\r\n    childProcesses.push(child);\r\n\r\n    // Capture but discard output to avoid context overload in parent\r\n    child.stdout?.on("data", () => {});\r\n    child.stderr?.on("data", () => {});\r\n\r\n    child.on("close", (code) => {\r\n      finishedAgents++;\r\n      if (code !== 0) {\r\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\r\n        return;\r\n      }\r\n\r\n      // Extract owner/repo/commit from the completed function\r\n      try {\r\n        const nameJsonPath = join(subdir, "github", "name.json");\r\n        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;\r\n\r\n        // Get owner from git remote\r\n        const remote = execSync("git remote get-url origin", {\r\n          cwd: subdir,\r\n          encoding: "utf-8",\r\n        }).trim();\r\n\r\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\r\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\r\n        const owner = match?.[1] ?? "unknown";\r\n        const repository = match?.[2] ?? name;\r\n\r\n        // Get latest commit\r\n        const commit = execSync("git rev-parse HEAD", {\r\n          cwd: subdir,\r\n          encoding: "utf-8",\r\n        }).trim();\r\n\r\n        resolve({ owner, repository, commit });\r\n      } catch (err) {\r\n        resolve({ error: `Failed to extract result: ${err}` });\r\n      }\r\n    });\r\n\r\n    child.on("error", (err) => {\r\n      finishedAgents++;\r\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\r\n    });\r\n  });\r\n}\r\n\r\nasync function main(): Promise<void> {\r\n  const specsArg = process.argv[2];\r\n\r\n  if (!specsArg) {\r\n    console.error("Usage: ts-node spawnFunctionAgents.ts \'<json_array_of_specs>\'");\r\n    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");\r\n    process.exit(1);\r\n  }\r\n\r\n  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];\r\n\r\n  if (!Array.isArray(specs) || specs.length === 0) {\r\n    console.error("Specs must be a non-empty array of strings or nulls");\r\n    process.exit(1);\r\n  }\r\n\r\n  // Calculate child depth (current depth - 1)\r\n  const currentDepth = getCurrentDepth();\r\n  const childDepth = Math.max(0, currentDepth - 1);\r\n\r\n  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);\r\n\r\n  // Count non-null specs for progress tracking\r\n  totalAgents = specs.filter((s) => s !== null).length;\r\n\r\n  // Start progress reporting every 60 seconds\r\n  const progressInterval = setInterval(() => {\r\n    const running = totalAgents - finishedAgents;\r\n    console.log(`[Progress] ${running}/${totalAgents} agents running, ${finishedAgents}/${totalAgents} agents finished`);\r\n  }, 60000);\r\n\r\n  // Run all agents in parallel\r\n  const results = await Promise.all(\r\n    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))\r\n  );\r\n\r\n  // Stop progress reporting\r\n  clearInterval(progressInterval);\r\n\r\n  // Output results as JSON\r\n  console.log("\\n=== SPAWN_RESULTS ===");\r\n  console.log(JSON.stringify(results, null, 2));\r\n}\r\n\r\nmain().catch((err) => {\r\n  console.error(err);\r\n  process.exit(1);\r\n});\r\n';
+var spawnFunctionAgents_ts_default = 'import { ChildProcess, execSync, spawn } from "child_process";\r\nimport { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, statSync } from "fs";\r\nimport { join } from "path";\r\nimport { SpawnFunctionAgentsParamsSchema } from "@objectiveai/function-agent";\r\n\r\n// Track all spawned child processes for cleanup\r\nconst childProcesses: ChildProcess[] = [];\r\n\r\n// Progress tracking\r\nlet totalAgents = 0;\r\nlet finishedAgents = 0;\r\n\r\nfunction killAllChildren(): void {\r\n  for (const child of childProcesses) {\r\n    if (!child.killed && child.pid) {\r\n      try {\r\n        process.kill(child.pid);\r\n      } catch {}\r\n    }\r\n  }\r\n}\r\n\r\n// Register cleanup handlers to prevent orphan processes\r\nprocess.on("exit", killAllChildren);\r\nprocess.on("SIGINT", () => {\r\n  killAllChildren();\r\n  process.exit(130);\r\n});\r\nprocess.on("SIGTERM", () => {\r\n  killAllChildren();\r\n  process.exit(143);\r\n});\r\nprocess.on("uncaughtException", (err) => {\r\n  killAllChildren();\r\n  throw err;\r\n});\r\nprocess.on("unhandledRejection", (err) => {\r\n  killAllChildren();\r\n  throw err;\r\n});\r\n\r\ninterface AgentResult {\r\n  owner: string;\r\n  repository: string;\r\n  commit: string;\r\n}\r\n\r\ninterface AgentError {\r\n  error: string;\r\n}\r\n\r\ntype Result = AgentResult | AgentError;\r\n\r\n// Read JSON file that should contain a string value\r\n// Handles both quoted ("value") and unquoted (value) content\r\nfunction readStringJsonFile(path: string): string | null {\r\n  if (!existsSync(path)) {\r\n    return null;\r\n  }\r\n  let content = readFileSync(path, "utf-8").trim();\r\n  if (!content || content === "null") {\r\n    return null;\r\n  }\r\n  if (content.startsWith(\'"\') && content.endsWith(\'"\')) {\r\n    content = content.slice(1, -1);\r\n  }\r\n  return content;\r\n}\r\n\r\n// Read current depth from parameters.json\r\nfunction getCurrentDepth(): number {\r\n  if (!existsSync("parameters.json")) {\r\n    return 0;\r\n  }\r\n  const content = readFileSync("parameters.json", "utf-8");\r\n  const params = JSON.parse(content) as { depth: number };\r\n  return params.depth ?? 0;\r\n}\r\n\r\nasync function runAgentInSubdir(name: string, spec: string, childDepth: number): Promise<Result> {\r\n  const subdir = join("agent_functions", name);\r\n\r\n  // Create subdirectory\r\n  mkdirSync(subdir, { recursive: true });\r\n\r\n  // Write a runner script that will be executed in the subdirectory\r\n  const runnerScript = `\r\nimport { Claude } from "@objectiveai/function-agent";\r\n\r\nasync function main(): Promise<void> {\r\n  await Claude.invent({ name: ${JSON.stringify(name)}, spec: ${JSON.stringify(spec)}, depth: ${childDepth} });\r\n}\r\n\r\nmain().catch((err) => {\r\n  console.error(err);\r\n  process.exit(1);\r\n});\r\n`;\r\n\r\n  const runnerPath = join(subdir, "_runner.ts");\r\n  writeFileSync(runnerPath, runnerScript);\r\n\r\n  return new Promise<Result>((resolve) => {\r\n    const child = spawn("npx", ["ts-node", "_runner.ts"], {\r\n      cwd: subdir,\r\n      stdio: ["inherit", "pipe", "pipe"],\r\n      shell: true,\r\n    });\r\n\r\n    // Track child process for cleanup\r\n    childProcesses.push(child);\r\n\r\n    // Capture but discard output to avoid context overload in parent\r\n    child.stdout?.on("data", () => {});\r\n    child.stderr?.on("data", () => {});\r\n\r\n    child.on("close", (code) => {\r\n      finishedAgents++;\r\n      if (code !== 0) {\r\n        resolve({ error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.` });\r\n        return;\r\n      }\r\n\r\n      // Extract owner/repo/commit from the completed function\r\n      try {\r\n        const nameJsonPath = join(subdir, "github", "name.json");\r\n        const fnName = readStringJsonFile(nameJsonPath);\r\n\r\n        // Get owner from git remote\r\n        const remote = execSync("git remote get-url origin", {\r\n          cwd: subdir,\r\n          encoding: "utf-8",\r\n        }).trim();\r\n\r\n        // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)\r\n        const match = remote.match(/github\\.com[:/]([^/]+)\\/([^/.]+)/);\r\n        const owner = match?.[1] ?? "unknown";\r\n        const repository = match?.[2] ?? fnName ?? name;\r\n\r\n        // Get latest commit\r\n        const commit = execSync("git rev-parse HEAD", {\r\n          cwd: subdir,\r\n          encoding: "utf-8",\r\n        }).trim();\r\n\r\n        resolve({ owner, repository, commit });\r\n      } catch (err) {\r\n        resolve({ error: `Failed to extract result: ${err}` });\r\n      }\r\n    });\r\n\r\n    child.on("error", (err) => {\r\n      finishedAgents++;\r\n      resolve({ error: `Failed to spawn agent: ${err.message}` });\r\n    });\r\n  });\r\n}\r\n\r\nasync function main(): Promise<void> {\r\n  // Read params from file\r\n  if (!existsSync("spawnFunctionAgentsParams.json")) {\r\n    console.error("spawnFunctionAgentsParams.json not found. Write it first.");\r\n    process.exit(1);\r\n  }\r\n\r\n  const raw = JSON.parse(readFileSync("spawnFunctionAgentsParams.json", "utf-8"));\r\n  const params = SpawnFunctionAgentsParamsSchema.parse(raw);\r\n\r\n  if (params.length === 0) {\r\n    console.error("spawnFunctionAgentsParams.json is empty.");\r\n    process.exit(1);\r\n  }\r\n\r\n  // Check for duplicate names\r\n  const names = params.map((p) => p.name);\r\n  const duplicates = names.filter((n, i) => names.indexOf(n) !== i);\r\n  if (duplicates.length > 0) {\r\n    console.error(`Duplicate names in params: ${[...new Set(duplicates)].join(", ")}`);\r\n    process.exit(1);\r\n  }\r\n\r\n  // Process overwrites first - delete existing directories\r\n  for (const param of params) {\r\n    const dir = join("agent_functions", param.name);\r\n    if (param.overwrite && existsSync(dir)) {\r\n      console.log(`Overwriting: deleting ${dir}...`);\r\n      try {\r\n        rmSync(dir, { recursive: true, force: true });\r\n      } catch (err) {\r\n        console.error(\r\n          `Failed to delete ${dir}: ${err}. If this error persists, make a new function with a different name instead.`,\r\n        );\r\n        process.exit(1);\r\n      }\r\n    }\r\n  }\r\n\r\n  // Check for existing directories (after overwrites)\r\n  for (const param of params) {\r\n    const dir = join("agent_functions", param.name);\r\n    if (existsSync(dir) && statSync(dir).isDirectory()) {\r\n      console.error(\r\n        `agent_functions/${param.name} already exists. Set "overwrite": true to replace it, or use a different name.`,\r\n      );\r\n      process.exit(1);\r\n    }\r\n  }\r\n\r\n  // Calculate child depth (current depth - 1)\r\n  const currentDepth = getCurrentDepth();\r\n  const childDepth = Math.max(0, currentDepth - 1);\r\n\r\n  console.log(`Spawning ${params.length} function agents with depth=${childDepth}...`);\r\n\r\n  // Count agents for progress tracking\r\n  totalAgents = params.length;\r\n\r\n  // Start progress reporting every 60 seconds\r\n  const progressInterval = setInterval(() => {\r\n    const running = totalAgents - finishedAgents;\r\n    console.log(`[Progress] ${running}/${totalAgents} agents running, ${finishedAgents}/${totalAgents} agents finished`);\r\n  }, 60000);\r\n\r\n  // Run all agents in parallel\r\n  const results = await Promise.all(\r\n    params.map((param) => runAgentInSubdir(param.name, param.spec, childDepth))\r\n  );\r\n\r\n  // Stop progress reporting\r\n  clearInterval(progressInterval);\r\n\r\n  // Build output with names\r\n  const output = params.map((param, i) => ({\r\n    name: param.name,\r\n    ...results[i],\r\n  }));\r\n\r\n  // Output results as JSON\r\n  console.log("\\n=== SPAWN_RESULTS ===");\r\n  console.log(JSON.stringify(output, null, 2));\r\n}\r\n\r\nmain().catch((err) => {\r\n  console.error(err);\r\n  process.exit(1);\r\n});\r\n';
 
 // assets/cloneSubFunctions.ts.txt
 var cloneSubFunctions_ts_default = 'import { GitHub } from "@objectiveai/function-agent";\r\n\r\nconst latest = process.argv.includes("--latest");\r\n\r\nconst cloned = GitHub.cloneSubFunctions({ latest });\r\n\r\nconsole.log("\\n=== CLONE_RESULTS ===");\r\nconsole.log(JSON.stringify(cloned, null, 2));\r\n';
 
 // assets/getSubFunctionCommits.ts.txt
-var getSubFunctionCommits_ts_default = 'import { execSync } from "child_process";\r\nimport { existsSync, readdirSync, readFileSync } from "fs";\r\n\r\n// Read JSON file that should contain a string value\r\n// Handles both quoted ("value") and unquoted (value) content\r\nfunction readStringJsonFile(path: string): string | null {\r\n  if (!existsSync(path)) {\r\n    return null;\r\n  }\r\n  let content = readFileSync(path, "utf-8").trim();\r\n  if (!content || content === "null") {\r\n    return null;\r\n  }\r\n  // Remove surrounding quotes if both present (only one pair)\r\n  if (content.startsWith(\'"\') && content.endsWith(\'"\')) {\r\n    content = content.slice(1, -1);\r\n  }\r\n  return content;\r\n}\r\n\r\ninterface SubFunctionInfo {\r\n  index: number;\r\n  owner: string;\r\n  repository: string;\r\n  commit: string;\r\n  path: string;\r\n}\r\n\r\nfunction main(): void {\r\n  const subFunctionsDir = "sub_functions";\r\n\r\n  if (!existsSync(subFunctionsDir)) {\r\n    console.log("No sub_functions directory found.");\r\n    console.log("\\n=== SUB_FUNCTION_COMMITS ===");\r\n    console.log("[]");\r\n    return;\r\n  }\r\n\r\n  const entries = readdirSync(subFunctionsDir);\r\n  const results: SubFunctionInfo[] = [];\r\n\r\n  for (const entry of entries) {\r\n    // Skip non-numeric directories (like .gitignore)\r\n    const index = parseInt(entry, 10);\r\n    if (isNaN(index)) continue;\r\n\r\n    const subFunctionPath = `${subFunctionsDir}/${entry}`;\r\n\r\n    // Get the commit SHA from git\r\n    let commit: string;\r\n    try {\r\n      commit = execSync("git rev-parse HEAD", {\r\n        cwd: subFunctionPath,\r\n        encoding: "utf-8",\r\n        stdio: "pipe",\r\n      }).trim();\r\n    } catch {\r\n      console.log(`Failed to get commit for ${subFunctionPath}`);\r\n      continue;\r\n    }\r\n\r\n    // Get owner/repository from github/name.json if it exists\r\n    let owner = "";\r\n    let repository = "";\r\n    const namePath = `${subFunctionPath}/github/name.json`;\r\n    const name = readStringJsonFile(namePath);\r\n    if (name) {\r\n      const parts = name.split("/");\r\n      if (parts.length === 2) {\r\n        owner = parts[0];\r\n        repository = parts[1];\r\n      }\r\n    }\r\n\r\n    results.push({\r\n      index,\r\n      owner,\r\n      repository,\r\n      commit,\r\n      path: subFunctionPath,\r\n    });\r\n  }\r\n\r\n  // Sort by index\r\n  results.sort((a, b) => a.index - b.index);\r\n\r\n  console.log("\\n=== SUB_FUNCTION_COMMITS ===");\r\n  console.log(JSON.stringify(results, null, 2));\r\n}\r\n\r\nmain();\r\n';
+var getSubFunctionCommits_ts_default = 'import { execSync } from "child_process";\r\nimport { existsSync, readdirSync, readFileSync, statSync } from "fs";\r\n\r\n// Read JSON file that should contain a string value\r\n// Handles both quoted ("value") and unquoted (value) content\r\nfunction readStringJsonFile(path: string): string | null {\r\n  if (!existsSync(path)) {\r\n    return null;\r\n  }\r\n  let content = readFileSync(path, "utf-8").trim();\r\n  if (!content || content === "null") {\r\n    return null;\r\n  }\r\n  // Remove surrounding quotes if both present (only one pair)\r\n  if (content.startsWith(\'"\') && content.endsWith(\'"\')) {\r\n    content = content.slice(1, -1);\r\n  }\r\n  return content;\r\n}\r\n\r\ninterface SubFunctionInfo {\r\n  name: string;\r\n  owner: string;\r\n  repository: string;\r\n  commit: string;\r\n  path: string;\r\n}\r\n\r\nfunction main(): void {\r\n  const agentFunctionsDir = "agent_functions";\r\n\r\n  if (!existsSync(agentFunctionsDir)) {\r\n    console.log("No agent_functions directory found.");\r\n    console.log("\\n=== SUB_FUNCTION_COMMITS ===");\r\n    console.log("[]");\r\n    return;\r\n  }\r\n\r\n  const entries = readdirSync(agentFunctionsDir);\r\n  const results: SubFunctionInfo[] = [];\r\n\r\n  for (const entry of entries) {\r\n    const subFunctionPath = `${agentFunctionsDir}/${entry}`;\r\n\r\n    // Skip non-directories and hidden files\r\n    if (!statSync(subFunctionPath).isDirectory() || entry.startsWith(".")) continue;\r\n\r\n    // Get the commit SHA from git\r\n    let commit: string;\r\n    try {\r\n      commit = execSync("git rev-parse HEAD", {\r\n        cwd: subFunctionPath,\r\n        encoding: "utf-8",\r\n        stdio: "pipe",\r\n      }).trim();\r\n    } catch {\r\n      console.log(`Failed to get commit for ${subFunctionPath}`);\r\n      continue;\r\n    }\r\n\r\n    // Get owner/repository from github/name.json if it exists\r\n    let owner = "";\r\n    let repository = "";\r\n    const namePath = `${subFunctionPath}/github/name.json`;\r\n    const name = readStringJsonFile(namePath);\r\n    if (name) {\r\n      const parts = name.split("/");\r\n      if (parts.length === 2) {\r\n        owner = parts[0];\r\n        repository = parts[1];\r\n      }\r\n    }\r\n\r\n    results.push({\r\n      name: entry,\r\n      owner,\r\n      repository,\r\n      commit,\r\n      path: subFunctionPath,\r\n    });\r\n  }\r\n\r\n  // Sort by name\r\n  results.sort((a, b) => a.name.localeCompare(b.name));\r\n\r\n  console.log("\\n=== SUB_FUNCTION_COMMITS ===");\r\n  console.log(JSON.stringify(results, null, 2));\r\n}\r\n\r\nmain();\r\n';
 
 // assets/installRustLogs.ts.txt
 var installRustLogs_ts_default = 'import { execSync } from "child_process";\r\n\r\n// Rebuild the ObjectiveAI packages with any changes made to the Rust source\r\n// This rebuilds objectiveai-js (which includes WASM) and objectiveai-function-agent-js\r\n\r\nconsole.log("Rebuilding ObjectiveAI packages...");\r\n\r\n// Install dependencies in the submodule workspace\r\nexecSync("npm install", { cwd: "objectiveai", stdio: "inherit" });\r\n\r\n// Build objectiveai-js first (includes WASM rebuild)\r\nexecSync("npm run build -w objectiveai-js", { cwd: "objectiveai", stdio: "inherit" });\r\n\r\n// Build objectiveai-function-agent-js (depends on objectiveai-js)\r\nexecSync("npm run build -w objectiveai-function-agent-js", { cwd: "objectiveai", stdio: "inherit" });\r\n\r\n// Reinstall in function workspace to pick up the rebuilt packages\r\nexecSync("npm install", { stdio: "inherit" });\r\n\r\nconsole.log("Rebuild complete. Run ts-node build.ts to test.");\r\n';
@@ -153,14 +153,14 @@ var ESSAY_md_default = "";
 // assets/ESSAY_TASKS.md.txt
 var ESSAY_TASKS_md_default = "";
 
-// assets/sub_functions/.gitignore.txt
-var gitignore_default3 = "*\r\n!.gitignore\r\n";
+// assets/spawnFunctionAgentsParams.json.txt
+var spawnFunctionAgentsParams_json_default = "[]";
 
 // assets/cloned_functions/.gitignore.txt
-var gitignore_default4 = "*\r\n!.gitignore\r\n";
+var gitignore_default3 = "*\r\n!.gitignore\r\n";
 
 // assets/agent_functions/.gitignore.txt
-var gitignore_default5 = "*\r\n!.gitignore\r\n";
+var gitignore_default4 = "*\r\n!.gitignore\r\n";
 
 // assets/inputs.json.txt
 var inputs_json_default = "[]\r\n";
@@ -193,9 +193,9 @@ var assets = {
   "installRustLogs.ts": installRustLogs_ts_default,
   "plans/.gitkeep": gitkeep_default,
   "logs/.gitignore": gitignore_default2,
-  "sub_functions/.gitignore": gitignore_default3,
-  "cloned_functions/.gitignore": gitignore_default4,
-  "agent_functions/.gitignore": gitignore_default5,
+  "spawnFunctionAgentsParams.json": spawnFunctionAgentsParams_json_default,
+  "cloned_functions/.gitignore": gitignore_default3,
+  "agent_functions/.gitignore": gitignore_default4,
   "inputs.json": inputs_json_default,
   "ESSAY.md": ESSAY_md_default,
   "ESSAY_TASKS.md": ESSAY_TASKS_md_default
@@ -400,6 +400,14 @@ async function init(options = {}) {
     updateSubmodules();
   }
   writeAssets();
+  if (options.name) {
+    const namePath = "github/name.json";
+    const existing = existsSync(namePath) ? readFileSync(namePath, "utf-8").trim() : "";
+    if (!existing || existing === "null") {
+      console.log(`Writing github/name.json with: ${options.name}`);
+      writeFileSync(namePath, JSON.stringify(options.name));
+    }
+  }
   runNpmInstall();
   await fetchExamples(options.apiBase);
   const specPath = "SPEC.md";
@@ -1270,7 +1278,7 @@ function cloneSubFunctions(options = {}) {
       }
       commit = task.commit;
     }
-    const targetPath = `sub_functions/${task.owner}/${task.repository}/${commit}`;
+    const targetPath = `cloned_functions/${task.owner}/${task.repository}/${commit}`;
     if (existsSync(targetPath)) {
       console.log(`Already cloned: ${targetPath}`);
       cloned.push({
@@ -1281,7 +1289,7 @@ function cloneSubFunctions(options = {}) {
       });
       continue;
     }
-    mkdirSync(`sub_functions/${task.owner}/${task.repository}`, { recursive: true });
+    mkdirSync(`cloned_functions/${task.owner}/${task.repository}`, { recursive: true });
     console.log(`Cloning ${task.owner}/${task.repository}@${commit} to ${targetPath}...`);
     execSync(
       `gh repo clone ${task.owner}/${task.repository} "${targetPath}" -- --depth 1`,
@@ -1391,8 +1399,9 @@ function getInventFunctionTools(planIndex) {
   return [
     { kind: "ts-node", value: "build.ts" },
     { kind: "ts-node", value: "commitAndPush.ts *" },
-    { kind: "ts-node", value: "spawnFunctionAgents.ts *" },
+    { kind: "ts-node", value: "spawnFunctionAgents.ts" },
     { kind: "ts-node", value: "getSubFunctionCommits.ts" },
+    { kind: "write-edit", value: "spawnFunctionAgentsParams.json" },
     { kind: "ts-node", value: "installRustLogs.ts" },
     { kind: "ts-node", value: "cloneSubFunctions.ts" },
     { kind: "ts-node", value: "cloneSubFunctions.ts --latest" },
@@ -1441,11 +1450,12 @@ async function inventFunctionTasksLoop(log, sessionId) {
         "github/name.json",
         "github/description.json",
         "inputs.json",
+        "spawnFunctionAgentsParams.json",
         "serverLog.txt",
         "compiledTasks.json",
         "ts-node build.ts",
         "ts-node commitAndPush.ts <message>",
-        "ts-node spawnFunctionAgents.ts <json_array>",
+        "ts-node spawnFunctionAgents.ts",
         "ts-node getSubFunctionCommits.ts",
         "ts-node cloneSubFunctions.ts [--latest]",
         "ts-node installRustLogs.ts"
@@ -1477,40 +1487,50 @@ This function must use **function tasks** (type: \`scalar.function\` or \`vector
    - Whether it's scalar or vector
    - Key evaluation criteria
 
-2. Run \`ts-node spawnFunctionAgents.ts '<json_array_of_specs>'\`
-   - Example: \`ts-node spawnFunctionAgents.ts '["Spec for task 0...", "Spec for task 1..."]'\`
+2. Write \`spawnFunctionAgentsParams.json\` with an array of objects, each containing:
+   - \`name\`: A short, descriptive name for the sub-function (used as directory name)
+   - \`spec\`: The full spec text for the sub-function
+   \`\`\`json
+   [
+     {"name": "humor-scorer", "spec": "Spec for humor scoring..."},
+     {"name": "clarity-scorer", "spec": "Spec for clarity scoring..."}
+   ]
+   \`\`\`
 
-3. Parse the output after \`=== SPAWN_RESULTS ===\` to get \`{owner, repository, commit}\` for each
+3. Run \`ts-node spawnFunctionAgents.ts\` (no arguments - reads from params file)
 
-4. Create function tasks in \`function/tasks.json\` referencing those sub-functions:
+4. Parse the output after \`=== SPAWN_RESULTS ===\` to get \`{name, owner, repository, commit}\` for each
+
+5. Create function tasks in \`function/tasks.json\` referencing those sub-functions:
    \`\`\`json
    {
-     "type": "scalar.function",
+     "type": "<scalar/vector>.function",
      "owner": "<owner>",
      "repository": "<repository>",
      "commit": "<commit>",
-     "input": {"$starlark": "..."}
+     "input": {"$starlark": "..."},
+     "output": {"$starlark": "..."}
    }
    \`\`\`
 
-5. Handle any errors in the spawn results
+6. Handle any errors in the spawn results
 
 **Retrying Failed Sub-Functions**
-If a sub-function fails (result contains \`{error: "..."}\`), you can retry specific indices:
-- Pass \`null\` for indices that succeeded and should be skipped
-- Example: \`ts-node spawnFunctionAgents.ts '[null, "Retry spec for task 1", null]'\`
-- This deletes \`sub_functions/1/\` and re-spawns only that agent
-- Results will show \`{skipped: true}\` for null indices
+If a sub-function fails (result contains \`{error: "..."}\`), update \`spawnFunctionAgentsParams.json\`:
+- Keep only the failed entries and add \`"overwrite": true\` to each
+- Example: \`[{"name": "clarity-scorer", "spec": "Updated spec...", "overwrite": true}]\`
+- This deletes the existing \`agent_functions/clarity-scorer/\` directory and re-spawns the agent
+- Then run \`ts-node spawnFunctionAgents.ts\` again
 
 **Reading Sub-Functions**
-After spawning, sub-functions are available in \`sub_functions/<index>/\`:
+After spawning, sub-functions are available in \`agent_functions/<name>/\`:
 - Read their \`function.json\`, \`function/\` files, \`inputs.json\`, etc. to understand what was created
 - Each sub-function is a complete ObjectiveAI function repository
 
 **Getting Commit SHAs**
 To retrieve the current commit SHA for each sub-function:
 - Run \`ts-node getSubFunctionCommits.ts\`
-- Parse the output after \`=== SUB_FUNCTION_COMMITS ===\` to get \`{index, owner, repository, commit, path}\` for each
+- Parse the output after \`=== SUB_FUNCTION_COMMITS ===\` to get \`{name, owner, repository, commit, path}\` for each
 - Use these values to update \`function/tasks.json\` with the correct references
 
 ### Function Definition
@@ -2709,5 +2729,12 @@ function createLocalObjectiveAI(options = {}) {
     apiBase: apiBase ?? `http://${address}:${port}`
   });
 }
+var SpawnFunctionAgentsParamsSchema = z$1.array(
+  z$1.object({
+    name: z$1.string(),
+    spec: z$1.string(),
+    overwrite: z$1.boolean().optional()
+  })
+);
 
-export { claude_exports as Claude, ExampleInputSchema, github_exports as GitHub, assets, buildFunction, buildProfile, compiledTasksEqual, createFileLogger, createLocalObjectiveAI, defaultVectorCompletionTaskProfile, getLatestLogPath, init, runTests, spawnApiServer, test, testAsync, writeFunctionJson, writeProfileJson };
+export { claude_exports as Claude, ExampleInputSchema, github_exports as GitHub, SpawnFunctionAgentsParamsSchema, assets, buildFunction, buildProfile, compiledTasksEqual, createFileLogger, createLocalObjectiveAI, defaultVectorCompletionTaskProfile, getLatestLogPath, init, runTests, spawnApiServer, test, testAsync, writeFunctionJson, writeProfileJson };

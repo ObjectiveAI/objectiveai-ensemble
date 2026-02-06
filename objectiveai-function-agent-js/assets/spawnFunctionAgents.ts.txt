@@ -1,6 +1,7 @@
 import { ChildProcess, execSync, spawn } from "child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, statSync } from "fs";
 import { join } from "path";
+import { SpawnFunctionAgentsParamsSchema } from "@objectiveai/function-agent";
 
 // Track all spawned child processes for cleanup
 const childProcesses: ChildProcess[] = [];
@@ -48,11 +49,23 @@ interface AgentError {
   error: string;
 }
 
-interface AgentSkipped {
-  skipped: true;
-}
+type Result = AgentResult | AgentError;
 
-type Result = AgentResult | AgentError | AgentSkipped;
+// Read JSON file that should contain a string value
+// Handles both quoted ("value") and unquoted (value) content
+function readStringJsonFile(path: string): string | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  let content = readFileSync(path, "utf-8").trim();
+  if (!content || content === "null") {
+    return null;
+  }
+  if (content.startsWith('"') && content.endsWith('"')) {
+    content = content.slice(1, -1);
+  }
+  return content;
+}
 
 // Read current depth from parameters.json
 function getCurrentDepth(): number {
@@ -64,19 +77,8 @@ function getCurrentDepth(): number {
   return params.depth ?? 0;
 }
 
-async function runAgentInSubdir(spec: string | null, index: number, childDepth: number): Promise<Result> {
-  // Skip if spec is null
-  if (spec === null) {
-    return { skipped: true };
-  }
-
-  const subdir = join("sub_functions", String(index));
-
-  // Delete existing directory if it exists (for retries)
-  if (existsSync(subdir)) {
-    console.log(`Deleting existing directory: ${subdir}`);
-    rmSync(subdir, { recursive: true, force: true });
-  }
+async function runAgentInSubdir(name: string, spec: string, childDepth: number): Promise<Result> {
+  const subdir = join("agent_functions", name);
 
   // Create subdirectory
   mkdirSync(subdir, { recursive: true });
@@ -86,7 +88,7 @@ async function runAgentInSubdir(spec: string | null, index: number, childDepth: 
 import { Claude } from "@objectiveai/function-agent";
 
 async function main(): Promise<void> {
-  await Claude.invent({ spec: ${JSON.stringify(spec)}, depth: ${childDepth} });
+  await Claude.invent({ name: ${JSON.stringify(name)}, spec: ${JSON.stringify(spec)}, depth: ${childDepth} });
 }
 
 main().catch((err) => {
@@ -122,7 +124,7 @@ main().catch((err) => {
       // Extract owner/repo/commit from the completed function
       try {
         const nameJsonPath = join(subdir, "github", "name.json");
-        const name = JSON.parse(readFileSync(nameJsonPath, "utf-8")) as string;
+        const fnName = readStringJsonFile(nameJsonPath);
 
         // Get owner from git remote
         const remote = execSync("git remote get-url origin", {
@@ -133,7 +135,7 @@ main().catch((err) => {
         // Parse owner from remote URL (https://github.com/owner/repo or git@github.com:owner/repo)
         const match = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
         const owner = match?.[1] ?? "unknown";
-        const repository = match?.[2] ?? name;
+        const repository = match?.[2] ?? fnName ?? name;
 
         // Get latest commit
         const commit = execSync("git rev-parse HEAD", {
@@ -155,29 +157,63 @@ main().catch((err) => {
 }
 
 async function main(): Promise<void> {
-  const specsArg = process.argv[2];
-
-  if (!specsArg) {
-    console.error("Usage: ts-node spawnFunctionAgents.ts '<json_array_of_specs>'");
-    console.error("Pass null for indices to skip (e.g., for retrying specific agents)");
+  // Read params from file
+  if (!existsSync("spawnFunctionAgentsParams.json")) {
+    console.error("spawnFunctionAgentsParams.json not found. Write it first.");
     process.exit(1);
   }
 
-  const specs: (string | null)[] = JSON.parse(specsArg) as (string | null)[];
+  const raw = JSON.parse(readFileSync("spawnFunctionAgentsParams.json", "utf-8"));
+  const params = SpawnFunctionAgentsParamsSchema.parse(raw);
 
-  if (!Array.isArray(specs) || specs.length === 0) {
-    console.error("Specs must be a non-empty array of strings or nulls");
+  if (params.length === 0) {
+    console.error("spawnFunctionAgentsParams.json is empty.");
     process.exit(1);
+  }
+
+  // Check for duplicate names
+  const names = params.map((p) => p.name);
+  const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
+  if (duplicates.length > 0) {
+    console.error(`Duplicate names in params: ${[...new Set(duplicates)].join(", ")}`);
+    process.exit(1);
+  }
+
+  // Process overwrites first - delete existing directories
+  for (const param of params) {
+    const dir = join("agent_functions", param.name);
+    if (param.overwrite && existsSync(dir)) {
+      console.log(`Overwriting: deleting ${dir}...`);
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch (err) {
+        console.error(
+          `Failed to delete ${dir}: ${err}. If this error persists, make a new function with a different name instead.`,
+        );
+        process.exit(1);
+      }
+    }
+  }
+
+  // Check for existing directories (after overwrites)
+  for (const param of params) {
+    const dir = join("agent_functions", param.name);
+    if (existsSync(dir) && statSync(dir).isDirectory()) {
+      console.error(
+        `agent_functions/${param.name} already exists. Set "overwrite": true to replace it, or use a different name.`,
+      );
+      process.exit(1);
+    }
   }
 
   // Calculate child depth (current depth - 1)
   const currentDepth = getCurrentDepth();
   const childDepth = Math.max(0, currentDepth - 1);
 
-  console.log(`Spawning ${specs.length} function agents with depth=${childDepth}...`);
+  console.log(`Spawning ${params.length} function agents with depth=${childDepth}...`);
 
-  // Count non-null specs for progress tracking
-  totalAgents = specs.filter((s) => s !== null).length;
+  // Count agents for progress tracking
+  totalAgents = params.length;
 
   // Start progress reporting every 60 seconds
   const progressInterval = setInterval(() => {
@@ -187,15 +223,21 @@ async function main(): Promise<void> {
 
   // Run all agents in parallel
   const results = await Promise.all(
-    specs.map((spec, index) => runAgentInSubdir(spec, index, childDepth))
+    params.map((param) => runAgentInSubdir(param.name, param.spec, childDepth))
   );
 
   // Stop progress reporting
   clearInterval(progressInterval);
 
+  // Build output with names
+  const output = params.map((param, i) => ({
+    name: param.name,
+    ...results[i],
+  }));
+
   // Output results as JSON
   console.log("\n=== SPAWN_RESULTS ===");
-  console.log(JSON.stringify(results, null, 2));
+  console.log(JSON.stringify(output, null, 2));
 }
 
 main().catch((err) => {

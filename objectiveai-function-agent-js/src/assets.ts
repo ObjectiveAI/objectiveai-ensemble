@@ -42,8 +42,8 @@ import logsGitignore from "../assets/logs/.gitignore.txt";
 import essayMd from "../assets/ESSAY.md.txt";
 import essayTasksMd from "../assets/ESSAY_TASKS.md.txt";
 
-// Sub-functions assets
-import subFunctionsGitignore from "../assets/sub_functions/.gitignore.txt";
+// Spawn params asset
+import spawnFunctionAgentsParamsJson from "../assets/spawnFunctionAgentsParams.json.txt";
 
 // Cloned functions assets
 import clonedFunctionsGitignore from "../assets/cloned_functions/.gitignore.txt";
@@ -81,7 +81,7 @@ export const assets: Record<string, string> = {
   "installRustLogs.ts": installRustLogsTs,
   "plans/.gitkeep": plansGitkeep,
   "logs/.gitignore": logsGitignore,
-  "sub_functions/.gitignore": subFunctionsGitignore,
+  "spawnFunctionAgentsParams.json": spawnFunctionAgentsParamsJson,
   "cloned_functions/.gitignore": clonedFunctionsGitignore,
   "agent_functions/.gitignore": agentFunctionsGitignore,
   "inputs.json": inputsJson,

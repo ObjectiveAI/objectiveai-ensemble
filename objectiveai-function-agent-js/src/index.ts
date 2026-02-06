@@ -32,3 +32,7 @@ export {
 export { ExampleInputSchema, type ExampleInput } from "./exampleInput";
 export { createFileLogger, getLatestLogPath } from "./logging";
 export { type LogFn, type AgentOptions } from "./agentOptions";
+export {
+  SpawnFunctionAgentsParamsSchema,
+  type SpawnFunctionAgentsParams,
+} from "./spawnFunctionAgentsParams";

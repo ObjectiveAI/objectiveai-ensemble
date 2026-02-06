@@ -443,7 +443,7 @@ export function cloneSubFunctions(options: CloneSubFunctionsOptions = {}): Clone
       commit = task.commit;
     }
 
-    const targetPath = `sub_functions/${task.owner}/${task.repository}/${commit}`;
+    const targetPath = `cloned_functions/${task.owner}/${task.repository}/${commit}`;
 
     // Skip if already cloned
     if (existsSync(targetPath)) {
@@ -458,7 +458,7 @@ export function cloneSubFunctions(options: CloneSubFunctionsOptions = {}): Clone
     }
 
     // Create parent directories
-    mkdirSync(`sub_functions/${task.owner}/${task.repository}`, { recursive: true });
+    mkdirSync(`cloned_functions/${task.owner}/${task.repository}`, { recursive: true });
 
     // Clone the repository at the specific commit
     console.log(`Cloning ${task.owner}/${task.repository}@${commit} to ${targetPath}...`);
