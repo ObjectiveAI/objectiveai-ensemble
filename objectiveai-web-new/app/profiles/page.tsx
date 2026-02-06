@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useResponsive } from "../../hooks/useResponsive";
-import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../../lib/constants";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
 
 interface ProfileItem {
@@ -11,7 +11,6 @@ interface ProfileItem {
   commit: string;
 }
 
-const STICKY_BAR_HEIGHT = 72;
 const INITIAL_VISIBLE_COUNT = 12;
 const LOAD_MORE_COUNT = 12;
 

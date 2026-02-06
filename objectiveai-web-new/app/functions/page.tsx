@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { deriveCategory, deriveDisplayName } from "../../lib/objectiveai";
-import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../../lib/constants";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
 import { useResponsive } from "../../hooks/useResponsive";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
 
@@ -20,10 +20,6 @@ interface FunctionItem {
 }
 
 const CATEGORIES = ["All", "Pinned", "Scoring", "Ranking", "Transformation", "Composite"];
-
-// Sticky bar height constant
-const STICKY_BAR_HEIGHT = 72;
-
 
 const INITIAL_VISIBLE_COUNT = 6;
 const LOAD_MORE_COUNT = 6;

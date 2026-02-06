@@ -29,6 +29,10 @@ export const DEFAULT_PAGE_SIZE = 20;
 export const BROWSE_PAGE_INITIAL_COUNT = 6;
 export const BROWSE_PAGE_LOAD_MORE_COUNT = 6;
 
+// Layout dimensions
+export const STICKY_BAR_HEIGHT = 72;
+export const SAFE_GAP = 24; // Gap below nav for content breathing room
+
 // Stripe payment timing
 export const STRIPE_TAX_PROPAGATION_DELAY_MS = 10000;  // 10 seconds for tax calculation
 export const STRIPE_MIN_CREDITS_CENTS = 500;           // $5 minimum

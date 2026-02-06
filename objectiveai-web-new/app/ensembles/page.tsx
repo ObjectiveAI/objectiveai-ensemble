@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../../lib/constants";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
 import { useResponsive } from "../../hooks/useResponsive";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
 
@@ -10,7 +10,6 @@ interface EnsembleItem {
   id: string;
 }
 
-const STICKY_BAR_HEIGHT = 72;
 const INITIAL_VISIBLE_COUNT = 12;
 const LOAD_MORE_COUNT = 12;
 

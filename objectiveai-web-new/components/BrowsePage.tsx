@@ -9,7 +9,7 @@ import React, {
   ReactNode,
 } from "react";
 import { useIsMobile } from "../hooks/useIsMobile";
-import { NAV_HEIGHT_CALCULATION_DELAY_MS } from "../lib/constants";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT, SAFE_GAP } from "../lib/constants";
 
 // ============================================================================
 // Context
@@ -43,13 +43,6 @@ function useBrowsePageContext() {
   }
   return context;
 }
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-const STICKY_BAR_HEIGHT = 72;
-const SAFE_GAP = 24;
 
 // ============================================================================
 // Root Component

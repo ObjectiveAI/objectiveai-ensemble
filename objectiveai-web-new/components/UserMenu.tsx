@@ -7,14 +7,25 @@ import LoginModal from "./LoginModal";
 
 type UserMenuProps = {
   isMobile?: boolean;
+  /** When true, forces the user dropdown closed (e.g. mobile nav opened) */
+  forceClose?: boolean;
+  /** Called when the user dropdown opens, so parent can close other menus */
+  onOpen?: () => void;
 };
 
-export default function UserMenu({ isMobile = false }: UserMenuProps) {
+export default function UserMenu({ isMobile = false, forceClose = false, onOpen }: UserMenuProps) {
   const { user, isLoading, signOut } = useAuth();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when parent forces it (e.g. mobile nav opened)
+  useEffect(() => {
+    if (forceClose && isOpen) {
+      setIsOpen(false);
+    }
+  }, [forceClose, isOpen]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -72,7 +83,15 @@ export default function UserMenu({ isMobile = false }: UserMenuProps) {
       <div ref={menuRef} style={{ position: "relative" }}>
         {/* Avatar / Sign In Button */}
         <button
-          onClick={() => (user ? setIsOpen(!isOpen) : setShowLoginModal(true))}
+          onClick={() => {
+            if (user) {
+              const opening = !isOpen;
+              setIsOpen(opening);
+              if (opening) onOpen?.();
+            } else {
+              setShowLoginModal(true);
+            }
+          }}
           style={{
             width: isMobile ? "36px" : "40px",
             height: isMobile ? "36px" : "40px",

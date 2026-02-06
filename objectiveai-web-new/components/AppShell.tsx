@@ -5,9 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Footer from "./Footer";
 import UserMenu from "./UserMenu";
-
-// Constants for sticky calculations
-const SAFE_GAP = 24; // Gap below nav for content breathing room
+import { SAFE_GAP } from "../lib/constants";
 
 // Initialize theme from localStorage (client-side only)
 function getInitialTheme(): string {
@@ -365,7 +363,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 )}
 
                 {/* User Menu */}
-                <UserMenu isMobile={isMobile} />
+                <UserMenu
+                  isMobile={isMobile}
+                  forceClose={mobileMenuOpen}
+                  onOpen={() => setMobileMenuOpen(false)}
+                />
               </div>
 
               {/* Hamburger Menu (Mobile) */}

@@ -57,7 +57,7 @@ export default function CreateEnsemblePage() {
   const [fieldErrors, setFieldErrors] = useState<FieldError>({});
 
   // Validate a single Ensemble LLM ID
-  const validateEnsembleLlmId = (value: string, entryId: string): string | null => {
+  const validateEnsembleLlmId = (value: string): string | null => {
     if (value.trim().length === 0) return null; // Empty is OK, just not filled in yet
     if (value.trim().length !== 22) {
       return "Ensemble LLM ID must be exactly 22 characters";
@@ -166,7 +166,7 @@ export default function CreateEnsemblePage() {
 
     // Validate field on change
     if (field === "ensemble_llm") {
-      const error = validateEnsembleLlmId(String(value), id);
+      const error = validateEnsembleLlmId(String(value));
       setFieldErrors((prev) => ({ ...prev, [id]: error }));
     }
   };
@@ -278,7 +278,7 @@ export default function CreateEnsemblePage() {
                           value={entry.ensemble_llm}
                           onChange={(e) => updateEntry(entry.id, "ensemble_llm", e.target.value)}
                           onBlur={(e) => {
-                            const error = validateEnsembleLlmId(e.target.value, entry.id);
+                            const error = validateEnsembleLlmId(e.target.value);
                             setFieldErrors((prev) => ({ ...prev, [entry.id]: error }));
                           }}
                           style={{

@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useIsMobile } from "../../../hooks/useIsMobile";
-import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { useObjectiveAI } from "@/hooks/useObjectiveAI";
 import { Auth } from "objectiveai";
 import { ObjectiveAIFetchError } from "objectiveai";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { PurchaseCreditsForm } from "@/components/stripe/PurchaseCreditsForm";
+import { BillingAddressForm } from "@/components/stripe/BillingAddressForm";
 
 interface CreditsData {
   credits: number;
@@ -20,6 +23,7 @@ export default function CreditsPage() {
   const [creditsData, setCreditsData] = useState<CreditsData | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [mode, setMode] = useState<null | "address" | "purchase">(null);
 
   // Fetch credits using SDK
   const fetchCredits = useCallback(async () => {
@@ -55,15 +59,7 @@ export default function CreditsPage() {
     return (
       <div className="page">
         <div className="container" style={{ textAlign: 'center', paddingTop: '80px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '3px solid var(--border)',
-            borderTopColor: 'var(--accent)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto',
-          }} />
+          <LoadingSpinner />
         </div>
       </div>
     );
@@ -146,20 +142,7 @@ export default function CreditsPage() {
           textAlign: 'center',
         }}>
           {creditsLoading ? (
-            <>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                border: '3px solid var(--border)',
-                borderTopColor: 'var(--accent)',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px',
-              }} />
-              <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-                Loading credits...
-              </p>
-            </>
+            <LoadingSpinner size={32} message="Loading credits..." />
           ) : creditsError ? (
             <>
               <svg
@@ -229,35 +212,61 @@ export default function CreditsPage() {
           )}
         </div>
 
-        {/* Purchase Button - Coming Soon */}
-        <div style={{ marginBottom: '40px' }}>
+        {/* Action Buttons */}
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          marginBottom: mode ? '24px' : '40px',
+        }}>
           <button
             className="pillBtn"
-            disabled
+            onClick={() => setMode(mode === "purchase" ? null : "purchase")}
             style={{
-              width: '100%',
+              flex: 1,
               padding: '16px 24px',
               fontSize: '16px',
               fontWeight: 600,
-              background: 'var(--border)',
-              color: 'var(--text-muted)',
-              border: 'none',
-              cursor: 'not-allowed',
-              opacity: 0.6,
+              background: mode === "purchase" ? 'var(--accent)' : 'var(--card-bg)',
+              color: mode === "purchase" ? 'white' : 'var(--text)',
+              border: mode === "purchase" ? 'none' : '1px solid var(--border)',
+              cursor: 'pointer',
             }}
           >
-            Purchase Credits — Coming Soon
+            Purchase Credits
           </button>
-          <p style={{
-            fontSize: '12px',
-            color: 'var(--text-muted)',
-            textAlign: 'center',
-            marginTop: '12px',
-            opacity: 0.7,
-          }}>
-            Credit purchases will be available soon
-          </p>
+          <button
+            className="pillBtn"
+            onClick={() => setMode(mode === "address" ? null : "address")}
+            style={{
+              flex: 1,
+              padding: '16px 24px',
+              fontSize: '16px',
+              fontWeight: 600,
+              background: mode === "address" ? 'var(--accent)' : 'var(--card-bg)',
+              color: mode === "address" ? 'white' : 'var(--text)',
+              border: mode === "address" ? 'none' : '1px solid var(--border)',
+              cursor: 'pointer',
+            }}
+          >
+            Billing Address
+          </button>
         </div>
+
+        {/* Stripe Forms */}
+        {mode === "purchase" && (
+          <div style={{ marginBottom: '40px' }}>
+            <PurchaseCreditsForm
+              onClose={() => setMode(null)}
+              onNeedBillingAddress={() => setMode("address")}
+              onSuccess={() => { setMode(null); fetchCredits(); }}
+            />
+          </div>
+        )}
+        {mode === "address" && (
+          <div style={{ marginBottom: '40px' }}>
+            <BillingAddressForm onClose={() => setMode(null)} />
+          </div>
+        )}
 
         {/* Usage Stats */}
         {!creditsLoading && !creditsError && creditsData && (
