@@ -194,15 +194,15 @@ impl FunctionOutput {
     }
 }
 
-/// Result of compiling a function's output expression.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CompiledFunctionOutput {
-    /// The computed output value.
-    pub output: FunctionOutput,
-    /// Whether the output is valid. Checks that:
-    /// - The output type matches the function type (scalar vs vector)
-    /// - Scalar outputs are in [0, 1]
-    /// - Vector outputs sum to approximately 1
-    /// - Vector outputs match `output_length` if specified
-    pub valid: bool,
-}
+// /// Result of compiling a function's output expression.
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct CompiledFunctionOutput {
+//     /// The computed output value.
+//     pub output: FunctionOutput,
+//     /// Whether the output is valid. Checks that:
+//     /// - The output type matches the function type (scalar vs vector)
+//     /// - Scalar outputs are in [0, 1]
+//     /// - Vector outputs sum to approximately 1
+//     /// - Vector outputs match `output_length` if specified
+//     pub valid: bool,
+// }
