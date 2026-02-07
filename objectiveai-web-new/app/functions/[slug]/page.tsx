@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, use, useCallback } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
-import { SchemaFormBuilder } from "../../../components/SchemaForm";
-import type { InputSchema, InputValue, ValidationError } from "../../../components/SchemaForm/types";
+import { InputBuilder } from "../../../components/InputBuilder";
+import type { InputSchema, InputValue } from "../../../components/SchemaForm/types";
 import SplitItemDisplay from "../../../components/SplitItemDisplay";
 import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/split-item-utils";
 import { compileFunctionInputSplit } from "../../../lib/wasm-validation";
@@ -40,14 +40,12 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<InputValue>({});
-  const [rawInput, setRawInput] = useState("{}");
   const [isRunning, setIsRunning] = useState(false);
   const isMobile = useIsMobile();
   const { getClient } = useObjectiveAI();
   const [isSaved, setIsSaved] = useState(false);
   const [showPinnedColor, setShowPinnedColor] = useState(false);
   const [splitItems, setSplitItems] = useState<InputValue[] | null>(null);
-  const [_formErrors, setFormErrors] = useState<ValidationError[]>([]); // Reserved for future validation display
   const [results, setResults] = useState<{
     output?: number | number[];
     inputSnapshot?: Record<string, unknown>; // Store input for display
@@ -443,60 +441,16 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     }
   };
 
-  // Handle form validation callback
-  const handleFormValidate = useCallback((errors: ValidationError[]) => {
-    setFormErrors(errors);
-  }, []);
-
-  // Build input fields from schema using SchemaFormBuilder
+  // Build input fields — schema-driven when available, freeform otherwise
   const renderInputFields = () => {
-    if (!functionDetails?.inputSchema) {
-      // Fallback: single text input (no schema available)
-      return (
-        <div>
-          <label style={{
-            display: "block",
-            fontSize: "14px",
-            fontWeight: 600,
-            marginBottom: "8px",
-            color: "var(--text)",
-          }}>
-            Input
-            <span style={{
-              fontWeight: 400,
-              color: "var(--text-muted)",
-              marginLeft: "8px",
-            }}>
-              Your input data (JSON)
-            </span>
-          </label>
-          <div className="aiTextField">
-            <textarea
-              placeholder="Enter input as JSON..."
-              value={rawInput}
-              onChange={(e) => {
-                setRawInput(e.target.value);
-                try {
-                  setFormData(JSON.parse(e.target.value));
-                } catch {
-                  // Keep typing, will parse on submit
-                }
-              }}
-              rows={6}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    // Use SchemaFormBuilder for schema-driven dynamic forms
     return (
-      <SchemaFormBuilder
-        schema={functionDetails.inputSchema as unknown as InputSchema}
+      <InputBuilder
+        schema={functionDetails?.inputSchema ? (functionDetails.inputSchema as unknown as InputSchema) : null}
         value={formData}
         onChange={setFormData}
-        onValidate={handleFormValidate}
         disabled={isRunning}
+        label={!functionDetails?.inputSchema ? "Input" : undefined}
+        description={!functionDetails?.inputSchema ? "Build your input data" : undefined}
       />
     );
   };

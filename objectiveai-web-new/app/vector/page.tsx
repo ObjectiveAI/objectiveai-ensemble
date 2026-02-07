@@ -2,17 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import ArrayInput from "../../components/ArrayInput";
+import { InputBuilder } from "../../components/InputBuilder";
+import type { InputValue } from "../../components/SchemaForm/types";
 import { useResponsive } from "../../hooks/useResponsive";
-
-// Content item types matching ArrayInput component
-type TextItem = string;
-type ImagePart = { type: "image_url"; image_url: { url: string } };
-type AudioPart = { type: "input_audio"; input_audio: { data: string; format: "wav" | "mp3" } };
-type VideoPart = { type: "video_url"; video_url: { url: string } };
-type FilePart = { type: "file"; file: { file_data: string; filename: string } };
-type RichContentPart = ImagePart | AudioPart | VideoPart | FilePart;
-type ContentItem = TextItem | RichContentPart[];
 
 interface VectorResult {
   id?: string;
@@ -44,7 +36,7 @@ interface VectorResult {
 
 export default function VectorCompletionsPage() {
   const [prompt, setPrompt] = useState("");
-  const [responses, setResponses] = useState<ContentItem[]>(["", ""]);
+  const [responses, setResponses] = useState<InputValue>(["", ""]);
   const [ensembleId, setEnsembleId] = useState("");
   const [profileWeights, setProfileWeights] = useState("1");
   const [isRunning, setIsRunning] = useState(false);
@@ -89,8 +81,16 @@ export default function VectorCompletionsPage() {
 
   // Execute vector completion
   const handleRun = async () => {
-    const textResponses = responses.filter((r): r is string => typeof r === "string" && r.trim() !== "");
-    if (!prompt.trim() || textResponses.length < 2) {
+    // Responses can be any InputValue array
+    const responseArray = Array.isArray(responses) ? responses : [];
+    // Filter out empty/null items
+    const validResponses = responseArray.filter((r) => {
+      if (r === null || r === undefined) return false;
+      if (typeof r === "string") return r.trim() !== "";
+      return true;
+    });
+
+    if (!prompt.trim() || validResponses.length < 2) {
       setRunError("Please enter a prompt and at least 2 responses");
       return;
     }
@@ -113,8 +113,6 @@ export default function VectorCompletionsPage() {
     setShowAllModels(false);
 
     try {
-      const validResponses = textResponses;
-
       const response = await fetch("/api/vector/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,12 +152,27 @@ export default function VectorCompletionsPage() {
     return "var(--color-error)";                          // red
   };
 
-  // Helper to get label from ContentItem
-  const getResponseLabel = (item: ContentItem | string | undefined, maxLen: number): string => {
+  // Helper to get label from any InputValue
+  const getResponseLabel = (item: InputValue | undefined, maxLen: number): string => {
     if (typeof item === "string") {
       return item.length > maxLen ? item.slice(0, maxLen) + "..." : item;
     }
-    return `Option`;
+    if (typeof item === "number" || typeof item === "boolean") {
+      return String(item);
+    }
+    if (item && typeof item === "object" && !Array.isArray(item)) {
+      const v = item as Record<string, unknown>;
+      if (v.type === "image_url") return "Image";
+      if (v.type === "input_audio") return "Audio";
+      if (v.type === "video_url" || v.type === "input_video") return "Video";
+      if (v.type === "file") return (v.file as { filename?: string })?.filename || "File";
+      const keys = Object.keys(v);
+      return keys.length > 0 ? `{${keys.slice(0, 3).join(", ")}${keys.length > 3 ? "..." : ""}}` : "{}";
+    }
+    if (Array.isArray(item)) {
+      return `[${item.length} items]`;
+    }
+    return "Option";
   };
 
   // Render results
@@ -167,7 +180,7 @@ export default function VectorCompletionsPage() {
     if (!results?.scores) return null;
 
     const scores = results.scores;
-    const storedResponses = (results as { _responses?: string[] })._responses || responses;
+    const storedResponses = (results as { _responses?: InputValue[] })._responses || (Array.isArray(responses) ? responses : []);
 
     const sorted = scores
       .map((score, i) => ({
@@ -248,14 +261,12 @@ export default function VectorCompletionsPage() {
 
     const votes = results.votes;
     const allSimulated = votes.every(v => v.from_rng);
-    const storedResponses = (results as { _responses?: string[] })._responses || responses;
+    const storedResponses = (results as { _responses?: InputValue[] })._responses || (Array.isArray(responses) ? responses : []);
 
     const getOptionLabel = (idx: number) => {
-      if (storedResponses[idx]) {
-        const item = storedResponses[idx];
-        if (typeof item === "string") {
-          return item.length > 18 ? item.slice(0, 18) + "..." : item;
-        }
+      const item = storedResponses[idx];
+      if (item !== undefined && item !== null) {
+        return getResponseLabel(item, 18) || `Option ${idx + 1}`;
       }
       return `Option ${idx + 1}`;
     };
@@ -456,29 +467,13 @@ export default function VectorCompletionsPage() {
               </div>
 
               {/* Responses */}
-              <div>
-                <label style={{
-                  display: "block",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  color: "var(--text)",
-                }}>
-                  Responses
-                  <span style={{
-                    fontWeight: 400,
-                    color: "var(--text-muted)",
-                    marginLeft: "8px",
-                  }}>
-                    Options to rank (minimum 2)
-                  </span>
-                </label>
-                <ArrayInput
-                  value={responses}
-                  onChange={setResponses}
-                  isMobile={isMobile}
-                />
-              </div>
+              <InputBuilder
+                value={responses}
+                onChange={setResponses}
+                label="Responses"
+                description="Options to rank (minimum 2)"
+                disabled={isRunning}
+              />
 
               {/* Ensemble ID */}
               <div>
