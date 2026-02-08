@@ -3747,6 +3747,7 @@ This function must use **vector completion tasks** (type: \`vector.completion\`)
 - Only use JMESPath (\`{"$jmespath": "..."}\`) for very simple field access expressions
 - Starlark example: \`{"$starlark": "input['items'][0]"}\`
 - JMESPath example: \`{"$jmespath": "input.name"}\` (simple field access only)
+- **Never use \`str()\` on multimodal content** (images, audio, video). Pass rich content directly via expressions so the model receives the actual media, not a stringified representation.
 
 ### Expression Context
 Expressions receive a single object with these fields:
