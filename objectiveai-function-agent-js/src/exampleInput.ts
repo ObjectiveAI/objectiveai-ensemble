@@ -13,5 +13,11 @@ export const ExampleInputSchema = z.object({
 });
 export type ExampleInput = z.infer<typeof ExampleInputSchema>;
 
-export const ExampleInputsSchema = z.array(ExampleInputSchema).min(10);
+export const ExampleInputsSchema = z
+  .array(ExampleInputSchema)
+  .min(10)
+  .max(100)
+  .describe(
+    "An array of example inputs for the function. Must contain between 10 and 100 items.",
+  );
 export type ExampleInputs = z.infer<typeof ExampleInputsSchema>;

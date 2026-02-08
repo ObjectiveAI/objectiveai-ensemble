@@ -1,4 +1,5 @@
 import { Functions } from "objectiveai";
+import z from "zod";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { Result } from "../result";
 import {
@@ -9,7 +10,7 @@ import {
 } from "../../exampleInput";
 import { validateInputSchema } from "../function/inputSchema";
 import { DeserializedFunction, readFunction, validateFunction } from "../function/function";
-import { readProfile, validateProfile } from "../profile";
+import { buildProfile, readProfile, validateProfile } from "../profile";
 import { readParameters, validateParameters } from "../parameters";
 
 export function validateExampleInput(
@@ -91,6 +92,34 @@ export function validateExampleInputs(
 
 export function readExampleInputs(): Result<unknown> {
   return readExampleInputsFile();
+}
+
+export function readExampleInputsSchema(): Result<z.ZodType> {
+  const fn = readFunction();
+  if (!fn.ok) {
+    return { ok: false, value: undefined, error: `Unable to read function: ${fn.error}` };
+  }
+  const inputSchemaResult = validateInputSchema(fn.value);
+  if (!inputSchemaResult.ok) {
+    return { ok: false, value: undefined, error: `Unable to read input_schema: ${inputSchemaResult.error}` };
+  }
+  const zodSchema = Functions.Expression.InputSchemaExt.toZodSchema(inputSchemaResult.value);
+  const itemSchema = ExampleInputSchema.extend({ value: zodSchema });
+
+  // Derive array constraints from ExampleInputsSchema so changes there propagate
+  let arraySchema: z.ZodArray<typeof itemSchema> = z.array(itemSchema);
+  const def = (ExampleInputsSchema as any)._def ?? (ExampleInputsSchema as any).def;
+  if (def?.minLength != null) {
+    arraySchema = arraySchema.min(def.minLength.value ?? def.minLength);
+  }
+  if (def?.maxLength != null) {
+    arraySchema = arraySchema.max(def.maxLength.value ?? def.maxLength);
+  }
+  if (ExampleInputsSchema.description) {
+    arraySchema = arraySchema.describe(ExampleInputsSchema.description);
+  }
+
+  return { ok: true, value: arraySchema, error: undefined };
 }
 
 function readExampleInputsFile(): Result<unknown[]> {
@@ -230,7 +259,11 @@ export function checkExampleInputs(): Result<undefined> {
   }
   const func = funcResult.value;
 
-  // Read and validate profile.json
+  // Build and validate profile.json
+  const buildResult = buildProfile();
+  if (!buildResult.ok) {
+    return { ok: false, value: undefined, error: `Failed to build profile: ${buildResult.error}` };
+  }
   const profileRaw = readProfile();
   if (!profileRaw.ok) {
     return { ok: false, value: undefined, error: profileRaw.error };

@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync, appendFileSync } from "fs";
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { LogFn } from "./agentOptions";
 
 // Find the next available log index
@@ -40,26 +41,75 @@ export function createFileLogger(): { log: LogFn; logPath: string } {
   writeFileSync(logPath, "");
 
   const log: LogFn = (...args: unknown[]) => {
-    // Format arguments
     const message = args
-      .map((arg) => {
-        if (typeof arg === "string") return arg;
-        try {
-          return JSON.stringify(arg, null, 2);
-        } catch {
-          return String(arg);
-        }
-      })
+      .map((arg) => (typeof arg === "string" ? arg : String(arg)))
       .join(" ");
 
-    // Write to file
     appendFileSync(logPath, message + "\n");
-
-    // Write to console
-    console.log(...args);
+    console.log(message);
   };
 
   return { log, logPath };
+}
+
+/**
+ * Extract important info from an SDK message and pre-serialize to string.
+ * Returns null for messages that should be skipped.
+ */
+export function formatMessage(msg: SDKMessage): string | null {
+  switch (msg.type) {
+    case "system": {
+      if (msg.subtype === "init") {
+        return `[init] session=${msg.session_id} model=${msg.model}`;
+      }
+      if (msg.subtype === "compact_boundary") {
+        return `[compact]`;
+      }
+      return null;
+    }
+
+    case "assistant": {
+      const parts: string[] = [];
+      for (const block of msg.message.content) {
+        if (block.type === "text") {
+          const text = block.text.trim();
+          if (text) parts.push(text);
+        } else if (block.type === "tool_use") {
+          parts.push(`[tool_use] ${block.name}`);
+        }
+      }
+      return parts.length > 0 ? parts.join("\n") : null;
+    }
+
+    case "result": {
+      const durationSec = (msg.duration_ms / 1000).toFixed(1);
+      if (msg.subtype === "success") {
+        return `[result] success turns=${msg.num_turns} cost=$${msg.total_cost_usd.toFixed(4)} duration=${durationSec}s`;
+      }
+      return `[result] error=${msg.subtype} turns=${msg.num_turns} cost=$${msg.total_cost_usd.toFixed(4)} duration=${durationSec}s errors=${JSON.stringify(msg.errors)}`;
+    }
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Consume an SDK message stream, extract session_id, and log formatted messages.
+ */
+export async function consumeStream(
+  stream: AsyncIterable<SDKMessage>,
+  log: LogFn,
+  sessionId?: string,
+): Promise<string | undefined> {
+  for await (const message of stream) {
+    if (message.type === "system" && message.subtype === "init") {
+      sessionId = message.session_id;
+    }
+    const formatted = formatMessage(message);
+    if (formatted) log(formatted);
+  }
+  return sessionId;
 }
 
 /**

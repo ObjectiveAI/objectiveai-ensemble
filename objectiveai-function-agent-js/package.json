@@ -14,7 +14,7 @@
   "type": "module",
   "scripts": {
     "build": "shx rm -rf dist && tsup",
-    "test": "node test/test-cjs.cjs && node test/test-esm.mjs",
+    "test": "vitest run",
     "start": "node dist/index.js"
   },
   "author": {
@@ -40,7 +40,8 @@
     "@types/node": "^25.2.0",
     "shx": "^0.4.0",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "keywords": [
     "llm",
