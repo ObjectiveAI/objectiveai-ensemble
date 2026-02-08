@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, readdirSync, rmSync, statSync, mkdirSync, appendFileSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, appendFileSync, unlinkSync, rmSync } from 'fs';
 import { join, dirname } from 'path';
 import { Functions, ObjectiveAI } from 'objectiveai';
 import { tool, createSdkMcpServer, query } from '@anthropic-ai/claude-agent-sdk';
@@ -149,11 +149,11 @@ async function fetchFunctionRecursively(objectiveai, ref) {
     }
   }
 }
-async function fetchExamples(apiBase) {
+async function fetchExamples(apiBase, apiKey) {
   if (existsSync(join("examples", "examples.json"))) {
     return;
   }
-  const objectiveai = new ObjectiveAI(apiBase ? { apiBase } : void 0);
+  const objectiveai = new ObjectiveAI({ ...apiBase && { apiBase }, ...apiKey && { apiKey } });
   const { data: functions } = await Functions.list(objectiveai);
   const shuffled = functions.sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, Math.min(10, shuffled.length));
@@ -174,7 +174,7 @@ function writeGitignore() {
 }
 async function init(options = {}) {
   writeGitignore();
-  await fetchExamples(options.apiBase);
+  await fetchExamples(options.apiBase, options.apiKey);
   if (!existsSync("parameters.json")) {
     const parameters = {
       depth: options.depth ?? 0
@@ -2359,8 +2359,8 @@ function clearDir(dir) {
     unlinkSync(join(dir, file));
   }
 }
-async function runNetworkTests(apiBase) {
-  const client = new ObjectiveAI(apiBase ? { apiBase } : void 0);
+async function runNetworkTests(apiBase, apiKey) {
+  const client = new ObjectiveAI({ ...apiBase && { apiBase }, ...apiKey && { apiKey } });
   const fnRaw = readFunction();
   if (!fnRaw.ok) {
     return { ok: false, value: void 0, error: `Unable to read function.json: ${fnRaw.error}` };
@@ -2507,7 +2507,7 @@ function ensureGitHubRepo(name, description) {
     execSync("git push", { stdio: "inherit" });
   }
 }
-async function submit(message, apiBase) {
+async function submit(message, apiBase, apiKey) {
   const profileBuild = buildProfile();
   if (!profileBuild.ok) {
     return {
@@ -2538,7 +2538,7 @@ Use the CheckFunction tool to see detailed errors and fix them.`
 Use the CheckExampleInputs tool to see detailed errors and fix them.`
     };
   }
-  const testsResult = await runNetworkTests(apiBase);
+  const testsResult = await runNetworkTests(apiBase, apiKey);
   if (!testsResult.ok) {
     return {
       ok: false,
@@ -2951,12 +2951,12 @@ var CheckExampleInputs = tool(
   {},
   async () => resultFromResult(checkExampleInputs())
 );
-function makeRunNetworkTests(apiBase) {
+function makeRunNetworkTests(apiBase, apiKey) {
   return tool(
     "RunNetworkTests",
     "Execute the function once for each example input and write results to networkTests/",
     {},
-    async () => resultFromResult(await runNetworkTests(apiBase))
+    async () => resultFromResult(await runNetworkTests(apiBase, apiKey))
   );
 }
 var ReadDefaultNetworkTest = tool(
@@ -2983,12 +2983,12 @@ var WriteReadme = tool(
   { content: z19.string() },
   async ({ content }) => resultFromResult(writeReadme(content))
 );
-function makeSubmit(apiBase) {
+function makeSubmit(apiBase, apiKey) {
   return tool(
     "Submit",
     "Check function, check example inputs, run network tests, commit and push to GitHub (if all successful)",
     { message: z19.string().describe("Commit message") },
-    async ({ message }) => resultFromResult(await submit(message, apiBase))
+    async ({ message }) => resultFromResult(await submit(message, apiBase, apiKey))
   );
 }
 function getCurrentDepth() {
@@ -2999,13 +2999,16 @@ function getCurrentDepth() {
   const params = JSON.parse(content);
   return params.depth ?? 0;
 }
-function runAgentInSubdir(name, spec, childDepth, childProcesses) {
+function runAgentInSubdir(name, spec, childDepth, childProcesses, apiBase, apiKey) {
   const subdir = join("agent_functions", name);
   mkdirSync(subdir, { recursive: true });
   return new Promise((resolve) => {
+    const args = ["invent", spec, "--name", name, "--depth", String(childDepth)];
+    if (apiBase) args.push("--api-base", apiBase);
+    if (apiKey) args.push("--api-key", apiKey);
     const child = spawn(
       "objectiveai-function-agent",
-      ["invent", spec, "--name", name, "--depth", String(childDepth)],
+      args,
       {
         cwd: subdir,
         stdio: ["inherit", "pipe", "pipe"],
@@ -3047,7 +3050,7 @@ function runAgentInSubdir(name, spec, childDepth, childProcesses) {
     });
   });
 }
-async function spawnFunctionAgents(params) {
+async function spawnFunctionAgents(params, apiBase, apiKey) {
   if (params.length === 0) {
     return { ok: false, value: void 0, error: "params array is empty" };
   }
@@ -3124,7 +3127,7 @@ async function spawnFunctionAgents(params) {
   try {
     const results = await Promise.all(
       params.map(
-        (param) => runAgentInSubdir(param.name, param.spec, childDepth, childProcesses)
+        (param) => runAgentInSubdir(param.name, param.spec, childDepth, childProcesses, apiBase, apiKey)
       )
     );
     return { ok: true, value: results, error: void 0 };
@@ -3149,12 +3152,14 @@ var SpawnFunctionAgentsParamsSchema = z.array(
 );
 
 // src/tools/claude/spawnFunctionAgents.ts
-var SpawnFunctionAgents = tool(
-  "SpawnFunctionAgents",
-  "Spawn child function agents in parallel",
-  { params: SpawnFunctionAgentsParamsSchema },
-  async ({ params }) => resultFromResult(await spawnFunctionAgents(params))
-);
+function makeSpawnFunctionAgents(apiBase, apiKey) {
+  return tool(
+    "SpawnFunctionAgents",
+    "Spawn child function agents in parallel",
+    { params: SpawnFunctionAgentsParamsSchema },
+    async ({ params }) => resultFromResult(await spawnFunctionAgents(params, apiBase, apiKey))
+  );
+}
 function listAgentFunctions() {
   const dir = "agent_functions";
   if (!existsSync(dir)) {
@@ -3237,7 +3242,7 @@ var ReadAgentFunction = tool(
 );
 
 // src/claude/invent/inventMcp.ts
-function getCommonTools(planIndex, apiBase) {
+function getCommonTools(planIndex, apiBase, apiKey) {
   return [
     // Core Context
     ReadSpec,
@@ -3303,15 +3308,15 @@ function getCommonTools(planIndex, apiBase) {
     ReadReadme,
     WriteReadme,
     // Network tests
-    makeRunNetworkTests(apiBase),
+    makeRunNetworkTests(apiBase, apiKey),
     ReadDefaultNetworkTest,
     ReadSwissSystemNetworkTest,
     // Submit
-    makeSubmit(apiBase)
+    makeSubmit(apiBase, apiKey)
   ];
 }
-function getFunctionTasksTools() {
-  return [SpawnFunctionAgents, ListAgentFunctions, ReadAgentFunction];
+function getFunctionTasksTools(apiBase, apiKey) {
+  return [makeSpawnFunctionAgents(apiBase, apiKey), ListAgentFunctions, ReadAgentFunction];
 }
 function buildFunctionTasksPrompt() {
   return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
@@ -3466,7 +3471,7 @@ Once all tests pass and SPEC.md compliance is verified:
 - **Prefer Starlark over JMESPath** - Starlark is more readable and powerful
 `;
 }
-async function inventLoop(log, useFunctionTasks, sessionId, apiBase) {
+async function inventLoop(log, useFunctionTasks, sessionId, apiBase, apiKey) {
   const nextPlanIndex = getNextPlanIndex();
   const maxAttempts = 5;
   let attempt = 0;
@@ -3476,8 +3481,8 @@ async function inventLoop(log, useFunctionTasks, sessionId, apiBase) {
     attempt++;
     log(`Invent loop attempt ${attempt}/${maxAttempts}`);
     const tools = [
-      ...getCommonTools(nextPlanIndex, apiBase),
-      ...useFunctionTasks ? getFunctionTasksTools() : []
+      ...getCommonTools(nextPlanIndex, apiBase, apiKey),
+      ...useFunctionTasks ? getFunctionTasksTools(apiBase, apiKey) : []
     ];
     const mcpServer = createSdkMcpServer({ name: "invent", tools });
     let prompt;
@@ -3509,7 +3514,7 @@ Please try again. Remember to:
     );
     log("Running submit...");
     lastFailureReasons = [];
-    const submitResult = await submit("submit", apiBase);
+    const submitResult = await submit("submit", apiBase, apiKey);
     if (submitResult.ok) {
       success = true;
       log(`Success: Submitted commit ${submitResult.value}`);
@@ -3526,13 +3531,13 @@ Please try again. Remember to:
 async function inventFunctionTasksMcp(options = {}) {
   const log = options.log ?? createFileLogger().log;
   log("=== Invent Loop: Creating new function (function tasks) ===");
-  await inventLoop(log, true, options.sessionId, options.apiBase);
+  await inventLoop(log, true, options.sessionId, options.apiBase, options.apiKey);
   log("=== ObjectiveAI Function invention complete ===");
 }
 async function inventVectorTasksMcp(options = {}) {
   const log = options.log ?? createFileLogger().log;
   log("=== Invent Loop: Creating new function (vector tasks) ===");
-  await inventLoop(log, false, options.sessionId, options.apiBase);
+  await inventLoop(log, false, options.sessionId, options.apiBase, options.apiKey);
   log("=== ObjectiveAI Function invention complete ===");
 }
 async function inventMcp(options = {}) {

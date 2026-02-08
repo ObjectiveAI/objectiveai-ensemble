@@ -48,7 +48,7 @@ function ensureGitHubRepo(name: string, description: string): void {
   }
 }
 
-export async function submit(message: string, apiBase?: string): Promise<Result<string>> {
+export async function submit(message: string, apiBase?: string, apiKey?: string): Promise<Result<string>> {
   // 0. Build profile from current function definition
   const profileBuild = buildProfile();
   if (!profileBuild.ok) {
@@ -80,7 +80,7 @@ export async function submit(message: string, apiBase?: string): Promise<Result<
   }
 
   // 3. Run network tests
-  const testsResult = await runNetworkTests(apiBase);
+  const testsResult = await runNetworkTests(apiBase, apiKey);
   if (!testsResult.ok) {
     return {
       ok: false,

@@ -6,6 +6,7 @@ function parseArgs(): {
   name?: string;
   depth?: number;
   apiBase?: string;
+  apiKey?: string;
 } {
   const args = process.argv.slice(2);
   let command: string | undefined;
@@ -13,6 +14,7 @@ function parseArgs(): {
   let name: string | undefined;
   let depth: number | undefined;
   let apiBase: string | undefined;
+  let apiKey: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -28,6 +30,10 @@ function parseArgs(): {
       apiBase = arg.slice(11);
     } else if (arg === "--api-base") {
       apiBase = args[++i];
+    } else if (arg.startsWith("--api-key=")) {
+      apiKey = arg.slice(10);
+    } else if (arg === "--api-key") {
+      apiKey = args[++i];
     } else if (!command) {
       command = arg;
     } else if (!spec) {
@@ -35,15 +41,15 @@ function parseArgs(): {
     }
   }
 
-  return { command, spec, name, depth, apiBase };
+  return { command, spec, name, depth, apiBase, apiKey };
 }
 
 async function main(): Promise<void> {
-  const { command, spec, name, depth, apiBase } = parseArgs();
+  const { command, spec, name, depth, apiBase, apiKey } = parseArgs();
 
   switch (command) {
     case "invent":
-      await Claude.invent({ spec, name, depth, apiBase });
+      await Claude.invent({ spec, name, depth, apiBase, apiKey });
       break;
     default:
       console.log("Usage: objectiveai-function-agent invent [spec] [options]");
@@ -53,6 +59,7 @@ async function main(): Promise<void> {
       console.log("  --name NAME      Function name for name.txt");
       console.log("  --depth N        Depth level (0=vector, >0=function tasks)");
       console.log("  --api-base URL   API base URL");
+      console.log("  --api-key KEY    ObjectiveAI API key");
       process.exit(1);
   }
 }

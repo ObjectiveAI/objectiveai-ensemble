@@ -59,12 +59,12 @@ async function fetchFunctionRecursively(
   }
 }
 
-async function fetchExamples(apiBase?: string): Promise<void> {
+async function fetchExamples(apiBase?: string, apiKey?: string): Promise<void> {
   if (existsSync(join("examples", "examples.json"))) {
     return;
   }
 
-  const objectiveai = new ObjectiveAI(apiBase ? { apiBase } : undefined);
+  const objectiveai = new ObjectiveAI({ ...(apiBase && { apiBase }), ...(apiKey && { apiKey }) });
 
   const { data: functions } = await Functions.list(objectiveai);
   const shuffled = functions.sort(() => Math.random() - 0.5);
@@ -93,7 +93,7 @@ export async function init(options: AgentOptions = {}): Promise<void> {
   writeGitignore();
 
   // Fetch examples if needed
-  await fetchExamples(options.apiBase);
+  await fetchExamples(options.apiBase, options.apiKey);
 
   // Write parameters.json if missing
   if (!existsSync("parameters.json")) {

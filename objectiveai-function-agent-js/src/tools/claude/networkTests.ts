@@ -7,12 +7,12 @@ import {
 import { resultFromResult } from "./util";
 import z from "zod";
 
-export function makeRunNetworkTests(apiBase?: string) {
+export function makeRunNetworkTests(apiBase?: string, apiKey?: string) {
   return tool(
     "RunNetworkTests",
     "Execute the function once for each example input and write results to networkTests/",
     {},
-    async () => resultFromResult(await runNetworkTests(apiBase)),
+    async () => resultFromResult(await runNetworkTests(apiBase, apiKey)),
   );
 }
 

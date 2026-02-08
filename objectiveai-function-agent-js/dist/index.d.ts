@@ -7,6 +7,7 @@ interface AgentOptions {
     name?: string;
     spec?: string;
     apiBase?: string;
+    apiKey?: string;
     sessionId?: string;
     log?: LogFn;
     depth?: number;
@@ -58664,7 +58665,7 @@ declare namespace index$1 {
 
 declare function formatZodSchema(schema: z.ZodType): string;
 
-declare function runNetworkTests(apiBase?: string): Promise<Result<undefined>>;
+declare function runNetworkTests(apiBase?: string, apiKey?: string): Promise<Result<undefined>>;
 declare function readDefaultNetworkTest(index: number): Result<unknown>;
 declare function readSwissSystemNetworkTest(index: number): Result<unknown>;
 

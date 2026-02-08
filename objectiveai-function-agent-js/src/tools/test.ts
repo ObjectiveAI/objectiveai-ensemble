@@ -13,8 +13,8 @@ function clearDir(dir: string): void {
   }
 }
 
-export async function runNetworkTests(apiBase?: string): Promise<Result<undefined>> {
-  const client = new ObjectiveAI(apiBase ? { apiBase } : undefined);
+export async function runNetworkTests(apiBase?: string, apiKey?: string): Promise<Result<undefined>> {
+  const client = new ObjectiveAI({ ...(apiBase && { apiBase }), ...(apiKey && { apiKey }) });
 
   // Read and validate function
   const fnRaw = readFunction();

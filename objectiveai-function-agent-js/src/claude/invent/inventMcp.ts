@@ -108,14 +108,14 @@ import { ReadReadme, WriteReadme } from "../../tools/claude/readme";
 import { makeSubmit } from "../../tools/claude/submit";
 
 // Tools - agent functions (for function tasks variant)
-import { SpawnFunctionAgents } from "../../tools/claude/spawnFunctionAgents";
+import { makeSpawnFunctionAgents } from "../../tools/claude/spawnFunctionAgents";
 import {
   ListAgentFunctions,
   ReadAgentFunction,
 } from "../../tools/claude/agentFunctions";
 
 // Common tools shared by both variants
-function getCommonTools(planIndex: number, apiBase?: string) {
+function getCommonTools(planIndex: number, apiBase?: string, apiKey?: string) {
   return [
     // Core Context
     ReadSpec,
@@ -186,18 +186,18 @@ function getCommonTools(planIndex: number, apiBase?: string) {
     WriteReadme,
 
     // Network tests
-    makeRunNetworkTests(apiBase),
+    makeRunNetworkTests(apiBase, apiKey),
     ReadDefaultNetworkTest,
     ReadSwissSystemNetworkTest,
 
     // Submit
-    makeSubmit(apiBase),
+    makeSubmit(apiBase, apiKey),
   ];
 }
 
 // Additional tools for function tasks variant (sub-function spawning)
-function getFunctionTasksTools() {
-  return [SpawnFunctionAgents, ListAgentFunctions, ReadAgentFunction];
+function getFunctionTasksTools(apiBase?: string, apiKey?: string) {
+  return [makeSpawnFunctionAgents(apiBase, apiKey), ListAgentFunctions, ReadAgentFunction];
 }
 
 function buildFunctionTasksPrompt(): string {
@@ -360,6 +360,7 @@ async function inventLoop(
   useFunctionTasks: boolean,
   sessionId?: string,
   apiBase?: string,
+  apiKey?: string,
 ): Promise<string | undefined> {
   const nextPlanIndex = getNextPlanIndex();
   const maxAttempts = 5;
@@ -373,8 +374,8 @@ async function inventLoop(
 
     // Build tools list
     const tools = [
-      ...getCommonTools(nextPlanIndex, apiBase),
-      ...(useFunctionTasks ? getFunctionTasksTools() : []),
+      ...getCommonTools(nextPlanIndex, apiBase, apiKey),
+      ...(useFunctionTasks ? getFunctionTasksTools(apiBase, apiKey) : []),
     ];
     const mcpServer = createSdkMcpServer({ name: "invent", tools });
 
@@ -414,7 +415,7 @@ Please try again. Remember to:
     // Validate and submit
     log("Running submit...");
     lastFailureReasons = [];
-    const submitResult = await submit("submit", apiBase);
+    const submitResult = await submit("submit", apiBase, apiKey);
     if (submitResult.ok) {
       success = true;
       log(`Success: Submitted commit ${submitResult.value}`);
@@ -439,7 +440,7 @@ export async function inventFunctionTasksMcp(
   const log = options.log ?? createFileLogger().log;
 
   log("=== Invent Loop: Creating new function (function tasks) ===");
-  await inventLoop(log, true, options.sessionId, options.apiBase);
+  await inventLoop(log, true, options.sessionId, options.apiBase, options.apiKey);
 
   log("=== ObjectiveAI Function invention complete ===");
 }
@@ -451,7 +452,7 @@ export async function inventVectorTasksMcp(
   const log = options.log ?? createFileLogger().log;
 
   log("=== Invent Loop: Creating new function (vector tasks) ===");
-  await inventLoop(log, false, options.sessionId, options.apiBase);
+  await inventLoop(log, false, options.sessionId, options.apiBase, options.apiKey);
 
   log("=== ObjectiveAI Function invention complete ===");
 }

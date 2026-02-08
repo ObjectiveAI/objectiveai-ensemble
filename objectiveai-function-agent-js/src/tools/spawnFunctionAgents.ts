@@ -39,15 +39,21 @@ function runAgentInSubdir(
   spec: string,
   childDepth: number,
   childProcesses: ChildProcess[],
+  apiBase?: string,
+  apiKey?: string,
 ): Promise<SpawnResult> {
   const subdir = join("agent_functions", name);
 
   mkdirSync(subdir, { recursive: true });
 
   return new Promise<SpawnResult>((resolve) => {
+    const args = ["invent", spec, "--name", name, "--depth", String(childDepth)];
+    if (apiBase) args.push("--api-base", apiBase);
+    if (apiKey) args.push("--api-key", apiKey);
+
     const child = spawn(
       "objectiveai-function-agent",
-      ["invent", spec, "--name", name, "--depth", String(childDepth)],
+      args,
       {
         cwd: subdir,
         stdio: ["inherit", "pipe", "pipe"],
@@ -98,6 +104,8 @@ function runAgentInSubdir(
 
 export async function spawnFunctionAgents(
   params: SpawnFunctionAgentsParams,
+  apiBase?: string,
+  apiKey?: string,
 ): Promise<Result<SpawnResult[]>> {
   if (params.length === 0) {
     return { ok: false, value: undefined, error: "params array is empty" };
@@ -188,7 +196,7 @@ export async function spawnFunctionAgents(
   try {
     const results = await Promise.all(
       params.map((param) =>
-        runAgentInSubdir(param.name, param.spec, childDepth, childProcesses),
+        runAgentInSubdir(param.name, param.spec, childDepth, childProcesses, apiBase, apiKey),
       ),
     );
     return { ok: true, value: results, error: undefined };
