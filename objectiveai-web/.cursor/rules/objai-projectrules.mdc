@@ -1,0 +1,22 @@
+# Project Rules (paste into your project rules / .cursorrules / agent rules)
+
+## Tech Stack
+- Use Next.js (App Router), React, and TypeScript for all code.
+- Prefer functional components.
+
+## Classnames Convention (MANDATORY)
+- Always import the `classnames` package as `cn`:
+  - `import cn from "classnames";`
+- For any `className=...`, ALWAYS use `{cn()}` (never a raw string, never template literals).
+- In `cn()`, ALWAYS pass individual class strings as separate arguments, separated by commas.
+  - ✅ `className={cn("btn", "btnPrimary", isActive && "isActive")}`
+  - ❌ `className="btn btnPrimary"`
+  - ❌ `className={\`btn \${isActive ? "isActive" : ""}\`}`
+  - ❌ `className={cn("btn btnPrimary")}`
+
+## Examples
+- `className={cn("card", "card--lg")}`
+- `className={cn("navLink", pathname === "/apps" && "navLink--active")}`
+---
+alwaysApply: true
+---

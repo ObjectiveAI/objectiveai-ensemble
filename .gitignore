@@ -1,3 +1,6 @@
 tmpclaude-*
 /target
 node_modules
+.env
+env
+.claude/

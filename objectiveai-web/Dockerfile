@@ -1,5 +1,5 @@
 # Builder
-FROM node:20 AS builder
+FROM node:22 AS builder
 ARG AUTH_GOOGLE_CLIENT_ID
 ENV AUTH_GOOGLE_CLIENT_ID=${AUTH_GOOGLE_CLIENT_ID}
 ARG AUTH_GOOGLE_CLIENT_SECRET
@@ -30,24 +30,22 @@ ARG IP_RSA_PUBLIC_KEY
 ENV IP_RSA_PUBLIC_KEY=${IP_RSA_PUBLIC_KEY}
 ARG USER_IP_HEADER
 ENV USER_IP_HEADER=${USER_IP_HEADER}
-# Install workspace
+ARG NEXT_PUBLIC_SONARLY_PROJECT_KEY
+ENV NEXT_PUBLIC_SONARLY_PROJECT_KEY=${NEXT_PUBLIC_SONARLY_PROJECT_KEY}
+ARG NEXT_PUBLIC_SONARLY_INGEST_POINT
+ENV NEXT_PUBLIC_SONARLY_INGEST_POINT=${NEXT_PUBLIC_SONARLY_INGEST_POINT}
+# Install workspace (no lockfile — platform-specific binaries need fresh resolution)
 WORKDIR /root
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY objectiveai-js/ objectiveai-js/
 COPY objectiveai-web/package.json objectiveai-web/
 RUN npm install --include=dev
 # Build workspace
 COPY objectiveai-web/ objectiveai-web/
 RUN npm run build --workspace=objectiveai-web
-# Remove symlinks
-WORKDIR /root/objectiveai-web
-RUN rm -rf node_modules/objectiveai \
-  && mkdir -p node_modules/objectiveai \
-  && cp -R /root/objectiveai-js/dist/* node_modules/objectiveai/ \
-  && cp /root/objectiveai-js/package.json node_modules/objectiveai/package.json
 
-# Runner
-FROM node:20-slim AS runner
+# Runner (standalone output — no node_modules needed)
+FROM node:22-slim AS runner
 ARG AUTH_GOOGLE_CLIENT_ID
 ENV AUTH_GOOGLE_CLIENT_ID=${AUTH_GOOGLE_CLIENT_ID}
 ARG AUTH_GOOGLE_CLIENT_SECRET
@@ -78,12 +76,13 @@ ARG IP_RSA_PUBLIC_KEY
 ENV IP_RSA_PUBLIC_KEY=${IP_RSA_PUBLIC_KEY}
 ARG USER_IP_HEADER
 ENV USER_IP_HEADER=${USER_IP_HEADER}
+ARG NEXT_PUBLIC_SONARLY_PROJECT_KEY
+ENV NEXT_PUBLIC_SONARLY_PROJECT_KEY=${NEXT_PUBLIC_SONARLY_PROJECT_KEY}
+ARG NEXT_PUBLIC_SONARLY_INGEST_POINT
+ENV NEXT_PUBLIC_SONARLY_INGEST_POINT=${NEXT_PUBLIC_SONARLY_INGEST_POINT}
 WORKDIR /root
-COPY --from=builder /root/objectiveai-web/.next .next
-COPY --from=builder /root/objectiveai-web/public public
-COPY --from=builder /root/objectiveai-web/node_modules node_modules
-COPY --from=builder \
-    /root/objectiveai-web/package.json \
-    /root/objectiveai-web/next.config.ts \
-    ./
-CMD ["npx", "next", "start"]
+COPY --from=builder /root/objectiveai-web/.next/standalone ./
+COPY --from=builder /root/objectiveai-web/.next/static ./objectiveai-web/.next/static
+COPY --from=builder /root/objectiveai-web/public ./objectiveai-web/public
+WORKDIR /root/objectiveai-web
+CMD ["node", "server.js"]
