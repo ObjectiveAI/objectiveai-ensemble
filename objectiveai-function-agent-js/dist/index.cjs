@@ -2884,7 +2884,7 @@ var ReadInputParamSchema = claudeAgentSdk.tool(
 );
 var ReadMapParamSchema = claudeAgentSdk.tool(
   "ReadMapParamSchema",
-  "Read the schema for `map` available in mapped task expression context. For a task with `map: i`, this is the full sub-array from `input_maps[i]`. Use indexing (e.g., map[0]) to access elements.",
+  "Read the schema for `map` available in mapped task expression context. For a task with `map: i`, the task is compiled once per element in `input_maps[i]`. Each compiled instance receives the current element as `map`.",
   {},
   async () => textResult(formatZodSchema(readMapParamSchema()))
 );

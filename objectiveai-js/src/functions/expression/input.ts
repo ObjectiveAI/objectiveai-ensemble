@@ -571,7 +571,7 @@ export const InputMapsExpressionSchema = z
     "Defines arrays used by mapped tasks. A task with `map: i` references the i-th sub-array. " +
       "The task is compiled once per element in that sub-array, producing multiple task instances. " +
       "If the sub-array is empty, no task instances are produced (effectively skipping the task). " +
-      "In mapped task expressions, the `map` variable receives the full referenced sub-array. " +
+      "Each compiled instance's expressions receive the current element as `map`. " +
       "Receives: `input`.",
   );
 export type InputMapsExpression = z.infer<typeof InputMapsExpressionSchema>;

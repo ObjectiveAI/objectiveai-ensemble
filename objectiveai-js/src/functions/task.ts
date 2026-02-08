@@ -29,7 +29,7 @@ export const TaskExpressionMapSchema = z
   .describe(
     "Index into the function's `input_maps` 2D array. " +
       "When present, this task is compiled once per element in `input_maps[map]`, producing multiple task instances. " +
-      "The `map` variable in expressions receives the full referenced sub-array.",
+      "Each compiled instance's expressions receive the current element as `map`.",
   );
 export type TaskExpressionMap = z.infer<typeof TaskExpressionMapSchema>;
 

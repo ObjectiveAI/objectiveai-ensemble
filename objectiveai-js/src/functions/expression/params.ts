@@ -11,8 +11,8 @@ export const InputMapsAsParameterSchema = z
   .array(InputValueSchema)
   .describe(
     "The `map` variable in mapped task expressions. " +
-      "For a task with `map: i`, this is the full 1D sub-array produced by `input_maps[i]`. " +
-      "Use indexing to access individual elements (e.g., `map[0]`, `map[1]`).",
+      "For a task with `map: i`, the task is compiled once per element in `input_maps[i]`. " +
+      "Each compiled instance receives the current element as `map`.",
   );
 export type InputMapsAsParameter = z.infer<typeof InputMapsAsParameterSchema>;
 
