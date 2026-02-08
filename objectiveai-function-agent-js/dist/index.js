@@ -3547,6 +3547,7 @@ async function inventMcp(options = {}) {
 // src/claude/index.ts
 async function invent(options = {}) {
   const log = options.log ?? createFileLogger().log;
+  options = { ...options, log };
   log("=== Initializing workspace ===");
   await init(options);
   log("=== Preparing ===");

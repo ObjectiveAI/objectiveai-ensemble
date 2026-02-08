@@ -9,6 +9,7 @@ export * from "./invent";
 
 export async function invent(options: AgentOptions = {}): Promise<void> {
   const log = options.log ?? createFileLogger().log;
+  options = { ...options, log };
 
   log("=== Initializing workspace ===");
   await init(options);
