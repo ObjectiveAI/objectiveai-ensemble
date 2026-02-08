@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { createPublicClient } from "../../../lib/client";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
 import { useIsMobile } from "../../../hooks/useIsMobile";
@@ -10,7 +11,7 @@ import { InputBuilder } from "../../../components/InputBuilder";
 import type { InputSchema, InputValue } from "../../../components/SchemaForm/types";
 import SplitItemDisplay from "../../../components/SplitItemDisplay";
 import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/split-item-utils";
-import { compileFunctionInputSplit } from "../../../lib/wasm-validation";
+import { compileFunctionInputSplit, type FunctionConfig } from "../../../lib/wasm-validation";
 import { Functions, EnsembleLlm } from "objectiveai";
 import { ObjectiveAIFetchError } from "objectiveai";
 
@@ -109,10 +110,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         setIsLoadingDetails(true);
         setLoadError(null);
 
-        // First get the function-profile pairs via API route
-        const pairsRes = await fetch('/api/functions/pairs');
-        if (!pairsRes.ok) throw new Error('Failed to fetch function pairs');
-        const pairs = await pairsRes.json();
+        // First get the function-profile pairs via SDK
+        const publicClient = createPublicClient();
+        const pairs = await Functions.listPairs(publicClient);
 
         // Find ALL pairs for this function (may have multiple profiles)
         const matchingPairs = pairs.data.filter(
@@ -132,11 +132,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         // Use the first pair for function details
         const pair = matchingPairs[0];
 
-        // Fetch full function details via API route
-        const slug = `${pair.function.owner}--${pair.function.repository}`;
-        const detailsRes = await fetch(`/api/functions/${slug}?commit=${pair.function.commit}`);
-        if (!detailsRes.ok) throw new Error(`Failed to fetch function details`);
-        const details = await detailsRes.json();
+        // Fetch full function details via SDK
+        const details = await Functions.retrieve(publicClient, pair.function.owner, pair.function.repository, pair.function.commit);
 
         const category = details.type === "vector.function" ? "Ranking" : "Scoring";
 
@@ -235,13 +232,11 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     async function computeSplitItems() {
       try {
         // Fetch the full function definition for WASM compilation
-        const slug = `${owner}--${repository}`;
-        const detailsRes = await fetch(`/api/functions/${slug}?commit=${commit}`);
-        if (!detailsRes.ok) return;
-        const funcDef = await detailsRes.json();
+        const publicClient = createPublicClient();
+        const funcDef = await Functions.retrieve(publicClient, owner, repository, commit);
 
         // Use WASM to compile the input split
-        const splitResult = await compileFunctionInputSplit(funcDef, inputSnapshot);
+        const splitResult = await compileFunctionInputSplit(funcDef as unknown as FunctionConfig, inputSnapshot);
         if (splitResult.success && splitResult.data) {
           // Simplify the items for display (cast to InputValue[])
           const simplified = simplifySplitItems(splitResult.data as InputValue[]);

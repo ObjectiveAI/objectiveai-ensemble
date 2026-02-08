@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { EnsembleLlm } from "objectiveai";
+import { createPublicClient } from "../../lib/client";
 import { useResponsive } from "../../hooks/useResponsive";
 import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
@@ -29,9 +31,8 @@ export default function EnsembleLlmsPage() {
     async function fetchLlms() {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/ensemble-llms");
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Failed to fetch ensemble LLMs");
+        const client = createPublicClient();
+        const data = await EnsembleLlm.list(client);
         setLlms(data.data || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load ensemble LLMs");

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { Ensemble } from "objectiveai";
+import { createPublicClient } from "../../../lib/client";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface EnsembleDetails {
@@ -29,17 +31,14 @@ export default function EnsembleDetailPage({ params }: { params: Promise<{ id: s
     async function fetchEnsemble() {
       try {
         setIsLoading(true);
-        const [detailsRes, usageRes] = await Promise.all([
-          fetch(`/api/ensembles/${id}`),
-          fetch(`/api/ensembles/${id}?usage=true`),
+        const client = createPublicClient();
+        const [details, usageData] = await Promise.all([
+          Ensemble.retrieve(client, id),
+          Ensemble.retrieveUsage(client, id).catch(() => null),
         ]);
 
-        const details = await detailsRes.json();
-        if (!detailsRes.ok) throw new Error(details.error || "Failed to fetch ensemble");
-        setEnsemble(details);
-
-        if (usageRes.ok) {
-          const usageData = await usageRes.json();
+        setEnsemble(details as unknown as EnsembleDetails);
+        if (usageData) {
           setUsage(usageData);
         }
       } catch (err) {

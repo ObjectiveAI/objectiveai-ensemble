@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Vector, EnsembleLlm } from "objectiveai";
+import { createPublicClient } from "../../lib/client";
+import { useObjectiveAI } from "../../hooks/useObjectiveAI";
 import { InputBuilder } from "../../components/InputBuilder";
 import type { InputValue } from "../../components/SchemaForm/types";
 import { useResponsive } from "../../hooks/useResponsive";
@@ -45,6 +48,7 @@ export default function VectorCompletionsPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [modelNames, setModelNames] = useState<Record<string, string>>({});
   const [showAllModels, setShowAllModels] = useState(false);
+  const { getClient } = useObjectiveAI();
 
   // Fetch model names when results contain votes
   useEffect(() => {
@@ -55,18 +59,16 @@ export default function VectorCompletionsPage() {
 
     if (idsToFetch.length === 0) return;
 
+    const publicClient = createPublicClient();
     Promise.all(
       idsToFetch.map(async (id) => {
         try {
-          const res = await fetch(`/api/ensemble-llms/${id}`);
-          if (res.ok) {
-            const data = await res.json();
-            return { id, model: data.model as string };
-          }
+          const data = await EnsembleLlm.retrieve(publicClient, id);
+          return { id, model: data.model as string };
         } catch {
           // Ignore errors, fall back to cryptic ID
+          return null;
         }
-        return null;
       })
     ).then((fetchResults) => {
       const newNames: Record<string, string> = {};
@@ -113,30 +115,20 @@ export default function VectorCompletionsPage() {
     setShowAllModels(false);
 
     try {
-      const response = await fetch("/api/vector/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: prompt }],
-          responses: validResponses,
-          ensemble: ensembleId.trim(),
-          profile: weights,
-          from_cache: true,
-          from_rng: true,
-        }),
+      const client = await getClient();
+      const result = await Vector.Completions.create(client, {
+        messages: [{ role: "user", content: prompt }],
+        responses: validResponses as string[],
+        ensemble: ensembleId.trim(),
+        profile: weights,
+        from_cache: true,
+        from_rng: true,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
       setResults({
-        ...result,
+        ...(result as unknown as VectorResult),
         // Store responses for display
         _responses: validResponses,
-      });
+      } as VectorResult & { _responses: unknown });
     } catch (err) {
       setRunError(err instanceof Error ? err.message : "Execution failed");
     } finally {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Chat } from "objectiveai";
+import { useObjectiveAI } from "../../hooks/useObjectiveAI";
 import { useResponsive } from "../../hooks/useResponsive";
 
 interface Message {
@@ -37,6 +39,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState<ChatCompletion["usage"] | null>(null);
   const { isMobile } = useResponsive();
+  const { getClient } = useObjectiveAI();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -69,84 +72,31 @@ export default function ChatPage() {
     setMessages([...newMessages, assistantMessage]);
 
     try {
-      const response = await fetch("/api/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: newMessages,
-          stream: true,
-        }),
+      const client = await getClient();
+      const stream = await Chat.Completions.create(client, {
+        model,
+        messages: newMessages,
+        tools: [],
+        stream: true as const,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      let accumulatedContent = "";
+      let finalUsage: ChatCompletion["usage"] | null = null;
+
+      for await (const chunk of stream) {
+        const deltaContent = chunk.choices?.[0]?.delta?.content;
+        if (deltaContent) {
+          accumulatedContent += deltaContent;
+          setMessages([...newMessages, { role: "assistant", content: accumulatedContent }]);
+        }
+
+        if (chunk.usage) {
+          finalUsage = chunk.usage as ChatCompletion["usage"];
+        }
       }
 
-      const contentType = response.headers.get("content-type");
-
-      if (contentType?.includes("text/event-stream")) {
-        // Handle streaming
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let accumulatedContent = "";
-        let finalUsage: ChatCompletion["usage"] | null = null;
-
-        if (!reader) {
-          throw new Error("Response body is not readable");
-        }
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") continue;
-              if (!data) continue;
-
-              try {
-                const chunk: ChatCompletion = JSON.parse(data);
-                if ((chunk as { error?: string }).error) {
-                  throw new Error((chunk as { error: string }).error);
-                }
-
-                // Accumulate content from delta
-                const deltaContent = chunk.choices?.[0]?.delta?.content;
-                if (deltaContent) {
-                  accumulatedContent += deltaContent;
-                  setMessages([...newMessages, { role: "assistant", content: accumulatedContent }]);
-                }
-
-                // Capture usage from final chunk
-                if (chunk.usage) {
-                  finalUsage = chunk.usage;
-                }
-              } catch {
-                // Skip malformed chunks - stream continues
-              }
-            }
-          }
-        }
-
-        if (finalUsage) {
-          setUsage(finalUsage);
-        }
-      } else {
-        // Non-streaming fallback
-        const result: ChatCompletion = await response.json();
-        const content = result.choices?.[0]?.message?.content || "";
-        setMessages([...newMessages, { role: "assistant", content }]);
-        if (result.usage) {
-          setUsage(result.usage);
-        }
+      if (finalUsage) {
+        setUsage(finalUsage);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");

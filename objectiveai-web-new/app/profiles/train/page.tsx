@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Functions } from "objectiveai";
+import { createPublicClient } from "../../../lib/client";
+import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface DatasetItem {
@@ -39,6 +42,7 @@ interface TrainingResult {
 
 export default function ProfileTrainPage() {
   const isMobile = useIsMobile();
+  const { getClient } = useObjectiveAI();
   const [availableFunctions, setAvailableFunctions] = useState<FunctionOption[]>([]);
   const [isLoadingFunctions, setIsLoadingFunctions] = useState(true);
   const [selectedFunctionIndex, setSelectedFunctionIndex] = useState<number | null>(null);
@@ -87,9 +91,8 @@ export default function ProfileTrainPage() {
     async function fetchFunctions() {
       try {
         setIsLoadingFunctions(true);
-        const response = await fetch("/api/functions/pairs");
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Failed to fetch functions");
+        const publicClient = createPublicClient();
+        const data = await Functions.listPairs(publicClient);
 
         const seen = new Set<string>();
         const uniqueFunctions: FunctionOption[] = [];
@@ -243,18 +246,26 @@ export default function ProfileTrainPage() {
     setResult(null);
 
     try {
-      const response = await fetch("/api/profiles/train", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildRequest()),
-      });
+      const client = await getClient();
+      const request = buildRequest();
+      if (!request) throw new Error("Invalid request configuration");
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Training failed");
-      }
+      const data = await Functions.Profiles.Computations.remoteFunctionCreate(
+        client,
+        request.function.owner,
+        request.function.repository,
+        request.function.commit ?? null,
+        {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          dataset: request.dataset as any,
+          n: request.n,
+          ensemble: request.ensemble,
+          from_cache: request.from_cache,
+          from_rng: request.from_rng,
+        },
+      );
 
-      setResult(data);
+      setResult(data as unknown as TrainingResult);
     } catch (err) {
       setTrainingError(err instanceof Error ? err.message : "Training failed");
     } finally {

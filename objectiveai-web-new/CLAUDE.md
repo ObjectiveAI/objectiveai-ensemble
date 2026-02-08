@@ -93,7 +93,7 @@ Only disable these flags when you need real LLM responses (e.g., testing actual 
 ## Current State Notes
 
 - **Auth bypass**: Account pages (keys, credits) have `BYPASS_AUTH = true` for development. Remove when auth is working.
-- **API key in .env**: The `.env` file contains `OBJECTIVEAI_API_KEY`. This file is gitignored - never commit it.
+- **No server-side API key**: All API calls use the JS SDK directly (client-side with user auth, or public client with no auth for browse endpoints). No `OBJECTIVEAI_API_KEY` env var.
 - **Functions integration**: Complete - uses real ObjectiveAI SDK with streaming support (no mock data)
 - **Rich content (media) inputs**: Media upload buttons (image, audio, video, file) are available on both function execution and vector completions pages. The `InputBuilder` component has a `textOnly` prop that can hide them if needed but it is not currently used.
 

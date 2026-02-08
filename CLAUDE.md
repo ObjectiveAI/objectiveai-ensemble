@@ -425,14 +425,9 @@ console.log(details.model); // "openai/gpt-4o"
 - Duplicating padding values inline instead of relying on container
 - Using different maxWidth values across similar page types
 
-### Server-Side API Routes
+### No Server-Side API Routes
 
-API keys must stay server-side. Use Next.js API routes:
-
-```
-/api/functions/execute    - Execute functions (POST)
-/api/ensemble-llms/[id]   - Lookup ensemble LLM details (GET)
-```
+Web-new does NOT have server-side API routes (except NextAuth). All API calls use the JS SDK directly from the client. See "Client-Side SDK Pattern" section below for details.
 
 ### Planning Assets
 
@@ -461,26 +456,44 @@ All browse pages (Functions, Profiles, Ensembles, Ensemble LLMs) follow a consis
 
 Reference implementation: `app/functions/page.tsx`
 
-### API Routes
+### Client-Side SDK Pattern (No Server-Side API Routes)
 
+Web-new has **no server-side API routes** except for NextAuth (`app/api/auth/[...nextauth]/route.ts`). All data fetching uses the JS SDK directly from the client:
+
+**Public endpoints (no auth needed):**
+```tsx
+import { createPublicClient } from "@/lib/client";
+import { Functions, Ensemble, EnsembleLlm } from "objectiveai";
+
+const client = createPublicClient();
+const functions = await Functions.list(client);
+const ensemble = await Ensemble.retrieve(client, id);
 ```
-/api/functions          - List functions
-/api/profiles           - List profiles (returns {owner, repository, commit}[])
-/api/ensembles          - List ensembles (returns {id}[])
-/api/ensemble-llms      - List ensemble LLMs (returns {id}[])
-/api/ensemble-llms/[id] - Get ensemble LLM details
-/api/ensembles/[id]     - Get ensemble details
+
+**Auth-required endpoints (completions, executions, profile training, API keys, credits):**
+```tsx
+import { useObjectiveAI } from "@/hooks/useObjectiveAI";
+
+const { getClient } = useObjectiveAI();
+const client = await getClient();
+const result = await Functions.Executions.create(client, ...);
 ```
+
+**Stripe endpoints** are the only exception — they use `fetch` directly since Stripe is not in the SDK.
+
+Key files:
+- `lib/client.ts` — `createPublicClient()` (unauthenticated) and `createClient(session)` (authenticated via OAuth token)
+- `hooks/useObjectiveAI.ts` — `getClient()` (auth) and `getPublicClient()` (no auth)
+- `lib/provider.ts` — Token session management with OAuth refresh logic
 
 Note: Profiles list endpoint only returns identifiers. To get `description`/`changelog`, individual fetches are required (N+1 pattern).
 
 ### Authentication
 
-OAuth providers (Google, GitHub, X, Reddit) via NextAuth. Auth is fully functional—reference `objectiveai-web` for implementation patterns:
+OAuth providers (Google, GitHub, X, Reddit) via NextAuth. Auth is fully functional:
 - Auth route: `app/api/auth/[...nextauth]/route.ts`
 - Provider module: `lib/provider.ts` (token session management with refresh logic)
 - Auth context: `contexts/AuthContext.tsx`
-- Common patterns: See `openAi` function in web's `Common.tsx` for SDK client initialization with auth
 
 **Anonymous execution:** Backend provides ~5¢ free credit for anonymous users. To show remaining credits, call `Auth.Credits.retrieve(client)` with the SDK.
 
@@ -490,7 +503,7 @@ OAuth providers (Google, GitHub, X, Reddit) via NextAuth. Auth is fully function
 
 ### Disabled Features
 
-- **Profile training** endpoint returns 501 (backend pending)—keep UI with "coming soon" messaging
+- **Profile training** is wired to the real SDK (`Functions.Profiles.Computations.remoteFunctionCreate`)
 
 ### Web-New Current State (Feature-Complete)
 
@@ -513,7 +526,7 @@ All user-facing features from `objectiveai-web` have been ported or redesigned. 
 - `/sdk-first`, `/vibe-native` - Onboarding guides
 - `/chat`, `/vector` - Direct completions pages
 - `/docs/api/**` - 32 API endpoint docs with Zod schema introspection
-- `/profiles/train` - Profile training UI (backend returns 501 — coming soon)
+- `/profiles/train` - Profile training UI (wired to real SDK)
 
 ### Key Web-New Files
 
@@ -521,7 +534,9 @@ All user-facing features from `objectiveai-web` have been ported or redesigned. 
 |------|---------|
 | `app/globals.css` | Design system (831 lines) |
 | `components/AppShell.tsx` | Navigation, theme toggle, mobile menu |
-| `lib/objectiveai.ts` | SDK wrapper with dev defaults (`from_cache: true`, `from_rng: true`) |
+| `lib/objectiveai.ts` | Dev execution defaults (`from_cache`, `from_rng`), display helpers |
+| `lib/client.ts` | `createPublicClient()` and `createClient(session)` for SDK access |
+| `hooks/useObjectiveAI.ts` | React hook for authenticated/public SDK clients |
 | `lib/provider.ts` | Token session management with OAuth refresh logic |
 | `lib/stripe.ts` | Stripe utilities (retry, theme, formatting) |
 | `lib/stripe-types.ts` | TypeScript types for Stripe API responses |
@@ -694,13 +709,13 @@ For vector functions, enables tournament-style ranking:
 |---------|--------|-------|
 | Profile Selector | Complete | Dropdown when multiple profiles exist |
 | Reasoning Model Selector | Complete | Toggle + model dropdown (GPT-4o Mini, GPT-4o, Claude 3 Haiku/Sonnet) |
-| Direct Chat Completions | Complete | `/chat` page with streaming, `/api/chat/completions` route |
-| Direct Vector Completions | Complete | `/vector` page with score viz, `/api/vector/completions` route |
+| Direct Chat Completions | Complete | `/chat` page with SDK streaming |
+| Direct Vector Completions | Complete | `/vector` page with score viz, SDK calls |
 | File Uploads | Complete | Removed `textOnly` restriction from ArrayInput |
 | Ensemble LLM Creation | Complete | `/ensemble-llms/create` with WASM validation |
 | Ensemble Creation | Complete | `/ensembles/create` with WASM validation |
 | Function JSON Builder | Complete | `/functions/create` - JSON editor for creating `function.json` files (not server-side creation) |
-| Profile Training UI | Complete | `/profiles/train` (backend returns 501 - coming soon) |
+| Profile Training UI | Complete | `/profiles/train` — wired to real SDK |
 | WASM Validation | Complete | `lib/wasm-validation.ts` for real-time ID computation |
 | Stripe Credit Purchase | Complete | Full purchase flow, billing address, breakdown display |
 | API Docs (32 pages) | Complete | `/docs/api/**` with Zod schema introspection via `EndpointDocs` |
@@ -728,17 +743,24 @@ Now integrated via `lib/wasm-validation.ts`. Used in creation pages for real-tim
 
 Module loads gracefully - shows "Enter model to see ID" when WASM unavailable.
 
-### Backend Endpoints Now Exposed
+### SDK Integrations
 
-| Endpoint | Route | Status |
-|----------|-------|--------|
-| `POST /chat/completions` | `/api/chat/completions` | Working |
-| `POST /vector/completions` | `/api/vector/completions` | Working |
-| `POST /profiles/train` | `/api/profiles/train` | Returns 501 (backend pending) |
+All API interactions use the JS SDK directly (no server-side API routes):
+
+| Feature | SDK Call | Auth Required |
+|---------|----------|---------------|
+| Chat completions | `Chat.Completions.create(client, { stream: true })` | Yes |
+| Vector completions | `Vector.Completions.create(client, body)` | Yes |
+| Function execution | `Functions.Executions.create(client, ...)` | Yes |
+| Profile training | `Functions.Profiles.Computations.remoteFunctionCreate(client, ...)` | Yes |
+| Browse functions | `Functions.list(client)`, `Functions.retrieve(client, ...)` | No |
+| Browse profiles | `Functions.Profiles.list(client)` | No |
+| Browse ensembles | `Ensemble.list(client)`, `Ensemble.retrieve(client, id)` | No |
+| Browse ensemble LLMs | `EnsembleLlm.list(client)`, `EnsembleLlm.retrieve(client, id)` | No |
 
 ### Remaining Gaps
 
-- Profile training backend integration (endpoint returns 501—keep UI with "coming soon")
+- ~~Profile training backend integration~~ — Done, wired to real SDK
 - Rename `objectiveai-web-new/` → `objectiveai-web/` and delete old site
 - Open pull request via `gh pr create`
 
@@ -787,7 +809,7 @@ Stripe has been fully migrated from `objectiveai-web` to `objectiveai-web-new`:
 
 **4. ~~Create Dockerfile and cloudbuild.yaml~~ DONE**
 - Multi-stage build (node:20 builder, node:20-slim runner)
-- All old build args + 3 new (Sonarly project key, Sonarly ingest point, ObjectiveAI API key)
+- All old build args + 2 new (Sonarly project key, Sonarly ingest point)
 - Cloud Build deploys to Cloud Run `objective-ai-web-main` in `us-central1`
 
 **5. Rename and clean up:**
@@ -825,7 +847,6 @@ Runner (node:20-slim):
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `IP_RSA_PUBLIC_KEY`, `USER_IP_HEADER`
 - (New) `NEXT_PUBLIC_SONARLY_PROJECT_KEY`, `NEXT_PUBLIC_SONARLY_INGEST_POINT`
-- (New) `OBJECTIVEAI_API_KEY`
 
 **Cloud Build pipeline** (`cloudbuild.yaml`):
 1. Fetch git submodules

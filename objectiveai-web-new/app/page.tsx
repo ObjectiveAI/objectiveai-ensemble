@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Functions } from "objectiveai";
+import { createPublicClient } from "../lib/client";
 import HeroText from "@/components/HeroText";
 import { deriveCategory, deriveDisplayName } from "../lib/objectiveai";
 import { useResponsive } from "../hooks/useResponsive";
@@ -34,10 +36,9 @@ export default function Home() {
       try {
         setIsLoading(true);
 
-        // Fetch functions list via API route
-        const listRes = await fetch('/api/functions');
-        if (!listRes.ok) throw new Error('Failed to fetch functions');
-        const result = await listRes.json();
+        // Fetch functions list via SDK
+        const client = createPublicClient();
+        const result = await Functions.list(client);
 
         // Deduplicate by owner/repository (same function may have multiple commits)
         const uniqueFunctions = new Map<string, { owner: string; repository: string; commit: string }>();
@@ -53,11 +54,9 @@ export default function Home() {
 
         const functionItems: FeaturedFunction[] = await Promise.all(
           limitedFunctions.map(async (fn) => {
-            // Fetch full function details via API route
             const slug = `${fn.owner}--${fn.repository}`;
-            const detailsRes = await fetch(`/api/functions/${slug}?commit=${fn.commit}`);
-            if (!detailsRes.ok) throw new Error(`Failed to fetch function ${slug}`);
-            const details = await detailsRes.json();
+            // Fetch full function details via SDK
+            const details = await Functions.retrieve(client, fn.owner, fn.repository, fn.commit);
 
             const category = deriveCategory(details);
             const name = deriveDisplayName(fn.repository);

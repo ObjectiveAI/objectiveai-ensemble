@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { Ensemble } from "objectiveai";
+import { createPublicClient } from "../../lib/client";
 import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
 import { useResponsive } from "../../hooks/useResponsive";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
@@ -29,9 +31,8 @@ export default function EnsemblesPage() {
     async function fetchEnsembles() {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/ensembles");
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Failed to fetch ensembles");
+        const client = createPublicClient();
+        const data = await Ensemble.list(client);
         setEnsembles(data.data || []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load ensembles");

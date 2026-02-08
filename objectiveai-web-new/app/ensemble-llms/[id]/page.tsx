@@ -2,6 +2,8 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { EnsembleLlm } from "objectiveai";
+import { createPublicClient } from "../../../lib/client";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 
 interface EnsembleLlmDetails {
@@ -30,10 +32,9 @@ export default function EnsembleLlmDetailPage({ params }: { params: Promise<{ id
     async function fetchLlm() {
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/ensemble-llms/${id}`);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Failed to fetch ensemble LLM");
-        setLlm(data);
+        const client = createPublicClient();
+        const data = await EnsembleLlm.retrieve(client, id);
+        setLlm(data as unknown as EnsembleLlmDetails);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load ensemble LLM");
       } finally {

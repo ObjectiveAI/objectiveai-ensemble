@@ -1,25 +1,8 @@
 /**
- * ObjectiveAI SDK wrapper for web-new
- * Imports from the objectiveai package
+ * ObjectiveAI helpers for web-new.
+ * For SDK clients, use lib/client.ts (createPublicClient / createClient)
+ * or hooks/useObjectiveAI.ts (getClient / getPublicClient).
  */
-
-// Re-export from the SDK
-export { ObjectiveAI } from "objectiveai";
-export { Functions } from "objectiveai";
-export { Auth } from "objectiveai";
-
-// Import for internal use
-import { ObjectiveAI } from "objectiveai";
-
-// Singleton client instance
-let clientInstance: ObjectiveAI | null = null;
-
-export function getClient(): ObjectiveAI {
-  if (!clientInstance) {
-    clientInstance = new ObjectiveAI();
-  }
-  return clientInstance;
-}
 
 // Development defaults per CLAUDE.md - no real LLM costs
 export const DEV_EXECUTION_OPTIONS = {
