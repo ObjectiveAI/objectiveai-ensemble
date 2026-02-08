@@ -19,7 +19,7 @@ export const ReadInputMerge = tool(
 
 export const ReadInputMergeSchema = tool(
   "ReadInputMergeSchema",
-  "Read the schema for Function `input_merge` field",
+  "Read the schema for Function `input_merge` field. Recombines a variable-size, arbitrarily-ordered subset of sub-inputs (from input_split) back into a single input. Receives `input` as an array of sub-inputs. Used by strategies like swiss_system for parallel pool execution.",
   {},
   async () => textResult(formatZodSchema(readInputMergeSchema())),
 );

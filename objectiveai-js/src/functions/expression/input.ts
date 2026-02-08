@@ -555,19 +555,23 @@ export const InputValueExpressionSchema: z.ZodType<InputValueExpression> = z
 export const InputMapsExpressionSchema = z
   .union([
     ExpressionSchema.describe(
-      "An expression which evaluates to a 2D array of Inputs. Receives: `input`.",
+      "A single expression evaluating to a 2D array (array of arrays) of Inputs. Each inner array is a separate sub-array that mapped tasks can reference by index. Receives: `input`.",
     ),
     z
       .array(
         ExpressionSchema.describe(
-          "An expression which evaluates to a 1D array of Inputs. Receives: `input`.",
+          "An expression evaluating to a 1D array of Inputs. This becomes one sub-array in the input maps, referenced by its position index. Receives: `input`.",
         ),
       )
       .describe(
-        "A list of expressions which each evaluate to a 1D array of Inputs.",
+        "A list of expressions, each evaluating to a 1D array of Inputs. The i-th expression produces the i-th sub-array.",
       ),
   ])
   .describe(
-    "An expression or list of expressions which evaluate to a 2D array of Inputs. Each sub-array will be fed into Tasks which specify an index of this input map. Receives: `input`.",
+    "Defines arrays used by mapped tasks. A task with `map: i` references the i-th sub-array. " +
+      "The task is compiled once per element in that sub-array, producing multiple task instances. " +
+      "If the sub-array is empty, no task instances are produced (effectively skipping the task). " +
+      "In mapped task expressions, the `map` variable receives the full referenced sub-array. " +
+      "Receives: `input`.",
   );
 export type InputMapsExpression = z.infer<typeof InputMapsExpressionSchema>;

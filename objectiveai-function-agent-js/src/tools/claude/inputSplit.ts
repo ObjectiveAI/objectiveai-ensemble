@@ -19,7 +19,7 @@ export const ReadInputSplit = tool(
 
 export const ReadInputSplitSchema = tool(
   "ReadInputSplitSchema",
-  "Read the schema for Function `input_split` field",
+  "Read the schema for Function `input_split` field. Splits the input into sub-inputs (one per output element). Array length must equal output_length. Each sub-input, when executed alone, must produce output_length=1. Used by strategies like swiss_system for parallel pool execution.",
   {},
   async () => textResult(formatZodSchema(readInputSplitSchema())),
 );

@@ -36,7 +36,10 @@ export function compileFunctionTasks(
 ): CompiledTasks {
   const value = wasmCompileFunctionTasks(function_, input);
   const unmapped = mapsToRecords(value);
-  return unmapped as CompiledTasks;
+  // serde_wasm_bindgen serializes Rust Option::None as undefined,
+  // but skipped tasks should be null per CompiledTaskSchema.
+  const tasks = unmapped as unknown[];
+  return tasks.map((t) => (t === undefined ? null : t)) as CompiledTasks;
 }
 
 // TODO: Update for new per-task output expression architecture

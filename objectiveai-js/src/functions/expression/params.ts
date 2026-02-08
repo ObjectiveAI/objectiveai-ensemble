@@ -10,7 +10,9 @@ import { InputValueSchema } from "./input";
 export const InputMapsAsParameterSchema = z
   .array(InputValueSchema)
   .describe(
-    "The current map sub-array provided to a mapped task expression. A 1D array from the 2D input maps, selected by the task's map index.",
+    "The `map` variable in mapped task expressions. " +
+      "For a task with `map: i`, this is the full 1D sub-array produced by `input_maps[i]`. " +
+      "Use indexing to access individual elements (e.g., `map[0]`, `map[1]`).",
   );
 export type InputMapsAsParameter = z.infer<typeof InputMapsAsParameterSchema>;
 

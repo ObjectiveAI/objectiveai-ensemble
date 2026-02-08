@@ -26,12 +26,20 @@ export const InlineVectorFunctionSchema = z
     input_split: ExpressionSchema.optional()
       .nullable()
       .describe(
-        "An expression transforming input into an array of inputs. When the Function is executed with any input from the array, the output_length should be 1. Only required if the request uses a strategy that needs input splitting (e.g., swiss_system). Receives: `input`."
+        "Splits the function input into an array of sub-inputs, one per output element. " +
+          "The array length must equal `output_length`. Each sub-input, when executed independently, must produce `output_length = 1`. " +
+          "Used by execution strategies (e.g., swiss_system) that process subsets of the split inputs in parallel pools. " +
+          "Only required when using such a strategy. " +
+          "Receives: `input`."
       ),
     input_merge: ExpressionSchema.optional()
       .nullable()
       .describe(
-        "An expression transforming an array of inputs (computed by input_split) into a single Input object for the Function. Only required if the request uses a strategy that needs input splitting (e.g., swiss_system). Receives: `input` (as an array)."
+        "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs (produced by `input_split`) into a single input. " +
+          "The merged input is then executed as a normal function call. " +
+          "Used by execution strategies (e.g., swiss_system) that group sub-inputs into pools for parallel evaluation. " +
+          "Only required when using such a strategy. " +
+          "Receives: `input` (an array of sub-inputs)."
       ),
   })
   .describe("A vector function defined inline. Each task's output expression must return an array of numbers summing to ~1. The function's output is the weighted average of all task outputs using profile weights. If there is only one task, its output becomes the function's output directly.")
@@ -82,10 +90,16 @@ export const RemoteVectorFunctionSchema = InlineVectorFunctionSchema.extend({
     ])
     .describe("The length of the output vector."),
   input_split: ExpressionSchema.describe(
-    "An expression transforming input into an array of inputs. When the Function is executed with any input from the array, the output_length should be 1. Receives: `input`."
+    "Splits the function input into an array of sub-inputs, one per output element. " +
+      "The array length must equal `output_length`. Each sub-input, when executed independently, must produce `output_length = 1`. " +
+      "Used by execution strategies (e.g., swiss_system) that process subsets of the split inputs in parallel pools. " +
+      "Receives: `input`."
   ),
   input_merge: ExpressionSchema.describe(
-    "An expression transforming an array of inputs (computed by input_split) into a single Input object for the Function. Receives: `input` (as an array)."
+    "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs (produced by `input_split`) into a single input. " +
+      "The merged input is then executed as a normal function call. " +
+      "Used by execution strategies (e.g., swiss_system) that group sub-inputs into pools for parallel evaluation. " +
+      "Receives: `input` (an array of sub-inputs)."
   ),
 })
   .describe('A vector function fetched from GitHub. "function.json"')

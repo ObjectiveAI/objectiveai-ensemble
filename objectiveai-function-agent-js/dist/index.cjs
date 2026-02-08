@@ -2657,7 +2657,7 @@ var ReadInputParamSchema = claudeAgentSdk.tool(
 );
 var ReadMapParamSchema = claudeAgentSdk.tool(
   "ReadMapParamSchema",
-  "Read the schema for `map` available in mapped task expression context. A 1D array element from the 2D input maps.",
+  "Read the schema for `map` available in mapped task expression context. For a task with `map: i`, this is the full sub-array from `input_maps[i]`. Use indexing (e.g., map[0]) to access elements.",
   {},
   async () => textResult(formatZodSchema(readMapParamSchema()))
 );
@@ -2801,7 +2801,7 @@ var ReadInputSplit = claudeAgentSdk.tool(
 );
 var ReadInputSplitSchema = claudeAgentSdk.tool(
   "ReadInputSplitSchema",
-  "Read the schema for Function `input_split` field",
+  "Read the schema for Function `input_split` field. Splits the input into sub-inputs (one per output element). Array length must equal output_length. Each sub-input, when executed alone, must produce output_length=1. Used by strategies like swiss_system for parallel pool execution.",
   {},
   async () => textResult(formatZodSchema(readInputSplitSchema()))
 );
@@ -2831,7 +2831,7 @@ var ReadInputMerge = claudeAgentSdk.tool(
 );
 var ReadInputMergeSchema = claudeAgentSdk.tool(
   "ReadInputMergeSchema",
-  "Read the schema for Function `input_merge` field",
+  "Read the schema for Function `input_merge` field. Recombines a variable-size, arbitrarily-ordered subset of sub-inputs (from input_split) back into a single input. Receives `input` as an array of sub-inputs. Used by strategies like swiss_system for parallel pool execution.",
   {},
   async () => textResult(formatZodSchema(readInputMergeSchema()))
 );

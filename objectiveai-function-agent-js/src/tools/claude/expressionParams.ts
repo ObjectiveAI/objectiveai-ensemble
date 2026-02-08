@@ -22,7 +22,7 @@ export const ReadInputParamSchema = tool(
 
 export const ReadMapParamSchema = tool(
   "ReadMapParamSchema",
-  "Read the schema for `map` available in mapped task expression context. A 1D array element from the 2D input maps.",
+  "Read the schema for `map` available in mapped task expression context. For a task with `map: i`, this is the full sub-array from `input_maps[i]`. Use indexing (e.g., map[0]) to access elements.",
   {},
   async () => textResult(formatZodSchema(readMapParamSchema())),
 );
