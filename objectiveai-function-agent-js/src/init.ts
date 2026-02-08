@@ -82,9 +82,6 @@ async function fetchExamples(apiBase?: string): Promise<void> {
 }
 
 function writeGitignore(): void {
-  if (existsSync(".gitignore")) {
-    return;
-  }
   writeFileSync(
     ".gitignore",
     ["examples/", "agent_functions/", "networkTests/", ""].join("\n"),

@@ -136,9 +136,6 @@ async function fetchExamples(apiBase) {
   );
 }
 function writeGitignore() {
-  if (fs.existsSync(".gitignore")) {
-    return;
-  }
   fs.writeFileSync(
     ".gitignore",
     ["examples/", "agent_functions/", "networkTests/", ""].join("\n")
