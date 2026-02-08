@@ -1,5 +1,5 @@
 import { Functions, ObjectiveAI } from "objectiveai";
-import { existsSync, mkdirSync, readdirSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import { Result } from "./result";
 import { readFunction, validateFunction } from "./function/function";
@@ -13,8 +13,8 @@ function clearDir(dir: string): void {
   }
 }
 
-export async function runNetworkTests(): Promise<Result<undefined>> {
-  const client = new ObjectiveAI();
+export async function runNetworkTests(apiBase?: string): Promise<Result<undefined>> {
+  const client = new ObjectiveAI(apiBase ? { apiBase } : undefined);
 
   // Read and validate function
   const fnRaw = readFunction();
@@ -111,4 +111,28 @@ export async function runNetworkTests(): Promise<Result<undefined>> {
   }
 
   return { ok: true, value: undefined, error: undefined };
+}
+
+export function readDefaultNetworkTest(index: number): Result<unknown> {
+  const filePath = join("networkTests", "default", `${index}.json`);
+  if (!existsSync(filePath)) {
+    return { ok: false, value: undefined, error: `File not found: ${filePath}` };
+  }
+  try {
+    return { ok: true, value: JSON.parse(readFileSync(filePath, "utf-8")), error: undefined };
+  } catch (e) {
+    return { ok: false, value: undefined, error: `Failed to parse ${filePath}: ${(e as Error).message}` };
+  }
+}
+
+export function readSwissSystemNetworkTest(index: number): Result<unknown> {
+  const filePath = join("networkTests", "swisssystem", `${index}.json`);
+  if (!existsSync(filePath)) {
+    return { ok: false, value: undefined, error: `File not found: ${filePath}` };
+  }
+  try {
+    return { ok: true, value: JSON.parse(readFileSync(filePath, "utf-8")), error: undefined };
+  } catch (e) {
+    return { ok: false, value: undefined, error: `Failed to parse ${filePath}: ${(e as Error).message}` };
+  }
 }

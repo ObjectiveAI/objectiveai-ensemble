@@ -1,4 +1,0 @@
-import { GitHub } from "@objectiveai/function-agent";
-
-const issues = GitHub.fetchClosedIssues();
-console.log(JSON.stringify(issues, null, 2));

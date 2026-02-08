@@ -1,51 +1,40 @@
+export * from "./specMcp";
+export * from "./nameMcp";
+export * from "./essayMcp";
+export * from "./essayTasksMcp";
+export * from "./planMcp";
+
 import { AgentOptions } from "../../agentOptions";
 import { createFileLogger } from "../../logging";
-import { init } from "../../init";
-import { learnSubmodule } from "./learnSubmodule";
-import { learnExamples } from "./learnExamples";
-import { spec } from "./spec";
-import { createFunctionTypeJson } from "./functionType";
-import { createGitHubNameJson } from "./githubName";
-import { essay } from "./essay";
-import { essayTasks } from "./essayTasks";
-import { handleOpenIssues } from "./handleOpenIssues";
+import { specMcp } from "./specMcp";
+import { nameMcp } from "./nameMcp";
+import { essayMcp } from "./essayMcp";
+import { essayTasksMcp } from "./essayTasksMcp";
+import { planMcp } from "./planMcp";
 
-// Runs init and steps 1-8
+// Runs init and steps 1-5
 export async function prepare(
   options: AgentOptions = {},
 ): Promise<string | undefined> {
   const log = options.log ?? createFileLogger().log;
 
-  // Initialize the workspace
-  log("=== Initializing workspace ===");
-  await init(options);
-
   // Run preparation steps, passing sessionId between them
   let sessionId = options.sessionId;
 
-  log("=== Step 1: Learning about ObjectiveAI ===");
-  sessionId = await learnSubmodule(log, sessionId);
+  log("=== Step 1: SPEC.md ===");
+  sessionId = await specMcp(log, sessionId, options.spec);
 
-  log("=== Step 2: Learning from examples ===");
-  sessionId = await learnExamples(log, sessionId);
+  log("=== Step 2: name.txt ===");
+  sessionId = await nameMcp(log, sessionId, options.name);
 
-  log("=== Step 3: Reading/Creating SPEC.md ===");
-  sessionId = await spec(log, sessionId);
+  log("=== Step 3: ESSAY.md ===");
+  sessionId = await essayMcp(log, sessionId);
 
-  log("=== Step 4: Creating function/type.json ===");
-  sessionId = await createFunctionTypeJson(log, sessionId);
+  log("=== Step 4: ESSAY_TASKS.md ===");
+  sessionId = await essayTasksMcp(log, sessionId);
 
-  log("=== Step 5: Creating github/name.json ===");
-  sessionId = await createGitHubNameJson(log, sessionId);
-
-  log("=== Step 6: Reading/Creating ESSAY.md ===");
-  sessionId = await essay(log, sessionId);
-
-  log("=== Step 7: Reading/Creating ESSAY_TASKS.md ===");
-  sessionId = await essayTasks(log, sessionId);
-
-  log("=== Step 8: Handling open issues ===");
-  sessionId = await handleOpenIssues(log, sessionId);
+  log("=== Step 5: Plan ===");
+  sessionId = await planMcp(log, sessionId);
 
   return sessionId;
 }
