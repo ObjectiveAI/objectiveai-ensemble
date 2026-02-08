@@ -2269,6 +2269,19 @@ Merged: ${JSON.stringify(mergedOutput)}` };
   if (!coverageResult.ok) {
     return coverageResult;
   }
+  const modalities = collectModalities(func.input_schema);
+  if (modalities.size > 0) {
+    const allCompiledTasks = inputs.flatMap((input) => input.compiledTasks);
+    const found = /* @__PURE__ */ new Set();
+    for (const ct of allCompiledTasks) {
+      collectModalitiesFromCompiledTask(ct, found);
+    }
+    for (const modality of modalities) {
+      if (!found.has(modality)) {
+        return { ok: false, value: void 0, error: `Input schema declares "${modality}" modality but no compiled task across all example inputs contains a rich content part of that type. Add at least one example input that uses "${modality}" content.` };
+      }
+    }
+  }
   return { ok: true, value: void 0, error: void 0 };
 }
 function checkSchemaCoverage(schema, values, path) {
@@ -2362,6 +2375,90 @@ function deepEqual(a, b) {
   const bKeys = Object.keys(bObj);
   if (aKeys.length !== bKeys.length) return false;
   return aKeys.every((key) => key in bObj && deepEqual(aObj[key], bObj[key]));
+}
+var MODALITY_PART_TYPES = {
+  image: ["image_url"],
+  audio: ["input_audio"],
+  video: ["video_url", "input_video"],
+  file: ["file"]
+};
+var ALL_MODALITIES = ["image", "audio", "video", "file"];
+function collectModalities(schema) {
+  const result = /* @__PURE__ */ new Set();
+  collectModalitiesRecursive(schema, result);
+  return result;
+}
+function collectModalitiesRecursive(schema, result) {
+  if ("anyOf" in schema) {
+    for (const option of schema.anyOf) {
+      collectModalitiesRecursive(option, result);
+    }
+  } else if (schema.type === "object") {
+    for (const propSchema of Object.values(schema.properties)) {
+      collectModalitiesRecursive(propSchema, result);
+    }
+  } else if (schema.type === "array") {
+    collectModalitiesRecursive(schema.items, result);
+  } else if (ALL_MODALITIES.includes(schema.type)) {
+    result.add(schema.type);
+  }
+}
+function collectModalitiesFromCompiledTask(ct, found) {
+  if (ct === null) return;
+  if (Array.isArray(ct)) {
+    for (const sub of ct) {
+      collectModalitiesFromCompiledTask(sub, found);
+    }
+    return;
+  }
+  if (ct.type === "vector.completion") {
+    collectModalitiesFromMessages(ct.messages, found);
+    collectModalitiesFromResponses(ct.responses, found);
+  } else {
+    collectModalitiesFromInputValue(ct.input, found);
+  }
+}
+function collectModalitiesFromMessages(messages, found) {
+  for (const msg of messages) {
+    if ("content" in msg && msg.content != null) {
+      collectModalitiesFromRichContent(msg.content, found);
+    }
+  }
+}
+function collectModalitiesFromResponses(responses, found) {
+  for (const resp of responses) {
+    collectModalitiesFromRichContent(resp, found);
+  }
+}
+function collectModalitiesFromRichContent(content, found) {
+  if (typeof content === "string") return;
+  for (const part of content) {
+    checkPartType(part.type, found);
+  }
+}
+function checkPartType(partType, found) {
+  for (const modality of ALL_MODALITIES) {
+    if (MODALITY_PART_TYPES[modality].includes(partType)) {
+      found.add(modality);
+    }
+  }
+}
+function collectModalitiesFromInputValue(value, found) {
+  if (typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectModalitiesFromInputValue(item, found);
+    }
+    return;
+  }
+  if ("type" in value && typeof value.type === "string") {
+    checkPartType(value.type, found);
+  }
+  for (const v of Object.values(value)) {
+    if (v !== void 0) {
+      collectModalitiesFromInputValue(v, found);
+    }
+  }
 }
 function compiledTasksEqual(a, b) {
   if (a === null) {

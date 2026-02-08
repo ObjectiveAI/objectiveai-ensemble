@@ -1,4 +1,4 @@
-import { Functions } from "objectiveai";
+import { Functions, Chat, Vector } from "objectiveai";
 import z from "zod";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { Result } from "../result";
@@ -424,6 +424,21 @@ export function checkExampleInputs(): Result<undefined> {
     return coverageResult;
   }
 
+  // Multimodal coverage validation
+  const modalities = collectModalities(func.input_schema);
+  if (modalities.size > 0) {
+    const allCompiledTasks = inputs.flatMap(input => input.compiledTasks);
+    const found = new Set<Modality>();
+    for (const ct of allCompiledTasks) {
+      collectModalitiesFromCompiledTask(ct, found);
+    }
+    for (const modality of modalities) {
+      if (!found.has(modality)) {
+        return { ok: false, value: undefined, error: `Input schema declares "${modality}" modality but no compiled task across all example inputs contains a rich content part of that type. Add at least one example input that uses "${modality}" content.` };
+      }
+    }
+  }
+
   return { ok: true, value: undefined, error: undefined };
 }
 
@@ -533,6 +548,102 @@ function deepEqual(a: unknown, b: unknown): boolean {
   const bKeys = Object.keys(bObj);
   if (aKeys.length !== bKeys.length) return false;
   return aKeys.every((key) => key in bObj && deepEqual(aObj[key], bObj[key]));
+}
+
+type Modality = "image" | "audio" | "video" | "file";
+
+const MODALITY_PART_TYPES: Record<Modality, string[]> = {
+  image: ["image_url"],
+  audio: ["input_audio"],
+  video: ["video_url", "input_video"],
+  file: ["file"],
+};
+
+const ALL_MODALITIES: Modality[] = ["image", "audio", "video", "file"];
+
+function collectModalities(schema: Functions.Expression.InputSchema): Set<Modality> {
+  const result = new Set<Modality>();
+  collectModalitiesRecursive(schema, result);
+  return result;
+}
+
+function collectModalitiesRecursive(schema: Functions.Expression.InputSchema, result: Set<Modality>): void {
+  if ("anyOf" in schema) {
+    for (const option of schema.anyOf) {
+      collectModalitiesRecursive(option, result);
+    }
+  } else if (schema.type === "object") {
+    for (const propSchema of Object.values(schema.properties)) {
+      collectModalitiesRecursive(propSchema, result);
+    }
+  } else if (schema.type === "array") {
+    collectModalitiesRecursive(schema.items, result);
+  } else if (ALL_MODALITIES.includes(schema.type as Modality)) {
+    result.add(schema.type as Modality);
+  }
+}
+
+function collectModalitiesFromCompiledTask(ct: Functions.CompiledTask, found: Set<Modality>): void {
+  if (ct === null) return;
+  if (Array.isArray(ct)) {
+    for (const sub of ct) {
+      collectModalitiesFromCompiledTask(sub, found);
+    }
+    return;
+  }
+  if (ct.type === "vector.completion") {
+    collectModalitiesFromMessages(ct.messages, found);
+    collectModalitiesFromResponses(ct.responses, found);
+  } else {
+    collectModalitiesFromInputValue(ct.input, found);
+  }
+}
+
+function collectModalitiesFromMessages(messages: Chat.Completions.Request.Message[], found: Set<Modality>): void {
+  for (const msg of messages) {
+    if ("content" in msg && msg.content != null) {
+      collectModalitiesFromRichContent(msg.content, found);
+    }
+  }
+}
+
+function collectModalitiesFromResponses(responses: Vector.Completions.Request.VectorResponse[], found: Set<Modality>): void {
+  for (const resp of responses) {
+    collectModalitiesFromRichContent(resp, found);
+  }
+}
+
+function collectModalitiesFromRichContent(content: Chat.Completions.Request.RichContent, found: Set<Modality>): void {
+  if (typeof content === "string") return;
+  for (const part of content) {
+    checkPartType(part.type, found);
+  }
+}
+
+function checkPartType(partType: string, found: Set<Modality>): void {
+  for (const modality of ALL_MODALITIES) {
+    if (MODALITY_PART_TYPES[modality].includes(partType)) {
+      found.add(modality);
+    }
+  }
+}
+
+function collectModalitiesFromInputValue(value: Functions.Expression.InputValue, found: Set<Modality>): void {
+  if (typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectModalitiesFromInputValue(item, found);
+    }
+    return;
+  }
+  if ("type" in value && typeof value.type === "string") {
+    checkPartType(value.type, found);
+  }
+  for (const v of Object.values(value)) {
+    if (v !== undefined) {
+      collectModalitiesFromInputValue(v as Functions.Expression.InputValue, found);
+    }
+  }
 }
 
 function compiledTasksEqual(
