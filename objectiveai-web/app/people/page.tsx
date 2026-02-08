@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 // Types for team member data
@@ -106,16 +107,15 @@ function PersonCard({ person, isMobile }: { person: TeamMember; isMobile: boolea
           color: 'var(--text-muted)',
           fontSize: '12px',
           overflow: 'hidden',
+          position: 'relative',
         }}>
           {person.photoUrl ? (
-            <img
+            <Image
               src={person.photoUrl}
               alt={person.name}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
+              fill
+              sizes={isMobile ? '90px' : '110px'}
+              style={{ objectFit: 'cover' }}
             />
           ) : (
             <span style={{

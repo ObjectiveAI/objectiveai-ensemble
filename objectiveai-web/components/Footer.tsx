@@ -104,7 +104,6 @@ export default function Footer() {
                   gap: '3px',
                 }}>
                   <Link href="/people" className="footerLink">Team</Link>
-                  <Link href="/docs" className="footerLink">API Docs</Link>
                   <Link href="/information" className="footerLink">Info</Link>
                   <Link href="/legal" className="footerLink">Legal</Link>
                 </div>

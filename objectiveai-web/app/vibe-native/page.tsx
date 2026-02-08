@@ -29,7 +29,7 @@ When a user wants to score or rank something:
 
 \`\`\`bash
 # Execute a remote function with a remote profile
-curl -X POST https://api.objective-ai.io/v1/functions/{owner}/{repo}/profiles/{profile_owner}/{profile_repo} \\
+curl -X POST https://api.objective-ai.io/functions/{owner}/{repo}/profiles/{profile_owner}/{profile_repo} \\
   -H "Authorization: Bearer $OBJECTIVEAI_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

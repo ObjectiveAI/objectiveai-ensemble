@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 
 // Content item types - must be valid RichContent for vector function responses
 // See: objectiveai-rs/src/chat/completions/request/message.rs
@@ -270,12 +271,13 @@ export default function ArrayInput({ label, description, value, onChange, isMobi
                     if (part.type === "image_url") {
                       return (
                         <>
-                          <img
+                          <Image
                             src={part.image_url.url}
                             alt={`Item ${index + 1}`}
+                            width={48}
+                            height={48}
+                            unoptimized
                             style={{
-                              width: "48px",
-                              height: "48px",
                               objectFit: "cover",
                               borderRadius: "4px",
                               flexShrink: 0,

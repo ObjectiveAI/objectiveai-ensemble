@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 import type { InputValue } from "../../SchemaForm/types";
 import { fileToBase64, getAudioFormat } from "../../SchemaForm/utils";
 
@@ -84,12 +85,13 @@ export default function MediaUploadEditor({
       const url = (v.image_url as { url: string })?.url;
       return (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img
+          <Image
             src={url}
             alt="Uploaded"
+            width={48}
+            height={48}
+            unoptimized
             style={{
-              width: "48px",
-              height: "48px",
               objectFit: "cover",
               borderRadius: "4px",
               flexShrink: 0,

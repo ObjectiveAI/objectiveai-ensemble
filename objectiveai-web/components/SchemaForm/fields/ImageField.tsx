@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 import type { FieldProps, ImageInputSchema, ImageRichContentPart } from "../types";
 import { getErrorMessage } from "../validation";
 import { fileToBase64 } from "../utils";
@@ -69,9 +70,12 @@ export default function ImageField({
             background: "var(--page-bg)",
           }}
         >
-          <img
+          <Image
             src={value.image_url.url}
             alt="Uploaded"
+            width={80}
+            height={80}
+            unoptimized
             style={{
               width: isMobile ? "60px" : "80px",
               height: isMobile ? "60px" : "80px",

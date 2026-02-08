@@ -136,6 +136,7 @@ export default function InformationPage() {
       category: "Functions",
       endpoints: [
         { method: "GET", path: "/functions", href: "/docs/api/get/functions", desc: "List all remote ObjectiveAI Functions" },
+        { method: "GET", path: "/functions/{fowner}/{frepository}/{fcommit}", href: "/docs/api/get/functions/fowner/frepository/fcommit", desc: "Retrieve a remote ObjectiveAI Function" },
         { method: "GET", path: "/functions/{fowner}/{frepository}/{fcommit}/usage", href: "/docs/api/get/functions/fowner/frepository/fcommit/usage", desc: "Retrieve historical usage for a remote ObjectiveAI Function" },
         { method: "POST", path: "/functions", href: "/docs/api/post/functions", desc: "Execute an inline ObjectiveAI Function with an inline Profile" },
         { method: "POST", path: "/functions/{fowner}/{frepository}/{fcommit}", href: "/docs/api/post/functions/fowner/frepository/fcommit", desc: "Execute a remote ObjectiveAI Function with an inline Profile" },
@@ -146,15 +147,27 @@ export default function InformationPage() {
     {
       category: "Function Profiles",
       endpoints: [
-        { method: "POST", path: "/functions/{fowner}/{frepository}/{fcommit}/profiles/compute", href: "/docs/api/post/functions/fowner/frepository/fcommit/profiles/compute", desc: "Compute an ObjectiveAI Function Profile from your own Data" },
+        { method: "POST", path: "/functions/{fowner}/{frepository}/{fcommit}/profiles/compute", href: "/docs/api/post/functions/fowner/frepository/fcommit/profiles/compute", desc: "Compute an ObjectiveAI Function Profile from your own Data (remote Function)" },
+        { method: "POST", path: "/functions/profiles/compute", href: "/docs/api/post/functions/profiles/compute", desc: "Compute an ObjectiveAI Function Profile from your own Data (inline Function)" },
         { method: "GET", path: "/functions/profiles", href: "/docs/api/get/functions/profiles", desc: "List all remote ObjectiveAI Function Profiles" },
+        { method: "GET", path: "/functions/profiles/{powner}/{prepository}/{pcommit}", href: "/docs/api/get/functions/profiles/powner/prepository/pcommit", desc: "Retrieve a remote ObjectiveAI Function Profile" },
         { method: "GET", path: "/functions/profiles/{powner}/{prepository}/{pcommit}/usage", href: "/docs/api/get/functions/profiles/powner/prepository/pcommit/usage", desc: "Retrieve historical usage for a remote ObjectiveAI Function Profile" }
+      ]
+    },
+    {
+      category: "Function-Profile Pairs",
+      endpoints: [
+        { method: "GET", path: "/functions/profiles/pairs", href: "/docs/api/get/functions/profiles/pairs", desc: "List all remote ObjectiveAI Function-Profile pairs" },
+        { method: "GET", path: "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}", href: "/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit", desc: "Retrieve a remote ObjectiveAI Function-Profile pair" },
+        { method: "GET", path: "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}/usage", href: "/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit/usage", desc: "Retrieve historical usage for a remote ObjectiveAI Function-Profile pair" }
       ]
     },
     {
       category: "Vector",
       endpoints: [
-        { method: "POST", path: "/vector/completions", href: "/docs/api/post/vector/completions", desc: "Create a new Vector Completion" }
+        { method: "POST", path: "/vector/completions", href: "/docs/api/post/vector/completions", desc: "Create a new Vector Completion" },
+        { method: "GET", path: "/vector/completions/{id}", href: "/docs/api/get/vector/completions/id", desc: "Retrieve votes from a historical Vector Completion" },
+        { method: "GET", path: "/vector/completions/cache", href: "/docs/api/get/vector/completions/cache", desc: "Request a cached vote from the global ObjectiveAI vote cache" }
       ]
     },
     {
@@ -245,6 +258,165 @@ export default function InformationPage() {
           }}>
             Documentation, SDKs, and guides to help you build with ObjectiveAI.
           </p>
+        </div>
+
+        {/* FAQ Card - Collapsible */}
+        <div
+          className="card"
+          style={{
+            marginBottom: '24px',
+            padding: 0,
+            overflow: 'hidden',
+            cursor: 'pointer',
+          }}
+          onClick={() => setFaqOpen(!faqOpen)}
+        >
+          <div
+            style={{
+              padding: isMobile ? '16px' : '24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '16px',
+            }}
+          >
+            <div>
+              <h3 style={{
+                fontSize: isMobile ? '18px' : '20px',
+                fontWeight: 600,
+                marginBottom: '8px',
+                color: 'var(--text)',
+              }}>
+                FAQ
+              </h3>
+              <p style={{
+                fontSize: isMobile ? '14px' : '15px',
+                color: 'var(--text-muted)',
+                lineHeight: 1.6,
+                margin: 0,
+              }}>
+                Frequently asked questions about ObjectiveAI
+              </p>
+            </div>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                flexShrink: 0,
+                transition: 'transform 0.2s',
+                transform: faqOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+
+          {faqOpen && (
+            <div style={{
+              padding: isMobile ? '0 16px 16px' : '0 24px 24px',
+              borderTop: '1px solid var(--border)',
+              marginTop: '8px',
+              paddingTop: isMobile ? '16px' : '20px',
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px',
+              }}>
+                {faqSections.map((section, sectionIdx) => (
+                  <div key={sectionIdx}>
+                    <h4 style={{
+                      fontSize: isMobile ? '14px' : '15px',
+                      fontWeight: 600,
+                      marginBottom: '12px',
+                      color: 'var(--text)',
+                      paddingBottom: '8px',
+                      borderBottom: '1px solid var(--border)',
+                    }}>
+                      {section.title}
+                    </h4>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                    }}>
+                      {section.items.map((item, itemIdx) => {
+                        const key = `${sectionIdx}-${itemIdx}`;
+                        const isOpen = openItems.has(key);
+                        return (
+                          <div
+                            key={key}
+                            style={{
+                              background: 'var(--page-bg)',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleItem(key);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: isMobile ? '12px 14px' : '14px 16px',
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '12px',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <span style={{
+                                fontSize: isMobile ? '13px' : '14px',
+                                fontWeight: 500,
+                                color: 'var(--text)',
+                                lineHeight: 1.4,
+                              }}>
+                                {item.question}
+                              </span>
+                              <span style={{
+                                fontSize: '16px',
+                                color: 'var(--text-muted)',
+                                flexShrink: 0,
+                                transition: 'transform 0.2s',
+                                transform: isOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+                              }}>
+                                +
+                              </span>
+                            </button>
+                            {isOpen && (
+                              <div style={{
+                                padding: isMobile ? '0 14px 12px' : '0 16px 14px',
+                              }}>
+                                <p style={{
+                                  fontSize: '13px',
+                                  color: 'var(--text-muted)',
+                                  lineHeight: 1.7,
+                                  margin: 0,
+                                }}>
+                                  {item.answer}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SDKs Card - Collapsible */}
@@ -500,165 +672,6 @@ export default function InformationPage() {
                           </div>
                         </div>
                       ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* FAQ Card - Collapsible */}
-        <div
-          className="card"
-          style={{
-            marginBottom: '24px',
-            padding: 0,
-            overflow: 'hidden',
-            cursor: 'pointer',
-          }}
-          onClick={() => setFaqOpen(!faqOpen)}
-        >
-          <div
-            style={{
-              padding: isMobile ? '16px' : '24px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: '16px',
-            }}
-          >
-            <div>
-              <h3 style={{
-                fontSize: isMobile ? '18px' : '20px',
-                fontWeight: 600,
-                marginBottom: '8px',
-                color: 'var(--text)',
-              }}>
-                FAQ
-              </h3>
-              <p style={{
-                fontSize: isMobile ? '14px' : '15px',
-                color: 'var(--text-muted)',
-                lineHeight: 1.6,
-                margin: 0,
-              }}>
-                Frequently asked questions about ObjectiveAI
-              </p>
-            </div>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--accent)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                flexShrink: 0,
-                transition: 'transform 0.2s',
-                transform: faqOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-              }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
-
-          {faqOpen && (
-            <div style={{
-              padding: isMobile ? '0 16px 16px' : '0 24px 24px',
-              borderTop: '1px solid var(--border)',
-              marginTop: '8px',
-              paddingTop: isMobile ? '16px' : '20px',
-            }}>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '24px',
-              }}>
-                {faqSections.map((section, sectionIdx) => (
-                  <div key={sectionIdx}>
-                    <h4 style={{
-                      fontSize: isMobile ? '14px' : '15px',
-                      fontWeight: 600,
-                      marginBottom: '12px',
-                      color: 'var(--text)',
-                      paddingBottom: '8px',
-                      borderBottom: '1px solid var(--border)',
-                    }}>
-                      {section.title}
-                    </h4>
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                    }}>
-                      {section.items.map((item, itemIdx) => {
-                        const key = `${sectionIdx}-${itemIdx}`;
-                        const isOpen = openItems.has(key);
-                        return (
-                          <div
-                            key={key}
-                            style={{
-                              background: 'var(--page-bg)',
-                              borderRadius: '8px',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleItem(key);
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: isMobile ? '12px 14px' : '14px 16px',
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: '12px',
-                                textAlign: 'left',
-                              }}
-                            >
-                              <span style={{
-                                fontSize: isMobile ? '13px' : '14px',
-                                fontWeight: 500,
-                                color: 'var(--text)',
-                                lineHeight: 1.4,
-                              }}>
-                                {item.question}
-                              </span>
-                              <span style={{
-                                fontSize: '16px',
-                                color: 'var(--text-muted)',
-                                flexShrink: 0,
-                                transition: 'transform 0.2s',
-                                transform: isOpen ? 'rotate(45deg)' : 'rotate(0deg)',
-                              }}>
-                                +
-                              </span>
-                            </button>
-                            {isOpen && (
-                              <div style={{
-                                padding: isMobile ? '0 14px 12px' : '0 16px 14px',
-                              }}>
-                                <p style={{
-                                  fontSize: '13px',
-                                  color: 'var(--text-muted)',
-                                  lineHeight: 1.7,
-                                  margin: 0,
-                                }}>
-                                  {item.answer}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
                     </div>
                   </div>
                 ))}

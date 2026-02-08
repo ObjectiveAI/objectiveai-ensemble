@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginModal from "./LoginModal";
 
@@ -103,6 +104,8 @@ export default function UserMenu({ isMobile = false, forceClose = false, onOpen 
             cursor: "pointer",
             transition: "all 0.2s",
             padding: 0,
+            position: "relative",
+            overflow: "hidden",
           }}
           onMouseEnter={(e) => {
             if (!user) {
@@ -118,15 +121,13 @@ export default function UserMenu({ isMobile = false, forceClose = false, onOpen 
         >
           {user ? (
             user.avatar ? (
-              <img
+              <Image
                 src={user.avatar}
                 alt={user.name || "User avatar"}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                }}
+                fill
+                unoptimized
+                sizes="40px"
+                style={{ objectFit: "cover" }}
               />
             ) : (
               <span

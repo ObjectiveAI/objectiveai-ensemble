@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { DisplayItem } from "@/lib/split-item-utils";
 
 interface SplitItemDisplayProps {
@@ -119,11 +120,16 @@ function ImageDisplay({
   className?: string;
 }) {
   return (
-    <img
+    <Image
       src={url}
       alt="Ranked item"
       className={className}
+      width={maxWidth}
+      height={60}
+      unoptimized
       style={{
+        width: "auto",
+        height: "auto",
         maxWidth: `${maxWidth}px`,
         maxHeight: "60px",
         objectFit: "contain",

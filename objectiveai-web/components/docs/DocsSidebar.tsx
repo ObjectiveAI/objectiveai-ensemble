@@ -18,7 +18,7 @@ export function DocsSidebar(): ReactElement {
       >
         <SidebarTable />
       </aside>
-      <div className="docsSidebarToggle" style={{ display: undefined }}>
+      <div className="docsSidebarToggle">
         <button
           className="docsSidebarToggleBtn"
           onClick={() => setManualOpen(!open)}
@@ -58,7 +58,7 @@ function SidebarTable(): ReactElement {
   return (
     <nav className="docsSidebarNav">
       <SidebarSection title="Overview" />
-      <SidebarItem href="/docs" title="All Endpoints" />
+      <SidebarItem href="/information" title="All Endpoints" />
 
       <SidebarSectionSpacer />
 
