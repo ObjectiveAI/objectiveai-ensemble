@@ -506,7 +506,7 @@ function checkSchemaCoverage(
     }
 
     // At least 1 value has length > threshold, if possible
-    const threshold = effectiveMin > 1 ? effectiveMin : 1;
+    const threshold = Math.max(3, effectiveMin);
     if (maxItems === null || maxItems > threshold) {
       const hasGreater = values.some(v => Array.isArray(v) && v.length > threshold);
       if (!hasGreater) {
