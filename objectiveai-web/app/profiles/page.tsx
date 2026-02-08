@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Functions } from "objectiveai";
 import { createPublicClient } from "../../lib/client";
 import { useResponsive } from "../../hooks/useResponsive";
-import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT, STICKY_SEARCH_OVERLAP } from "../../lib/constants";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
 
 interface ProfileItem {
@@ -87,8 +87,8 @@ export default function ProfilesPage() {
   const hasMore = visibleCount < filteredProfiles.length;
 
   const safeGap = 24;
-  const searchBarTop = navOffset;
-  const sidebarTop = navOffset + STICKY_BAR_HEIGHT + safeGap;
+  const searchBarTop = navOffset - STICKY_SEARCH_OVERLAP;
+  const sidebarTop = searchBarTop + STICKY_BAR_HEIGHT + safeGap;
 
   return (
     <div className="page">

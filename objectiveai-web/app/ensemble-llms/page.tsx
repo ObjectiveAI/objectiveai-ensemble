@@ -5,7 +5,7 @@ import Link from "next/link";
 import { EnsembleLlm } from "objectiveai";
 import { createPublicClient } from "../../lib/client";
 import { useResponsive } from "../../hooks/useResponsive";
-import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT, STICKY_SEARCH_OVERLAP } from "../../lib/constants";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
 
 interface EnsembleLlmItem {
@@ -74,8 +74,8 @@ export default function EnsembleLlmsPage() {
   const hasMore = visibleCount < filteredLlms.length;
 
   const safeGap = 24;
-  const searchBarTop = navOffset;
-  const sidebarTop = navOffset + STICKY_BAR_HEIGHT + safeGap;
+  const searchBarTop = navOffset - STICKY_SEARCH_OVERLAP;
+  const sidebarTop = searchBarTop + STICKY_BAR_HEIGHT + safeGap;
 
   return (
     <div className="page">

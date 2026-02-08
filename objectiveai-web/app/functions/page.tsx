@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Functions } from "objectiveai";
 import { createPublicClient } from "../../lib/client";
 import { deriveCategory, deriveDisplayName } from "../../lib/objectiveai";
-import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT } from "../../lib/constants";
+import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT, STICKY_SEARCH_OVERLAP } from "../../lib/constants";
 import { useResponsive } from "../../hooks/useResponsive";
 import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
 
@@ -154,10 +154,10 @@ export default function FunctionsPage() {
 
   // Safe gap from CSS variable
   const safeGap = 24;
-  
-  // Calculate sticky positions
-  const searchBarTop = navOffset;
-  const sidebarTop = navOffset + STICKY_BAR_HEIGHT + safeGap;
+
+  // Calculate sticky positions — overlap tucks search bar under nav padding
+  const searchBarTop = navOffset - STICKY_SEARCH_OVERLAP;
+  const sidebarTop = searchBarTop + STICKY_BAR_HEIGHT + safeGap;
 
   return (
     <div className="page">

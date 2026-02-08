@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { GitHubIcon, DiscordIcon, XIcon, LinkedInIcon, YouTubeIcon } from "./SocialIcons";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 export default function Footer() {
   const isMobile = useIsMobile();
+  const [contactEmail, setContactEmail] = useState("");
 
   const socialIcons = [
     { name: "GitHub", href: "https://github.com/ObjectiveAI/objectiveai", icon: <GitHubIcon /> },
@@ -140,29 +142,52 @@ export default function Footer() {
             paddingTop: isMobile ? '4px' : '8px',
             marginBottom: isMobile ? '20px' : '28px',
           }} className="footerSupportBar">
-            <label style={{
-              display: 'block',
-              fontSize: '10px',
-              fontWeight: 600,
-              marginBottom: '8px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: 'var(--text-muted)',
-              opacity: 0.7,
-            }}>
-              Support & Inquiries
-            </label>
-            <a
-              href="mailto:admin@objective-ai.io"
+            <label
+              htmlFor="footer-email"
               style={{
-                fontSize: '14px',
-                color: 'var(--accent)',
-                textDecoration: 'none',
-                fontWeight: 500,
+                display: 'block',
+                fontSize: '10px',
+                fontWeight: 600,
+                marginBottom: '8px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--text-muted)',
+                opacity: 0.7,
               }}
             >
-              admin@objective-ai.io
-            </a>
+              Support & Inquiries
+            </label>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (contactEmail.trim()) {
+                  window.location.href = `mailto:admin@objective-ai.io?subject=${encodeURIComponent("Support Inquiry")}&body=${encodeURIComponent(`Contact email: ${contactEmail.trim()}\n\n`)}`;
+                }
+              }}
+            >
+              <div className="humanTextField" style={{ maxWidth: '100%' }}>
+                <input
+                  id="footer-email"
+                  type="email"
+                  required
+                  placeholder="you@email.com"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+                <button type="submit" aria-label="Send">
+                  <svg
+                    className="arrowIcon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </form>
           </div>
 
           {/* ROW 3: Identity */}

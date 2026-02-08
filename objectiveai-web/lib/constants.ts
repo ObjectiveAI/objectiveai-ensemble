@@ -5,7 +5,6 @@
 
 // Feedback durations - how long to show success states
 export const COPY_FEEDBACK_DURATION_MS = 2000;
-export const EMAIL_SENT_FEEDBACK_DURATION_MS = 2000;
 
 // Animation durations
 export const PINNED_COLOR_ANIMATION_MS = 1000;
@@ -32,6 +31,7 @@ export const BROWSE_PAGE_LOAD_MORE_COUNT = 6;
 // Layout dimensions
 export const STICKY_BAR_HEIGHT = 72;
 export const SAFE_GAP = 24; // Gap below nav for content breathing room
+export const STICKY_SEARCH_OVERLAP = 12; // How much the search bar tucks under the nav
 
 // Stripe payment timing
 export const STRIPE_TAX_PROPAGATION_DELAY_MS = 10000;  // 10 seconds for tax calculation

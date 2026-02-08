@@ -217,7 +217,7 @@ body {
   position: sticky;
   z-index: 100;
   background: var(--page-bg);
-  padding: 8px 0;
+  padding: 12px 0 8px;
 }
 
 .stickySearchBar::before {
