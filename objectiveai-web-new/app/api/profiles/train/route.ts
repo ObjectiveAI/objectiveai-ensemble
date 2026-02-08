@@ -1,32 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ObjectiveAI, Functions } from "objectiveai";
 import { requireAuth } from "@/lib/api-auth";
+import { normalizeError, getErrorStatusCode } from "@/lib/error-handling";
 
-/**
- * Profile Training API Route (Placeholder)
- *
- * This endpoint will eventually call Functions.Profiles.Computations.create()
- * from the ObjectiveAI SDK to train profile weights.
- *
- * Expected request body:
- * {
- *   function: { owner: string, repository: string, commit: string },
- *   training_data: Array<{ input: any, expected_output: number | number[] }>,
- *   parameters: { learning_rate: number, iterations: number }
- * }
- *
- * Expected response (when implemented):
- * {
- *   profile: {
- *     weights: Record<string, number>,
- *     metadata: { ... }
- *   },
- *   training_metrics: {
- *     final_loss: number,
- *     iterations_completed: number,
- *     convergence_status: string
- *   }
- * }
- */
+function getServerClient(): ObjectiveAI {
+  return new ObjectiveAI({
+    apiKey: process.env.OBJECTIVEAI_API_KEY,
+  });
+}
 
 export async function POST(request: NextRequest) {
   const denied = await requireAuth(request);
@@ -34,9 +15,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { function: functionRef, training_data, parameters } = body;
+    const { function: functionRef, dataset, n, ensemble, from_cache, from_rng, stream } = body;
 
-    // Validate required fields
+    // Validate function reference
     if (!functionRef?.owner || !functionRef?.repository) {
       return NextResponse.json(
         { error: "Missing function reference (owner/repository required)" },
@@ -44,74 +25,106 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!training_data || !Array.isArray(training_data) || training_data.length === 0) {
+    // Validate dataset
+    if (!dataset || !Array.isArray(dataset) || dataset.length === 0) {
       return NextResponse.json(
-        { error: "Training data must be a non-empty array" },
+        { error: "Dataset must be a non-empty array" },
         { status: 400 }
       );
     }
 
-    // Validate training examples
-    for (let i = 0; i < training_data.length; i++) {
-      const example = training_data[i];
-      if (example.expected_output === undefined) {
+    for (let i = 0; i < dataset.length; i++) {
+      const item = dataset[i];
+      if (item.input === undefined) {
         return NextResponse.json(
-          { error: `Training example ${i + 1} is missing expected_output` },
+          { error: `Dataset item ${i + 1} is missing input` },
+          { status: 400 }
+        );
+      }
+      if (!item.target || !item.target.type || item.target.value === undefined) {
+        return NextResponse.json(
+          { error: `Dataset item ${i + 1} is missing target (requires type and value)` },
           { status: 400 }
         );
       }
     }
 
-    // For now, return a "not implemented" response
-    // When the backend is ready, this will call:
-    //
-    // import { ObjectiveAI, Functions } from "objectiveai";
-    //
-    // const client = new ObjectiveAI({ apiKey: process.env.OBJECTIVEAI_API_KEY });
-    //
-    // const result = await Functions.Profiles.Computations.create(
-    //   client,
-    //   functionRef,
-    //   {
-    //     training_data,
-    //     learning_rate: parameters?.learning_rate ?? 0.01,
-    //     iterations: parameters?.iterations ?? 100,
-    //   }
-    // );
+    // Validate n
+    if (!n || typeof n !== "number" || n < 1) {
+      return NextResponse.json(
+        { error: "n must be a positive integer (number of executions per dataset item)" },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(
-      {
-        error: "Profile training is not yet available",
-        message: "This feature is coming soon. The training request was validated successfully.",
-        validated_request: {
-          function: functionRef,
-          training_examples_count: training_data.length,
-          parameters: {
-            learning_rate: parameters?.learning_rate ?? 0.01,
-            iterations: parameters?.iterations ?? 100,
-          },
+    // Validate ensemble
+    if (!ensemble) {
+      return NextResponse.json(
+        { error: "Missing ensemble (ensemble ID or inline definition)" },
+        { status: 400 }
+      );
+    }
+
+    const client = getServerClient();
+
+    const computeBody = {
+      dataset,
+      n,
+      ensemble,
+      from_cache: from_cache ?? true,
+      from_rng: from_rng ?? true,
+    };
+
+    const { owner, repository, commit } = functionRef;
+
+    if (stream) {
+      const streamResponse = await Functions.Profiles.Computations.remoteFunctionCreate(
+        client,
+        owner,
+        repository,
+        commit ?? null,
+        { ...computeBody, stream: true as const },
+      );
+
+      const encoder = new TextEncoder();
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of streamResponse) {
+              const data = `data: ${JSON.stringify(chunk)}\n\n`;
+              controller.enqueue(encoder.encode(data));
+            }
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          } catch (err) {
+            const message = normalizeError(err);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: message })}\n\n`));
+            controller.close();
+          }
         },
-      },
-      { status: 501 } // Not Implemented
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+      });
 
-// GET handler for checking endpoint status
-export async function GET() {
-  return NextResponse.json({
-    status: "placeholder",
-    message: "Profile training endpoint is not yet implemented",
-    documentation: {
-      method: "POST",
-      body: {
-        function: "{ owner: string, repository: string, commit?: string }",
-        training_data: "Array<{ input: any, expected_output: number | number[] }>",
-        parameters: "{ learning_rate?: number, iterations?: number }",
-      },
-    },
-  });
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    const result = await Functions.Profiles.Computations.remoteFunctionCreate(
+      client,
+      owner,
+      repository,
+      commit ?? null,
+      computeBody,
+    );
+
+    return NextResponse.json(result);
+  } catch (error) {
+    const message = normalizeError(error);
+    const statusCode = getErrorStatusCode(error);
+    return NextResponse.json({ error: message }, { status: statusCode });
+  }
 }

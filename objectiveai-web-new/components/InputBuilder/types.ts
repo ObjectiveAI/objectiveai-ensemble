@@ -55,6 +55,8 @@ export interface InputBuilderProps {
   /** When present and object-typed, renders labeled fields from the schema properties. */
   schema?: InputSchema | null;
   disabled?: boolean;
+  /** When true, only text inputs are shown (no image/audio/video/file upload buttons). */
+  textOnly?: boolean;
   label?: string;
   description?: string;
   className?: string;
@@ -67,6 +69,7 @@ export interface ContentListProps {
   items: ContentItem[];
   onChange: (items: ContentItem[]) => void;
   disabled?: boolean;
+  textOnly?: boolean;
   isMobile?: boolean;
   depth: number;
 }

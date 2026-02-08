@@ -13,6 +13,7 @@ export default function InputBuilder({
   onChange,
   schema,
   disabled,
+  textOnly,
   label,
   description,
   className,
@@ -46,6 +47,7 @@ export default function InputBuilder({
               value={objValue[key]}
               onChange={(newVal) => onChange({ ...objValue, [key]: newVal })}
               disabled={disabled}
+              textOnly={textOnly}
               isMobile={isMobile}
             />
           );
@@ -60,6 +62,7 @@ export default function InputBuilder({
       value={value}
       onChange={onChange}
       disabled={disabled}
+      textOnly={textOnly}
       isMobile={isMobile}
       label={label}
       description={description}
@@ -78,6 +81,7 @@ function PropertyContentList({
   value,
   onChange,
   disabled,
+  textOnly,
   isMobile,
 }: {
   displayName: string;
@@ -86,6 +90,7 @@ function PropertyContentList({
   value: InputValue;
   onChange: (value: InputValue) => void;
   disabled?: boolean;
+  textOnly?: boolean;
   isMobile?: boolean;
 }) {
   const items = useMemo(() => inputValueToContentItems(value), [value]);
@@ -131,6 +136,7 @@ function PropertyContentList({
         items={items}
         onChange={handleChange}
         disabled={disabled}
+        textOnly={textOnly}
         isMobile={isMobile}
         depth={0}
       />
@@ -145,6 +151,7 @@ function SingleContentList({
   value,
   onChange,
   disabled,
+  textOnly,
   isMobile,
   label,
   description,
@@ -153,6 +160,7 @@ function SingleContentList({
   value: InputValue;
   onChange: (value: InputValue) => void;
   disabled?: boolean;
+  textOnly?: boolean;
   isMobile?: boolean;
   label?: string;
   description?: string;
@@ -198,6 +206,7 @@ function SingleContentList({
         items={items}
         onChange={handleChange}
         disabled={disabled}
+        textOnly={textOnly}
         isMobile={isMobile}
         depth={0}
       />

@@ -12,6 +12,7 @@ export default function ContentList({
   items,
   onChange,
   disabled,
+  textOnly,
   isMobile,
   depth,
 }: ContentListProps) {
@@ -74,6 +75,7 @@ export default function ContentList({
               item={item}
               onChange={(updated) => updateItem(index, updated)}
               disabled={disabled}
+              textOnly={textOnly}
               isMobile={isMobile}
               depth={depth}
             />
@@ -94,7 +96,7 @@ export default function ContentList({
       ))}
 
       {/* Add content buttons */}
-      <AddContentBar onAdd={addItem} disabled={disabled} isMobile={isMobile} depth={depth} />
+      <AddContentBar onAdd={addItem} disabled={disabled} textOnly={textOnly} isMobile={isMobile} depth={depth} />
     </div>
   );
 }
@@ -103,12 +105,14 @@ function ContentItemEditor({
   item,
   onChange,
   disabled,
+  textOnly,
   isMobile,
   depth,
 }: {
   item: ContentItem;
   onChange: (item: ContentItem) => void;
   disabled?: boolean;
+  textOnly?: boolean;
   isMobile?: boolean;
   depth: number;
 }) {
@@ -184,6 +188,7 @@ function ContentItemEditor({
           items={item.children}
           onChange={(children) => onChange({ type: "group", children })}
           disabled={disabled}
+          textOnly={textOnly}
           isMobile={isMobile}
           depth={depth + 1}
         />
@@ -194,20 +199,26 @@ function ContentItemEditor({
 function AddContentBar({
   onAdd,
   disabled,
+  textOnly,
   isMobile,
   depth,
 }: {
   onAdd: (type: ContentItem["type"]) => void;
   disabled?: boolean;
+  textOnly?: boolean;
   isMobile?: boolean;
   depth: number;
 }) {
   const buttons: { type: ContentItem["type"]; label: string; icon: React.ReactNode }[] = [
     { type: "text", label: "Text", icon: <TextIcon /> },
-    { type: "image", label: "Image", icon: <ImageIcon /> },
-    { type: "audio", label: "Audio", icon: <AudioIcon /> },
-    { type: "video", label: "Video", icon: <VideoIcon /> },
-    { type: "file", label: "File", icon: <FileIcon /> },
+    ...(!textOnly
+      ? [
+          { type: "image" as const, label: "Image", icon: <ImageIcon /> },
+          { type: "audio" as const, label: "Audio", icon: <AudioIcon /> },
+          { type: "video" as const, label: "Video", icon: <VideoIcon /> },
+          { type: "file" as const, label: "File", icon: <FileIcon /> },
+        ]
+      : []),
   ];
 
   // Allow nesting groups up to max depth

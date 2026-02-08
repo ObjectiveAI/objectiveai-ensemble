@@ -94,6 +94,5 @@ Only disable these flags when you need real LLM responses (e.g., testing actual 
 
 - **Auth bypass**: Account pages (keys, credits) have `BYPASS_AUTH = true` for development. Remove when auth is working.
 - **API key in .env**: The `.env` file contains `OBJECTIVEAI_API_KEY`. This file is gitignored - never commit it.
-- **Vibe-native hyperprompt**: Currently lorem ipsum placeholder. Needs real content from Ronald.
 - **Functions integration**: Complete - uses real ObjectiveAI SDK with streaming support (no mock data)
-- **File uploads**: Disabled pending backend support for function expressions with media types
+- **File uploads**: Hidden on function execution page — backend expressions don't support media types yet. Media buttons remain available on vector completions page where no expression compilation occurs.
