@@ -95,4 +95,23 @@ Only disable these flags when you need real LLM responses (e.g., testing actual 
 - **Auth bypass**: Account pages (keys, credits) have `BYPASS_AUTH = true` for development. Remove when auth is working.
 - **API key in .env**: The `.env` file contains `OBJECTIVEAI_API_KEY`. This file is gitignored - never commit it.
 - **Functions integration**: Complete - uses real ObjectiveAI SDK with streaming support (no mock data)
-- **File uploads**: Hidden on function execution page — backend expressions don't support media types yet. Media buttons remain available on vector completions page where no expression compilation occurs.
+- **Rich content (media) inputs**: Media upload buttons (image, audio, video, file) are available on both function execution and vector completions pages. The `InputBuilder` component has a `textOnly` prop that can hide them if needed but it is not currently used.
+
+### Rich Content in Function Expressions
+
+The pipeline for function execution is: Input → serialize to JSON → JMESPath/Starlark evaluates → deserialize result back to typed values. Rich content (images, audio, video, files) is represented as `RichContentPart` objects (e.g. `{type: "image_url", image_url: {url: "..."}}`).
+
+**Works:** Expressions that pass media objects through intact. If a function does `{"$jmespath": "input.items"}` and `input.items` contains `RichContentPart` objects, the JSON roundtrip preserves the structure and deserialization into `Vec<RichContent>` succeeds.
+
+**Breaks:** Expressions that destructure media objects. If a function does `{"$jmespath": "input.image.image_url"}`, the `type: "image_url"` wrapper is lost and deserialization fails or misinterprets the value as text.
+
+**Cannot do:** Expressions cannot create new media objects from scratch, construct base64-encoded data, or synthesize binary content. The expression runtime (`runtime.rs`, `starlark.rs`) only provides math and text/array manipulation functions.
+
+| Scenario | Works? |
+|----------|--------|
+| Direct vector completions (no expressions) | Yes |
+| Function expressions that pass media through intact (`input.items`) | Yes |
+| Function expressions that destructure media objects (`input.image.image_url`) | No |
+| Expressions that create new media from scratch | No |
+
+Since most existing functions were written for text inputs, media support is function-specific. If a function's expressions can't handle media, the backend returns a clear deserialization error. No frontend restriction is needed — let users try and let the error surface naturally.
