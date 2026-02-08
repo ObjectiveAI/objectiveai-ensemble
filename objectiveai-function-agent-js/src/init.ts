@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { ObjectiveAI, Functions } from "objectiveai";
 import { AgentOptions } from "./agentOptions";
