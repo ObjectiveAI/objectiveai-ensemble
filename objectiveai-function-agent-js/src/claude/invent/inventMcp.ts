@@ -79,6 +79,9 @@ import {
   EditTask,
   DelTask,
   CheckTasks,
+  ReadMessagesSchema,
+  ReadToolsSchema,
+  ReadResponsesSchema,
 } from "../../tools/claude/tasks";
 
 // Tools - example inputs
@@ -167,6 +170,9 @@ function getCommonTools(planIndex: number, apiBase?: string, apiKey?: string) {
     EditTask,
     DelTask,
     CheckTasks,
+    ReadMessagesSchema,
+    ReadToolsSchema,
+    ReadResponsesSchema,
 
     // Expression params
     ReadInputParamSchema,

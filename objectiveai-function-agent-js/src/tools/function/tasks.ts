@@ -18,6 +18,22 @@ export function readTasksSchema(): typeof TasksSchema {
   return TasksSchema;
 }
 
+const MessagesSchema = Functions.VectorCompletionTaskExpressionSchema.shape.messages;
+const ToolsSchema = Functions.VectorCompletionTaskExpressionSchema.shape.tools;
+const ResponsesSchema = Functions.VectorCompletionTaskExpressionSchema.shape.responses;
+
+export function readMessagesSchema(): typeof MessagesSchema {
+  return MessagesSchema;
+}
+
+export function readToolsSchema(): typeof ToolsSchema {
+  return ToolsSchema;
+}
+
+export function readResponsesSchema(): typeof ResponsesSchema {
+  return ResponsesSchema;
+}
+
 export function checkTasks(): Result<undefined> {
   const fn = readFunction();
   if (!fn.ok) {

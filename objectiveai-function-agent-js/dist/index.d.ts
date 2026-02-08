@@ -11909,6 +11909,1172 @@ declare const TasksSchema: z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
 type Tasks = z.infer<typeof TasksSchema>;
 declare function readTasks(): Result<unknown>;
 declare function readTasksSchema(): typeof TasksSchema;
+declare const MessagesSchema: z.ZodUnion<readonly [z.ZodArray<z.ZodUnion<readonly [z.ZodDiscriminatedUnion<[z.ZodObject<{
+    role: z.ZodLiteral<"developer">;
+    content: z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        type: z.ZodLiteral<"text">;
+        text: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>;
+    name: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+}, z.core.$strip>, z.ZodObject<{
+    role: z.ZodLiteral<"system">;
+    content: z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        type: z.ZodLiteral<"text">;
+        text: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>;
+    name: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+}, z.core.$strip>, z.ZodObject<{
+    role: z.ZodLiteral<"user">;
+    content: z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodUnion<readonly [z.ZodDiscriminatedUnion<[z.ZodObject<{
+        type: z.ZodLiteral<"text">;
+        text: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"image_url">;
+        image_url: z.ZodUnion<readonly [z.ZodObject<{
+            url: z.ZodString;
+            detail: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+                auto: "auto";
+                low: "low";
+                high: "high";
+            }>>>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"input_audio">;
+        input_audio: z.ZodUnion<readonly [z.ZodObject<{
+            data: z.ZodString;
+            format: z.ZodEnum<{
+                wav: "wav";
+                mp3: "mp3";
+            }>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodEnum<{
+            video_url: "video_url";
+            input_video: "input_video";
+        }>;
+        video_url: z.ZodUnion<readonly [z.ZodObject<{
+            url: z.ZodString;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"file">;
+        file: z.ZodUnion<readonly [z.ZodObject<{
+            file_data: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            file_id: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            filename: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            file_url: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>], "type">, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>;
+    name: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+}, z.core.$strip>, z.ZodObject<{
+    role: z.ZodLiteral<"tool">;
+    content: z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodUnion<readonly [z.ZodDiscriminatedUnion<[z.ZodObject<{
+        type: z.ZodLiteral<"text">;
+        text: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"image_url">;
+        image_url: z.ZodUnion<readonly [z.ZodObject<{
+            url: z.ZodString;
+            detail: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+                auto: "auto";
+                low: "low";
+                high: "high";
+            }>>>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"input_audio">;
+        input_audio: z.ZodUnion<readonly [z.ZodObject<{
+            data: z.ZodString;
+            format: z.ZodEnum<{
+                wav: "wav";
+                mp3: "mp3";
+            }>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodEnum<{
+            video_url: "video_url";
+            input_video: "input_video";
+        }>;
+        video_url: z.ZodUnion<readonly [z.ZodObject<{
+            url: z.ZodString;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"file">;
+        file: z.ZodUnion<readonly [z.ZodObject<{
+            file_data: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            file_id: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            filename: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            file_url: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>], "type">, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>;
+    tool_call_id: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>;
+}, z.core.$strip>, z.ZodObject<{
+    role: z.ZodLiteral<"assistant">;
+    content: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodUnion<readonly [z.ZodDiscriminatedUnion<[z.ZodObject<{
+        type: z.ZodLiteral<"text">;
+        text: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"image_url">;
+        image_url: z.ZodUnion<readonly [z.ZodObject<{
+            url: z.ZodString;
+            detail: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+                auto: "auto";
+                low: "low";
+                high: "high";
+            }>>>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"input_audio">;
+        input_audio: z.ZodUnion<readonly [z.ZodObject<{
+            data: z.ZodString;
+            format: z.ZodEnum<{
+                wav: "wav";
+                mp3: "mp3";
+            }>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodEnum<{
+            video_url: "video_url";
+            input_video: "input_video";
+        }>;
+        video_url: z.ZodUnion<readonly [z.ZodObject<{
+            url: z.ZodString;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>, z.ZodObject<{
+        type: z.ZodLiteral<"file">;
+        file: z.ZodUnion<readonly [z.ZodObject<{
+            file_data: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            file_id: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            filename: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            file_url: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+    }, z.core.$strip>], "type">, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+    name: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+    refusal: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+    tool_calls: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+        type: z.ZodLiteral<"function">;
+        id: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+        function: z.ZodObject<{
+            name: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+                $jmespath: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                $starlark: z.ZodString;
+            }, z.core.$strict>]>]>;
+            arguments: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+                $jmespath: z.ZodString;
+            }, z.core.$strict>, z.ZodObject<{
+                $starlark: z.ZodString;
+            }, z.core.$strict>]>]>;
+        }, z.core.$strip>;
+    }, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+    reasoning: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+        $jmespath: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+        $starlark: z.ZodString;
+    }, z.core.$strict>]>]>>>;
+}, z.core.$strip>], "role">, z.ZodUnion<readonly [z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>, z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>, z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>]>]>;
+declare const ToolsSchema: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+    type: z.ZodLiteral<"function">;
+    function: z.ZodObject<{
+        name: z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>;
+        description: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>>>;
+        parameters: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodRecord<z.ZodString, z.ZodType<string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | /*elided*/ any | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null, unknown, z.core.$ZodTypeInternals<string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | (string | number | boolean | {
+            $jmespath: string;
+        } | {
+            $starlark: string;
+        } | /*elided*/ any | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null)[] | {
+            [key: string]: string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | (string | number | boolean | {
+                $jmespath: string;
+            } | {
+                $starlark: string;
+            } | /*elided*/ any | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null)[] | /*elided*/ any | null;
+        } | null, unknown>>>, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>>>;
+        strict: z.ZodNullable<z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodUnion<readonly [z.ZodObject<{
+            $jmespath: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+            $starlark: z.ZodString;
+        }, z.core.$strict>]>]>>>;
+    }, z.core.$strip>;
+}, z.core.$strip>, z.ZodUnion<readonly [z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>, z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>, z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>]>]>>>;
+declare const ResponsesSchema: z.ZodUnion<readonly [z.ZodArray<z.ZodUnion<readonly [z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
+    type: z.ZodLiteral<"text">;
+    text: z.ZodString;
+}, z.core.$strip>, z.ZodObject<{
+    type: z.ZodLiteral<"image_url">;
+    image_url: z.ZodObject<{
+        url: z.ZodString;
+        detail: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+            auto: "auto";
+            low: "low";
+            high: "high";
+        }>>>;
+    }, z.core.$strip>;
+}, z.core.$strip>, z.ZodObject<{
+    type: z.ZodLiteral<"input_audio">;
+    input_audio: z.ZodObject<{
+        data: z.ZodString;
+        format: z.ZodEnum<{
+            wav: "wav";
+            mp3: "mp3";
+        }>;
+    }, z.core.$strip>;
+}, z.core.$strip>, z.ZodObject<{
+    type: z.ZodEnum<{
+        video_url: "video_url";
+        input_video: "input_video";
+    }>;
+    video_url: z.ZodObject<{
+        url: z.ZodString;
+    }, z.core.$strip>;
+}, z.core.$strip>, z.ZodObject<{
+    type: z.ZodLiteral<"file">;
+    file: z.ZodObject<{
+        file_data: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        file_id: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        filename: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        file_url: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    }, z.core.$strip>;
+}, z.core.$strip>], "type">>]>, z.ZodUnion<readonly [z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>, z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>]>]>>, z.ZodUnion<readonly [z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>, z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>]>]>;
+declare function readMessagesSchema(): typeof MessagesSchema;
+declare function readToolsSchema(): typeof ToolsSchema;
+declare function readResponsesSchema(): typeof ResponsesSchema;
 declare function checkTasks(): Result<undefined>;
 declare function editTasks(value: unknown): Result<undefined>;
 declare function appendTask(value: unknown): Result<undefined>;
@@ -11963,10 +13129,13 @@ declare const index$5_readInputSchema: typeof readInputSchema;
 declare const index$5_readInputSchemaSchema: typeof readInputSchemaSchema;
 declare const index$5_readInputSplit: typeof readInputSplit;
 declare const index$5_readInputSplitSchema: typeof readInputSplitSchema;
+declare const index$5_readMessagesSchema: typeof readMessagesSchema;
 declare const index$5_readOutputLength: typeof readOutputLength;
 declare const index$5_readOutputLengthSchema: typeof readOutputLengthSchema;
+declare const index$5_readResponsesSchema: typeof readResponsesSchema;
 declare const index$5_readTasks: typeof readTasks;
 declare const index$5_readTasksSchema: typeof readTasksSchema;
+declare const index$5_readToolsSchema: typeof readToolsSchema;
 declare const index$5_readType: typeof readType;
 declare const index$5_readTypeSchema: typeof readTypeSchema;
 declare const index$5_validateDescription: typeof validateDescription;
@@ -11979,7 +13148,7 @@ declare const index$5_validateOutputLength: typeof validateOutputLength;
 declare const index$5_validateTasks: typeof validateTasks;
 declare const index$5_validateType: typeof validateType;
 declare namespace index$5 {
-  export { type index$5_DeserializedFunction as DeserializedFunction, index$5_appendTask as appendTask, index$5_checkDescription as checkDescription, index$5_checkFunction as checkFunction, index$5_checkInputMaps as checkInputMaps, index$5_checkInputMerge as checkInputMerge, index$5_checkInputSchema as checkInputSchema, index$5_checkInputSplit as checkInputSplit, index$5_checkOutputLength as checkOutputLength, index$5_checkTasks as checkTasks, index$5_checkType as checkType, index$5_delInputMerge as delInputMerge, index$5_delInputSplit as delInputSplit, index$5_delOutputLength as delOutputLength, index$5_delTask as delTask, index$5_editDescription as editDescription, index$5_editFunction as editFunction, index$5_editInputMaps as editInputMaps, index$5_editInputMerge as editInputMerge, index$5_editInputSchema as editInputSchema, index$5_editInputSplit as editInputSplit, index$5_editOutputLength as editOutputLength, index$5_editTask as editTask, index$5_editTasks as editTasks, index$5_editType as editType, index$5_readDescription as readDescription, index$5_readDescriptionSchema as readDescriptionSchema, index$5_readFunction as readFunction, index$5_readFunctionSchema as readFunctionSchema, index$5_readInputMaps as readInputMaps, index$5_readInputMapsSchema as readInputMapsSchema, index$5_readInputMerge as readInputMerge, index$5_readInputMergeSchema as readInputMergeSchema, index$5_readInputSchema as readInputSchema, index$5_readInputSchemaSchema as readInputSchemaSchema, index$5_readInputSplit as readInputSplit, index$5_readInputSplitSchema as readInputSplitSchema, index$5_readOutputLength as readOutputLength, index$5_readOutputLengthSchema as readOutputLengthSchema, index$5_readTasks as readTasks, index$5_readTasksSchema as readTasksSchema, index$5_readType as readType, index$5_readTypeSchema as readTypeSchema, index$5_validateDescription as validateDescription, index$5_validateFunction as validateFunction, index$5_validateInputMaps as validateInputMaps, index$5_validateInputMerge as validateInputMerge, index$5_validateInputSchema as validateInputSchema, index$5_validateInputSplit as validateInputSplit, index$5_validateOutputLength as validateOutputLength, index$5_validateTasks as validateTasks, index$5_validateType as validateType };
+  export { type index$5_DeserializedFunction as DeserializedFunction, index$5_appendTask as appendTask, index$5_checkDescription as checkDescription, index$5_checkFunction as checkFunction, index$5_checkInputMaps as checkInputMaps, index$5_checkInputMerge as checkInputMerge, index$5_checkInputSchema as checkInputSchema, index$5_checkInputSplit as checkInputSplit, index$5_checkOutputLength as checkOutputLength, index$5_checkTasks as checkTasks, index$5_checkType as checkType, index$5_delInputMerge as delInputMerge, index$5_delInputSplit as delInputSplit, index$5_delOutputLength as delOutputLength, index$5_delTask as delTask, index$5_editDescription as editDescription, index$5_editFunction as editFunction, index$5_editInputMaps as editInputMaps, index$5_editInputMerge as editInputMerge, index$5_editInputSchema as editInputSchema, index$5_editInputSplit as editInputSplit, index$5_editOutputLength as editOutputLength, index$5_editTask as editTask, index$5_editTasks as editTasks, index$5_editType as editType, index$5_readDescription as readDescription, index$5_readDescriptionSchema as readDescriptionSchema, index$5_readFunction as readFunction, index$5_readFunctionSchema as readFunctionSchema, index$5_readInputMaps as readInputMaps, index$5_readInputMapsSchema as readInputMapsSchema, index$5_readInputMerge as readInputMerge, index$5_readInputMergeSchema as readInputMergeSchema, index$5_readInputSchema as readInputSchema, index$5_readInputSchemaSchema as readInputSchemaSchema, index$5_readInputSplit as readInputSplit, index$5_readInputSplitSchema as readInputSplitSchema, index$5_readMessagesSchema as readMessagesSchema, index$5_readOutputLength as readOutputLength, index$5_readOutputLengthSchema as readOutputLengthSchema, index$5_readResponsesSchema as readResponsesSchema, index$5_readTasks as readTasks, index$5_readTasksSchema as readTasksSchema, index$5_readToolsSchema as readToolsSchema, index$5_readType as readType, index$5_readTypeSchema as readTypeSchema, index$5_validateDescription as validateDescription, index$5_validateFunction as validateFunction, index$5_validateInputMaps as validateInputMaps, index$5_validateInputMerge as validateInputMerge, index$5_validateInputSchema as validateInputSchema, index$5_validateInputSplit as validateInputSplit, index$5_validateOutputLength as validateOutputLength, index$5_validateTasks as validateTasks, index$5_validateType as validateType };
 }
 
 declare const ExampleInputSchema: z.ZodObject<{

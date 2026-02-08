@@ -7,6 +7,9 @@ import {
   editTask,
   readTasks,
   readTasksSchema,
+  readMessagesSchema,
+  readToolsSchema,
+  readResponsesSchema,
 } from "../function";
 import z from "zod";
 import { formatZodSchema } from "../schema";
@@ -54,4 +57,25 @@ export const CheckTasks = tool(
   "Validate the Function's `tasks` field",
   {},
   async () => resultFromResult(checkTasks()),
+);
+
+export const ReadMessagesSchema = tool(
+  "ReadMessagesSchema",
+  "Read the schema for the `messages` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readMessagesSchema())),
+);
+
+export const ReadToolsSchema = tool(
+  "ReadToolsSchema",
+  "Read the schema for the `tools` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readToolsSchema())),
+);
+
+export const ReadResponsesSchema = tool(
+  "ReadResponsesSchema",
+  "Read the schema for the `responses` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readResponsesSchema())),
 );

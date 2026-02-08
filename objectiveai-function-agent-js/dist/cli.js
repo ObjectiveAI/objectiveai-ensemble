@@ -157,7 +157,7 @@ async function fetchExamples(apiBase, apiKey) {
 function writeGitignore() {
   writeFileSync(
     ".gitignore",
-    ["examples/", "agent_functions/", "networkTests/", ""].join("\n")
+    ["examples/", "agent_functions/", "network_tests/", "logs/", ""].join("\n")
   );
 }
 async function init(options = {}) {
@@ -873,6 +873,18 @@ function readTasks() {
 }
 function readTasksSchema() {
   return TasksSchema;
+}
+var MessagesSchema = Functions.VectorCompletionTaskExpressionSchema.shape.messages;
+var ToolsSchema = Functions.VectorCompletionTaskExpressionSchema.shape.tools;
+var ResponsesSchema = Functions.VectorCompletionTaskExpressionSchema.shape.responses;
+function readMessagesSchema() {
+  return MessagesSchema;
+}
+function readToolsSchema() {
+  return ToolsSchema;
+}
+function readResponsesSchema() {
+  return ResponsesSchema;
 }
 function checkTasks() {
   const fn = readFunction();
@@ -2242,8 +2254,8 @@ async function runNetworkTests(apiBase, apiKey) {
     return { ok: false, value: void 0, error: `Inputs validation failed: ${inputsResult.error}` };
   }
   const inputs = inputsResult.value;
-  const defaultDir = join("networkTests", "default");
-  const swissSystemDir = join("networkTests", "swisssystem");
+  const defaultDir = join("network_tests", "default");
+  const swissSystemDir = join("network_tests", "swisssystem");
   clearDir(defaultDir);
   clearDir(swissSystemDir);
   mkdirSync(defaultDir, { recursive: true });
@@ -2300,7 +2312,7 @@ async function runNetworkTests(apiBase, apiKey) {
   return { ok: true, value: void 0, error: void 0 };
 }
 function readDefaultNetworkTest(index) {
-  const filePath = join("networkTests", "default", `${index}.json`);
+  const filePath = join("network_tests", "default", `${index}.json`);
   if (!existsSync(filePath)) {
     return { ok: false, value: void 0, error: `File not found: ${filePath}` };
   }
@@ -2311,7 +2323,7 @@ function readDefaultNetworkTest(index) {
   }
 }
 function readSwissSystemNetworkTest(index) {
-  const filePath = join("networkTests", "swisssystem", `${index}.json`);
+  const filePath = join("network_tests", "swisssystem", `${index}.json`);
   if (!existsSync(filePath)) {
     return { ok: false, value: void 0, error: `File not found: ${filePath}` };
   }
@@ -2725,6 +2737,24 @@ var CheckTasks = tool(
   {},
   async () => resultFromResult(checkTasks())
 );
+var ReadMessagesSchema = tool(
+  "ReadMessagesSchema",
+  "Read the schema for the `messages` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readMessagesSchema()))
+);
+var ReadToolsSchema = tool(
+  "ReadToolsSchema",
+  "Read the schema for the `tools` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readToolsSchema()))
+);
+var ReadResponsesSchema = tool(
+  "ReadResponsesSchema",
+  "Read the schema for the `responses` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readResponsesSchema()))
+);
 function buildExampleInput(value) {
   const fnRaw = readFunction();
   if (!fnRaw.ok) return { ok: false, error: fnRaw.error };
@@ -2796,7 +2826,7 @@ var CheckExampleInputs = tool(
 function makeRunNetworkTests(apiBase, apiKey) {
   return tool(
     "RunNetworkTests",
-    "Execute the function once for each example input and write results to networkTests/",
+    "Execute the function once for each example input and write results to network_tests/",
     {},
     async () => resultFromResult(await runNetworkTests(apiBase, apiKey))
   );
@@ -3136,6 +3166,9 @@ function getCommonTools(planIndex, apiBase, apiKey) {
     EditTask,
     DelTask,
     CheckTasks,
+    ReadMessagesSchema,
+    ReadToolsSchema,
+    ReadResponsesSchema,
     // Expression params
     ReadInputParamSchema,
     ReadMapParamSchema,

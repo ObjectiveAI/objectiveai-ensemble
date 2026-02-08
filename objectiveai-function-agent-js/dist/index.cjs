@@ -175,7 +175,7 @@ async function fetchExamples(apiBase, apiKey) {
 function writeGitignore() {
   fs.writeFileSync(
     ".gitignore",
-    ["examples/", "agent_functions/", "networkTests/", ""].join("\n")
+    ["examples/", "agent_functions/", "network_tests/", "logs/", ""].join("\n")
   );
 }
 async function init(options = {}) {
@@ -387,10 +387,13 @@ __export(function_exports, {
   readInputSchemaSchema: () => readInputSchemaSchema,
   readInputSplit: () => readInputSplit,
   readInputSplitSchema: () => readInputSplitSchema,
+  readMessagesSchema: () => readMessagesSchema,
   readOutputLength: () => readOutputLength,
   readOutputLengthSchema: () => readOutputLengthSchema,
+  readResponsesSchema: () => readResponsesSchema,
   readTasks: () => readTasks,
   readTasksSchema: () => readTasksSchema,
+  readToolsSchema: () => readToolsSchema,
   readType: () => readType,
   readTypeSchema: () => readTypeSchema,
   validateDescription: () => validateDescription,
@@ -963,6 +966,18 @@ function readTasks() {
 }
 function readTasksSchema() {
   return TasksSchema;
+}
+var MessagesSchema = objectiveai.Functions.VectorCompletionTaskExpressionSchema.shape.messages;
+var ToolsSchema = objectiveai.Functions.VectorCompletionTaskExpressionSchema.shape.tools;
+var ResponsesSchema = objectiveai.Functions.VectorCompletionTaskExpressionSchema.shape.responses;
+function readMessagesSchema() {
+  return MessagesSchema;
+}
+function readToolsSchema() {
+  return ToolsSchema;
+}
+function readResponsesSchema() {
+  return ResponsesSchema;
 }
 function checkTasks() {
   const fn = readFunction();
@@ -2408,8 +2423,8 @@ async function runNetworkTests(apiBase, apiKey) {
     return { ok: false, value: void 0, error: `Inputs validation failed: ${inputsResult.error}` };
   }
   const inputs = inputsResult.value;
-  const defaultDir = path.join("networkTests", "default");
-  const swissSystemDir = path.join("networkTests", "swisssystem");
+  const defaultDir = path.join("network_tests", "default");
+  const swissSystemDir = path.join("network_tests", "swisssystem");
   clearDir(defaultDir);
   clearDir(swissSystemDir);
   fs.mkdirSync(defaultDir, { recursive: true });
@@ -2466,7 +2481,7 @@ async function runNetworkTests(apiBase, apiKey) {
   return { ok: true, value: void 0, error: void 0 };
 }
 function readDefaultNetworkTest(index) {
-  const filePath = path.join("networkTests", "default", `${index}.json`);
+  const filePath = path.join("network_tests", "default", `${index}.json`);
   if (!fs.existsSync(filePath)) {
     return { ok: false, value: void 0, error: `File not found: ${filePath}` };
   }
@@ -2477,7 +2492,7 @@ function readDefaultNetworkTest(index) {
   }
 }
 function readSwissSystemNetworkTest(index) {
-  const filePath = path.join("networkTests", "swisssystem", `${index}.json`);
+  const filePath = path.join("network_tests", "swisssystem", `${index}.json`);
   if (!fs.existsSync(filePath)) {
     return { ok: false, value: void 0, error: `File not found: ${filePath}` };
   }
@@ -2899,6 +2914,24 @@ var CheckTasks = claudeAgentSdk.tool(
   {},
   async () => resultFromResult(checkTasks())
 );
+var ReadMessagesSchema = claudeAgentSdk.tool(
+  "ReadMessagesSchema",
+  "Read the schema for the `messages` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readMessagesSchema()))
+);
+var ReadToolsSchema = claudeAgentSdk.tool(
+  "ReadToolsSchema",
+  "Read the schema for the `tools` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readToolsSchema()))
+);
+var ReadResponsesSchema = claudeAgentSdk.tool(
+  "ReadResponsesSchema",
+  "Read the schema for the `responses` field of a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(readResponsesSchema()))
+);
 function buildExampleInput(value) {
   const fnRaw = readFunction();
   if (!fnRaw.ok) return { ok: false, error: fnRaw.error };
@@ -2970,7 +3003,7 @@ var CheckExampleInputs = claudeAgentSdk.tool(
 function makeRunNetworkTests(apiBase, apiKey) {
   return claudeAgentSdk.tool(
     "RunNetworkTests",
-    "Execute the function once for each example input and write results to networkTests/",
+    "Execute the function once for each example input and write results to network_tests/",
     {},
     async () => resultFromResult(await runNetworkTests(apiBase, apiKey))
   );
@@ -3310,6 +3343,9 @@ function getCommonTools(planIndex, apiBase, apiKey) {
     EditTask,
     DelTask,
     CheckTasks,
+    ReadMessagesSchema,
+    ReadToolsSchema,
+    ReadResponsesSchema,
     // Expression params
     ReadInputParamSchema,
     ReadMapParamSchema,
