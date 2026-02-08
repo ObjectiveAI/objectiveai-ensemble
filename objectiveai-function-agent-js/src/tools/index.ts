@@ -1,3 +1,4 @@
+export * as ExpressionParams from "./expressionParams";
 export * as Function from "./function";
 export * as Inputs from "./inputs";
 export * as Markdown from "./markdown";

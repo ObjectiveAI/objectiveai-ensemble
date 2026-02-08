@@ -2121,7 +2121,7 @@ function compiledTasksEqual(a, b) {
     return b !== null && !Array.isArray(b) && b.type === "vector.function" && b.owner === a.owner && b.repository === a.repository && b.commit === a.commit && JSON.stringify(a.input) === JSON.stringify(b.input);
   } else if (a.type === "vector.completion") {
     return b !== null && !Array.isArray(b) && b.type === "vector.completion" && JSON.stringify(a.messages) === JSON.stringify(b.messages) && JSON.stringify(a.responses) === JSON.stringify(b.responses) && a.tools === void 0 ? b.tools === void 0 : b.tools !== void 0 && a.tools.length === b.tools.length && a.tools.every(
-      (tool22, index) => JSON.stringify(tool22) === JSON.stringify(
+      (tool23, index) => JSON.stringify(tool23) === JSON.stringify(
         b.tools[index]
       )
     );
@@ -2362,6 +2362,56 @@ Use the EditDescription tool to fix it.`
   }).trim();
   return { ok: true, value: commit, error: void 0 };
 }
+function readInputParamSchema() {
+  const fn = readFunction();
+  if (!fn.ok) {
+    return { ok: false, value: void 0, error: fn.error };
+  }
+  const validated = validateInputSchema(fn.value);
+  if (!validated.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `input_schema must be defined before reading the input parameter schema: ${validated.error}`
+    };
+  }
+  const zodSchema = Functions.Expression.InputSchemaExt.toZodSchema(
+    validated.value
+  );
+  return { ok: true, value: zodSchema, error: void 0 };
+}
+function readMapParamSchema() {
+  return Functions.Expression.InputMapsAsParameterSchema;
+}
+function readOutputParamSchema() {
+  return Functions.Expression.TaskOutputSchema;
+}
+
+// src/tools/claude/expressionParams.ts
+var ReadInputParamSchema = tool(
+  "ReadInputParamSchema",
+  "Read the schema for `input` available in expression context.",
+  {},
+  async () => {
+    const result = readInputParamSchema();
+    if (!result.ok) {
+      return resultFromResult(result);
+    }
+    return textResult(formatZodSchema(result.value));
+  }
+);
+var ReadMapParamSchema = tool(
+  "ReadMapParamSchema",
+  "Read the schema for `map` available in mapped task expression context. A 1D array element from the 2D input maps.",
+  {},
+  async () => textResult(formatZodSchema(readMapParamSchema()))
+);
+var ReadOutputParamSchema = tool(
+  "ReadOutputParamSchema",
+  "Read the schema for `output` available in task output expression context.",
+  {},
+  async () => textResult(formatZodSchema(readOutputParamSchema()))
+);
 var ReadType = tool(
   "ReadType",
   "Read the Function's `type` field",
@@ -2956,6 +3006,10 @@ function getCommonTools(planIndex, apiBase) {
     EditTask,
     DelTask,
     CheckTasks,
+    // Expression params
+    ReadInputParamSchema,
+    ReadMapParamSchema,
+    ReadOutputParamSchema,
     // Example inputs
     ReadExampleInputs,
     ReadExampleInputsSchema,

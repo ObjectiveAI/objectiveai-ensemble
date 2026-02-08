@@ -14,6 +14,13 @@ import {
   ReadExampleFunction,
 } from "../../tools/claude/exampleFunctions";
 
+// Tools - expression params
+import {
+  ReadInputParamSchema,
+  ReadMapParamSchema,
+  ReadOutputParamSchema,
+} from "../../tools/claude/expressionParams";
+
 // Tools - function field CRUD
 import {
   ReadFunction,
@@ -160,6 +167,11 @@ function getCommonTools(planIndex: number, apiBase?: string) {
     EditTask,
     DelTask,
     CheckTasks,
+
+    // Expression params
+    ReadInputParamSchema,
+    ReadMapParamSchema,
+    ReadOutputParamSchema,
 
     // Example inputs
     ReadExampleInputs,

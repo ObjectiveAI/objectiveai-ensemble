@@ -1,6 +1,7 @@
 export * from "./agentFunctions";
 export * from "./description";
 export * from "./essay";
+export * from "./expressionParams";
 export * from "./essayTasks";
 export * from "./exampleFunctions";
 export * from "./function";

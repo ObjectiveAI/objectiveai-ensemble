@@ -29,18 +29,18 @@ declare function inventMcp(options?: AgentOptions): Promise<void>;
 
 declare function invent(options?: AgentOptions): Promise<void>;
 
-declare const index$6_essayMcp: typeof essayMcp;
-declare const index$6_essayTasksMcp: typeof essayTasksMcp;
-declare const index$6_invent: typeof invent;
-declare const index$6_inventFunctionTasksMcp: typeof inventFunctionTasksMcp;
-declare const index$6_inventMcp: typeof inventMcp;
-declare const index$6_inventVectorTasksMcp: typeof inventVectorTasksMcp;
-declare const index$6_nameMcp: typeof nameMcp;
-declare const index$6_planMcp: typeof planMcp;
-declare const index$6_prepare: typeof prepare;
-declare const index$6_specMcp: typeof specMcp;
-declare namespace index$6 {
-  export { index$6_essayMcp as essayMcp, index$6_essayTasksMcp as essayTasksMcp, index$6_invent as invent, index$6_inventFunctionTasksMcp as inventFunctionTasksMcp, index$6_inventMcp as inventMcp, index$6_inventVectorTasksMcp as inventVectorTasksMcp, index$6_nameMcp as nameMcp, index$6_planMcp as planMcp, index$6_prepare as prepare, index$6_specMcp as specMcp };
+declare const index$7_essayMcp: typeof essayMcp;
+declare const index$7_essayTasksMcp: typeof essayTasksMcp;
+declare const index$7_invent: typeof invent;
+declare const index$7_inventFunctionTasksMcp: typeof inventFunctionTasksMcp;
+declare const index$7_inventMcp: typeof inventMcp;
+declare const index$7_inventVectorTasksMcp: typeof inventVectorTasksMcp;
+declare const index$7_nameMcp: typeof nameMcp;
+declare const index$7_planMcp: typeof planMcp;
+declare const index$7_prepare: typeof prepare;
+declare const index$7_specMcp: typeof specMcp;
+declare namespace index$7 {
+  export { index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, index$7_invent as invent, index$7_inventFunctionTasksMcp as inventFunctionTasksMcp, index$7_inventMcp as inventMcp, index$7_inventVectorTasksMcp as inventVectorTasksMcp, index$7_nameMcp as nameMcp, index$7_planMcp as planMcp, index$7_prepare as prepare, index$7_specMcp as specMcp };
 }
 
 type Result<T> = {
@@ -52,6 +52,33 @@ type Result<T> = {
     value: T;
     error: undefined;
 };
+
+/**
+ * Read the schema for `input` in expression context.
+ * Converts the function's input_schema to a Zod schema.
+ * Errors if input_schema is not defined or invalid.
+ */
+declare function readInputParamSchema(): Result<z.ZodType>;
+
+/**
+ * Read the schema for `map` in expression context.
+ * Map is a 1D array from the 2D input maps, selected by the task's map index.
+ */
+declare function readMapParamSchema(): z.ZodType;
+
+/**
+ * Read the schema for `output` in expression context.
+ * Union of all possible task output types:
+ * VectorCompletionOutput, VectorCompletionOutput[], FunctionOutput, FunctionOutput[], or null (skipped).
+ */
+declare function readOutputParamSchema(): z.ZodType;
+
+declare const index$6_readInputParamSchema: typeof readInputParamSchema;
+declare const index$6_readMapParamSchema: typeof readMapParamSchema;
+declare const index$6_readOutputParamSchema: typeof readOutputParamSchema;
+declare namespace index$6 {
+  export { index$6_readInputParamSchema as readInputParamSchema, index$6_readMapParamSchema as readMapParamSchema, index$6_readOutputParamSchema as readOutputParamSchema };
+}
 
 interface DeserializedFunction {
     type?: unknown;
@@ -58646,7 +58673,7 @@ declare const index_readDefaultNetworkTest: typeof readDefaultNetworkTest;
 declare const index_readSwissSystemNetworkTest: typeof readSwissSystemNetworkTest;
 declare const index_runNetworkTests: typeof runNetworkTests;
 declare namespace index {
-  export { index$5 as Function, index$4 as Inputs, index$3 as Markdown, index$2 as Parameters, index$1 as Profile, type index_Result as Result, index_formatZodSchema as formatZodSchema, index_readDefaultNetworkTest as readDefaultNetworkTest, index_readSwissSystemNetworkTest as readSwissSystemNetworkTest, index_runNetworkTests as runNetworkTests };
+  export { index$6 as ExpressionParams, index$5 as Function, index$4 as Inputs, index$3 as Markdown, index$2 as Parameters, index$1 as Profile, type index_Result as Result, index_formatZodSchema as formatZodSchema, index_readDefaultNetworkTest as readDefaultNetworkTest, index_readSwissSystemNetworkTest as readSwissSystemNetworkTest, index_runNetworkTests as runNetworkTests };
 }
 
 interface Parameters {
@@ -58674,4 +58701,4 @@ declare const SpawnFunctionAgentsParamsSchema: z$1.ZodArray<z$1.ZodObject<{
 }, z$1.core.$strip>>;
 type SpawnFunctionAgentsParams = z$1.infer<typeof SpawnFunctionAgentsParamsSchema>;
 
-export { type AgentOptions, index$6 as Claude, type ExampleInput, ExampleInputSchema, type ExampleInputs, ExampleInputsSchema, type LogFn, type Parameters, type SpawnFunctionAgentsParams, SpawnFunctionAgentsParamsSchema, index as Tools, createFileLogger, getLatestLogPath, init };
+export { type AgentOptions, index$7 as Claude, type ExampleInput, ExampleInputSchema, type ExampleInputs, ExampleInputsSchema, type LogFn, type Parameters, type SpawnFunctionAgentsParams, SpawnFunctionAgentsParamsSchema, index as Tools, createFileLogger, getLatestLogPath, init };
