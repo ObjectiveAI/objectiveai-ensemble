@@ -30,7 +30,7 @@ function initializeGit(): void {
   console.log("Initializing git repository...");
   execLog("git init");
   execLog(
-    "git submodule add -b function-agent-js https://github.com/ObjectiveAI/objectiveai objectiveai",
+    "git submodule add https://github.com/ObjectiveAI/objectiveai objectiveai",
   );
   execLog("git submodule update --init --recursive");
 }
@@ -287,6 +287,18 @@ export async function init(options: AgentOptions = {}): Promise<void> {
 
   // Step 2: Write asset files (including package.json)
   writeAssets();
+
+  // Step 2.5: Write github/name.json with name option if provided
+  if (options.name) {
+    const namePath = "github/name.json";
+    const existing = existsSync(namePath)
+      ? readFileSync(namePath, "utf-8").trim()
+      : "";
+    if (!existing || existing === "null") {
+      console.log(`Writing github/name.json with: ${options.name}`);
+      writeFileSync(namePath, JSON.stringify(options.name));
+    }
+  }
 
   // Step 3: npm install (also resets submodule after)
   runNpmInstall();

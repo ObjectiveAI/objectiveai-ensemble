@@ -305,24 +305,51 @@ export function resetToRevision(revision: string | null): void {
   }
 }
 
-// Check if there are uncommitted changes
+// Check if there are uncommitted changes (ignoring submodules)
 export function hasUncommittedChanges(): boolean {
   try {
-    execSync("git diff --quiet", { stdio: "pipe" });
-    execSync("git diff --cached --quiet", { stdio: "pipe" });
+    execSync("git diff --quiet --ignore-submodules", { stdio: "pipe" });
+    execSync("git diff --cached --quiet --ignore-submodules", { stdio: "pipe" });
     return false;
   } catch {
     return true;
   }
 }
 
-// Check if there are untracked files
+// Check if there are untracked files (excluding submodule directories)
 export function hasUntrackedFiles(): boolean {
+  // Get list of submodule paths to exclude
+  let submodulePaths: string[] = [];
+  try {
+    const submoduleResult = execSync("git config --file .gitmodules --get-regexp path", {
+      encoding: "utf-8",
+      stdio: "pipe",
+    }).trim();
+    if (submoduleResult) {
+      submodulePaths = submoduleResult
+        .split("\n")
+        .map(line => line.split(" ")[1])
+        .filter(Boolean);
+    }
+  } catch {
+    // No .gitmodules or no submodules configured
+  }
+
   const result = execSync("git ls-files --others --exclude-standard", {
     encoding: "utf-8",
     stdio: "pipe",
   }).trim();
-  return result.length > 0;
+
+  if (result.length === 0) {
+    return false;
+  }
+
+  // Filter out files inside submodule directories
+  const untrackedFiles = result.split("\n").filter(file => {
+    return !submodulePaths.some(subPath => file.startsWith(subPath + "/") || file === subPath);
+  });
+
+  return untrackedFiles.length > 0;
 }
 
 // Checkout/discard changes in the objectiveai submodule
@@ -416,7 +443,7 @@ export function cloneSubFunctions(options: CloneSubFunctionsOptions = {}): Clone
       commit = task.commit;
     }
 
-    const targetPath = `sub_functions/${task.owner}/${task.repository}/${commit}`;
+    const targetPath = `cloned_functions/${task.owner}/${task.repository}/${commit}`;
 
     // Skip if already cloned
     if (existsSync(targetPath)) {
@@ -431,7 +458,7 @@ export function cloneSubFunctions(options: CloneSubFunctionsOptions = {}): Clone
     }
 
     // Create parent directories
-    mkdirSync(`sub_functions/${task.owner}/${task.repository}`, { recursive: true });
+    mkdirSync(`cloned_functions/${task.owner}/${task.repository}`, { recursive: true });
 
     // Clone the repository at the specific commit
     console.log(`Cloning ${task.owner}/${task.repository}@${commit} to ${targetPath}...`);

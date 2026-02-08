@@ -11,7 +11,7 @@ export type FunctionToolName = z.infer<typeof FunctionToolNameSchema>;
 export const FunctionToolNameExpressionSchema = z
   .union([
     FunctionToolNameSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(FunctionToolNameSchema.description!)
   .meta({ title: "FunctionToolNameExpression" });
@@ -30,7 +30,7 @@ export type FunctionToolDescription = z.infer<
 export const FunctionToolDescriptionExpressionSchema = z
   .union([
     FunctionToolDescriptionSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(FunctionToolDescriptionSchema.description!)
   .meta({ title: "FunctionToolDescriptionExpression" });
@@ -50,7 +50,7 @@ export const FunctionToolParametersExpressionSchema = z
   .union([
     z.record(z.string(), JsonValueExpressionSchema),
     ExpressionSchema.describe(
-      "An expression which evaluates to a JSON schema object."
+      "An expression which evaluates to a JSON schema object. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(FunctionToolParametersSchema.description!)
@@ -68,7 +68,7 @@ export type FunctionToolStrict = z.infer<typeof FunctionToolStrictSchema>;
 export const FunctionToolStrictExpressionSchema = z
   .union([
     FunctionToolStrictSchema,
-    ExpressionSchema.describe("An expression which evaluates to a boolean."),
+    ExpressionSchema.describe("An expression which evaluates to a boolean. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(FunctionToolStrictSchema.description!)
   .meta({ title: "FunctionToolStrictExpression" });
@@ -131,7 +131,7 @@ export type Tool = z.infer<typeof ToolSchema>;
 export const ToolExpressionSchema = z
   .union([
     FunctionToolExpressionSchema,
-    ExpressionSchema.describe("An expression which evaluates to a tool."),
+    ExpressionSchema.describe("An expression which evaluates to a tool. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(ToolSchema.description!)
   .meta({ title: "ToolExpression" });
@@ -150,7 +150,7 @@ export const ToolsExpressionSchema = z
       .describe(ToolsSchema.description!)
       .meta({ title: "ToolExpressions" }),
     ExpressionSchema.describe(
-      "An expression which evaluates to an array of tools."
+      "An expression which evaluates to an array of tools. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(ToolsSchema.description!)

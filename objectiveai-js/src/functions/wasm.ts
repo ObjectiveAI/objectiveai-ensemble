@@ -8,7 +8,7 @@ import {
   compileFunctionInputMerge as wasmCompileFunctionInputMerge,
 } from "../wasm/loader.js";
 import { Function } from "./function";
-import { CompiledFunctionOutput, InputValue, TaskOutputs } from "./expression";
+import { InputValue } from "./expression";
 import { CompiledTasks } from "./task";
 import { mapsToRecords } from "src/mapsToRecords";
 

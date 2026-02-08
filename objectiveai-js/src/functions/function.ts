@@ -26,12 +26,12 @@ export const InlineVectorFunctionSchema = z
     input_split: ExpressionSchema.optional()
       .nullable()
       .describe(
-        "An expression transforming input into an array of inputs. When the Function is executed with any input from the array, the output_length should be 1. Only required if the request uses a strategy that needs input splitting (e.g., swiss_system)."
+        "An expression transforming input into an array of inputs. When the Function is executed with any input from the array, the output_length should be 1. Only required if the request uses a strategy that needs input splitting (e.g., swiss_system). Receives: `input`."
       ),
     input_merge: ExpressionSchema.optional()
       .nullable()
       .describe(
-        "An expression transforming an array of inputs (computed by input_split) into a single Input object for the Function. Only required if the request uses a strategy that needs input splitting (e.g., swiss_system)."
+        "An expression transforming an array of inputs (computed by input_split) into a single Input object for the Function. Only required if the request uses a strategy that needs input splitting (e.g., swiss_system). Receives: `input` (as an array)."
       ),
   })
   .describe("A vector function defined inline. Each task's output expression must return an array of numbers summing to ~1. The function's output is the weighted average of all task outputs using profile weights. If there is only one task, its output becomes the function's output directly.")
@@ -77,15 +77,15 @@ export const RemoteVectorFunctionSchema = InlineVectorFunctionSchema.extend({
     .union([
       z.uint32().describe("The fixed length of the output vector."),
       ExpressionSchema.describe(
-        "An expression which evaluates to the length of the output vector. Will only be provided with the function input. The output length must be determinable from the input alone."
+        "An expression which evaluates to the length of the output vector. The output length must be determinable from the input alone. Receives: `input`."
       ),
     ])
     .describe("The length of the output vector."),
   input_split: ExpressionSchema.describe(
-    "An expression transforming input into an array of inputs. When the Function is executed with any input from the array, the output_length should be 1."
+    "An expression transforming input into an array of inputs. When the Function is executed with any input from the array, the output_length should be 1. Receives: `input`."
   ),
   input_merge: ExpressionSchema.describe(
-    "An expression transforming an array of inputs (computed by input_split) into a single Input object for the Function."
+    "An expression transforming an array of inputs (computed by input_split) into a single Input object for the Function. Receives: `input` (as an array)."
   ),
 })
   .describe('A vector function fetched from GitHub. "function.json"')

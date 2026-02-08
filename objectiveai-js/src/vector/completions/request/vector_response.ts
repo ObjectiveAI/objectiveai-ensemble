@@ -11,7 +11,7 @@ export const VectorResponseExpressionSchema = z
   .union([
     VectorResponseSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to a possible assistant response."
+      "An expression which evaluates to a possible assistant response. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(VectorResponseSchema.description!)
@@ -35,7 +35,7 @@ export const VectorResponsesExpressionSchema = z
       .describe(VectorResponsesSchema.description!)
       .meta({ title: "VectorResponseExpressions" }),
     ExpressionSchema.describe(
-      "An expression which evaluates to an array of possible assistant responses."
+      "An expression which evaluates to an array of possible assistant responses. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(VectorResponsesSchema.description!)

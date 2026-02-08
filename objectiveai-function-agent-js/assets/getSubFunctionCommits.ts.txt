@@ -1,8 +1,25 @@
 import { execSync } from "child_process";
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
+
+// Read JSON file that should contain a string value
+// Handles both quoted ("value") and unquoted (value) content
+function readStringJsonFile(path: string): string | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  let content = readFileSync(path, "utf-8").trim();
+  if (!content || content === "null") {
+    return null;
+  }
+  // Remove surrounding quotes if both present (only one pair)
+  if (content.startsWith('"') && content.endsWith('"')) {
+    content = content.slice(1, -1);
+  }
+  return content;
+}
 
 interface SubFunctionInfo {
-  index: number;
+  name: string;
   owner: string;
   repository: string;
   commit: string;
@@ -10,24 +27,23 @@ interface SubFunctionInfo {
 }
 
 function main(): void {
-  const subFunctionsDir = "sub_functions";
+  const agentFunctionsDir = "agent_functions";
 
-  if (!existsSync(subFunctionsDir)) {
-    console.log("No sub_functions directory found.");
+  if (!existsSync(agentFunctionsDir)) {
+    console.log("No agent_functions directory found.");
     console.log("\n=== SUB_FUNCTION_COMMITS ===");
     console.log("[]");
     return;
   }
 
-  const entries = readdirSync(subFunctionsDir);
+  const entries = readdirSync(agentFunctionsDir);
   const results: SubFunctionInfo[] = [];
 
   for (const entry of entries) {
-    // Skip non-numeric directories (like .gitignore)
-    const index = parseInt(entry, 10);
-    if (isNaN(index)) continue;
+    const subFunctionPath = `${agentFunctionsDir}/${entry}`;
 
-    const subFunctionPath = `${subFunctionsDir}/${entry}`;
+    // Skip non-directories and hidden files
+    if (!statSync(subFunctionPath).isDirectory() || entry.startsWith(".")) continue;
 
     // Get the commit SHA from git
     let commit: string;
@@ -46,8 +62,8 @@ function main(): void {
     let owner = "";
     let repository = "";
     const namePath = `${subFunctionPath}/github/name.json`;
-    if (existsSync(namePath)) {
-      const name = JSON.parse(readFileSync(namePath, "utf-8")) as string;
+    const name = readStringJsonFile(namePath);
+    if (name) {
       const parts = name.split("/");
       if (parts.length === 2) {
         owner = parts[0];
@@ -56,7 +72,7 @@ function main(): void {
     }
 
     results.push({
-      index,
+      name: entry,
       owner,
       repository,
       commit,
@@ -64,8 +80,8 @@ function main(): void {
     });
   }
 
-  // Sort by index
-  results.sort((a, b) => a.index - b.index);
+  // Sort by name
+  results.sort((a, b) => a.name.localeCompare(b.name));
 
   console.log("\n=== SUB_FUNCTION_COMMITS ===");
   console.log(JSON.stringify(results, null, 2));

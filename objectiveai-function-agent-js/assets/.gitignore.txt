@@ -10,3 +10,13 @@ tsconfig.json
 package.json
 package-lock.json
 _runner.ts
+cloneSubFunctions.ts
+closeIssue.ts
+commentOnIssue.ts
+commitAndPush.ts
+fetchClosedIssues.ts
+fetchOpenIssues.ts
+getSubFunctionCommits.ts
+installRustLogs.ts
+spawnFunctionAgents.ts
+spawnFunctionAgentsParams.json

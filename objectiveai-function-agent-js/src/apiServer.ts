@@ -75,10 +75,10 @@ export function spawnApiServer(
         resolved = true;
         killApiProcess();
         reject(
-          new Error("Timeout: API server did not start within 300 seconds"),
+          new Error("Timeout: API server did not start within 600 seconds"),
         );
       }
-    }, 300000);
+    }, 600000);
 
     const onData = (data: Buffer) => {
       const output = data.toString();

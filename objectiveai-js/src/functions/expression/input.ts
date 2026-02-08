@@ -19,7 +19,7 @@ export interface ObjectInputSchema {
   properties: Record<string, InputSchema>;
   required?: string[] | null;
 }
-export const ObjectInputSchemaSchema: z.ZodType<Object> = z
+export const ObjectInputSchemaSchema: z.ZodType<ObjectInputSchema> = z
   .object({
     type: z.literal("object"),
     description: z
@@ -35,7 +35,7 @@ export const ObjectInputSchemaSchema: z.ZodType<Object> = z
           .meta({
             title: "InputSchema",
             recursive: true,
-          })
+          }),
       )
       .describe("The properties of the object input."),
     required: z
@@ -46,6 +46,31 @@ export const ObjectInputSchemaSchema: z.ZodType<Object> = z
   })
   .describe("An object input schema.")
   .meta({ title: "ObjectInputSchema" });
+export type ObjectInputSchemaToZodSchema = z.ZodObject<
+  Record<string, z.ZodOptional<z.ZodType<InputValue>> | z.ZodType<InputValue>>
+>;
+
+export namespace ObjectInputSchemaExt {
+  export function toZodSchema(
+    self: ObjectInputSchema,
+  ): ObjectInputSchemaToZodSchema {
+    const propertySchemas: Record<
+      string,
+      z.ZodOptional<z.ZodType<InputValue>> | z.ZodType<InputValue>
+    > = {};
+    const requiredSet = new Set(self.required ?? []);
+    for (const key in self.properties) {
+      const inner = InputSchemaExt.toZodSchema(self.properties[key]);
+      propertySchemas[key] =
+        self.required && requiredSet.has(key) ? inner : inner.optional();
+    }
+    let schema = z.object(propertySchemas);
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    return schema;
+  }
+}
 
 export interface ArrayInputSchema {
   type: "array";
@@ -81,6 +106,25 @@ export const ArrayInputSchemaSchema: z.ZodType<ArrayInputSchema> = z
   })
   .describe("An array input schema.")
   .meta({ title: "ArrayInputSchema" });
+export type ArrayInputSchemaToZodSchema = z.ZodArray<z.ZodType<InputValue>>;
+
+export namespace ArrayInputSchemaExt {
+  export function toZodSchema(
+    self: ArrayInputSchema,
+  ): ArrayInputSchemaToZodSchema {
+    let schema = z.array(InputSchemaExt.toZodSchema(self.items));
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    if (self.minItems !== undefined && self.minItems !== null) {
+      schema = schema.min(self.minItems);
+    }
+    if (self.maxItems !== undefined && self.maxItems !== null) {
+      schema = schema.max(self.maxItems);
+    }
+    return schema;
+  }
+}
 
 export const StringInputSchemaSchema = z
   .object({
@@ -99,6 +143,23 @@ export const StringInputSchemaSchema = z
   .describe("A string input schema.")
   .meta({ title: "StringInputSchema" });
 export type StringInputSchema = z.infer<typeof StringInputSchemaSchema>;
+export type StringInputSchemaToZodSchema =
+  | z.ZodString
+  | z.ZodEnum<{
+      [x: string]: string;
+    }>;
+
+export namespace StringInputSchemaExt {
+  export function toZodSchema(
+    self: StringInputSchema,
+  ): StringInputSchemaToZodSchema {
+    let schema = self.enum ? z.enum(self.enum) : z.string();
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    return schema;
+  }
+}
 
 export const NumberInputSchemaSchema = z
   .object({
@@ -122,6 +183,25 @@ export const NumberInputSchemaSchema = z
   .describe("A number input schema.")
   .meta({ title: "NumberInputSchema" });
 export type NumberInputSchema = z.infer<typeof NumberInputSchemaSchema>;
+export type NumberInputSchemaToZodSchema = z.ZodNumber;
+
+export namespace NumberInputSchemaExt {
+  export function toZodSchema(
+    self: NumberInputSchema,
+  ): NumberInputSchemaToZodSchema {
+    let schema = z.number();
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    if (self.minimum !== undefined && self.minimum !== null) {
+      schema = schema.min(self.minimum);
+    }
+    if (self.maximum !== undefined && self.maximum !== null) {
+      schema = schema.max(self.maximum);
+    }
+    return schema;
+  }
+}
 
 export const IntegerInputSchemaSchema = z
   .object({
@@ -145,6 +225,25 @@ export const IntegerInputSchemaSchema = z
   .describe("An integer input schema.")
   .meta({ title: "IntegerInputSchema" });
 export type IntegerInputSchema = z.infer<typeof IntegerInputSchemaSchema>;
+export type IntegerInputSchemaToZodSchema = z.ZodInt;
+
+export namespace IntegerInputSchemaExt {
+  export function toZodSchema(
+    self: IntegerInputSchema,
+  ): IntegerInputSchemaToZodSchema {
+    let schema = z.int();
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    if (self.minimum !== undefined && self.minimum !== null) {
+      schema = schema.min(self.minimum);
+    }
+    if (self.maximum !== undefined && self.maximum !== null) {
+      schema = schema.max(self.maximum);
+    }
+    return schema;
+  }
+}
 
 export const BooleanInputSchemaSchema = z
   .object({
@@ -158,6 +257,19 @@ export const BooleanInputSchemaSchema = z
   .describe("A boolean input schema.")
   .meta({ title: "BooleanInputSchema" });
 export type BooleanInputSchema = z.infer<typeof BooleanInputSchemaSchema>;
+export type BooleanInputSchemaToZodSchema = z.ZodBoolean;
+
+export namespace BooleanInputSchemaExt {
+  export function toZodSchema(
+    self: BooleanInputSchema,
+  ): BooleanInputSchemaToZodSchema {
+    if (self.description) {
+      return z.boolean().describe(self.description);
+    } else {
+      return z.boolean();
+    }
+  }
+}
 
 export const ImageInputSchemaSchema = z
   .object({
@@ -171,6 +283,19 @@ export const ImageInputSchemaSchema = z
   .describe("An image input schema.")
   .meta({ title: "ImageInputSchema" });
 export type ImageInputSchema = z.infer<typeof ImageInputSchemaSchema>;
+export type ImageInputSchemaToZodSchema = typeof ImageRichContentPartSchema;
+
+export namespace ImageInputSchemaExt {
+  export function toZodSchema(
+    self: ImageInputSchema,
+  ): ImageInputSchemaToZodSchema {
+    let schema = ImageRichContentPartSchema;
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    return schema;
+  }
+}
 
 export const AudioInputSchemaSchema = z
   .object({
@@ -184,6 +309,19 @@ export const AudioInputSchemaSchema = z
   .describe("An audio input schema.")
   .meta({ title: "AudioInputSchema" });
 export type AudioInputSchema = z.infer<typeof AudioInputSchemaSchema>;
+export type AudioInputSchemaToZodSchema = typeof AudioRichContentPartSchema;
+
+export namespace AudioInputSchemaExt {
+  export function toZodSchema(
+    self: AudioInputSchema,
+  ): AudioInputSchemaToZodSchema {
+    let schema = AudioRichContentPartSchema;
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    return schema;
+  }
+}
 
 export const VideoInputSchemaSchema = z
   .object({
@@ -197,6 +335,19 @@ export const VideoInputSchemaSchema = z
   .describe("A video input schema.")
   .meta({ title: "VideoInputSchema" });
 export type VideoInputSchema = z.infer<typeof VideoInputSchemaSchema>;
+export type VideoInputSchemaToZodSchema = typeof VideoRichContentPartSchema;
+
+export namespace VideoInputSchemaExt {
+  export function toZodSchema(
+    self: VideoInputSchema,
+  ): VideoInputSchemaToZodSchema {
+    let schema = VideoRichContentPartSchema;
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    return schema;
+  }
+}
 
 export const FileInputSchemaSchema = z
   .object({
@@ -210,6 +361,19 @@ export const FileInputSchemaSchema = z
   .describe("A file input schema.")
   .meta({ title: "FileInputSchema" });
 export type FileInputSchema = z.infer<typeof FileInputSchemaSchema>;
+export type FileInputSchemaToZodSchema = typeof FileRichContentPartSchema;
+
+export namespace FileInputSchemaExt {
+  export function toZodSchema(
+    self: FileInputSchema,
+  ): FileInputSchemaToZodSchema {
+    let schema = FileRichContentPartSchema;
+    if (self.description) {
+      schema = schema.describe(self.description);
+    }
+    return schema;
+  }
+}
 
 export interface AnyOfInputSchema {
   anyOf: InputSchema[];
@@ -223,12 +387,21 @@ export const AnyOfInputSchemaSchema: z.ZodType<AnyOfInputSchema> = z
           .meta({
             title: "InputSchema",
             recursive: true,
-          })
+          }),
       )
       .describe("The possible schemas that the input can match."),
   })
   .describe("A union of schemas - input must match at least one.")
   .meta({ title: "AnyOfInputSchema" });
+export type AnyOfInputSchemaToZodSchema = z.ZodUnion<z.ZodType<InputValue>[]>;
+
+export namespace AnyOfInputSchemaExt {
+  export function toZodSchema(
+    self: AnyOfInputSchema,
+  ): AnyOfInputSchemaToZodSchema {
+    return z.union(self.anyOf.map((schema) => InputSchemaExt.toZodSchema(schema)));
+  }
+}
 
 export const InputSchemaSchema = z
   .union([
@@ -247,6 +420,48 @@ export const InputSchemaSchema = z
   .describe("An input schema defining the structure of function inputs.")
   .meta({ title: "InputSchema" });
 export type InputSchema = z.infer<typeof InputSchemaSchema>;
+export type InputSchemaToZodSchema =
+  | ObjectInputSchemaToZodSchema
+  | ArrayInputSchemaToZodSchema
+  | StringInputSchemaToZodSchema
+  | NumberInputSchemaToZodSchema
+  | IntegerInputSchemaToZodSchema
+  | BooleanInputSchemaToZodSchema
+  | ImageInputSchemaToZodSchema
+  | AudioInputSchemaToZodSchema
+  | VideoInputSchemaToZodSchema
+  | FileInputSchemaToZodSchema
+  | AnyOfInputSchemaToZodSchema;
+
+export namespace InputSchemaExt {
+  export function toZodSchema(self: InputSchema): InputSchemaToZodSchema {
+    if ("anyOf" in self) {
+      return AnyOfInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "object") {
+      return ObjectInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "array") {
+      return ArrayInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "string") {
+      return StringInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "number") {
+      return NumberInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "integer") {
+      return IntegerInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "boolean") {
+      return BooleanInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "image") {
+      return ImageInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "audio") {
+      return AudioInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "video") {
+      return VideoInputSchemaExt.toZodSchema(self);
+    } else if (self.type === "file") {
+      return FileInputSchemaExt.toZodSchema(self);
+    } else {
+      throw new Error(`Unsupported input schema type: ${(self as any).type}`);
+    }
+  }
+}
 
 // Input Value
 
@@ -255,7 +470,7 @@ export type InputValue =
   | AudioRichContentPart
   | VideoRichContentPart
   | FileRichContentPart
-  | { [key: string]: InputValue }
+  | { [key: string]: InputValue | undefined }
   | InputValue[]
   | string
   | number
@@ -270,10 +485,11 @@ export const InputValueSchema: z.ZodType<InputValue> = z
       z.string(),
       z
         .lazy(() => InputValueSchema)
+        .optional()
         .meta({
           title: "InputValue",
           recursive: true,
-        })
+        }),
     ),
     z.array(
       z
@@ -281,7 +497,7 @@ export const InputValueSchema: z.ZodType<InputValue> = z
         .meta({
           title: "InputValue",
           recursive: true,
-        })
+        }),
     ),
     z.string(),
     z.number(),
@@ -314,7 +530,7 @@ export const InputValueExpressionSchema: z.ZodType<InputValueExpression> = z
         .meta({
           title: "InputValueExpression",
           recursive: true,
-        })
+        }),
     ),
     z.array(
       z
@@ -322,13 +538,13 @@ export const InputValueExpressionSchema: z.ZodType<InputValueExpression> = z
         .meta({
           title: "InputValueExpression",
           recursive: true,
-        })
+        }),
     ),
     z.string(),
     z.number(),
     z.boolean(),
     ExpressionSchema.describe(
-      "An expression which evaluates to an input value."
+      "An expression which evaluates to an input value. Receives: `input`, `map` (if mapped).",
     ),
   ])
   .describe(InputValueSchema.description!)
@@ -339,19 +555,19 @@ export const InputValueExpressionSchema: z.ZodType<InputValueExpression> = z
 export const InputMapsExpressionSchema = z
   .union([
     ExpressionSchema.describe(
-      "An expression which evaluates to a 2D array of Inputs."
+      "An expression which evaluates to a 2D array of Inputs. Receives: `input`.",
     ),
     z
       .array(
         ExpressionSchema.describe(
-          "An expression which evaluates to a 1D array of Inputs."
-        )
+          "An expression which evaluates to a 1D array of Inputs. Receives: `input`.",
+        ),
       )
       .describe(
-        "A list of expressions which each evaluate to a 1D array of Inputs."
+        "A list of expressions which each evaluate to a 1D array of Inputs.",
       ),
   ])
   .describe(
-    "An expression or list of expressions which evaluate to a 2D array of Inputs. Each sub-array will be fed into Tasks which specify an index of this input map."
+    "An expression or list of expressions which evaluate to a 2D array of Inputs. Each sub-array will be fed into Tasks which specify an index of this input map. Receives: `input`.",
   );
 export type InputMapsExpression = z.infer<typeof InputMapsExpressionSchema>;

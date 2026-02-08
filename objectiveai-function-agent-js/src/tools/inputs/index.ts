@@ -1,0 +1,561 @@
+import { Functions } from "objectiveai";
+import { existsSync, readFileSync, writeFileSync } from "fs";
+import { Result } from "../result";
+import {
+  ExampleInput,
+  ExampleInputSchema,
+  ExampleInputs,
+  ExampleInputsSchema,
+} from "../../exampleInput";
+import { validateInputSchema } from "../function/inputSchema";
+import { DeserializedFunction, readFunction, validateFunction } from "../function/function";
+import { readProfile, validateProfile } from "../profile";
+import { readParameters, validateParameters } from "../parameters";
+
+export function validateExampleInput(
+  value: unknown,
+  fn: DeserializedFunction,
+): Result<ExampleInput> {
+  // Parse the value as an ExampleInput
+  const parsed = ExampleInputSchema.safeParse(value);
+  if (!parsed.success) {
+    return { ok: false, value: undefined, error: parsed.error.message };
+  }
+  const exampleInput = parsed.data;
+
+  // Validate input_schema and check value conforms
+  const inputSchemaResult = validateInputSchema(fn);
+  if (!inputSchemaResult.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `input_schema is invalid: ${inputSchemaResult.error}`,
+    };
+  }
+  const zodSchema = Functions.Expression.InputSchemaExt.toZodSchema(
+    inputSchemaResult.value,
+  );
+  const valueParsed = zodSchema.safeParse(exampleInput.value);
+  if (!valueParsed.success) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `value does not conform to input_schema: ${valueParsed.error.message}`,
+    };
+  }
+
+  // Validate outputLength presence matches function
+  const hasOutputLength = fn.output_length != null;
+  if (hasOutputLength && exampleInput.outputLength === null) {
+    return {
+      ok: false,
+      value: undefined,
+      error: "outputLength must be present because function has output_length",
+    };
+  }
+  if (!hasOutputLength && exampleInput.outputLength !== null) {
+    return {
+      ok: false,
+      value: undefined,
+      error:
+        "outputLength must be null because function does not have output_length",
+    };
+  }
+
+  return { ok: true, value: exampleInput, error: undefined };
+}
+
+export function validateExampleInputs(
+  value: unknown,
+  fn: DeserializedFunction,
+): Result<ExampleInputs> {
+  const parsed = ExampleInputsSchema.safeParse(value);
+  if (!parsed.success) {
+    return { ok: false, value: undefined, error: parsed.error.message };
+  }
+  const exampleInputs = parsed.data;
+
+  for (let i = 0; i < exampleInputs.length; i++) {
+    const result = validateExampleInput(exampleInputs[i], fn);
+    if (!result.ok) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `example_inputs[${i}]: ${result.error}`,
+      };
+    }
+  }
+
+  return { ok: true, value: exampleInputs, error: undefined };
+}
+
+export function readExampleInputs(): Result<unknown> {
+  return readExampleInputsFile();
+}
+
+function readExampleInputsFile(): Result<unknown[]> {
+  if (!existsSync("inputs.json")) {
+    return { ok: true, value: [], error: undefined };
+  }
+  let content: unknown;
+  try {
+    content = JSON.parse(readFileSync("inputs.json", "utf-8"));
+  } catch {
+    return { ok: true, value: [], error: undefined };
+  }
+  if (!Array.isArray(content)) {
+    return { ok: true, value: [], error: undefined };
+  }
+  return { ok: true, value: content, error: undefined };
+}
+
+function writeExampleInputsFile(value: unknown[]): void {
+  writeFileSync("inputs.json", JSON.stringify(value, null, 2));
+}
+
+export function appendExampleInput(value: unknown): Result<undefined> {
+  const file = readExampleInputsFile();
+  if (!file.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to append example input: ${file.error}`,
+    };
+  }
+  const fn = readFunction();
+  if (!fn.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to append example input: ${fn.error}`,
+    };
+  }
+
+  const existing = file.value;
+  const newInputs = [...existing, value];
+
+  for (const [index, input] of newInputs.entries()) {
+    const result = validateExampleInput(input, fn.value);
+    if (!result.ok) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid example input at index ${index}: ${result.error}`,
+      };
+    }
+  }
+
+  writeExampleInputsFile(newInputs);
+  return { ok: true, value: undefined, error: undefined };
+}
+
+export function editExampleInput(
+  index: number,
+  value: unknown,
+): Result<undefined> {
+  const file = readExampleInputsFile();
+  if (!file.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to edit example input: ${file.error}`,
+    };
+  }
+  if (index < 0 || index >= file.value.length) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to edit example input: index ${index} is out of bounds (length ${file.value.length})`,
+    };
+  }
+  const fn = readFunction();
+  if (!fn.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to edit example input: ${fn.error}`,
+    };
+  }
+
+  const newInputs = [...file.value];
+  newInputs[index] = value;
+
+  for (const [index, input] of newInputs.entries()) {
+    const result = validateExampleInput(input, fn.value);
+    if (!result.ok) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid example input at index ${index}: ${result.error}`,
+      };
+    }
+  }
+
+  writeExampleInputsFile(newInputs);
+  return { ok: true, value: undefined, error: undefined };
+}
+
+export function delExampleInput(index: number): Result<undefined> {
+  const file = readExampleInputsFile();
+  if (!file.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to delete example input: ${file.error}`,
+    };
+  }
+  if (index < 0 || index >= file.value.length) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to delete example input: index ${index} is out of bounds (length ${file.value.length})`,
+    };
+  }
+
+  const newInputs = [...file.value];
+  newInputs.splice(index, 1);
+  writeExampleInputsFile(newInputs);
+  return { ok: true, value: undefined, error: undefined };
+}
+
+export function checkExampleInputs(): Result<undefined> {
+  // Read and validate function.json
+  const fnRaw = readFunction();
+  if (!fnRaw.ok) {
+    return { ok: false, value: undefined, error: `Unable to read function.json: ${fnRaw.error}` };
+  }
+  const funcResult = validateFunction(fnRaw.value);
+  if (!funcResult.ok) {
+    return { ok: false, value: undefined, error: `Function schema validation failed: ${funcResult.error}` };
+  }
+  const func = funcResult.value;
+
+  // Read and validate profile.json
+  const profileRaw = readProfile();
+  if (!profileRaw.ok) {
+    return { ok: false, value: undefined, error: profileRaw.error };
+  }
+  const profileResult = validateProfile(profileRaw.value);
+  if (!profileResult.ok) {
+    return { ok: false, value: undefined, error: `Profile schema validation failed: ${profileResult.error}` };
+  }
+
+  // Read and validate parameters.json
+  const paramsRaw = readParameters();
+  if (!paramsRaw.ok) {
+    return { ok: false, value: undefined, error: paramsRaw.error };
+  }
+  const paramsResult = validateParameters(paramsRaw.value);
+  if (!paramsResult.ok) {
+    return { ok: false, value: undefined, error: `Parameters validation failed: ${paramsResult.error}` };
+  }
+  const parameters = paramsResult.value;
+
+  // Task type validation
+  if (parameters.depth === 0) {
+    if (func.tasks.length === 0) {
+      return { ok: false, value: undefined, error: "There must be at least 1 task" };
+    }
+    for (const task of func.tasks) {
+      if (task.type !== "vector.completion") {
+        return { ok: false, value: undefined, error: `All tasks must be vector.completion at depth 0, but found task of type: ${task.type}` };
+      }
+    }
+  } else {
+    for (const task of func.tasks) {
+      if (task.type !== "scalar.function" && task.type !== "vector.function") {
+        return { ok: false, value: undefined, error: `All tasks must be function tasks (scalar.function or vector.function) at depth > 0, but found task of type: ${task.type}` };
+      }
+    }
+    if (func.tasks.length < 2) {
+      return { ok: false, value: undefined, error: `There must be at least 2 tasks at depth > 0, but found ${func.tasks.length}` };
+    }
+  }
+
+  // Read and validate inputs.json
+  const file = readExampleInputsFile();
+  if (!file.ok) {
+    return { ok: false, value: undefined, error: `Unable to read inputs.json: ${file.error}` };
+  }
+  const inputs: ExampleInput[] = [];
+  for (let i = 0; i < file.value.length; i++) {
+    const parsed = ExampleInputSchema.safeParse(file.value[i]);
+    if (!parsed.success) {
+      return { ok: false, value: undefined, error: `Example input [${i}] schema validation failed: ${parsed.error.message}` };
+    }
+    inputs.push(parsed.data);
+  }
+
+  // Length validation
+  if (inputs.length < 10 || inputs.length > 100) {
+    return { ok: false, value: undefined, error: `Expected between 10 and 100 example inputs, but got ${inputs.length}` };
+  }
+
+  // Example inputs validation
+  for (let i = 0; i < inputs.length; i++) {
+    const { value, compiledTasks, outputLength } = inputs[i];
+    const ctParsed = Functions.CompiledTasksSchema.safeParse(compiledTasks);
+    if (!ctParsed.success) {
+      return { ok: false, value: undefined, error: `Example input [${i}] compiledTasks schema validation failed: ${ctParsed.error.message}` };
+    }
+    if (!Functions.validateFunctionInput(func, value)) {
+      return { ok: false, value: undefined, error: `Example input [${i}] value failed validation against function's input_schema: ${JSON.stringify(value)}` };
+    }
+    if (func.type === "scalar.function") {
+      if (outputLength !== null) {
+        return { ok: false, value: undefined, error: `Example input [${i}] outputLength must be null for scalar function` };
+      }
+    } else if (func.type === "vector.function") {
+      if (outputLength === null) {
+        return { ok: false, value: undefined, error: `Example input [${i}] outputLength must be non-null for vector function` };
+      }
+      if (typeof outputLength !== "number") {
+        return { ok: false, value: undefined, error: `Example input [${i}] outputLength must be a number for vector function` };
+      }
+    }
+  }
+
+  // Compiled task validation
+  for (let i = 0; i < inputs.length; i++) {
+    const { value, compiledTasks: expectedCompiledTasks } = inputs[i];
+    let compiledTasks: Functions.CompiledTasks;
+    try {
+      compiledTasks = Functions.compileFunctionTasks(func, value);
+    } catch (e) {
+      return { ok: false, value: undefined, error: `Example input [${i}] failed to compile tasks: ${(e as Error).message}` };
+    }
+    if (compiledTasks.length !== expectedCompiledTasks.length) {
+      return { ok: false, value: undefined, error: `Example input [${i}] number of compiled tasks (${compiledTasks.length}) does not match expected (${expectedCompiledTasks.length})` };
+    }
+    for (let j = 0; j < compiledTasks.length; j++) {
+      if (!compiledTasksEqual(compiledTasks[j], expectedCompiledTasks[j])) {
+        return { ok: false, value: undefined, error: `Example input [${i}] compiled task [${j}] does not match.\n\nExpected: ${JSON.stringify(expectedCompiledTasks[j])}\n\nGot: ${JSON.stringify(compiledTasks[j])}` };
+      }
+    }
+  }
+
+  // Vector function validation
+  if (func.type === "vector.function") {
+    for (let i = 0; i < inputs.length; i++) {
+      const { value, outputLength } = inputs[i];
+
+      // Validate output length
+      const compiledOutputLength = Functions.compileFunctionOutputLength(func, value);
+      if (compiledOutputLength === null) {
+        return { ok: false, value: undefined, error: `Example input [${i}] compiled output length is null for vector function` };
+      }
+      if (compiledOutputLength !== outputLength) {
+        return { ok: false, value: undefined, error: `Example input [${i}] compiled output length (${compiledOutputLength}) does not match expected (${outputLength})` };
+      }
+      if (compiledOutputLength <= 1) {
+        return { ok: false, value: undefined, error: `Example input [${i}] output length must be greater than 1 for vector function, got ${compiledOutputLength}` };
+      }
+
+      // Split input
+      const inputSplit = Functions.compileFunctionInputSplit(func, value);
+      if (inputSplit === null) {
+        return { ok: false, value: undefined, error: `Example input [${i}] input split is null for vector function` };
+      }
+
+      // Validate output length for each split input
+      for (let j = 0; j < inputSplit.length; j++) {
+        const compiledSplitOutputLength = Functions.compileFunctionOutputLength(func, inputSplit[j]);
+        if (compiledSplitOutputLength !== 1) {
+          return { ok: false, value: undefined, error: `Example input [${i}] split input [${j}] output length must be 1, got ${compiledSplitOutputLength}` };
+        }
+      }
+
+      // Merge outputs
+      const mergedOutput = Functions.compileFunctionInputMerge(func, inputSplit);
+      if (mergedOutput === null) {
+        return { ok: false, value: undefined, error: `Example input [${i}] merged output is null for vector function` };
+      }
+
+      // Validate merged output length equals original output length
+      const mergedOutputLength = Functions.compileFunctionOutputLength(func, mergedOutput);
+      if (mergedOutputLength !== outputLength) {
+        return { ok: false, value: undefined, error: `Example input [${i}] merged output length (${mergedOutputLength}) does not match expected (${outputLength})` };
+      }
+
+      // Validate merged input matches original input
+      if (!deepEqual(mergedOutput, value)) {
+        return { ok: false, value: undefined, error: `Example input [${i}] merged input does not match original input.\n\nOriginal: ${JSON.stringify(value)}\n\nMerged: ${JSON.stringify(mergedOutput)}` };
+      }
+    }
+  }
+
+  // Schema coverage validation
+  const allValues = inputs.map(input => input.value);
+  const coverageResult = checkSchemaCoverage(func.input_schema, allValues, "input_schema");
+  if (!coverageResult.ok) {
+    return coverageResult;
+  }
+
+  return { ok: true, value: undefined, error: undefined };
+}
+
+function checkSchemaCoverage(
+  schema: Functions.Expression.InputSchema,
+  values: unknown[],
+  path: string,
+): Result<undefined> {
+  if ("anyOf" in schema) {
+    for (let optIdx = 0; optIdx < schema.anyOf.length; optIdx++) {
+      const option = schema.anyOf[optIdx];
+      const optionZod = Functions.Expression.InputSchemaExt.toZodSchema(option);
+      const matching = values.filter(v => optionZod.safeParse(v).success);
+      if (matching.length === 0) {
+        return { ok: false, value: undefined, error: `${path}.anyOf[${optIdx}]: no example input matches this schema option` };
+      }
+      const result = checkSchemaCoverage(option, matching, `${path}.anyOf[${optIdx}]`);
+      if (!result.ok) return result;
+    }
+  } else if (schema.type === "object") {
+    const required = schema.required ?? [];
+    for (const [key, propSchema] of Object.entries(schema.properties)) {
+      const isRequired = required.includes(key);
+      const presentValues: unknown[] = [];
+      let absentCount = 0;
+      for (const v of values) {
+        if (typeof v === "object" && v !== null && !Array.isArray(v)) {
+          const obj = v as Record<string, unknown>;
+          if (key in obj) {
+            presentValues.push(obj[key]);
+          } else {
+            absentCount++;
+          }
+        }
+      }
+      if (!isRequired) {
+        if (presentValues.length === 0) {
+          return { ok: false, value: undefined, error: `${path}.${key}: optional property is never present in any example input` };
+        }
+        if (absentCount === 0) {
+          return { ok: false, value: undefined, error: `${path}.${key}: optional property is never absent in any example input` };
+        }
+      }
+      if (presentValues.length > 0) {
+        const result = checkSchemaCoverage(propSchema, presentValues, `${path}.${key}`);
+        if (!result.ok) return result;
+      }
+    }
+  } else if (schema.type === "array") {
+    const effectiveMin = Math.max(0, schema.minItems ?? 0);
+    const maxItems = schema.maxItems ?? null;
+
+    // At least 1 value has length === effectiveMin
+    const hasMin = values.some(v => Array.isArray(v) && v.length === effectiveMin);
+    if (!hasMin) {
+      return { ok: false, value: undefined, error: `${path}: no example input has an array of length ${effectiveMin} (minItems)` };
+    }
+
+    // At least 1 value has length === 1, if possible
+    if (effectiveMin <= 1 && (maxItems === null || maxItems >= 1)) {
+      const hasOne = values.some(v => Array.isArray(v) && v.length === 1);
+      if (!hasOne) {
+        return { ok: false, value: undefined, error: `${path}: no example input has an array of length 1` };
+      }
+    }
+
+    // At least 1 value has length > threshold, if possible
+    const threshold = effectiveMin > 1 ? effectiveMin : 1;
+    if (maxItems === null || maxItems > threshold) {
+      const hasGreater = values.some(v => Array.isArray(v) && v.length > threshold);
+      if (!hasGreater) {
+        return { ok: false, value: undefined, error: `${path}: no example input has an array of length greater than ${threshold}` };
+      }
+    }
+
+    const allElements: unknown[] = [];
+    for (const v of values) {
+      if (Array.isArray(v)) {
+        allElements.push(...v);
+      }
+    }
+    if (allElements.length > 0) {
+      const result = checkSchemaCoverage(schema.items, allElements, `${path}[]`);
+      if (!result.ok) return result;
+    }
+  }
+  return { ok: true, value: undefined, error: undefined };
+}
+
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== "object") return a === b;
+
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    return a.every((item, i) => deepEqual(item, b[i]));
+  }
+
+  if (Array.isArray(b)) return false;
+
+  const aObj = a as Record<string, unknown>;
+  const bObj = b as Record<string, unknown>;
+  const aKeys = Object.keys(aObj);
+  const bKeys = Object.keys(bObj);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) => key in bObj && deepEqual(aObj[key], bObj[key]));
+}
+
+function compiledTasksEqual(
+  a: Functions.CompiledTask,
+  b: Functions.CompiledTask,
+): boolean {
+  if (a === null) {
+    return b === null;
+  } else if (Array.isArray(a)) {
+    return (
+      b !== null &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((subTask, index) =>
+        compiledTasksEqual(subTask, (b as Functions.CompiledTask[])[index]),
+      )
+    );
+  } else if (a.type === "scalar.function") {
+    return (
+      b !== null &&
+      !Array.isArray(b) &&
+      b.type === "scalar.function" &&
+      b.owner === a.owner &&
+      b.repository === a.repository &&
+      b.commit === a.commit &&
+      JSON.stringify(a.input) === JSON.stringify(b.input)
+    );
+  } else if (a.type === "vector.function") {
+    return (
+      b !== null &&
+      !Array.isArray(b) &&
+      b.type === "vector.function" &&
+      b.owner === a.owner &&
+      b.repository === a.repository &&
+      b.commit === a.commit &&
+      JSON.stringify(a.input) === JSON.stringify(b.input)
+    );
+  } else if (a.type === "vector.completion") {
+    return b !== null &&
+      !Array.isArray(b) &&
+      b.type === "vector.completion" &&
+      JSON.stringify(a.messages) === JSON.stringify(b.messages) &&
+      JSON.stringify(a.responses) === JSON.stringify(b.responses) &&
+      a.tools === undefined
+      ? b.tools === undefined
+      : (b as Functions.VectorCompletionTask).tools !== undefined &&
+          (a as Functions.VectorCompletionTask).tools!.length ===
+            (b as Functions.VectorCompletionTask).tools!.length &&
+          (a as Functions.VectorCompletionTask).tools!.every(
+            (tool, index) =>
+              JSON.stringify(tool) ===
+              JSON.stringify(
+                (b as Functions.VectorCompletionTask).tools![index],
+              ),
+          );
+  } else {
+    return false;
+  }
+}

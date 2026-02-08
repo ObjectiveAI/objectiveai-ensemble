@@ -20,7 +20,7 @@ import {
 // Task Expression
 
 export const TaskExpressionSkipSchema = ExpressionSchema.describe(
-  "An expression which evaluates to a boolean indicating whether to skip this task.",
+  "An expression which evaluates to a boolean indicating whether to skip this task. Receives: `input`.",
 );
 export type TaskExpressionSkip = z.infer<typeof TaskExpressionSkipSchema>;
 
@@ -33,12 +33,13 @@ export type TaskExpressionMap = z.infer<typeof TaskExpressionMapSchema>;
 
 export const TaskOutputExpressionSchema = ExpressionSchema.describe(
   "An expression which transforms the task result into a FunctionOutput. " +
-  "Receives 'output' as one of 4 variants depending on task type: " +
+  "Receives `output` as one of 4 variants depending on task type: " +
   "a single FunctionOutput (for non-mapped function tasks), an array of FunctionOutputs (for mapped function tasks), " +
   "a VectorCompletionOutput (for non-mapped vector completion tasks), or an array of VectorCompletionOutputs (for mapped vector completion tasks). " +
   "Must return a FunctionOutput valid for the parent function's type: " +
   "scalar functions require a number in [0,1], vector functions require an array of numbers summing to ~1. " +
-  "The function's final output is the weighted average of all task outputs using profile weights.",
+  "The function's final output is the weighted average of all task outputs using profile weights. " +
+  "Receives: `input`, `output`.",
 );
 export type TaskOutputExpression = z.infer<typeof TaskOutputExpressionSchema>;
 
@@ -145,7 +146,7 @@ export const ScalarFunctionTaskSchema = z
       ),
     input: InputValueSchema,
     output: ExpressionSchema.describe(
-      "Expression to transform the task result. Receives: input (function input), output (the raw FunctionOutput from the nested function).",
+      "Expression to transform the task result into a valid function output. Receives: `input`, `output` (the raw FunctionOutput from the nested function).",
     ),
   })
   .describe("A scalar function task.");
@@ -167,7 +168,7 @@ export const VectorFunctionTaskSchema = z
       ),
     input: InputValueSchema,
     output: ExpressionSchema.describe(
-      "Expression to transform the task result. Receives: input (function input), output (the raw FunctionOutput from the nested function).",
+      "Expression to transform the task result into a valid function output. Receives: `input`, `output` (the raw FunctionOutput from the nested function).",
     ),
   })
   .describe("A vector function task.");
@@ -180,7 +181,7 @@ export const VectorCompletionTaskSchema = z
     tools: ToolsSchema.optional(),
     responses: VectorResponsesSchema,
     output: ExpressionSchema.describe(
-      "Expression to transform the task result. Receives: input (function input), output (the raw VectorCompletionOutput).",
+      "Expression to transform the task result into a valid function output. Receives: `input`, `output` (the raw VectorCompletionOutput).",
     ),
   })
   .describe("A vector completion task.");

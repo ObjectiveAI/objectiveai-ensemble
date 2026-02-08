@@ -116,28 +116,19 @@ Give it a dataset of inputs and expected outputs. It optimizes the weights to ma
 
 ```
 objectiveai/
-├── objectiveai-rs/           # Rust SDK (core crate)
-├── objectiveai-api/          # API server (run locally or import as library)
-├── objectiveai-rs-wasm-js/   # WASM bindings
-├── objectiveai-js/           # TypeScript SDK
-└── objectiveai-web/          # Web interface
+├── objectiveai-rs/                 # Rust SDK (core crate)
+├── objectiveai-api/                # API server (run locally or import as library)
+├── objectiveai-rs-wasm-js/         # WASM bindings
+├── objectiveai-js/                 # TypeScript SDK
+├── objectiveai-function-agent-js/  # Agent SDK for creating Functions
+└── objectiveai-web/                # Web interface
 ```
 
 ## Related Repositories
 
-### [objectiveai-function-workspace](https://github.com/ObjectiveAI/objectiveai-function-workspace)
-
-A sandbox environment for creating ObjectiveAI Functions and Profiles. Includes Claude Code skills and agents that guide you through inventing new Functions - from studying examples to validation to publishing on GitHub. Supports both collaborative (back-and-forth) and fully autonomous modes.
-
-**Features:**
-- TypeScript-based Function/Profile authoring
-- Built-in validation and testing
-- Specialized agents for expressions (JMESPath/Starlark) and input edge-case evaluation
-- One-command publishing to GitHub
-
 ### [ObjectiveAI-claude-code-1](https://github.com/ObjectiveAI-claude-code-1)
 
-An autonomous Claude Code agent that invents and publishes ObjectiveAI Functions without human intervention. Uses the function workspace tooling to create, test, and deploy new scoring/ranking pipelines.
+An autonomous Claude Code agent that invents and publishes ObjectiveAI Functions without human intervention. Uses the Agent SDK to create, test, and deploy new scoring/ranking pipelines.
 
 ## License
 

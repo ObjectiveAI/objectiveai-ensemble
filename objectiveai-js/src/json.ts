@@ -77,7 +77,7 @@ export const JsonValueExpressionSchema: z.ZodType<JsonValueExpression> = z
         .describe("Object (values may be expressions)")
         .meta({ title: "JsonValueExpressionObject" }),
       ExpressionSchema.describe(
-        "An expression which evaluates to a JSON value."
+        "An expression which evaluates to a JSON value. Receives: `input`, `map` (if mapped)."
       ),
     ])
   )

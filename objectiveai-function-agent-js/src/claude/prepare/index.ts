@@ -18,7 +18,7 @@ export async function prepare(
 
   // Initialize the workspace
   log("=== Initializing workspace ===");
-  await init({ spec: options.spec, apiBase: options.apiBase });
+  await init(options);
 
   // Run preparation steps, passing sessionId between them
   let sessionId = options.sessionId;

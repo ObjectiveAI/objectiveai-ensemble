@@ -25,12 +25,12 @@ export const SimpleContentPartExpressionSchema = z
       text: z.union([
         z.string().describe("The text content."),
         ExpressionSchema.describe(
-          "An expression which evaluates to the text content."
+          "An expression which evaluates to the text content. Receives: `input`, `map` (if mapped)."
         ),
       ]),
     }),
     ExpressionSchema.describe(
-      "An expression which evaluates to a simple content part."
+      "An expression which evaluates to a simple content part. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(SimpleContentPartSchema.description!)
@@ -64,7 +64,7 @@ export const SimpleContentExpressionSchema = z
     SimpleContentTextSchema,
     SimpleContentPartExpressionsSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to simple content."
+      "An expression which evaluates to simple content. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(SimpleContentSchema.description!)
@@ -86,7 +86,7 @@ export const TextRichContentPartTextExpressionSchema = z
   .union([
     TextRichContentPartTextSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to the text content."
+      "An expression which evaluates to the text content. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(TextRichContentPartTextSchema.description!)
@@ -143,7 +143,7 @@ export const ImageRichContentPartDefinitionExpressionSchema = z
   .union([
     ImageRichContentPartDefinitionSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to the image URL definition."
+      "An expression which evaluates to the image URL definition. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(ImageRichContentPartDefinitionSchema.description!)
@@ -202,7 +202,7 @@ export const AudioRichContentPartDefinitionExpressionSchema = z
   .union([
     AudioRichContentPartDefinitionSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to the audio definition."
+      "An expression which evaluates to the audio definition. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(AudioRichContentPartDefinitionSchema.description!)
@@ -251,7 +251,7 @@ export const VideoRichContentPartDefinitionExpressionSchema = z
   .union([
     VideoRichContentPartDefinitionSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to the video URL definition."
+      "An expression which evaluates to the video URL definition. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe("The video URL definition.")
@@ -335,7 +335,7 @@ export const FileRichContentPartDefinitionExpressionSchema = z
   .union([
     FileRichContentPartDefinitionSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to the file definition."
+      "An expression which evaluates to the file definition. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(FileRichContentPartDefinitionSchema.description!)
@@ -396,7 +396,7 @@ export const RichContentPartExpressionSchema = z
       ])
       .describe(RichContentPartSchema.description!),
     ExpressionSchema.describe(
-      "An expression which evaluates to a rich content part."
+      "An expression which evaluates to a rich content part. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(RichContentPartSchema.description!)
@@ -429,7 +429,7 @@ export const RichContentExpressionSchema = z
   .union([
     RichContentTextSchema,
     RichContentPartExpressionsSchema,
-    ExpressionSchema.describe("An expression which evaluates to rich content."),
+    ExpressionSchema.describe("An expression which evaluates to rich content. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(RichContentSchema.description!)
   .meta({ title: "RichContentExpression" });
@@ -448,7 +448,7 @@ export type MessageName = z.infer<typeof MessageNameSchema>;
 export const MessageNameExpressionSchema = z
   .union([
     MessageNameSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(MessageNameSchema.description!)
   .meta({ title: "MessageNameExpression" });
@@ -541,7 +541,7 @@ export type ToolMessageToolCallId = z.infer<typeof ToolMessageToolCallIdSchema>;
 export const ToolMessageToolCallIdExpressionSchema = z
   .union([
     ToolMessageToolCallIdSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(ToolMessageToolCallIdSchema.description!)
   .meta({ title: "ToolMessageToolCallIdExpression" });
@@ -584,7 +584,7 @@ export type AssistantMessageRefusal = z.infer<
 export const AssistantMessageRefusalExpressionSchema = z
   .union([
     AssistantMessageRefusalSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(AssistantMessageRefusalSchema.description!)
   .meta({ title: "AssistantMessageRefusalExpression" });
@@ -603,7 +603,7 @@ export type AssistantMessageReasoning = z.infer<
 export const AssistantMessageReasoningExpressionSchema = z
   .union([
     AssistantMessageReasoningSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(AssistantMessageReasoningSchema.description!)
   .meta({ title: "AssistantMessageReasoningExpression" });
@@ -622,7 +622,7 @@ export type AssistantMessageToolCallId = z.infer<
 export const AssistantMessageToolCallIdExpressionSchema = z
   .union([
     AssistantMessageToolCallIdSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(AssistantMessageToolCallIdSchema.description!)
   .meta({ title: "AssistantMessageToolCallIdExpression" });
@@ -641,7 +641,7 @@ export type AssistantMessageToolCallFunctionName = z.infer<
 export const AssistantMessageToolCallFunctionNameExpressionSchema = z
   .union([
     AssistantMessageToolCallFunctionNameSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(AssistantMessageToolCallFunctionNameSchema.description!)
   .meta({ title: "AssistantMessageToolCallFunctionNameExpression" });
@@ -660,7 +660,7 @@ export type AssistantMessageToolCallFunctionArguments = z.infer<
 export const AssistantMessageToolCallFunctionArgumentsExpressionSchema = z
   .union([
     AssistantMessageToolCallFunctionArgumentsSchema,
-    ExpressionSchema.describe("An expression which evaluates to a string."),
+    ExpressionSchema.describe("An expression which evaluates to a string. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(AssistantMessageToolCallFunctionArgumentsSchema.description!)
   .meta({
@@ -729,7 +729,7 @@ export type AssistantMessageToolCall = z.infer<
 export const AssistantMessageToolCallExpressionSchema = z
   .union([
     AssistantMessageToolCallFunctionExpressionSchema,
-    ExpressionSchema.describe("An expression which evaluates to a tool call."),
+    ExpressionSchema.describe("An expression which evaluates to a tool call. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(AssistantMessageToolCallSchema.description!)
   .meta({ title: "AssistantMessageToolCallExpression" });
@@ -751,7 +751,7 @@ export const AssistantMessageToolCallsExpressionSchema = z
       .array(AssistantMessageToolCallExpressionSchema)
       .describe(AssistantMessageToolCallsSchema.description!),
     ExpressionSchema.describe(
-      "An expression which evaluates to an array of tool calls."
+      "An expression which evaluates to an array of tool calls. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(AssistantMessageToolCallsSchema.description!)
@@ -813,7 +813,7 @@ export const MessageExpressionSchema = z
         AssistantMessageExpressionSchema,
       ])
       .describe(MessageSchema.description!),
-    ExpressionSchema.describe("An expression which evaluates to a message."),
+    ExpressionSchema.describe("An expression which evaluates to a message. Receives: `input`, `map` (if mapped)."),
   ])
   .describe(MessageSchema.description!)
   .meta({ title: "MessageExpression" });
@@ -832,7 +832,7 @@ export const MessagesExpressionSchema = z
       .describe(MessagesSchema.description!)
       .meta({ title: "MessageExpressions" }),
     ExpressionSchema.describe(
-      "An expression which evaluates to an array of messages."
+      "An expression which evaluates to an array of messages. Receives: `input`, `map` (if mapped)."
     ),
   ])
   .describe(MessagesSchema.description!)

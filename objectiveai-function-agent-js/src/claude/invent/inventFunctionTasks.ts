@@ -21,8 +21,9 @@ function getInventFunctionTools(planIndex: number): AllowedTool[] {
   return [
     { kind: "ts-node", value: "build.ts" },
     { kind: "ts-node", value: "commitAndPush.ts *" },
-    { kind: "ts-node", value: "spawnFunctionAgents.ts *" },
+    { kind: "ts-node", value: "spawnFunctionAgents.ts" },
     { kind: "ts-node", value: "getSubFunctionCommits.ts" },
+    { kind: "write-edit", value: "spawnFunctionAgentsParams.json" },
     { kind: "ts-node", value: "installRustLogs.ts" },
     { kind: "ts-node", value: "cloneSubFunctions.ts" },
     { kind: "ts-node", value: "cloneSubFunctions.ts --latest" },
@@ -83,11 +84,12 @@ async function inventFunctionTasksLoop(
         "github/name.json",
         "github/description.json",
         "inputs.json",
+        "spawnFunctionAgentsParams.json",
         "serverLog.txt",
         "compiledTasks.json",
         "ts-node build.ts",
         "ts-node commitAndPush.ts <message>",
-        "ts-node spawnFunctionAgents.ts <json_array>",
+        "ts-node spawnFunctionAgents.ts",
         "ts-node getSubFunctionCommits.ts",
         "ts-node cloneSubFunctions.ts [--latest]",
         "ts-node installRustLogs.ts",
@@ -119,40 +121,50 @@ This function must use **function tasks** (type: \`scalar.function\` or \`vector
    - Whether it's scalar or vector
    - Key evaluation criteria
 
-2. Run \`ts-node spawnFunctionAgents.ts '<json_array_of_specs>'\`
-   - Example: \`ts-node spawnFunctionAgents.ts '["Spec for task 0...", "Spec for task 1..."]'\`
+2. Write \`spawnFunctionAgentsParams.json\` with an array of objects, each containing:
+   - \`name\`: A short, descriptive name for the sub-function (used as directory name)
+   - \`spec\`: The full spec text for the sub-function
+   \`\`\`json
+   [
+     {"name": "humor-scorer", "spec": "Spec for humor scoring..."},
+     {"name": "clarity-scorer", "spec": "Spec for clarity scoring..."}
+   ]
+   \`\`\`
 
-3. Parse the output after \`=== SPAWN_RESULTS ===\` to get \`{owner, repository, commit}\` for each
+3. Run \`ts-node spawnFunctionAgents.ts\` (no arguments - reads from params file)
 
-4. Create function tasks in \`function/tasks.json\` referencing those sub-functions:
+4. Parse the output after \`=== SPAWN_RESULTS ===\` to get \`{name, owner, repository, commit}\` for each
+
+5. Create function tasks in \`function/tasks.json\` referencing those sub-functions:
    \`\`\`json
    {
-     "type": "scalar.function",
+     "type": "<scalar/vector>.function",
      "owner": "<owner>",
      "repository": "<repository>",
      "commit": "<commit>",
-     "input": {"$starlark": "..."}
+     "input": {"$starlark": "..."},
+     "output": {"$starlark": "..."}
    }
    \`\`\`
 
-5. Handle any errors in the spawn results
+6. Handle any errors in the spawn results
 
 **Retrying Failed Sub-Functions**
-If a sub-function fails (result contains \`{error: "..."}\`), you can retry specific indices:
-- Pass \`null\` for indices that succeeded and should be skipped
-- Example: \`ts-node spawnFunctionAgents.ts '[null, "Retry spec for task 1", null]'\`
-- This deletes \`sub_functions/1/\` and re-spawns only that agent
-- Results will show \`{skipped: true}\` for null indices
+If a sub-function fails (result contains \`{error: "..."}\`), update \`spawnFunctionAgentsParams.json\`:
+- Keep only the failed entries and add \`"overwrite": true\` to each
+- Example: \`[{"name": "clarity-scorer", "spec": "Updated spec...", "overwrite": true}]\`
+- This deletes the existing \`agent_functions/clarity-scorer/\` directory and re-spawns the agent
+- Then run \`ts-node spawnFunctionAgents.ts\` again
 
 **Reading Sub-Functions**
-After spawning, sub-functions are available in \`sub_functions/<index>/\`:
+After spawning, sub-functions are available in \`agent_functions/<name>/\`:
 - Read their \`function.json\`, \`function/\` files, \`inputs.json\`, etc. to understand what was created
 - Each sub-function is a complete ObjectiveAI function repository
 
 **Getting Commit SHAs**
 To retrieve the current commit SHA for each sub-function:
 - Run \`ts-node getSubFunctionCommits.ts\`
-- Parse the output after \`=== SUB_FUNCTION_COMMITS ===\` to get \`{index, owner, repository, commit, path}\` for each
+- Parse the output after \`=== SUB_FUNCTION_COMMITS ===\` to get \`{name, owner, repository, commit, path}\` for each
 - Use these values to update \`function/tasks.json\` with the correct references
 
 ### Function Definition
@@ -172,6 +184,7 @@ Expressions receive a single object with these fields:
 - Edit \`inputs.json\` to add diverse test inputs (minimum 10, maximum 100)
 - **Diversity in structure**: Include edge cases like empty arrays, single items, boundary values, missing optional fields, maximum lengths
 - **Diversity in intended output**: Cover the full range of expected scores (low, medium, high quality inputs that should produce different outputs)
+- **Multimodal content**: For fields that accept images, audio, video, or files, use bogus/placeholder string values (e.g. \`"https://example.com/image.jpg"\`). This is fine for testing - exercise the various modalities
 
 ### Build and Test
 - Run \`ts-node build.ts\` to compile function.json and execute tests

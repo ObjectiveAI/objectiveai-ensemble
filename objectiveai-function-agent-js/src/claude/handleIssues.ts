@@ -130,6 +130,7 @@ Address each valid issue:
 ### Making Changes
 - Edit files in \`function/\` directory as needed
 - Edit \`inputs.json\` if new test cases are needed
+- **Multimodal content**: For fields that accept images, audio, video, or files, use bogus/placeholder string values (e.g. \`"https://example.com/image.jpg"\`). This is fine for testing - exercise the various modalities
 - **Use Starlark expressions** (\`{"$starlark": "..."}\`) for most expressions
 - Only use JMESPath (\`{"$jmespath": "..."}\`) for very simple field access
 
