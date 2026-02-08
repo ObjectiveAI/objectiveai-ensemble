@@ -14,12 +14,9 @@ objectiveai/
 ├── objectiveai-api/                # API server (self-hostable, or import as library)
 ├── objectiveai-rs-wasm-js/         # WASM bindings for browser/Node.js
 ├── objectiveai-js/                 # TypeScript SDK (npm: objectiveai)
-├── objectiveai-web/                # Next.js web interface (legacy — being replaced by objectiveai-web-new)
-├── objectiveai-web-new/            # Next.js web interface (production-ready, pending launch)
+├── objectiveai-web/                # Next.js web interface (production)
 └── coding-agent-scratch/           # Scratch folder for testing SDK calls
 ```
-
-**Note:** At launch, `objectiveai-web-new/` will be renamed to `objectiveai-web/` and the old site deleted.
 
 ## Core Concepts
 
@@ -96,7 +93,7 @@ Functions are hosted on GitHub as `function.json` at repository root. Reference 
 
 **Note:** If `/functions` returns an empty list (`{"data":[]}`), this means no functions have been executed yet or the index was cleared. Functions only appear in the list after being executed at least once.
 
-The `/functions/create` page in web-new is a **JSON builder/editor tool** that helps users construct `function.json` files to save to their own repositories—it does not create functions on the server.
+The `/functions/create` page is a **JSON builder/editor tool** that helps users construct `function.json` files to save to their own repositories—it does not create functions on the server.
 
 **Content Policy:** The service is 18+ only. Report functionality for inappropriate functions is planned for the future.
 
@@ -368,13 +365,11 @@ console.log(details.model); // "openai/gpt-4o"
 
 ---
 
-## Web Interface (`objectiveai-web-new`)
-
-**`objectiveai-web-new` is fully replacing `objectiveai-web`.** Eventually web-new should contain all functionality from web. Reference web for patterns (auth, Stripe, etc.) but implement in web-new.
+## Web Interface (`objectiveai-web`)
 
 ### Scope
 
-**UI/UX only.** Never modify files outside of `objectiveai-web-new/`. Backend is off-limits.
+**UI/UX only.** Never modify files outside of `objectiveai-web/`. Backend is off-limits.
 
 ### Design System
 
@@ -427,11 +422,11 @@ console.log(details.model); // "openai/gpt-4o"
 
 ### No Server-Side API Routes
 
-Web-new does NOT have server-side API routes (except NextAuth). All API calls use the JS SDK directly from the client. See "Client-Side SDK Pattern" section below for details.
+The web app does NOT have server-side API routes (except NextAuth). All API calls use the JS SDK directly from the client. See "Client-Side SDK Pattern" section below for details.
 
 ### Planning Assets
 
-Check `objectiveai-web-new/planning/` before making design decisions:
+Check `objectiveai-web/planning/` before making design decisions:
 - `objectiveai-planning-moodboard.png` - Visual tone
 - `objectiveai-planning-color-system.png` - Official palette
 - `objectiveai-planning-wireframes-figma.png` - Page layouts
@@ -458,7 +453,7 @@ Reference implementation: `app/functions/page.tsx`
 
 ### Client-Side SDK Pattern (No Server-Side API Routes)
 
-Web-new has **no server-side API routes** except for NextAuth (`app/api/auth/[...nextauth]/route.ts`). All data fetching uses the JS SDK directly from the client:
+The web app has **no server-side API routes** except for NextAuth (`app/api/auth/[...nextauth]/route.ts`). All data fetching uses the JS SDK directly from the client:
 
 **Public endpoints (no auth needed):**
 ```tsx
@@ -505,9 +500,9 @@ OAuth providers (Google, GitHub, X, Reddit) via NextAuth. Auth is fully function
 
 - **Profile training** is wired to the real SDK (`Functions.Profiles.Computations.remoteFunctionCreate`)
 
-### Web-New Current State (Feature-Complete)
+### Current State (Feature-Complete)
 
-All user-facing features from `objectiveai-web` have been ported or redesigned. The site is functionally ready for production.
+All user-facing features have been implemented. The site is in production.
 
 **Production-Ready Pages:**
 - `/` - Landing with hero, featured functions, onboarding CTAs
@@ -528,7 +523,7 @@ All user-facing features from `objectiveai-web` have been ported or redesigned. 
 - `/docs/api/**` - 32 API endpoint docs with Zod schema introspection
 - `/profiles/train` - Profile training UI (wired to real SDK)
 
-### Key Web-New Files
+### Key Files
 
 | File | Purpose |
 |------|---------|
@@ -689,7 +684,7 @@ For vector functions, enables tournament-style ranking:
 
 ---
 
-## Web-New Feature Gap Audit
+## Feature Audit
 
 ### What's Implemented ✅
 
@@ -758,26 +753,9 @@ All API interactions use the JS SDK directly (no server-side API routes):
 | Browse ensembles | `Ensemble.list(client)`, `Ensemble.retrieve(client, id)` | No |
 | Browse ensemble LLMs | `EnsembleLlm.list(client)`, `EnsembleLlm.retrieve(client, id)` | No |
 
-### Remaining Gaps
-
-- ~~Profile training backend integration~~ — Done, wired to real SDK
-- Rename `objectiveai-web-new/` → `objectiveai-web/` and delete old site
-- Open pull request via `gh pr create`
-
-### Feature Parity Audit Process
-
-**CRITICAL:** When auditing web-new for completeness, never rely solely on what web-new *has*. Always diff against `objectiveai-web` to find what's *missing*. The `/docs/api/` pages (32 server-rendered endpoint docs with Zod schema introspection) were missed in the original audit because the `/information` page partially covered the same ground—listing endpoints without providing per-endpoint schema documentation.
-
-**Required process for future audits:**
-1. Crawl every route in `objectiveai-web/src/app/` and list all user-facing pages
-2. Crawl every route in `objectiveai-web-new/app/` and list all user-facing pages
-3. Diff the two lists—any route in old but not in new is a gap
-4. For shared routes, verify feature parity (e.g., a summary card listing endpoints ≠ individual endpoint docs pages)
-5. Check shared components in old site (`objectiveai-web/src/components/`) for functionality not yet ported
-
 ### Stripe Integration (Complete)
 
-Stripe has been fully migrated from `objectiveai-web` to `objectiveai-web-new`:
+Stripe integration in `objectiveai-web/`:
 - `components/stripe/PurchaseCreditsForm.tsx` - Multi-step purchase flow
 - `components/stripe/BillingAddressForm.tsx` - Stripe AddressElement integration
 - `components/stripe/CreditsBreakdown.tsx` - Payment breakdown display
@@ -812,12 +790,9 @@ Stripe has been fully migrated from `objectiveai-web` to `objectiveai-web-new`:
 - All old build args + 2 new (Sonarly project key, Sonarly ingest point)
 - Cloud Build deploys to Cloud Run `objective-ai-web-main` in `us-central1`
 
-**5. Rename and clean up:**
-- Delete `objectiveai-web/` (old website)
-- Rename `objectiveai-web-new/` to `objectiveai-web/`
-- Update all references in root `package.json`, `.gitmodules`, etc.
-- Update this CLAUDE.md (remove "web-new" references, update paths)
-- Dockerfile paths change: `objectiveai-web-new/` → `objectiveai-web/`
+**5. ~~Rename and clean up~~ DONE**
+- Old site deleted, `objectiveai-web-new/` renamed to `objectiveai-web/`
+- All references updated (root `package.json`, Dockerfile, cloudbuild.yaml, CLAUDE.md)
 
 **6. Open pull request** via `gh pr create`
 
@@ -893,5 +868,5 @@ Use `coding-agent-scratch/` folder for testing SDK calls and exploring API behav
    - WASM bindings exports
    - Design system (globals.css, components)
 3. Update this CLAUDE.md if backend capabilities change
-4. Test affected web-new pages after merge
+4. Test affected web pages after merge
 5. Verify no regressions in browse/execute flows

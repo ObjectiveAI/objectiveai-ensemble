@@ -4,11 +4,10 @@
   "workspaces": [
     "objectiveai-function-agent-js",
     "objectiveai-js",
-    "objectiveai-web",
-    "objectiveai-web-new"
+    "objectiveai-web"
   ],
   "scripts": {
-    "dev": "npm run dev -w objectiveai-web-new",
+    "dev": "npm run dev -w objectiveai-web",
     "build:js": "npm run build -w objectiveai-js",
     "build:web": "npm run build -w objectiveai-web",
     "build": "npm run build:js && npm run build:web"
