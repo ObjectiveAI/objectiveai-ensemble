@@ -270,7 +270,7 @@ Expressions receive a single object with these fields:
 - Use AppendExampleInput to add diverse test inputs (minimum 10, maximum 100)
 - **Diversity in structure**: Include edge cases like empty arrays, single items, boundary values, missing optional fields, maximum lengths
 - **Diversity in intended output**: Cover the full range of expected scores (low, medium, high quality inputs that should produce different outputs)
-- **Multimodal content**: For fields that accept images, audio, video, or files, use bogus/placeholder string values (e.g. \`"https://example.com/image.jpg"\`). This is fine for testing - exercise the various modalities
+- **Multimodal content**: If your input schema uses multimodal types (image, video, audio, file), call ReadInputSchemaSchema first to understand the exact format for these types. Use bogus/placeholder URLs (e.g. \`"https://example.com/image.jpg"\`) — this is fine for testing.
 
 ### Build and Test
 - Fix issues and repeat until all tests pass
@@ -328,7 +328,7 @@ Expressions receive a single object with these fields:
 - Use AppendExampleInput to add diverse test inputs (minimum 10, maximum 100)
 - **Diversity in structure**: Include edge cases like empty arrays, single items, boundary values, missing optional fields, maximum lengths
 - **Diversity in intended output**: Cover the full range of expected scores (low, medium, high quality inputs that should produce different outputs)
-- **Multimodal content**: For fields that accept images, audio, video, or files, use bogus/placeholder string values (e.g. \`"https://example.com/image.jpg"\`). This is fine for testing - exercise the various modalities
+- **Multimodal content**: If your input schema uses multimodal types (image, video, audio, file), call ReadInputSchemaSchema first to understand the exact format for these types. Use bogus/placeholder URLs (e.g. \`"https://example.com/image.jpg"\`) — this is fine for testing.
 
 ### Build and Test
 - Fix issues and repeat until all tests pass
