@@ -10,7 +10,6 @@
 //! - `is_null(v)` - Check if a value is null
 //! - `if(cond, then, else)` - Conditional expression
 
-use crate::chat;
 use std::sync::LazyLock;
 
 /// Global JMESPath runtime instance with custom functions.
@@ -42,6 +41,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
                 )
             })
         }
+        #[allow(dead_code)]
         fn arg_as_string(
             arg: &Rcvar,
             ctx: &Context,
@@ -59,6 +59,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
                 )
             })
         }
+        #[allow(dead_code)]
         fn arg_as_bool(
             arg: &Rcvar,
             ctx: &Context,
@@ -125,6 +126,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
             let arg = any_arg(args, ctx, position, expect_args_len)?;
             arg_as_number(&arg, ctx, position)
         }
+        #[allow(dead_code)]
         fn nullable_number_arg(
             args: &[Rcvar],
             ctx: &Context,
@@ -138,6 +140,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
                 Ok(Some(arg_as_number(&arg, ctx, position)?))
             }
         }
+        #[allow(dead_code)]
         fn string_arg(
             args: &[Rcvar],
             ctx: &Context,
@@ -147,6 +150,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
             let arg = any_arg(args, ctx, position, expect_args_len)?;
             arg_as_string(&arg, ctx, position)
         }
+        #[allow(dead_code)]
         fn nullable_string_arg(
             args: &[Rcvar],
             ctx: &Context,
@@ -160,6 +164,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
                 Ok(Some(arg_as_string(&arg, ctx, position)?))
             }
         }
+        #[allow(dead_code)]
         fn bool_arg(
             args: &[Rcvar],
             ctx: &Context,
@@ -169,6 +174,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
             let arg = any_arg(args, ctx, position, expect_args_len)?;
             arg_as_bool(&arg, ctx, position)
         }
+        #[allow(dead_code)]
         fn nullable_bool_arg(
             args: &[Rcvar],
             ctx: &Context,
@@ -182,6 +188,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
                 Ok(Some(arg_as_bool(&arg, ctx, position)?))
             }
         }
+        #[allow(dead_code)]
         fn array_arg(
             args: &[Rcvar],
             ctx: &Context,
@@ -214,6 +221,7 @@ pub static JMESPATH_RUNTIME: LazyLock<jmespath::Runtime> =
                 Number::from_f64(n).unwrap_or(Number::from_f64(0.0).unwrap()),
             ))
         }
+        #[allow(dead_code)]
         fn rcvar_f64_u64(n: f64) -> Rcvar {
             Rc::new(Variable::Number(Number::from(n.round() as u64)))
         }
