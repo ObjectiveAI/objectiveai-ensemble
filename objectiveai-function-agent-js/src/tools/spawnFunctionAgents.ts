@@ -111,6 +111,7 @@ function runAgentInSubdir(
         cwd: subdir,
         stdio: ["inherit", "pipe", "pipe"],
         shell: true,
+        env: { ...process.env, OBJECTIVEAI_PARENT_PID: String(process.pid) },
       },
     );
 

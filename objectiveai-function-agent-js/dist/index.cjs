@@ -3615,7 +3615,8 @@ function runAgentInSubdir(name, spec, childDepth, childProcesses, apiBase, apiKe
       {
         cwd: subdir,
         stdio: ["inherit", "pipe", "pipe"],
-        shell: true
+        shell: true,
+        env: { ...process.env, OBJECTIVEAI_PARENT_PID: String(process.pid) }
       }
     );
     childProcesses.push(child);
@@ -3870,7 +3871,12 @@ function readAgentFunction(name) {
     repository = match?.[2] ?? "";
   } catch {
   }
-  return { ok: true, value: { name, owner, repository, commit, path: subPath }, error: void 0 };
+  let functionJson = null;
+  try {
+    functionJson = JSON.parse(fs.readFileSync(path.join(subPath, "function.json"), "utf-8"));
+  } catch {
+  }
+  return { ok: true, value: { name, owner, repository, commit, path: subPath, functionJson }, error: void 0 };
 }
 var ListAgentFunctions = claudeAgentSdk.tool(
   "ListAgentFunctions",

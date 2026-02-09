@@ -1,5 +1,21 @@
 import { Claude } from "./index";
 
+// If spawned by a parent agent, exit when the parent dies.
+const parentPid = process.env.OBJECTIVEAI_PARENT_PID
+  ? parseInt(process.env.OBJECTIVEAI_PARENT_PID, 10)
+  : undefined;
+if (parentPid) {
+  const watchdog = setInterval(() => {
+    try {
+      process.kill(parentPid, 0);
+    } catch {
+      clearInterval(watchdog);
+      process.exit(1);
+    }
+  }, 3000);
+  watchdog.unref();
+}
+
 function parseArgs(): {
   command?: string;
   spec?: string;

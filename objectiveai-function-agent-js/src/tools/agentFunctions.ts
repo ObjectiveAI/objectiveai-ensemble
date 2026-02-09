@@ -1,5 +1,6 @@
 import { execSync } from "child_process";
-import { existsSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
+import { join } from "path";
 import { Result } from "./result";
 
 interface AgentFunctionInfo {
@@ -8,6 +9,10 @@ interface AgentFunctionInfo {
   repository: string;
   commit: string;
   path: string;
+}
+
+interface AgentFunctionDetail extends AgentFunctionInfo {
+  functionJson: unknown;
 }
 
 export function listAgentFunctions(): Result<AgentFunctionInfo[]> {
@@ -54,7 +59,7 @@ export function listAgentFunctions(): Result<AgentFunctionInfo[]> {
   return { ok: true, value: results, error: undefined };
 }
 
-export function readAgentFunction(name: string): Result<AgentFunctionInfo> {
+export function readAgentFunction(name: string): Result<AgentFunctionDetail> {
   const subPath = `agent_functions/${name}`;
   if (!existsSync(subPath) || !statSync(subPath).isDirectory()) {
     return { ok: false, value: undefined, error: `agent_functions/${name} does not exist` };
@@ -84,5 +89,10 @@ export function readAgentFunction(name: string): Result<AgentFunctionInfo> {
     repository = match?.[2] ?? "";
   } catch {}
 
-  return { ok: true, value: { name, owner, repository, commit, path: subPath }, error: undefined };
+  let functionJson: unknown = null;
+  try {
+    functionJson = JSON.parse(readFileSync(join(subPath, "function.json"), "utf-8"));
+  } catch {}
+
+  return { ok: true, value: { name, owner, repository, commit, path: subPath, functionJson }, error: undefined };
 }
