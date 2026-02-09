@@ -1,168 +1,210 @@
 import z from "zod";
 
-export function formatZodSchema(schema: z.ZodType): string {
-  return formatNode(schema, 0);
+/**
+ * Converts a Zod schema to a JSON Schema string.
+ *
+ * Cannot use z.toJSONSchema() because some schemas (e.g. JsonValueSchema)
+ * use z.lazy() with getters that create new instances on each call, causing
+ * infinite recursion in Zod's built-in converter.
+ *
+ * Lazy schemas are emitted as $ref to the corresponding MCP tool name.
+ * Use {@link registerLazyRef} to register lazy schema → tool name mappings.
+ */
+export function formatZodSchema(schema: z.ZodType, opts?: { resolveLazy?: boolean }): string {
+  const root = convert(schema, opts?.resolveLazy ? 1 : 0, /* skipDirectRef */ true);
+  return JSON.stringify(root, null, 2);
 }
 
-function formatNode(schema: z.ZodType, indent: number): string {
-  const pad = "  ".repeat(indent);
+/**
+ * Registers a lazy schema reference. When formatZodSchema encounters a lazy
+ * schema (or wrapper around one) whose meta title matches the given schema's
+ * meta title, it emits a $ref to the given tool name.
+ *
+ * The meta title is extracted from the schema's own `.meta()` call, so no
+ * hard-coded type names are needed — the mapping is derived from the schema.
+ */
+export function registerLazyRef(schema: z.ZodType, toolName: string): void {
+  const title = safeMeta(schema)?.title as string | undefined;
+  if (title) {
+    lazyRefs[title] = toolName;
+  }
+}
+
+const lazyRefs: Record<string, string> = {};
+
+/**
+ * Registers property-level refs on a parent object schema. When
+ * formatZodSchema encounters this parent, properties with registered
+ * refs emit $ref instead of inlining the property's schema.
+ *
+ * This allows parent schemas (like a Function schema) to show compact
+ * $ref entries for properties that have their own dedicated tools.
+ */
+export function registerPropertyRefs(
+  parentSchema: z.ZodType,
+  refs: Record<string, string>,
+): void {
+  const existing = propertyRefsBySchema.get(parentSchema);
+  propertyRefsBySchema.set(
+    parentSchema,
+    existing ? { ...existing, ...refs } : refs,
+  );
+}
+
+const propertyRefsBySchema = new WeakMap<z.ZodType, Record<string, string>>();
+
+/**
+ * Registers a direct schema-to-tool ref. When formatZodSchema encounters
+ * this exact schema instance as a child, it emits $ref to the tool name.
+ */
+export function registerSchemaRef(schema: z.ZodType, toolName: string): void {
+  schemaRefs.set(schema, toolName);
+}
+
+const schemaRefs = new WeakMap<z.ZodType, string>();
+
+function convert(schema: z.ZodType, lazyDepth = 0, skipDirectRef = false): unknown {
+  if (!skipDirectRef) {
+    const directRef = schemaRefs.get(schema);
+    if (directRef) return { $ref: directRef };
+  }
   const def = (schema as any)._def ?? (schema as any).def;
   const type: string = def?.type ?? "unknown";
 
   switch (type) {
-    case "object": {
-      const desc = schema.description;
-      const shape = def.shape as Record<string, z.ZodType>;
-      const keys = Object.keys(shape);
-      if (keys.length === 0) {
-        const descStr = desc ? ` - ${desc}` : "";
-        return `object${descStr}`;
-      }
-      const lines: string[] = [];
-      if (desc) lines.push(`${pad}${desc}`);
-      for (const key of keys) {
-        const propSchema = shape[key];
-        const propDesc = propSchema.description;
-        const unwrapped = unwrap(propSchema);
-        const innerDesc = unwrapped.inner.description;
-        const displayDesc = propDesc ?? innerDesc;
-        const opt = unwrapped.optional ? "?" : "";
-        const nul = unwrapped.nullable ? " | null" : "";
-        const typeStr = formatNode(unwrapped.inner, indent + 1);
-        const descStr = displayDesc ? ` - ${displayDesc}` : "";
-        lines.push(`${pad}  ${key}${opt}: ${typeStr}${nul}${descStr}`);
-      }
-      return `object\n${lines.join("\n")}`;
-    }
-    case "array": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const elementStr = formatNode(def.element, indent);
-      return `${elementStr}[]${descStr}`;
-    }
-    case "string": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `string${descStr}`;
-    }
-    case "number": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const bag = (schema as any)._zod?.bag;
-      if (bag?.format === "int32" || bag?.format === "uint32" || bag?.format === "int64" || bag?.format === "uint64") {
-        return `integer${descStr}`;
-      }
-      return `number${descStr}`;
-    }
-    case "int": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `integer${descStr}`;
-    }
-    case "boolean": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `boolean${descStr}`;
-    }
-    case "enum": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const entries = def.entries;
-      const values = Object.values(entries).map((v: unknown) => JSON.stringify(v));
-      return `${values.join(" | ")}${descStr}`;
-    }
-    case "literal": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const values = (def.values as unknown[]).map((v: unknown) => JSON.stringify(v));
-      return `${values.join(" | ")}${descStr}`;
-    }
-    case "union": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const options = def.options as z.ZodType[];
-      if (options.every(isInline)) {
-        return options.map(o => formatNode(o, indent)).join(" | ") + descStr;
-      }
-      const lines: string[] = [];
-      if (desc) lines.push(`${pad}${desc}`);
-      for (const option of options) {
-        const unwrapped = unwrap(option);
-        const nul = unwrapped.nullable ? " | null" : "";
-        lines.push(`${pad}  | ${formatNode(unwrapped.inner, indent + 1)}${nul}`);
-      }
-      return `union\n${lines.join("\n")}`;
-    }
-    case "intersection": {
-      const left = formatNode(def.left, indent);
-      const right = formatNode(def.right, indent);
-      return `${left} & ${right}`;
-    }
-    case "record": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const valueStr = formatNode(def.valueType, indent);
-      return `Record<string, ${valueStr}>${descStr}`;
-    }
-    case "tuple": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const items = (def.items as z.ZodType[]).map((item: z.ZodType) => formatNode(item, indent));
-      return `[${items.join(", ")}]${descStr}`;
-    }
-    case "lazy": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const meta = schema.meta?.() as Record<string, unknown> | undefined;
-      const title = meta?.title;
-      if (title) return `${title}${descStr}`;
-      return `(recursive)${descStr}`;
-    }
+    // --- wrappers ---
     case "optional":
-      return formatNode(def.innerType, indent);
-    case "nullable": {
-      return `${formatNode(def.innerType, indent)} | null`;
-    }
     case "default":
     case "prefault":
-      return formatNode(def.innerType, indent);
-    case "pipe": {
-      return formatNode(def.out, indent);
-    }
     case "readonly": {
-      return formatNode(def.innerType, indent);
+      // Check if this wrapper has a meta title pointing to a lazy tool ref
+      // (e.g. z.lazy(...).optional().meta({ title: "InputValue" }))
+      const wrapperRef = lazyToolRef(schema);
+      if (wrapperRef) return wrapperRef;
+      return convert(def.innerType, lazyDepth);
     }
-    case "null": {
-      return "null";
+    case "nullable":
+      return withDesc({ anyOf: [convert(def.innerType, lazyDepth), { type: "null" }] }, schema);
+    case "pipe":
+      return convert(def.out, lazyDepth);
+
+    // --- primitives ---
+    case "string":
+      return withDesc({ type: "string" }, schema);
+    case "number": {
+      const bag = (schema as any)._zod?.bag;
+      if (bag?.format === "int32" || bag?.format === "uint32" || bag?.format === "int64" || bag?.format === "uint64") {
+        return withDesc({ type: "integer" }, schema);
+      }
+      return withDesc({ type: "number" }, schema);
     }
-    case "undefined": {
-      return "undefined";
+    case "int":
+      return withDesc({ type: "integer" }, schema);
+    case "boolean":
+      return withDesc({ type: "boolean" }, schema);
+    case "null":
+      return { type: "null" };
+    case "undefined":
+      return {};
+    case "any":
+    case "unknown":
+      return withDesc({}, schema);
+    case "date":
+      return withDesc({ type: "string", format: "date-time" }, schema);
+
+    // --- enums & literals ---
+    case "enum":
+      return withDesc({ enum: Object.values(def.entries) }, schema);
+    case "literal": {
+      const values = def.values as unknown[];
+      if (values.length === 1) return withDesc({ const: values[0] }, schema);
+      return withDesc({ enum: values }, schema);
     }
-    case "any": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `any${descStr}`;
+
+    // --- composites ---
+    case "object": {
+      const shape = def.shape as Record<string, z.ZodType>;
+      const propRefs = propertyRefsBySchema.get(schema);
+      const properties: Record<string, unknown> = {};
+      const required: string[] = [];
+      for (const [key, prop] of Object.entries(shape)) {
+        const u = unwrap(prop);
+        if (propRefs?.[key]) {
+          properties[key] = { $ref: propRefs[key] };
+        } else {
+          let converted = convert(u.inner);
+          if (u.nullable) converted = { anyOf: [converted, { type: "null" }] };
+          properties[key] = converted;
+        }
+        if (!u.optional) required.push(key);
+      }
+      const result: Record<string, unknown> = { type: "object", properties };
+      if (required.length > 0) result.required = required;
+      return withDesc(result, schema);
     }
-    case "unknown": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `unknown${descStr}`;
+    case "array":
+      return withDesc({ type: "array", items: convert(def.element) }, schema);
+    case "tuple": {
+      const items = (def.items as z.ZodType[]).map((i) => convert(i));
+      return withDesc({ type: "array", prefixItems: items }, schema);
     }
-    case "date": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `Date${descStr}`;
+    case "record":
+      return withDesc({ type: "object", additionalProperties: convert(def.valueType) }, schema);
+
+    // --- set operations ---
+    case "union": {
+      const options = (def.options as z.ZodType[]).map((o) => convert(o));
+      return withDesc({ anyOf: options }, schema);
     }
-    case "custom": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `custom${descStr}`;
+    case "intersection":
+      return withDesc({ allOf: [convert(def.left), convert(def.right)] }, schema);
+
+    // --- recursive ---
+    // Never call def.getter() — some z.lazy getters create new instances per
+    // call which blows the stack even with cycle detection. Emit a $ref to
+    // the corresponding MCP tool name instead.
+    // If lazyDepth > 0, resolve the getter once (for top-level lazy schemas
+    // that need to show their inner structure).
+    case "lazy": {
+      if (lazyDepth > 0) {
+        const inner = def.getter();
+        return withDesc(convert(inner) as Record<string, unknown>, schema);
+      }
+      return lazyToolRef(schema) ?? withDesc({}, schema);
     }
-    default: {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `${type}${descStr}`;
-    }
+
+    // --- fallback ---
+    default:
+      return withDesc({}, schema);
+  }
+}
+
+function lazyToolRef(schema: z.ZodType): { $ref: string } | undefined {
+  const meta = safeMeta(schema);
+  const title = meta?.title as string | undefined;
+  const toolName = title ? lazyRefs[title] : undefined;
+  return toolName ? { $ref: toolName } : undefined;
+}
+
+function withDesc(obj: Record<string, unknown>, schema: z.ZodType): Record<string, unknown> {
+  const d = safeDesc(schema);
+  if (d) obj.description = d;
+  return obj;
+}
+
+function safeDesc(schema: z.ZodType): string | undefined {
+  try {
+    return schema.description;
+  } catch {
+    return undefined;
+  }
+}
+
+function safeMeta(schema: z.ZodType): Record<string, unknown> | undefined {
+  try {
+    return schema.meta?.() as Record<string, unknown> | undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -170,32 +212,13 @@ function unwrap(schema: z.ZodType): { inner: z.ZodType; optional: boolean; nulla
   let optional = false;
   let nullable = false;
   let current = schema;
-
   while (true) {
     const def = (current as any)._def ?? (current as any).def;
-    const type = def?.type ?? "";
-    if (type === "optional") {
-      optional = true;
-      current = def.innerType;
-    } else if (type === "nullable") {
-      nullable = true;
-      current = def.innerType;
-    } else if (type === "default" || type === "prefault") {
-      optional = true;
-      current = def.innerType;
-    } else {
-      break;
-    }
+    const t = def?.type ?? "";
+    if (t === "optional") { optional = true; current = def.innerType; }
+    else if (t === "nullable") { nullable = true; current = def.innerType; }
+    else if (t === "default" || t === "prefault") { optional = true; current = def.innerType; }
+    else break;
   }
-
   return { inner: current, optional, nullable };
-}
-
-function isInline(schema: z.ZodType): boolean {
-  const def = (schema as any)._def ?? (schema as any).def;
-  const type = def?.type ?? "";
-  const unwrapped = unwrap(schema);
-  const innerDef = (unwrapped.inner as any)._def ?? (unwrapped.inner as any).def;
-  const innerType = innerDef?.type ?? "";
-  return ["string", "number", "int", "boolean", "literal", "null", "undefined", "any", "unknown", "date", "nan"].includes(innerType);
 }

@@ -7,3 +7,4 @@ export * as Vector from "./vector";
 export * from "./error";
 export * from "./client";
 export * from "./stream";
+export * from "./json";

@@ -3,6 +3,7 @@ import { AgentOptions, LogFn } from "../../agentOptions";
 import { submit } from "../../tools/submit";
 import { createFileLogger, consumeStream } from "../../logging";
 import { getNextPlanIndex } from "../planIndex";
+import { registerSchemaRefs } from "../../tools/schemaRefs";
 
 // Tools - read-only context
 import { ReadSpec } from "../../tools/claude/spec";
@@ -79,9 +80,9 @@ import {
   EditTask,
   DelTask,
   CheckTasks,
-  ReadMessagesSchema,
-  ReadToolsSchema,
-  ReadResponsesSchema,
+  ReadMessagesExpressionSchema,
+  ReadToolsExpressionSchema,
+  ReadResponsesExpressionSchema,
 } from "../../tools/claude/tasks";
 
 // Tools - example inputs
@@ -104,6 +105,48 @@ import {
   ReadSwissSystemNetworkTest,
 } from "../../tools/claude/networkTests";
 
+// Tools - recursive type schemas
+import {
+  ReadJsonValueSchema,
+  ReadJsonValueExpressionSchema,
+} from "../../tools/claude/jsonValue";
+import {
+  ReadInputValueSchema,
+  ReadInputValueExpressionSchema,
+} from "../../tools/claude/inputValue";
+
+// Tools - message role schemas
+import {
+  ReadDeveloperMessageSchema,
+  ReadSystemMessageSchema,
+  ReadUserMessageSchema,
+  ReadToolMessageSchema,
+  ReadAssistantMessageSchema,
+  ReadDeveloperMessageExpressionSchema,
+  ReadSystemMessageExpressionSchema,
+  ReadUserMessageExpressionSchema,
+  ReadToolMessageExpressionSchema,
+  ReadAssistantMessageExpressionSchema,
+} from "../../tools/claude/messages";
+
+// Tools - content schemas
+import {
+  ReadSimpleContentSchema,
+  ReadRichContentSchema,
+  ReadSimpleContentExpressionSchema,
+  ReadRichContentExpressionSchema,
+} from "../../tools/claude/content";
+
+// Tools - task type schemas
+import {
+  ReadScalarFunctionTaskSchema,
+  ReadVectorFunctionTaskSchema,
+  ReadVectorCompletionTaskSchema,
+  ReadCompiledScalarFunctionTaskSchema,
+  ReadCompiledVectorFunctionTaskSchema,
+  ReadCompiledVectorCompletionTaskSchema,
+} from "../../tools/claude/taskTypes";
+
 // Tools - readme
 import { ReadReadme, WriteReadme } from "../../tools/claude/readme";
 
@@ -119,6 +162,7 @@ import {
 
 // Common tools shared by both variants
 function getCommonTools(planIndex: number, apiBase?: string, apiKey?: string) {
+  registerSchemaRefs();
   return [
     // Core Context
     ReadSpec,
@@ -170,14 +214,52 @@ function getCommonTools(planIndex: number, apiBase?: string, apiKey?: string) {
     EditTask,
     DelTask,
     CheckTasks,
-    ReadMessagesSchema,
-    ReadToolsSchema,
-    ReadResponsesSchema,
+    ReadMessagesExpressionSchema,
+    ReadToolsExpressionSchema,
+    ReadResponsesExpressionSchema,
 
     // Expression params
     ReadInputParamSchema,
     ReadMapParamSchema,
     ReadOutputParamSchema,
+
+    // Recursive type schemas (referenced by $ref in other schemas)
+    ReadJsonValueSchema,
+    ReadJsonValueExpressionSchema,
+    ReadInputValueSchema,
+    ReadInputValueExpressionSchema,
+
+    // Message role schemas (expression variants, referenced by $ref in ReadMessagesExpressionSchema)
+    ReadDeveloperMessageExpressionSchema,
+    ReadSystemMessageExpressionSchema,
+    ReadUserMessageExpressionSchema,
+    ReadToolMessageExpressionSchema,
+    ReadAssistantMessageExpressionSchema,
+
+    // Message role schemas (compiled variants, referenced by $ref in ReadCompiledVectorCompletionTaskSchema)
+    ReadDeveloperMessageSchema,
+    ReadSystemMessageSchema,
+    ReadUserMessageSchema,
+    ReadToolMessageSchema,
+    ReadAssistantMessageSchema,
+
+    // Content schemas (expression variants, referenced by $ref in expression message schemas)
+    ReadSimpleContentExpressionSchema,
+    ReadRichContentExpressionSchema,
+
+    // Content schemas (compiled variants, referenced by $ref in compiled message schemas)
+    ReadSimpleContentSchema,
+    ReadRichContentSchema,
+
+    // Task type schemas (referenced by $ref in ReadTasksSchema)
+    ReadScalarFunctionTaskSchema,
+    ReadVectorFunctionTaskSchema,
+    ReadVectorCompletionTaskSchema,
+
+    // Compiled task type schemas (referenced by $ref in ReadExampleInputsSchema)
+    ReadCompiledScalarFunctionTaskSchema,
+    ReadCompiledVectorFunctionTaskSchema,
+    ReadCompiledVectorCompletionTaskSchema,
 
     // Example inputs
     ReadExampleInputs,

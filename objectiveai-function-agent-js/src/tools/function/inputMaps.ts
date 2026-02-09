@@ -23,6 +23,10 @@ export function checkInputMaps(fn?: DeserializedFunction): Result<undefined> {
     fn = read.value;
   }
 
+  if (fn.input_maps === undefined) {
+    return { ok: true, value: undefined, error: undefined };
+  }
+
   const result = validateInputMaps(fn);
   if (!result.ok) {
     return {

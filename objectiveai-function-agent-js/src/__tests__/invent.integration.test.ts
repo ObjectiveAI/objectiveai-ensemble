@@ -64,6 +64,7 @@ vi.mock("child_process", async (importOriginal) => {
   return {
     ...mod,
     execSync: vi.fn((cmd: string, _opts?: any) => {
+      if (cmd === "git init") return "";
       if (cmd === "git add -A") return "";
       if (cmd === "git diff --cached --quiet")
         throw new Error("staged changes");
@@ -259,7 +260,7 @@ describe("invent() integration", () => {
       "A scalar function that scores text quality",
     );
 
-    // ---- networkTests directory was created ----
-    expect(existsSync(join("networkTests", "default"))).toBe(true);
+    // ---- network_tests directory was created ----
+    expect(existsSync(join("network_tests", "default"))).toBe(true);
   });
 });

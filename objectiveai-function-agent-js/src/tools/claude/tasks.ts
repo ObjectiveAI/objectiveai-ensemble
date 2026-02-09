@@ -59,22 +59,22 @@ export const CheckTasks = tool(
   async () => resultFromResult(checkTasks()),
 );
 
-export const ReadMessagesSchema = tool(
-  "ReadMessagesSchema",
+export const ReadMessagesExpressionSchema = tool(
+  "ReadMessagesExpressionSchema",
   "Read the schema for the `messages` field of a vector.completion task",
   {},
   async () => textResult(formatZodSchema(readMessagesSchema())),
 );
 
-export const ReadToolsSchema = tool(
-  "ReadToolsSchema",
+export const ReadToolsExpressionSchema = tool(
+  "ReadToolsExpressionSchema",
   "Read the schema for the `tools` field of a vector.completion task",
   {},
   async () => textResult(formatZodSchema(readToolsSchema())),
 );
 
-export const ReadResponsesSchema = tool(
-  "ReadResponsesSchema",
+export const ReadResponsesExpressionSchema = tool(
+  "ReadResponsesExpressionSchema",
   "Read the schema for the `responses` field of a vector.completion task",
   {},
   async () => textResult(formatZodSchema(readResponsesSchema())),

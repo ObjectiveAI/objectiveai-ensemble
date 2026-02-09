@@ -2,7 +2,7 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, appendFileSync, unlinkSync, rmSync } from 'fs';
 import { execSync, spawn } from 'child_process';
 import { join, dirname } from 'path';
-import { Functions, ObjectiveAI } from 'objectiveai';
+import { Functions, Chat, JsonValueSchema, JsonValueExpressionSchema, ObjectiveAI } from 'objectiveai';
 import { tool, createSdkMcpServer, query } from '@anthropic-ai/claude-agent-sdk';
 import z19, { z } from 'zod';
 
@@ -429,6 +429,9 @@ function checkInputMaps(fn) {
       return { ok: false, value: void 0, error: `Unable to check input_maps: ${read.error}` };
     }
     fn = read.value;
+  }
+  if (fn.input_maps === void 0) {
+    return { ok: true, value: void 0, error: void 0 };
   }
   const result = validateInputMaps(fn);
   if (!result.ok) {
@@ -1024,169 +1027,163 @@ function validateDescription(fn) {
 }
 
 // src/tools/schema.ts
-function formatZodSchema(schema) {
-  return formatNode(schema, 0);
+function formatZodSchema(schema, opts) {
+  const root = convert(
+    schema,
+    opts?.resolveLazy ? 1 : 0,
+    /* skipDirectRef */
+    true
+  );
+  return JSON.stringify(root, null, 2);
 }
-function formatNode(schema, indent) {
-  const pad = "  ".repeat(indent);
+function registerLazyRef(schema, toolName) {
+  const title = safeMeta(schema)?.title;
+  if (title) {
+    lazyRefs[title] = toolName;
+  }
+}
+var lazyRefs = {};
+function registerPropertyRefs(parentSchema, refs) {
+  const existing = propertyRefsBySchema.get(parentSchema);
+  propertyRefsBySchema.set(
+    parentSchema,
+    existing ? { ...existing, ...refs } : refs
+  );
+}
+var propertyRefsBySchema = /* @__PURE__ */ new WeakMap();
+function registerSchemaRef(schema, toolName) {
+  schemaRefs.set(schema, toolName);
+}
+var schemaRefs = /* @__PURE__ */ new WeakMap();
+function convert(schema, lazyDepth = 0, skipDirectRef = false) {
+  if (!skipDirectRef) {
+    const directRef = schemaRefs.get(schema);
+    if (directRef) return { $ref: directRef };
+  }
   const def = schema._def ?? schema.def;
   const type = def?.type ?? "unknown";
   switch (type) {
-    case "object": {
-      const desc = schema.description;
-      const shape = def.shape;
-      const keys = Object.keys(shape);
-      if (keys.length === 0) {
-        const descStr = desc ? ` - ${desc}` : "";
-        return `object${descStr}`;
-      }
-      const lines = [];
-      if (desc) lines.push(`${pad}${desc}`);
-      for (const key of keys) {
-        const propSchema = shape[key];
-        const propDesc = propSchema.description;
-        const unwrapped = unwrap(propSchema);
-        const innerDesc = unwrapped.inner.description;
-        const displayDesc = propDesc ?? innerDesc;
-        const opt = unwrapped.optional ? "?" : "";
-        const nul = unwrapped.nullable ? " | null" : "";
-        const typeStr = formatNode(unwrapped.inner, indent + 1);
-        const descStr = displayDesc ? ` - ${displayDesc}` : "";
-        lines.push(`${pad}  ${key}${opt}: ${typeStr}${nul}${descStr}`);
-      }
-      return `object
-${lines.join("\n")}`;
-    }
-    case "array": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const elementStr = formatNode(def.element, indent);
-      return `${elementStr}[]${descStr}`;
-    }
-    case "string": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `string${descStr}`;
-    }
-    case "number": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const bag = schema._zod?.bag;
-      if (bag?.format === "int32" || bag?.format === "uint32" || bag?.format === "int64" || bag?.format === "uint64") {
-        return `integer${descStr}`;
-      }
-      return `number${descStr}`;
-    }
-    case "int": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `integer${descStr}`;
-    }
-    case "boolean": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `boolean${descStr}`;
-    }
-    case "enum": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const entries = def.entries;
-      const values = Object.values(entries).map((v) => JSON.stringify(v));
-      return `${values.join(" | ")}${descStr}`;
-    }
-    case "literal": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const values = def.values.map((v) => JSON.stringify(v));
-      return `${values.join(" | ")}${descStr}`;
-    }
-    case "union": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const options = def.options;
-      if (options.every(isInline)) {
-        return options.map((o) => formatNode(o, indent)).join(" | ") + descStr;
-      }
-      const lines = [];
-      if (desc) lines.push(`${pad}${desc}`);
-      for (const option of options) {
-        const unwrapped = unwrap(option);
-        const nul = unwrapped.nullable ? " | null" : "";
-        lines.push(`${pad}  | ${formatNode(unwrapped.inner, indent + 1)}${nul}`);
-      }
-      return `union
-${lines.join("\n")}`;
-    }
-    case "intersection": {
-      const left = formatNode(def.left, indent);
-      const right = formatNode(def.right, indent);
-      return `${left} & ${right}`;
-    }
-    case "record": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const valueStr = formatNode(def.valueType, indent);
-      return `Record<string, ${valueStr}>${descStr}`;
-    }
-    case "tuple": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const items = def.items.map((item) => formatNode(item, indent));
-      return `[${items.join(", ")}]${descStr}`;
-    }
-    case "lazy": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      const meta = schema.meta?.();
-      const title = meta?.title;
-      if (title) return `${title}${descStr}`;
-      return `(recursive)${descStr}`;
-    }
+    // --- wrappers ---
     case "optional":
-      return formatNode(def.innerType, indent);
-    case "nullable": {
-      return `${formatNode(def.innerType, indent)} | null`;
-    }
     case "default":
     case "prefault":
-      return formatNode(def.innerType, indent);
-    case "pipe": {
-      return formatNode(def.out, indent);
-    }
     case "readonly": {
-      return formatNode(def.innerType, indent);
+      const wrapperRef = lazyToolRef(schema);
+      if (wrapperRef) return wrapperRef;
+      return convert(def.innerType, lazyDepth);
     }
-    case "null": {
-      return "null";
+    case "nullable":
+      return withDesc({ anyOf: [convert(def.innerType, lazyDepth), { type: "null" }] }, schema);
+    case "pipe":
+      return convert(def.out, lazyDepth);
+    // --- primitives ---
+    case "string":
+      return withDesc({ type: "string" }, schema);
+    case "number": {
+      const bag = schema._zod?.bag;
+      if (bag?.format === "int32" || bag?.format === "uint32" || bag?.format === "int64" || bag?.format === "uint64") {
+        return withDesc({ type: "integer" }, schema);
+      }
+      return withDesc({ type: "number" }, schema);
     }
-    case "undefined": {
-      return "undefined";
+    case "int":
+      return withDesc({ type: "integer" }, schema);
+    case "boolean":
+      return withDesc({ type: "boolean" }, schema);
+    case "null":
+      return { type: "null" };
+    case "undefined":
+      return {};
+    case "any":
+    case "unknown":
+      return withDesc({}, schema);
+    case "date":
+      return withDesc({ type: "string", format: "date-time" }, schema);
+    // --- enums & literals ---
+    case "enum":
+      return withDesc({ enum: Object.values(def.entries) }, schema);
+    case "literal": {
+      const values = def.values;
+      if (values.length === 1) return withDesc({ const: values[0] }, schema);
+      return withDesc({ enum: values }, schema);
     }
-    case "any": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `any${descStr}`;
+    // --- composites ---
+    case "object": {
+      const shape = def.shape;
+      const propRefs = propertyRefsBySchema.get(schema);
+      const properties = {};
+      const required = [];
+      for (const [key, prop] of Object.entries(shape)) {
+        const u = unwrap(prop);
+        if (propRefs?.[key]) {
+          properties[key] = { $ref: propRefs[key] };
+        } else {
+          let converted = convert(u.inner);
+          if (u.nullable) converted = { anyOf: [converted, { type: "null" }] };
+          properties[key] = converted;
+        }
+        if (!u.optional) required.push(key);
+      }
+      const result = { type: "object", properties };
+      if (required.length > 0) result.required = required;
+      return withDesc(result, schema);
     }
-    case "unknown": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `unknown${descStr}`;
+    case "array":
+      return withDesc({ type: "array", items: convert(def.element) }, schema);
+    case "tuple": {
+      const items = def.items.map((i) => convert(i));
+      return withDesc({ type: "array", prefixItems: items }, schema);
     }
-    case "date": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `Date${descStr}`;
+    case "record":
+      return withDesc({ type: "object", additionalProperties: convert(def.valueType) }, schema);
+    // --- set operations ---
+    case "union": {
+      const options = def.options.map((o) => convert(o));
+      return withDesc({ anyOf: options }, schema);
     }
-    case "custom": {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `custom${descStr}`;
+    case "intersection":
+      return withDesc({ allOf: [convert(def.left), convert(def.right)] }, schema);
+    // --- recursive ---
+    // Never call def.getter() — some z.lazy getters create new instances per
+    // call which blows the stack even with cycle detection. Emit a $ref to
+    // the corresponding MCP tool name instead.
+    // If lazyDepth > 0, resolve the getter once (for top-level lazy schemas
+    // that need to show their inner structure).
+    case "lazy": {
+      if (lazyDepth > 0) {
+        const inner = def.getter();
+        return withDesc(convert(inner), schema);
+      }
+      return lazyToolRef(schema) ?? withDesc({}, schema);
     }
-    default: {
-      const desc = schema.description;
-      const descStr = desc ? ` - ${desc}` : "";
-      return `${type}${descStr}`;
-    }
+    // --- fallback ---
+    default:
+      return withDesc({}, schema);
+  }
+}
+function lazyToolRef(schema) {
+  const meta = safeMeta(schema);
+  const title = meta?.title;
+  const toolName = title ? lazyRefs[title] : void 0;
+  return toolName ? { $ref: toolName } : void 0;
+}
+function withDesc(obj, schema) {
+  const d = safeDesc(schema);
+  if (d) obj.description = d;
+  return obj;
+}
+function safeDesc(schema) {
+  try {
+    return schema.description;
+  } catch {
+    return void 0;
+  }
+}
+function safeMeta(schema) {
+  try {
+    return schema.meta?.();
+  } catch {
+    return void 0;
   }
 }
 function unwrap(schema) {
@@ -1195,29 +1192,19 @@ function unwrap(schema) {
   let current = schema;
   while (true) {
     const def = current._def ?? current.def;
-    const type = def?.type ?? "";
-    if (type === "optional") {
+    const t = def?.type ?? "";
+    if (t === "optional") {
       optional = true;
       current = def.innerType;
-    } else if (type === "nullable") {
+    } else if (t === "nullable") {
       nullable = true;
       current = def.innerType;
-    } else if (type === "default" || type === "prefault") {
+    } else if (t === "default" || t === "prefault") {
       optional = true;
       current = def.innerType;
-    } else {
-      break;
-    }
+    } else break;
   }
   return { inner: current, optional, nullable };
-}
-function isInline(schema) {
-  const def = schema._def ?? schema.def;
-  def?.type ?? "";
-  const unwrapped = unwrap(schema);
-  const innerDef = unwrapped.inner._def ?? unwrapped.inner.def;
-  const innerType = innerDef?.type ?? "";
-  return ["string", "number", "int", "boolean", "literal", "null", "undefined", "any", "unknown", "date", "nan"].includes(innerType);
 }
 
 // src/tools/claude/function.ts
@@ -2357,7 +2344,7 @@ function compiledTasksEqual(a, b) {
     return b !== null && !Array.isArray(b) && b.type === "vector.function" && b.owner === a.owner && b.repository === a.repository && b.commit === a.commit && JSON.stringify(a.input) === JSON.stringify(b.input);
   } else if (a.type === "vector.completion") {
     return b !== null && !Array.isArray(b) && b.type === "vector.completion" && JSON.stringify(a.messages) === JSON.stringify(b.messages) && JSON.stringify(a.responses) === JSON.stringify(b.responses) && a.tools === void 0 ? b.tools === void 0 : b.tools !== void 0 && a.tools.length === b.tools.length && a.tools.every(
-      (tool23, index) => JSON.stringify(tool23) === JSON.stringify(
+      (tool28, index) => JSON.stringify(tool28) === JSON.stringify(
         b.tools[index]
       )
     );
@@ -2694,6 +2681,63 @@ Use the EditDescription tool to fix it.`
   }).trim();
   return { ok: true, value: commit, error: void 0 };
 }
+var registered = false;
+function registerSchemaRefs() {
+  if (registered) return;
+  registered = true;
+  registerLazyRef(JsonValueSchema, "ReadJsonValueSchema");
+  registerLazyRef(JsonValueExpressionSchema, "ReadJsonValueExpressionSchema");
+  registerLazyRef(Functions.Expression.InputValueSchema, "ReadInputValueSchema");
+  registerLazyRef(Functions.Expression.InputValueExpressionSchema, "ReadInputValueExpressionSchema");
+  registerLazyRef(readInputSchemaSchema(), "ReadInputSchemaSchema");
+  const scalarPropertyRefs = {
+    type: "ReadTypeSchema",
+    description: "ReadDescriptionSchema",
+    input_schema: "ReadInputSchemaSchema",
+    input_maps: "ReadInputMapsSchema",
+    tasks: "ReadTasksSchema"
+  };
+  const vectorPropertyRefs = {
+    ...scalarPropertyRefs,
+    output_length: "ReadOutputLengthSchema",
+    input_split: "ReadInputSplitSchema",
+    input_merge: "ReadInputMergeSchema"
+  };
+  registerPropertyRefs(Functions.RemoteScalarFunctionSchema, scalarPropertyRefs);
+  registerPropertyRefs(Functions.RemoteVectorFunctionSchema, vectorPropertyRefs);
+  registerPropertyRefs(Functions.VectorCompletionTaskExpressionSchema, {
+    messages: "ReadMessagesExpressionSchema",
+    tools: "ReadToolsExpressionSchema",
+    responses: "ReadResponsesExpressionSchema"
+  });
+  const functionTaskInputRef = { input: "ReadInputValueExpressionSchema" };
+  registerPropertyRefs(Functions.ScalarFunctionTaskExpressionSchema, functionTaskInputRef);
+  registerPropertyRefs(Functions.VectorFunctionTaskExpressionSchema, functionTaskInputRef);
+  const Request3 = Chat.Completions.Request;
+  registerSchemaRef(Request3.DeveloperMessageExpressionSchema, "ReadDeveloperMessageExpressionSchema");
+  registerSchemaRef(Request3.SystemMessageExpressionSchema, "ReadSystemMessageExpressionSchema");
+  registerSchemaRef(Request3.UserMessageExpressionSchema, "ReadUserMessageExpressionSchema");
+  registerSchemaRef(Request3.ToolMessageExpressionSchema, "ReadToolMessageExpressionSchema");
+  registerSchemaRef(Request3.AssistantMessageExpressionSchema, "ReadAssistantMessageExpressionSchema");
+  registerSchemaRef(Request3.SimpleContentExpressionSchema, "ReadSimpleContentExpressionSchema");
+  registerSchemaRef(Request3.RichContentExpressionSchema, "ReadRichContentExpressionSchema");
+  registerSchemaRef(Functions.ScalarFunctionTaskExpressionSchema, "ReadScalarFunctionTaskSchema");
+  registerSchemaRef(Functions.VectorFunctionTaskExpressionSchema, "ReadVectorFunctionTaskSchema");
+  registerSchemaRef(Functions.VectorCompletionTaskExpressionSchema, "ReadVectorCompletionTaskSchema");
+  registerSchemaRef(Request3.DeveloperMessageSchema, "ReadDeveloperMessageSchema");
+  registerSchemaRef(Request3.SystemMessageSchema, "ReadSystemMessageSchema");
+  registerSchemaRef(Request3.UserMessageSchema, "ReadUserMessageSchema");
+  registerSchemaRef(Request3.ToolMessageSchema, "ReadToolMessageSchema");
+  registerSchemaRef(Request3.AssistantMessageSchema, "ReadAssistantMessageSchema");
+  registerSchemaRef(Request3.SimpleContentSchema, "ReadSimpleContentSchema");
+  registerSchemaRef(Request3.RichContentSchema, "ReadRichContentSchema");
+  registerSchemaRef(Functions.ScalarFunctionTaskSchema, "ReadCompiledScalarFunctionTaskSchema");
+  registerSchemaRef(Functions.VectorFunctionTaskSchema, "ReadCompiledVectorFunctionTaskSchema");
+  registerSchemaRef(Functions.VectorCompletionTaskSchema, "ReadCompiledVectorCompletionTaskSchema");
+  const compiledFunctionTaskInputRef = { input: "ReadInputValueSchema" };
+  registerPropertyRefs(Functions.ScalarFunctionTaskSchema, compiledFunctionTaskInputRef);
+  registerPropertyRefs(Functions.VectorFunctionTaskSchema, compiledFunctionTaskInputRef);
+}
 function readInputParamSchema() {
   const fn = readFunction();
   if (!fn.ok) {
@@ -3012,20 +3056,20 @@ var CheckTasks = tool(
   {},
   async () => resultFromResult(checkTasks())
 );
-var ReadMessagesSchema = tool(
-  "ReadMessagesSchema",
+var ReadMessagesExpressionSchema = tool(
+  "ReadMessagesExpressionSchema",
   "Read the schema for the `messages` field of a vector.completion task",
   {},
   async () => textResult(formatZodSchema(readMessagesSchema()))
 );
-var ReadToolsSchema = tool(
-  "ReadToolsSchema",
+var ReadToolsExpressionSchema = tool(
+  "ReadToolsExpressionSchema",
   "Read the schema for the `tools` field of a vector.completion task",
   {},
   async () => textResult(formatZodSchema(readToolsSchema()))
 );
-var ReadResponsesSchema = tool(
-  "ReadResponsesSchema",
+var ReadResponsesExpressionSchema = tool(
+  "ReadResponsesExpressionSchema",
   "Read the schema for the `responses` field of a vector.completion task",
   {},
   async () => textResult(formatZodSchema(readResponsesSchema()))
@@ -3117,6 +3161,152 @@ var ReadSwissSystemNetworkTest = tool(
   "Read a swiss_system strategy network test result by index",
   { index: z19.number().int().nonnegative() },
   async ({ index }) => resultFromResult(readSwissSystemNetworkTest(index))
+);
+var ReadJsonValueSchema = tool(
+  "ReadJsonValueSchema",
+  "Read the schema for the JsonValue type (recursive)",
+  {},
+  async () => textResult(formatZodSchema(JsonValueSchema, { resolveLazy: true }))
+);
+var ReadJsonValueExpressionSchema = tool(
+  "ReadJsonValueExpressionSchema",
+  "Read the schema for the JsonValueExpression type (recursive, supports expressions)",
+  {},
+  async () => textResult(formatZodSchema(JsonValueExpressionSchema, { resolveLazy: true }))
+);
+var ReadInputValueSchema = tool(
+  "ReadInputValueSchema",
+  "Read the schema for the InputValue type (recursive, supports media)",
+  {},
+  async () => textResult(formatZodSchema(Functions.Expression.InputValueSchema, { resolveLazy: true }))
+);
+var ReadInputValueExpressionSchema = tool(
+  "ReadInputValueExpressionSchema",
+  "Read the schema for the InputValueExpression type (recursive, supports media and expressions)",
+  {},
+  async () => textResult(formatZodSchema(Functions.Expression.InputValueExpressionSchema, { resolveLazy: true }))
+);
+var Request = Chat.Completions.Request;
+var ReadDeveloperMessageSchema = tool(
+  "ReadDeveloperMessageSchema",
+  "Read the schema for a compiled developer message (role: developer)",
+  {},
+  async () => textResult(formatZodSchema(Request.DeveloperMessageSchema))
+);
+var ReadSystemMessageSchema = tool(
+  "ReadSystemMessageSchema",
+  "Read the schema for a compiled system message (role: system)",
+  {},
+  async () => textResult(formatZodSchema(Request.SystemMessageSchema))
+);
+var ReadUserMessageSchema = tool(
+  "ReadUserMessageSchema",
+  "Read the schema for a compiled user message (role: user)",
+  {},
+  async () => textResult(formatZodSchema(Request.UserMessageSchema))
+);
+var ReadToolMessageSchema = tool(
+  "ReadToolMessageSchema",
+  "Read the schema for a compiled tool message (role: tool)",
+  {},
+  async () => textResult(formatZodSchema(Request.ToolMessageSchema))
+);
+var ReadAssistantMessageSchema = tool(
+  "ReadAssistantMessageSchema",
+  "Read the schema for a compiled assistant message (role: assistant)",
+  {},
+  async () => textResult(formatZodSchema(Request.AssistantMessageSchema))
+);
+var ReadDeveloperMessageExpressionSchema = tool(
+  "ReadDeveloperMessageExpressionSchema",
+  "Read the schema for a developer message expression (role: developer, supports $starlark/$jmespath)",
+  {},
+  async () => textResult(formatZodSchema(Request.DeveloperMessageExpressionSchema))
+);
+var ReadSystemMessageExpressionSchema = tool(
+  "ReadSystemMessageExpressionSchema",
+  "Read the schema for a system message expression (role: system, supports $starlark/$jmespath)",
+  {},
+  async () => textResult(formatZodSchema(Request.SystemMessageExpressionSchema))
+);
+var ReadUserMessageExpressionSchema = tool(
+  "ReadUserMessageExpressionSchema",
+  "Read the schema for a user message expression (role: user, supports $starlark/$jmespath)",
+  {},
+  async () => textResult(formatZodSchema(Request.UserMessageExpressionSchema))
+);
+var ReadToolMessageExpressionSchema = tool(
+  "ReadToolMessageExpressionSchema",
+  "Read the schema for a tool message expression (role: tool, supports $starlark/$jmespath)",
+  {},
+  async () => textResult(formatZodSchema(Request.ToolMessageExpressionSchema))
+);
+var ReadAssistantMessageExpressionSchema = tool(
+  "ReadAssistantMessageExpressionSchema",
+  "Read the schema for an assistant message expression (role: assistant, supports $starlark/$jmespath)",
+  {},
+  async () => textResult(formatZodSchema(Request.AssistantMessageExpressionSchema))
+);
+var Request2 = Chat.Completions.Request;
+var ReadSimpleContentSchema = tool(
+  "ReadSimpleContentSchema",
+  "Read the schema for compiled SimpleContent (text-only content used by developer/system messages)",
+  {},
+  async () => textResult(formatZodSchema(Request2.SimpleContentSchema))
+);
+var ReadRichContentSchema = tool(
+  "ReadRichContentSchema",
+  "Read the schema for compiled RichContent (text, images, audio, video, files \u2014 used by user/tool/assistant messages)",
+  {},
+  async () => textResult(formatZodSchema(Request2.RichContentSchema))
+);
+var ReadSimpleContentExpressionSchema = tool(
+  "ReadSimpleContentExpressionSchema",
+  "Read the schema for SimpleContent expression (text-only content, supports $starlark/$jmespath)",
+  {},
+  async () => textResult(formatZodSchema(Request2.SimpleContentExpressionSchema))
+);
+var ReadRichContentExpressionSchema = tool(
+  "ReadRichContentExpressionSchema",
+  "Read the schema for RichContent expression (text, images, audio, video, files \u2014 supports $starlark/$jmespath)",
+  {},
+  async () => textResult(formatZodSchema(Request2.RichContentExpressionSchema))
+);
+var ReadScalarFunctionTaskSchema = tool(
+  "ReadScalarFunctionTaskSchema",
+  "Read the schema for a scalar.function task",
+  {},
+  async () => textResult(formatZodSchema(Functions.ScalarFunctionTaskExpressionSchema))
+);
+var ReadVectorFunctionTaskSchema = tool(
+  "ReadVectorFunctionTaskSchema",
+  "Read the schema for a vector.function task",
+  {},
+  async () => textResult(formatZodSchema(Functions.VectorFunctionTaskExpressionSchema))
+);
+var ReadVectorCompletionTaskSchema = tool(
+  "ReadVectorCompletionTaskSchema",
+  "Read the schema for a vector.completion task",
+  {},
+  async () => textResult(formatZodSchema(Functions.VectorCompletionTaskExpressionSchema))
+);
+var ReadCompiledScalarFunctionTaskSchema = tool(
+  "ReadCompiledScalarFunctionTaskSchema",
+  "Read the schema for a compiled scalar.function task (used in compiledTasks within ExampleInputs)",
+  {},
+  async () => textResult(formatZodSchema(Functions.ScalarFunctionTaskSchema))
+);
+var ReadCompiledVectorFunctionTaskSchema = tool(
+  "ReadCompiledVectorFunctionTaskSchema",
+  "Read the schema for a compiled vector.function task (used in compiledTasks within ExampleInputs)",
+  {},
+  async () => textResult(formatZodSchema(Functions.VectorFunctionTaskSchema))
+);
+var ReadCompiledVectorCompletionTaskSchema = tool(
+  "ReadCompiledVectorCompletionTaskSchema",
+  "Read the schema for a compiled vector.completion task (used in compiledTasks within ExampleInputs)",
+  {},
+  async () => textResult(formatZodSchema(Functions.VectorCompletionTaskSchema))
 );
 var ReadReadme = tool(
   "ReadReadme",
@@ -3450,6 +3640,7 @@ var ReadAgentFunction = tool(
 
 // src/claude/invent/inventMcp.ts
 function getCommonTools(planIndex, apiBase, apiKey) {
+  registerSchemaRefs();
   return [
     // Core Context
     ReadSpec,
@@ -3500,13 +3691,44 @@ function getCommonTools(planIndex, apiBase, apiKey) {
     EditTask,
     DelTask,
     CheckTasks,
-    ReadMessagesSchema,
-    ReadToolsSchema,
-    ReadResponsesSchema,
+    ReadMessagesExpressionSchema,
+    ReadToolsExpressionSchema,
+    ReadResponsesExpressionSchema,
     // Expression params
     ReadInputParamSchema,
     ReadMapParamSchema,
     ReadOutputParamSchema,
+    // Recursive type schemas (referenced by $ref in other schemas)
+    ReadJsonValueSchema,
+    ReadJsonValueExpressionSchema,
+    ReadInputValueSchema,
+    ReadInputValueExpressionSchema,
+    // Message role schemas (expression variants, referenced by $ref in ReadMessagesExpressionSchema)
+    ReadDeveloperMessageExpressionSchema,
+    ReadSystemMessageExpressionSchema,
+    ReadUserMessageExpressionSchema,
+    ReadToolMessageExpressionSchema,
+    ReadAssistantMessageExpressionSchema,
+    // Message role schemas (compiled variants, referenced by $ref in ReadCompiledVectorCompletionTaskSchema)
+    ReadDeveloperMessageSchema,
+    ReadSystemMessageSchema,
+    ReadUserMessageSchema,
+    ReadToolMessageSchema,
+    ReadAssistantMessageSchema,
+    // Content schemas (expression variants, referenced by $ref in expression message schemas)
+    ReadSimpleContentExpressionSchema,
+    ReadRichContentExpressionSchema,
+    // Content schemas (compiled variants, referenced by $ref in compiled message schemas)
+    ReadSimpleContentSchema,
+    ReadRichContentSchema,
+    // Task type schemas (referenced by $ref in ReadTasksSchema)
+    ReadScalarFunctionTaskSchema,
+    ReadVectorFunctionTaskSchema,
+    ReadVectorCompletionTaskSchema,
+    // Compiled task type schemas (referenced by $ref in ReadExampleInputsSchema)
+    ReadCompiledScalarFunctionTaskSchema,
+    ReadCompiledVectorFunctionTaskSchema,
+    ReadCompiledVectorCompletionTaskSchema,
     // Example inputs
     ReadExampleInputs,
     ReadExampleInputsSchema,

@@ -275,28 +275,6 @@ declare const ChatCompletionSchema$1: z.ZodObject<{
 }, z.core.$strip>;
 type ChatCompletion$1 = z.infer<typeof ChatCompletionSchema$1>;
 
-declare const JMESPathExpressionSchema: z.ZodObject<{
-    $jmespath: z.ZodString;
-}, z.core.$strict>;
-type JMESPathExpression = z.infer<typeof JMESPathExpressionSchema>;
-declare const StarlarkExpressionSchema: z.ZodObject<{
-    $starlark: z.ZodString;
-}, z.core.$strict>;
-type StarlarkExpression = z.infer<typeof StarlarkExpressionSchema>;
-declare const ExpressionSchema: z.ZodUnion<readonly [z.ZodObject<{
-    $jmespath: z.ZodString;
-}, z.core.$strict>, z.ZodObject<{
-    $starlark: z.ZodString;
-}, z.core.$strict>]>;
-type Expression = z.infer<typeof ExpressionSchema>;
-
-type JsonValue = null | boolean | number | string | JsonValue[] | {
-    [key: string]: JsonValue;
-};
-type JsonValueExpression = null | boolean | number | string | (Expression | JsonValueExpression)[] | {
-    [key: string]: Expression | JsonValueExpression;
-} | Expression;
-
 declare const SeedSchema: z.ZodBigInt;
 declare const BackoffMaxElapsedTimeSchema: z.ZodUInt32;
 declare const FirstChunkTimeoutSchema: z.ZodUInt32;
@@ -7242,6 +7220,30 @@ declare const ResponseFormatSchema: z.ZodUnion<readonly [z.ZodObject<{
     type: z.ZodLiteral<"python">;
 }, z.core.$strip>]>;
 type ResponseFormat = z.infer<typeof ResponseFormatSchema>;
+
+declare const JMESPathExpressionSchema: z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>;
+type JMESPathExpression = z.infer<typeof JMESPathExpressionSchema>;
+declare const StarlarkExpressionSchema: z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>;
+type StarlarkExpression = z.infer<typeof StarlarkExpressionSchema>;
+declare const ExpressionSchema: z.ZodUnion<readonly [z.ZodObject<{
+    $jmespath: z.ZodString;
+}, z.core.$strict>, z.ZodObject<{
+    $starlark: z.ZodString;
+}, z.core.$strict>]>;
+type Expression = z.infer<typeof ExpressionSchema>;
+
+type JsonValue = null | boolean | number | string | JsonValue[] | {
+    [key: string]: JsonValue;
+};
+declare const JsonValueSchema: z.ZodType<JsonValue>;
+type JsonValueExpression = null | boolean | number | string | (Expression | JsonValueExpression)[] | {
+    [key: string]: Expression | JsonValueExpression;
+} | Expression;
+declare const JsonValueExpressionSchema: z.ZodType<JsonValueExpression>;
 
 declare const FunctionToolNameSchema: z.ZodString;
 type FunctionToolName = z.infer<typeof FunctionToolNameSchema>;
@@ -77746,4 +77748,4 @@ declare class ObjectiveAIFetchError extends Error {
  */
 declare function isObjectiveAIError(obj: unknown): obj is ObjectiveAIError;
 
-export { index$s as Auth, index$m as Chat, index$l as Ensemble, index$k as EnsembleLlm, index$5 as Functions, ObjectiveAI, type ObjectiveAIError, ObjectiveAIErrorSchema, ObjectiveAIFetchError, type ObjectiveAIOptions, ObjectiveAIOptionsSchema, type RequestOptions, RequestOptionsSchema, Stream, index as Vector, isObjectiveAIError };
+export { index$s as Auth, index$m as Chat, index$l as Ensemble, index$k as EnsembleLlm, index$5 as Functions, type JsonValue, type JsonValueExpression, JsonValueExpressionSchema, JsonValueSchema, ObjectiveAI, type ObjectiveAIError, ObjectiveAIErrorSchema, ObjectiveAIFetchError, type ObjectiveAIOptions, ObjectiveAIOptionsSchema, type RequestOptions, RequestOptionsSchema, Stream, index as Vector, isObjectiveAIError };
