@@ -299,7 +299,7 @@ Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example function
 
 This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create **at least 2 sub-functions** by spawning child agents.
 
-**Before spawning**, define the parent function's input schema using EditInputSchema. The sub-function specs you write must describe input schemas that are derivable from this parent input schema, so define it first.
+**Before spawning**, define the parent function's input schema using EditInputSchema, and input_maps using EditInputMaps if any tasks will use mapped iteration. The sub-function specs you write must describe input schemas that are derivable from this parent input schema, so define these first.
 
 1. Analyze ESSAY_TASKS.md and create a spec for each sub-function describing:
    - What it evaluates (purpose, not implementation details)
@@ -408,6 +408,15 @@ This function must use **vector completion tasks** (type: \`vector.completion\`)
 - Starlark example: \`{"$starlark": "input['items'][0]"}\`
 - JMESPath example: \`{"$jmespath": "input.name"}\` (simple field access only)
 - **Never use \`str()\` on multimodal content** (images, audio, video). Pass rich content directly via expressions so the model receives the actual media, not a stringified representation.
+
+### Message and Response Content Format
+- **Messages**: Always use array-of-parts format for message \`content\`, never plain strings.
+  - Correct: \`{"role": "user", "content": [{"type": "text", "text": "What is the quality of this?"}]}\`
+  - Wrong: \`{"role": "user", "content": "What is the quality of this?"}\`
+- **Responses**: Always use array-of-parts format for each response, never plain strings.
+  - Correct: \`[[{"type": "text", "text": "good"}], [{"type": "text", "text": "bad"}]]\`
+  - Wrong: \`["good", "bad"]\`
+- This ensures compiled tasks can carry multimodal content (images, audio, etc.) alongside text.
 
 ### Expression Context
 Expressions receive a single object with these fields:
