@@ -29,7 +29,6 @@ export async function essayTasksMcp(
     ReadSpec,
     ReadName,
     ReadEssay,
-    ReadEssayTasks,
     WriteEssayTasks,
     ListExampleFunctions,
     ReadExampleFunction,

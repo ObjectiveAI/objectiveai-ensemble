@@ -26,7 +26,6 @@ export async function planMcp(
     ReadName,
     ReadEssay,
     ReadEssayTasks,
-    makeReadPlan(nextPlanIndex),
     makeWritePlan(nextPlanIndex),
     ListExampleFunctions,
     ReadExampleFunction,

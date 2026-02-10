@@ -27,7 +27,6 @@ export async function essayMcp(
   const tools = [
     ReadSpec,
     ReadName,
-    ReadEssay,
     WriteEssay,
     ListExampleFunctions,
     ReadExampleFunction,
@@ -36,7 +35,7 @@ export async function essayMcp(
   const mcpServer = createSdkMcpServer({ name: "essay", tools });
 
   const prompt =
-    "Read SPEC.md, name.txt, and example functions to understand the context, then create ESSAY.md describing the ObjectiveAI Function you are building." +
+    "Create ESSAY.md describing the ObjectiveAI Function you are building." +
     " Explore the purpose, inputs, outputs, and use-cases of the function in detail." +
     " Explore, in great detail, the various qualities, values, and sentiments that must be evaluated by the function." +
     " This essay will guide the development of the function and underpins its philosophy.";

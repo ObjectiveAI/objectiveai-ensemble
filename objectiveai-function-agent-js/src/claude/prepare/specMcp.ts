@@ -29,7 +29,6 @@ export async function specMcp(
   }
 
   const tools = [
-    ReadSpec,
     WriteSpec,
     ListExampleFunctions,
     ReadExampleFunction,
