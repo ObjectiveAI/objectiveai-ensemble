@@ -22,9 +22,11 @@ export function readTasksSchema(): typeof TasksSchema {
   return TasksSchema;
 }
 
-const MessagesSchema = Functions.VectorCompletionTaskExpressionSchema.shape.messages;
+const MessagesSchema =
+  Functions.VectorCompletionTaskExpressionSchema.shape.messages;
 const ToolsSchema = Functions.VectorCompletionTaskExpressionSchema.shape.tools;
-const ResponsesSchema = Functions.VectorCompletionTaskExpressionSchema.shape.responses;
+const ResponsesSchema =
+  Functions.VectorCompletionTaskExpressionSchema.shape.responses;
 
 export function readMessagesSchema(): typeof MessagesSchema {
   return MessagesSchema;
@@ -42,7 +44,11 @@ export function checkTasks(fn?: DeserializedFunction): Result<undefined> {
   if (!fn) {
     const read = readFunction();
     if (!read.ok) {
-      return { ok: false, value: undefined, error: `Unable to check tasks: ${read.error}` };
+      return {
+        ok: false,
+        value: undefined,
+        error: `Unable to check tasks: ${read.error}`,
+      };
     }
     fn = read.value;
   }
@@ -96,7 +102,11 @@ export function appendTask(value: unknown): Result<string> {
   if (!editResult.ok) {
     return editResult as Result<string>;
   }
-  return { ok: true, value: `new length: ${newTasks.length}`, error: undefined };
+  return {
+    ok: true,
+    value: `new length: ${newTasks.length}`,
+    error: undefined,
+  };
 }
 
 export function editTask(index: number, value: unknown): Result<undefined> {
@@ -169,7 +179,11 @@ export function delTask(index: number): Result<string> {
   if (!editResult.ok) {
     return editResult as Result<string>;
   }
-  return { ok: true, value: `new length: ${newTasks.length}`, error: undefined };
+  return {
+    ok: true,
+    value: `new length: ${newTasks.length}`,
+    error: undefined,
+  };
 }
 
 export function validateTasks(fn: DeserializedFunction): Result<Tasks> {
@@ -177,5 +191,21 @@ export function validateTasks(fn: DeserializedFunction): Result<Tasks> {
   if (!parsed.success) {
     return { ok: false, value: undefined, error: parsed.error.message };
   }
+
+  const mapIndices = parsed.data
+    .map((t) => (t as Record<string, unknown>).map)
+    .filter((m): m is number => typeof m === "number");
+  const seen = new Set<number>();
+  for (const idx of mapIndices) {
+    if (seen.has(idx)) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Duplicate map index: ${idx}. Each task with a map index must reference a unique map index.`,
+      };
+    }
+    seen.add(idx);
+  }
+
   return { ok: true, value: parsed.data, error: undefined };
 }

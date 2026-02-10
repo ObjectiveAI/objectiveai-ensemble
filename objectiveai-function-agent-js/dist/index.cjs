@@ -657,7 +657,11 @@ function checkTasks(fn) {
   if (!fn) {
     const read = readFunction();
     if (!read.ok) {
-      return { ok: false, value: void 0, error: `Unable to check tasks: ${read.error}` };
+      return {
+        ok: false,
+        value: void 0,
+        error: `Unable to check tasks: ${read.error}`
+      };
     }
     fn = read.value;
   }
@@ -705,7 +709,11 @@ function appendTask(value) {
   if (!editResult.ok) {
     return editResult;
   }
-  return { ok: true, value: `new length: ${newTasks.length}`, error: void 0 };
+  return {
+    ok: true,
+    value: `new length: ${newTasks.length}`,
+    error: void 0
+  };
 }
 function editTask(index, value) {
   const fn = readFunction();
@@ -771,12 +779,28 @@ function delTask(index) {
   if (!editResult.ok) {
     return editResult;
   }
-  return { ok: true, value: `new length: ${newTasks.length}`, error: void 0 };
+  return {
+    ok: true,
+    value: `new length: ${newTasks.length}`,
+    error: void 0
+  };
 }
 function validateTasks(fn) {
   const parsed = TasksSchema.safeParse(fn.tasks);
   if (!parsed.success) {
     return { ok: false, value: void 0, error: parsed.error.message };
+  }
+  const mapIndices = parsed.data.map((t) => t.map).filter((m) => typeof m === "number");
+  const seen = /* @__PURE__ */ new Set();
+  for (const idx of mapIndices) {
+    if (seen.has(idx)) {
+      return {
+        ok: false,
+        value: void 0,
+        error: `Duplicate map index: ${idx}. Each task with a map index must reference a unique map index.`
+      };
+    }
+    seen.add(idx);
   }
   return { ok: true, value: parsed.data, error: void 0 };
 }
