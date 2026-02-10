@@ -13,7 +13,7 @@ import { readFunction, validateFunction } from "../function/function";
 import z from "zod";
 import { formatZodSchema } from "../schema";
 
-function buildExampleInput(value: Record<string, unknown>) {
+function buildExampleInput(value: Functions.Expression.InputValue) {
   const fnRaw = readFunction();
   if (!fnRaw.ok) return { ok: false as const, error: fnRaw.error! };
 
@@ -25,12 +25,16 @@ function buildExampleInput(value: Record<string, unknown>) {
   try {
     compiledTasks = Functions.compileFunctionTasks(func, value);
   } catch (e) {
-    return { ok: false as const, error: `Failed to compile tasks: ${(e as Error).message}` };
+    return {
+      ok: false as const,
+      error: `Failed to compile tasks: ${(e as Error).message}`,
+    };
   }
 
-  const outputLength = func.type === "vector.function"
-    ? Functions.compileFunctionOutputLength(func, value)
-    : null;
+  const outputLength =
+    func.type === "vector.function"
+      ? Functions.compileFunctionOutputLength(func, value)
+      : null;
 
   return { ok: true as const, value: { value, compiledTasks, outputLength } };
 }
@@ -58,7 +62,7 @@ export const ReadExampleInputsSchema = tool(
 export const AppendExampleInput = tool(
   "AppendExampleInput",
   "Append an example input to the Function's example inputs array. Provide just the input value — compiledTasks and outputLength are computed automatically.",
-  { value: z.record(z.string(), z.unknown()) },
+  { value: Functions.Expression.InputValueSchema },
   async ({ value }) => {
     const built = buildExampleInput(value);
     if (!built.ok) return errorResult(built.error);
@@ -71,7 +75,7 @@ export const EditExampleInput = tool(
   "Replace an example input at a specific index in the Function's example inputs array. Provide just the input value — compiledTasks and outputLength are computed automatically.",
   {
     index: z.number().int().nonnegative(),
-    value: z.record(z.string(), z.unknown()),
+    value: Functions.Expression.InputValueSchema,
   },
   async ({ index, value }) => {
     const built = buildExampleInput(value);

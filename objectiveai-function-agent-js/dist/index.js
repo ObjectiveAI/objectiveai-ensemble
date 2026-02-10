@@ -3374,7 +3374,10 @@ function buildExampleInput(value) {
   try {
     compiledTasks = Functions.compileFunctionTasks(func, value);
   } catch (e) {
-    return { ok: false, error: `Failed to compile tasks: ${e.message}` };
+    return {
+      ok: false,
+      error: `Failed to compile tasks: ${e.message}`
+    };
   }
   const outputLength = func.type === "vector.function" ? Functions.compileFunctionOutputLength(func, value) : null;
   return { ok: true, value: { value, compiledTasks, outputLength } };
@@ -3400,7 +3403,7 @@ var ReadExampleInputsSchema = tool(
 var AppendExampleInput = tool(
   "AppendExampleInput",
   "Append an example input to the Function's example inputs array. Provide just the input value \u2014 compiledTasks and outputLength are computed automatically.",
-  { value: z19.record(z19.string(), z19.unknown()) },
+  { value: Functions.Expression.InputValueSchema },
   async ({ value }) => {
     const built = buildExampleInput(value);
     if (!built.ok) return errorResult(built.error);
@@ -3412,7 +3415,7 @@ var EditExampleInput = tool(
   "Replace an example input at a specific index in the Function's example inputs array. Provide just the input value \u2014 compiledTasks and outputLength are computed automatically.",
   {
     index: z19.number().int().nonnegative(),
-    value: z19.record(z19.string(), z19.unknown())
+    value: Functions.Expression.InputValueSchema
   },
   async ({ index, value }) => {
     const built = buildExampleInput(value);
