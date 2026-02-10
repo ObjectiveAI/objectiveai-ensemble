@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from "react";
 import type { InputBuilderProps, ContentItem } from "./types";
-import type { InputValue } from "../SchemaForm/types";
+import type { InputValue, InputSchema } from "../SchemaForm/types";
 import { isObjectSchema } from "../SchemaForm/types";
 import ContentList from "./ContentList";
 import { inputValueToContentItems, contentItemsToInputValue } from "./utils";
@@ -41,6 +41,7 @@ export default function InputBuilder({
           return (
             <PropertyContentList
               key={key}
+              propertySchema={propSchema}
               displayName={displayName}
               description={propDescription}
               required={isRequired}
@@ -75,6 +76,7 @@ export default function InputBuilder({
  * A single property field backed by a ContentList.
  */
 function PropertyContentList({
+  propertySchema,
   displayName,
   description,
   required,
@@ -84,6 +86,7 @@ function PropertyContentList({
   textOnly,
   isMobile,
 }: {
+  propertySchema: InputSchema;
   displayName: string;
   description?: string | null;
   required: boolean;
@@ -96,9 +99,29 @@ function PropertyContentList({
   const items = useMemo(() => inputValueToContentItems(value), [value]);
   const handleChange = useCallback(
     (newItems: ContentItem[]) => {
-      onChange(contentItemsToInputValue(newItems));
+      const converted = contentItemsToInputValue(newItems);
+
+      // Unwrap single-item arrays for non-array properties
+      if (!propertySchema) {
+        onChange(converted); // No schema = don't unwrap (safer)
+        return;
+      }
+
+      const expectsArray = "type" in propertySchema && propertySchema.type === "array";
+
+      if (!expectsArray && Array.isArray(converted)) {
+        if (converted.length === 0) {
+          onChange(null);
+        } else if (converted.length === 1) {
+          onChange(converted[0]);
+        } else {
+          onChange(converted); // Multiple items (shouldn't happen)
+        }
+      } else {
+        onChange(converted);
+      }
     },
-    [onChange]
+    [onChange, propertySchema]
   );
 
   return (
