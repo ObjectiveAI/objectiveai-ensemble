@@ -454,6 +454,62 @@ function editInputMaps(value) {
   }
   return editFunction({ input_maps: result.value });
 }
+function appendInputMap(value) {
+  const fn = readFunction();
+  if (!fn.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Unable to append input_map: ${fn.error}`
+    };
+  }
+  const existing = Array.isArray(fn.value.input_maps) ? fn.value.input_maps : [];
+  const newInputMaps = [...existing, value];
+  const result = validateInputMaps({ input_maps: newInputMaps });
+  if (!result.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Invalid input_maps after append: ${result.error}`
+    };
+  }
+  const editResult = editFunction({ input_maps: result.value });
+  if (!editResult.ok) {
+    return editResult;
+  }
+  return { ok: true, value: `new length: ${newInputMaps.length}`, error: void 0 };
+}
+function delInputMap(index) {
+  const fn = readFunction();
+  if (!fn.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Unable to delete input_map: ${fn.error}`
+    };
+  }
+  if (!Array.isArray(fn.value.input_maps)) {
+    return {
+      ok: false,
+      value: void 0,
+      error: "Unable to delete input_map: input_maps is not an array"
+    };
+  }
+  if (index < 0 || index >= fn.value.input_maps.length) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Unable to delete input_map: index ${index} is out of bounds (length ${fn.value.input_maps.length})`
+    };
+  }
+  const newInputMaps = [...fn.value.input_maps];
+  newInputMaps.splice(index, 1);
+  const editResult = editFunction({ input_maps: newInputMaps.length > 0 ? newInputMaps : void 0 });
+  if (!editResult.ok) {
+    return editResult;
+  }
+  return { ok: true, value: `new length: ${newInputMaps.length}`, error: void 0 };
+}
 function validateInputMaps(fn) {
   const parsed = Functions.Expression.InputMapsExpressionSchema.safeParse(
     fn.input_maps
@@ -2963,11 +3019,23 @@ var ReadInputMapsSchema = tool(
   {},
   async () => textResult(formatZodSchema(readInputMapsSchema()))
 );
-var EditInputMaps = tool(
+tool(
   "EditInputMaps",
   "Edit the Function's `input_maps` field",
   { value: z19.unknown().nullable() },
   async ({ value }) => resultFromResult(editInputMaps(value))
+);
+var AppendInputMap = tool(
+  "AppendInputMap",
+  "Append an input map to the Function's `input_maps` array",
+  { value: z19.unknown() },
+  async ({ value }) => resultFromResult(appendInputMap(value))
+);
+var DelInputMap = tool(
+  "DelInputMap",
+  "Delete an input map at a specific index from the Function's `input_maps` array",
+  { index: z19.int().nonnegative() },
+  async ({ index }) => resultFromResult(delInputMap(index))
 );
 var CheckInputMaps = tool(
   "CheckInputMaps",
@@ -3747,7 +3815,8 @@ function getCommonTools(planIndex, apiBase, apiKey) {
     CheckInputSchema,
     ReadInputMaps,
     ReadInputMapsSchema,
-    EditInputMaps,
+    AppendInputMap,
+    DelInputMap,
     CheckInputMaps,
     ReadOutputLength,
     ReadOutputLengthSchema,
