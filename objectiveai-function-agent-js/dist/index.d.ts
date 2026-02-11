@@ -117,7 +117,7 @@ interface DeserializedFunction {
 declare function readFunctionSchema(): z.ZodType;
 declare function checkFunction(): Result<undefined>;
 declare function validateFunction(fn: DeserializedFunction): Result<Functions.RemoteFunction>;
-declare function readFunction(): Result<DeserializedFunction>;
+declare function readFunction(dir?: string): Result<DeserializedFunction>;
 declare function editFunction(fields: Partial<Record<keyof Functions.RemoteVectorFunction, unknown | null>>): Result<undefined>;
 
 declare const DescriptionSchema: z.ZodString;
@@ -150,7 +150,7 @@ declare function delInputMerge(): Result<undefined>;
 declare function editInputMerge(value: unknown): Result<undefined>;
 declare function validateInputMerge(fn: DeserializedFunction): Result<InputMerge>;
 
-declare function readInputSchema(): Result<unknown>;
+declare function readInputSchema(dir?: string): Result<unknown>;
 declare function readInputSchemaSchema(): typeof Functions.Expression.InputSchemaSchema;
 declare function checkInputSchema(fn?: DeserializedFunction): Result<undefined>;
 declare function editInputSchema(value: unknown): Result<undefined>;

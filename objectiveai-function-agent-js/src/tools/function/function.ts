@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import { join } from "path";
 import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
@@ -88,13 +89,14 @@ export function validateFunction(
   return { ok: true, value: parsed.data, error: undefined };
 }
 
-export function readFunction(): Result<DeserializedFunction> {
-  if (!existsSync("function.json")) {
+export function readFunction(dir?: string): Result<DeserializedFunction> {
+  const path = dir ? join(dir, "function.json") : "function.json";
+  if (!existsSync(path)) {
     return { ok: true, value: {}, error: undefined };
   }
   let fn: unknown;
   try {
-    fn = JSON.parse(readFileSync("function.json", "utf-8"));
+    fn = JSON.parse(readFileSync(path, "utf-8"));
   } catch (e) {
     return { ok: true, value: {}, error: undefined };
   }

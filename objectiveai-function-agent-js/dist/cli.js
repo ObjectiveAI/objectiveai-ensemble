@@ -427,8 +427,8 @@ function validateType(fn) {
   }
   return { ok: true, value: parsed.data, error: void 0 };
 }
-function readInputSchema() {
-  const fn = readFunction();
+function readInputSchema(dir) {
+  const fn = readFunction(dir);
   if (!fn.ok) {
     return { ok: false, value: void 0, error: fn.error };
   }
@@ -1071,13 +1071,14 @@ function validateFunction(fn) {
   }
   return { ok: true, value: parsed.data, error: void 0 };
 }
-function readFunction() {
-  if (!existsSync("function.json")) {
+function readFunction(dir) {
+  const path = dir ? join(dir, "function.json") : "function.json";
+  if (!existsSync(path)) {
     return { ok: true, value: {}, error: void 0 };
   }
   let fn;
   try {
-    fn = JSON.parse(readFileSync("function.json", "utf-8"));
+    fn = JSON.parse(readFileSync(path, "utf-8"));
   } catch (e) {
     return { ok: true, value: {}, error: void 0 };
   }
@@ -2237,6 +2238,13 @@ Got: ${JSON.stringify(compiledTasks[j])}` };
       }
     }
   }
+  for (let i = 0; i < inputs.length; i++) {
+    const { compiledTasks } = inputs[i];
+    for (let j = 0; j < compiledTasks.length; j++) {
+      const result = validateFunctionTaskInputs(compiledTasks[j], i, j);
+      if (!result.ok) return result;
+    }
+  }
   if (func.type === "vector.function") {
     for (let i = 0; i < inputs.length; i++) {
       const { value, outputLength } = inputs[i];
@@ -2346,6 +2354,44 @@ function validateCompiledTaskContent(ct, index) {
         error: `compiledTasks[${index}] responses[${j}] must be an array of content parts, not a string`
       };
     }
+  }
+  return { ok: true, value: void 0, error: void 0 };
+}
+function validateFunctionTaskInputs(ct, inputIndex, taskIndex) {
+  if (ct === null) return { ok: true, value: void 0, error: void 0 };
+  if (Array.isArray(ct)) {
+    for (let k = 0; k < ct.length; k++) {
+      const result = validateFunctionTaskInputs(ct[k], inputIndex, taskIndex);
+      if (!result.ok) return result;
+    }
+    return { ok: true, value: void 0, error: void 0 };
+  }
+  if (ct.type !== "scalar.function" && ct.type !== "vector.function") {
+    return { ok: true, value: void 0, error: void 0 };
+  }
+  const dir = join("agent_functions", ct.repository);
+  const subFn = readFunction(dir);
+  if (!subFn.ok) {
+    return { ok: false, value: void 0, error: `Example input [${inputIndex}] compiled task [${taskIndex}]: unable to read sub-function at ${dir}: ${subFn.error}` };
+  }
+  const subInputSchema = validateInputSchema(subFn.value);
+  if (!subInputSchema.ok) {
+    return { ok: false, value: void 0, error: `Example input [${inputIndex}] compiled task [${taskIndex}]: sub-function at ${dir} has invalid input_schema: ${subInputSchema.error}` };
+  }
+  const zodSchema = Functions.Expression.InputSchemaExt.toZodSchema(subInputSchema.value);
+  const parsed = zodSchema.safeParse(ct.input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Example input [${inputIndex}] compiled task [${taskIndex}]: input does not match sub-function input_schema at ${dir}.
+
+Input: ${JSON.stringify(ct.input)}
+
+Expected schema: ${JSON.stringify(subInputSchema.value)}
+
+Validation error: ${parsed.error.message}`
+    };
   }
   return { ok: true, value: void 0, error: void 0 };
 }

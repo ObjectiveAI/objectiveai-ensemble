@@ -2,8 +2,8 @@ import { Functions } from "objectiveai";
 import { Result } from "../result";
 import { DeserializedFunction, editFunction, readFunction } from "./function";
 
-export function readInputSchema(): Result<unknown> {
-  const fn = readFunction();
+export function readInputSchema(dir?: string): Result<unknown> {
+  const fn = readFunction(dir);
   if (!fn.ok) {
     return { ok: false, value: undefined, error: fn.error };
   }
