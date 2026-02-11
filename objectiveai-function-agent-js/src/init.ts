@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
 import { dirname, join } from "path";
 import { ObjectiveAI, Functions } from "objectiveai";
@@ -107,5 +107,44 @@ export async function init(options: AgentOptions): Promise<void> {
       depth: options.depth,
     };
     writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
+  }
+
+  // Clone agent functions from existing function.json tasks
+  cloneAgentFunctions(options.ghToken);
+}
+
+interface FunctionTask {
+  type: string;
+  owner: string;
+  repository: string;
+  commit: string;
+}
+
+function cloneAgentFunctions(ghToken: string): void {
+  if (!existsSync("function.json")) return;
+
+  let func: { tasks?: FunctionTask[] };
+  try {
+    func = JSON.parse(readFileSync("function.json", "utf-8"));
+  } catch {
+    return;
+  }
+
+  if (!Array.isArray(func.tasks)) return;
+
+  const env = { ...process.env, GH_TOKEN: ghToken };
+
+  for (const task of func.tasks) {
+    if (task.type !== "scalar.function" && task.type !== "vector.function") continue;
+
+    const dir = join("agent_functions", task.repository);
+    if (existsSync(dir)) continue;
+
+    mkdirSync("agent_functions", { recursive: true });
+    execSync(`gh repo clone ${task.owner}/${task.repository} ${dir}`, {
+      stdio: "pipe",
+      env,
+    });
+    // execSync(`git checkout ${task.commit}`, { cwd: dir, stdio: "pipe" });
   }
 }

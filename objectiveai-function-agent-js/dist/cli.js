@@ -216,6 +216,28 @@ async function init(options) {
     };
     writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
   }
+  cloneAgentFunctions(options.ghToken);
+}
+function cloneAgentFunctions(ghToken) {
+  if (!existsSync("function.json")) return;
+  let func;
+  try {
+    func = JSON.parse(readFileSync("function.json", "utf-8"));
+  } catch {
+    return;
+  }
+  if (!Array.isArray(func.tasks)) return;
+  const env = { ...process.env, GH_TOKEN: ghToken };
+  for (const task of func.tasks) {
+    if (task.type !== "scalar.function" && task.type !== "vector.function") continue;
+    const dir = join("agent_functions", task.repository);
+    if (existsSync(dir)) continue;
+    mkdirSync("agent_functions", { recursive: true });
+    execSync(`gh repo clone ${task.owner}/${task.repository} ${dir}`, {
+      stdio: "pipe",
+      env
+    });
+  }
 }
 function readEssay() {
   if (!existsSync("ESSAY.md")) {
