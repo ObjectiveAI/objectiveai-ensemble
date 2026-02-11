@@ -178,7 +178,6 @@ export default function UserMenu({ isMobile = false, forceClose = false, onOpen 
             <div
               style={{
                 padding: "12px",
-                borderBottom: "1px solid var(--border)",
                 marginBottom: "8px",
               }}
             >
@@ -246,14 +245,6 @@ export default function UserMenu({ isMobile = false, forceClose = false, onOpen 
               onClick={() => {
                 setIsOpen(false);
                 router.push('/account/keys');
-              }}
-            />
-
-            <div
-              style={{
-                height: "1px",
-                background: "var(--border)",
-                margin: "8px 0",
               }}
             />
 

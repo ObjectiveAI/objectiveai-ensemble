@@ -131,12 +131,17 @@ export default function Home() {
             justifyContent: 'center',
             flexWrap: 'wrap',
           }}>
-            <Link href="/vibe-native" className="pillBtn">
-              Vibe-Native
+            <Link href="/functions" className="pillBtn">
+              Functions
             </Link>
-            <Link href="/sdk-first" className="pillBtn">
-              SDK-First
-            </Link>
+            <a
+              href="https://github.com/ObjectiveAI/objectiveai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pillBtn"
+            >
+              GitHub
+            </a>
           </div>
         </div>
       </section>

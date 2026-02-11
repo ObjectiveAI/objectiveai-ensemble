@@ -119,7 +119,6 @@ body {
 
 /* Layout Classes */
 .page {
-  min-height: 100vh;
   background: var(--page-bg);
   color: var(--text);
   padding-top: var(--safe-gap);

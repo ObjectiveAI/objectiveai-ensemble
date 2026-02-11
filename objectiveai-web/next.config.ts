@@ -39,6 +39,35 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/vibe-native',
+        destination: '/information',
+        permanent: false,
+      },
+      {
+        source: '/faq',
+        destination: '/information',
+        permanent: false,
+      },
+      {
+        source: '/sdk-first',
+        destination: '/information',
+        permanent: false,
+      },
+      {
+        source: '/chat',
+        destination: '/information',
+        permanent: false,
+      },
+      {
+        source: '/vector',
+        destination: '/information',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

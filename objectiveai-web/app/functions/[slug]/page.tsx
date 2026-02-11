@@ -113,39 +113,38 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         setIsLoadingDetails(true);
         setLoadError(null);
 
-        // First get the function-profile pairs via SDK
         const publicClient = createPublicClient();
-        const pairs = await Functions.listPairs(publicClient);
 
-        // Find ALL pairs for this function (may have multiple profiles)
-        const matchingPairs = pairs.data.filter(
-          (p: { function: { owner: string; repository: string } }) =>
-            p.function.owner === owner && p.function.repository === repository
-        );
+        // Fetch function details directly (works for all functions, regardless of profiles)
+        const details = await Functions.retrieve(publicClient, owner, repository, null);
 
-        if (matchingPairs.length === 0) {
-          throw new Error(`Function ${owner}/${repository} not found`);
+        // Try to get available profiles (separately, so function loads even if no profiles exist)
+        let profiles: { owner: string; repository: string; commit: string }[] = [];
+        try {
+          const pairs = await Functions.listPairs(publicClient);
+          const matchingPairs = pairs.data.filter(
+            (p: { function: { owner: string; repository: string } }) =>
+              p.function.owner === owner && p.function.repository === repository
+          );
+          profiles = matchingPairs.map((p: { profile: { owner: string; repository: string; commit: string } }) => p.profile);
+        } catch {
+          // If profiles fetch fails, just continue without profiles
+          profiles = [];
         }
 
-        // Store all available profiles
-        const profiles = matchingPairs.map((p: { profile: { owner: string; repository: string; commit: string } }) => p.profile);
         setAvailableProfiles(profiles);
-        setSelectedProfileIndex(0);
-
-        // Use the first pair for function details
-        const pair = matchingPairs[0];
-
-        // Fetch full function details via SDK
-        const details = await Functions.retrieve(publicClient, pair.function.owner, pair.function.repository, pair.function.commit);
+        if (profiles.length > 0) {
+          setSelectedProfileIndex(0);
+        }
 
         const category = details.type === "vector.function" ? "Ranking" : "Scoring";
 
         setFunctionDetails({
-          owner: pair.function.owner,
-          repository: pair.function.repository,
-          commit: pair.function.commit,
-          name: deriveDisplayName(pair.function.repository),
-          description: details.description || `${deriveDisplayName(pair.function.repository)} function`,
+          owner,
+          repository,
+          commit: details.commit || "",
+          name: deriveDisplayName(repository),
+          description: details.description || `${deriveDisplayName(repository)} function`,
           category,
           type: details.type as "scalar.function" | "vector.function",
           inputSchema: (details as { input_schema?: Record<string, unknown> }).input_schema || null,

@@ -13,14 +13,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/ensembles/create",
     "/ensemble-llms",
     "/ensemble-llms/create",
-    "/chat",
-    "/vector",
     "/people",
     "/information",
-    "/faq",
     "/legal",
-    "/sdk-first",
-    "/vibe-native",
     "/account/keys",
     "/account/credits",
     "/legal/terms",
@@ -64,7 +59,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     if (route === "") return 1;
     if (route.startsWith("/docs/api/")) return 0.3;
     if (route.startsWith("/account/") || route.startsWith("/legal/")) return 0.3;
-    if (["/legal", "/faq", "/people", "/information"].includes(route)) return 0.5;
+    if (["/legal", "/people", "/information"].includes(route)) return 0.5;
     return 0.8;
   };
 

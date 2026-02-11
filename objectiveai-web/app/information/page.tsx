@@ -4,116 +4,31 @@ import { useState } from "react";
 import Link from 'next/link';
 import { useIsMobile } from "../../hooks/useIsMobile";
 
-interface FAQItem {
-  question: string;
-  answer: string;
-}
-
-const faqSections: { title: string; items: FAQItem[] }[] = [
-  {
-    title: "General",
-    items: [
-      {
-        question: "What is ObjectiveAI?",
-        answer: "ObjectiveAI is a REST API platform for scoring, ranking, and simulating preferences using ensembles of LLMs. Instead of asking one model for an answer, it uses multiple LLMs with explicit weights to produce structured numeric outputs."
-      },
-      {
-        question: "How is ObjectiveAI different from using a single LLM?",
-        answer: "Rather than relying on one model's opinion, ObjectiveAI combines votes from multiple LLMs with configurable weights. This produces more reliable, reproducible scores and reduces single-model bias."
-      },
-      {
-        question: "What can I build with ObjectiveAI?",
-        answer: "Common use cases include content ranking, preference simulation, A/B testing alternatives, quality scoring, recommendation systems, and any application requiring structured numeric outputs from AI evaluation."
-      }
-    ]
-  },
-  {
-    title: "Core Concepts",
-    items: [
-      {
-        question: "What is an Ensemble LLM?",
-        answer: "An Ensemble LLM is a fully-specified configuration of a single upstream LLM, including model identity (e.g., openai/gpt-4o), prompt structure, decoding parameters, and output mode. Each configuration has a content-addressed ID computed deterministically from its definition."
-      },
-      {
-        question: "What is an Ensemble?",
-        answer: "An Ensemble is a collection of Ensemble LLMs used together for voting. Ensembles are immutable—any change produces a new ID. Importantly, Ensembles do NOT contain weights; weights are execution-time parameters."
-      },
-      {
-        question: "How do Weights work?",
-        answer: "Weights are execution-time parameters controlling each LLM's influence in an Ensemble. They are external to Ensemble definitions, meaning the same Ensemble can behave differently with different weights. Weights can be learned via training (Profiles)."
-      },
-      {
-        question: "What is a Vector Completion?",
-        answer: "Vector Completions are the core primitive. They take a prompt and possible responses, run Chat Completions across all LLMs in an Ensemble, combine votes using weights, and return a vector of scores that sums to 1."
-      },
-      {
-        question: "What are Functions?",
-        answer: "Functions are composable scoring pipelines. They execute a list of tasks (Vector Completions or other Functions) and produce either a scalar (single score in [0,1]) or a vector (array of scores that sum to ~1)."
-      },
-      {
-        question: "What are Profiles?",
-        answer: "Profiles are learned weights for Functions. ObjectiveAI doesn't fine-tune LLMs—it learns optimal weights over fixed models by training on datasets with expected outputs."
-      }
-    ]
-  },
-  {
-    title: "Technical",
-    items: [
-      {
-        question: "How does probabilistic voting work?",
-        answer: "LLMs are inherently probabilistic. ObjectiveAI bypasses the sampler using logprobs to capture the model's full preference distribution. Instead of getting one discrete answer, it extracts probabilities for each option simultaneously."
-      },
-      {
-        question: "What are content-addressed IDs?",
-        answer: "IDs are computed deterministically from definitions using XXHash3-128 and encoded in base62. Identical definitions always produce identical IDs, ensuring reproducibility."
-      },
-      {
-        question: "How are Functions hosted?",
-        answer: "Functions are hosted on GitHub as function.json at the repository root. Reference them by owner/repo, optionally with a commit SHA for immutability."
-      },
-      {
-        question: "What SDKs are available?",
-        answer: "ObjectiveAI offers a TypeScript SDK (npm: objectiveai) and a Rust SDK (objectiveai-rs). WASM bindings are available for browser and Node.js environments. Python, Go, and other SDKs are planned."
-      }
-    ]
-  },
-  {
-    title: "Billing & Usage",
-    items: [
-      {
-        question: "How is usage billed?",
-        answer: "Usage is billed based on API calls. The 'cost' field shows what ObjectiveAI charged, while 'total_cost' includes upstream provider costs. With BYOK (Bring Your Own Key), you pay upstream providers directly."
-      },
-      {
-        question: "What is BYOK?",
-        answer: "BYOK (Bring Your Own Key) allows you to use your own API keys for upstream LLM providers like OpenRouter. This way, upstream costs are billed directly to your provider account."
-      },
-      {
-        question: "Is there a free tier?",
-        answer: "Contact us at admin@objective-ai.io for information about pricing tiers and free trial credits."
-      }
-    ]
-  }
-];
 
 export default function InformationPage() {
   const isMobile = useIsMobile();
+  const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const [sdksOpen, setSdksOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
-  const [faqOpen, setFaqOpen] = useState(false);
-  const [openItems, setOpenItems] = useState<Set<string>>(new Set());
 
-  const toggleItem = (key: string) => {
-    setOpenItems(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
+  const comingSoonFeatures = [
+    {
+      name: "Vibe-Native",
+      description: "Use ObjectiveAI functions without writing code via Claude",
+    },
+    {
+      name: "SDK-First",
+      description: "Get started with ObjectiveAI SDKs in minutes",
+    },
+    {
+      name: "Chat Completions",
+      description: "Direct chat completions interface for interactive LLM conversations",
+    },
+    {
+      name: "Vector Completions",
+      description: "Direct vector completions interface for scoring and ranking with ensemble voting",
+    },
+  ];
 
   const apiEndpoints = [
     {
@@ -194,29 +109,8 @@ export default function InformationPage() {
     {
       lang: "JavaScript / TypeScript",
       links: [
-        { label: "Getting Started", url: "/sdk-first", available: true },
         { label: "npm", url: "https://www.npmjs.com/package/objectiveai", available: true },
         { label: "GitHub", url: "https://github.com/ObjectiveAI/objectiveai", available: true }
-      ]
-    },
-    {
-      lang: "Python",
-      links: [
-        { label: "PyPI", url: "#", available: false },
-        { label: "GitHub", url: "#", available: false }
-      ]
-    },
-    {
-      lang: "C# / .NET",
-      links: [
-        { label: "NuGet", url: "#", available: false },
-        { label: "GitHub", url: "#", available: false }
-      ]
-    },
-    {
-      lang: "Go",
-      links: [
-        { label: "GitHub", url: "#", available: false }
       ]
     },
     {
@@ -224,13 +118,6 @@ export default function InformationPage() {
       links: [
         { label: "crates.io", url: "https://crates.io/crates/objectiveai", available: true },
         { label: "GitHub", url: "https://github.com/ObjectiveAI/objectiveai", available: true }
-      ]
-    },
-    {
-      lang: "Java",
-      links: [
-        { label: "Maven Central", url: "#", available: false },
-        { label: "GitHub", url: "#", available: false }
       ]
     }
   ];
@@ -260,20 +147,20 @@ export default function InformationPage() {
           </p>
         </div>
 
-        {/* FAQ Card - Collapsible */}
+        {/* Coming Soon Card - Collapsible */}
         <div
           className="card"
           role="button"
           tabIndex={0}
-          aria-expanded={faqOpen}
+          aria-expanded={comingSoonOpen}
           style={{
             marginBottom: '24px',
             padding: 0,
             overflow: 'hidden',
             cursor: 'pointer',
           }}
-          onClick={() => setFaqOpen(!faqOpen)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFaqOpen(!faqOpen); } }}
+          onClick={() => setComingSoonOpen(!comingSoonOpen)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setComingSoonOpen(!comingSoonOpen); } }}
         >
           <div
             style={{
@@ -291,7 +178,7 @@ export default function InformationPage() {
                 marginBottom: '8px',
                 color: 'var(--text)',
               }}>
-                FAQ
+                Coming Soon
               </h3>
               <p style={{
                 fontSize: isMobile ? '14px' : '15px',
@@ -299,7 +186,7 @@ export default function InformationPage() {
                 lineHeight: 1.6,
                 margin: 0,
               }}>
-                Frequently asked questions about ObjectiveAI
+                Features being reviewed and verified
               </p>
             </div>
             <svg
@@ -314,109 +201,50 @@ export default function InformationPage() {
               style={{
                 flexShrink: 0,
                 transition: 'transform 0.2s',
-                transform: faqOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transform: comingSoonOpen ? 'rotate(180deg)' : 'rotate(0deg)',
               }}
             >
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </div>
 
-          {faqOpen && (
-            <div style={{
-              padding: isMobile ? '0 16px 16px' : '0 24px 24px',
-              borderTop: '1px solid var(--border)',
-              marginTop: '8px',
-              paddingTop: isMobile ? '16px' : '20px',
-            }}>
+          {comingSoonOpen && (
+            <div
+              style={{
+                padding: isMobile ? '0 16px 16px' : '0 24px 24px',
+                marginTop: '8px',
+                paddingTop: isMobile ? '16px' : '20px',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '24px',
+                gap: '12px',
               }}>
-                {faqSections.map((section, sectionIdx) => (
-                  <div key={sectionIdx}>
+                {comingSoonFeatures.map((feature, idx) => (
+                  <div key={idx} style={{
+                    padding: '12px',
+                    background: 'var(--page-bg)',
+                    borderRadius: '8px',
+                  }}>
                     <h4 style={{
-                      fontSize: isMobile ? '14px' : '15px',
+                      fontSize: '14px',
                       fontWeight: 600,
-                      marginBottom: '12px',
+                      marginBottom: '4px',
+                      margin: 0,
                       color: 'var(--text)',
-                      paddingBottom: '8px',
-                      borderBottom: '1px solid var(--border)',
                     }}>
-                      {section.title}
+                      {feature.name}
                     </h4>
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
+                    <p style={{
+                      fontSize: '13px',
+                      color: 'var(--text-muted)',
+                      lineHeight: 1.5,
+                      margin: 0,
                     }}>
-                      {section.items.map((item, itemIdx) => {
-                        const key = `${sectionIdx}-${itemIdx}`;
-                        const isOpen = openItems.has(key);
-                        return (
-                          <div
-                            key={key}
-                            style={{
-                              background: 'var(--page-bg)',
-                              borderRadius: '8px',
-                              overflow: 'hidden',
-                            }}
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleItem(key);
-                              }}
-                              aria-expanded={isOpen}
-                              style={{
-                                width: '100%',
-                                padding: isMobile ? '12px 14px' : '14px 16px',
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: '12px',
-                                textAlign: 'left',
-                              }}
-                            >
-                              <span style={{
-                                fontSize: isMobile ? '13px' : '14px',
-                                fontWeight: 500,
-                                color: 'var(--text)',
-                                lineHeight: 1.4,
-                              }}>
-                                {item.question}
-                              </span>
-                              <span style={{
-                                fontSize: '16px',
-                                color: 'var(--text-muted)',
-                                flexShrink: 0,
-                                transition: 'transform 0.2s',
-                                transform: isOpen ? 'rotate(45deg)' : 'rotate(0deg)',
-                              }}>
-                                +
-                              </span>
-                            </button>
-                            {isOpen && (
-                              <div style={{
-                                padding: isMobile ? '0 14px 12px' : '0 16px 14px',
-                              }}>
-                                <p style={{
-                                  fontSize: '13px',
-                                  color: 'var(--text-muted)',
-                                  lineHeight: 1.7,
-                                  margin: 0,
-                                }}>
-                                  {item.answer}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                      {feature.description}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -489,7 +317,6 @@ export default function InformationPage() {
             <div
               style={{
                 padding: isMobile ? '0 16px 16px' : '0 24px 24px',
-                borderTop: '1px solid var(--border)',
                 marginTop: '8px',
                 paddingTop: isMobile ? '16px' : '20px',
               }}
@@ -507,7 +334,6 @@ export default function InformationPage() {
                       fontWeight: 600,
                       marginBottom: '12px',
                       paddingBottom: '12px',
-                      borderBottom: '1px solid var(--border)',
                       color: 'var(--text)',
                     }}>
                       {sdk.lang}
@@ -607,7 +433,6 @@ export default function InformationPage() {
             <div
               style={{
                 padding: isMobile ? '0 16px 16px' : '0 24px 24px',
-                borderTop: '1px solid var(--border)',
                 marginTop: '8px',
                 paddingTop: isMobile ? '16px' : '20px',
               }}

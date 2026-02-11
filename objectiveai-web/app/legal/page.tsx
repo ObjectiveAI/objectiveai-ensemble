@@ -124,7 +124,6 @@ export default function LegalPage() {
             {termsOpen && (
               <div style={{
                 padding: isMobile ? '0 16px 16px' : '0 24px 24px',
-                borderTop: '1px solid var(--border)',
                 marginTop: '8px',
                 paddingTop: isMobile ? '16px' : '20px',
               }}>
@@ -319,7 +318,6 @@ export default function LegalPage() {
             {privacyOpen && (
               <div style={{
                 padding: isMobile ? '0 16px 16px' : '0 24px 24px',
-                borderTop: '1px solid var(--border)',
                 marginTop: '8px',
                 paddingTop: isMobile ? '16px' : '20px',
               }}>
@@ -458,7 +456,6 @@ export default function LegalPage() {
           textAlign: 'center',
           marginTop: isMobile ? '48px' : '64px',
           padding: '24px',
-          borderTop: '1px solid var(--border)',
         }}>
           <p style={{
             fontSize: '14px',
