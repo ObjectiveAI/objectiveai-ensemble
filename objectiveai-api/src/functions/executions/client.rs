@@ -2247,7 +2247,10 @@ where
                         ensemble: objectiveai::vector::completions::request::Ensemble::Provided(
                             ftp.ensemble,
                         ),
-                        profile: ftp.profile,
+                        profile:
+                            objectiveai::vector::completions::request::Profile::Weights(
+                                ftp.profile,
+                            ),
                         seed: request_base.seed,
                         stream: request_base.stream,
                         tools: ftp.tools,

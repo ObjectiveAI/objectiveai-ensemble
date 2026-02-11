@@ -507,19 +507,30 @@ where
         )));
     }
 
-    // take profile weights
-    let profile_weights = match &profile {
-        objectiveai::functions::Profile::Remote(rp) => rp.profile.clone(),
-        objectiveai::functions::Profile::Inline(ip) => ip.profile.clone(),
+    // normalize profile into (weight, invert) pairs
+    let profile_pairs: Vec<(rust_decimal::Decimal, bool)> = match &profile {
+        objectiveai::functions::Profile::Remote(rp) => {
+            rp.profile.to_weights_and_invert()
+        }
+        objectiveai::functions::Profile::Inline(ip) => {
+            ip.profile.to_weights_and_invert()
+        }
     };
 
     // validate profile weights length matches function tasks length
-    if profile_weights.len() != function_tasks_len {
+    if profile_pairs.len() != function_tasks_len {
         return Err(super::executions::Error::InvalidProfile(format!(
             "profile weights length ({}) does not match function tasks length ({})",
-            profile_weights.len(), function_tasks_len
+            profile_pairs.len(),
+            function_tasks_len
         )));
     }
+
+    // split into weights and invert flags
+    let (profile_weights, profile_invert_flags): (
+        Vec<rust_decimal::Decimal>,
+        Vec<bool>,
+    ) = profile_pairs.into_iter().unzip();
 
     // take description
     let description = function.description().map(str::to_owned);
@@ -630,6 +641,8 @@ where
                     },
                 ),
             ) => {
+                let effective_invert_output =
+                    invert_output || profile_invert_flags[i];
                 flat_tasks_or_futs.push(TaskFut::FunctionTaskFut(Box::pin(
                     get_flat_task_profile(
                         ctx.clone(),
@@ -663,7 +676,7 @@ where
                         },
                         input,
                         Some(output),
-                        invert_output,
+                        effective_invert_output,
                         function_fetcher.clone(),
                         profile_fetcher.clone(),
                         ensemble_fetcher.clone(),
@@ -682,6 +695,8 @@ where
                         "expected VectorCompletion profile for vector completion task".to_string()
                     )),
                 };
+                let effective_invert_output =
+                    task.invert_output || profile_invert_flags[i];
                 flat_tasks_or_futs.push(TaskFut::VectorTaskFut(Box::pin(
                     get_vector_completion_flat_task_profile(
                         ctx.clone(),
@@ -689,6 +704,7 @@ where
                         task,
                         ensemble,
                         profile,
+                        effective_invert_output,
                         ensemble_fetcher.clone(),
                     ),
                 )));
@@ -717,6 +733,8 @@ where
                 };
 
                 if is_vector_completion {
+                    let map_invert_output =
+                        map_invert_output || profile_invert_flags[i];
                     let mut futs = Vec::with_capacity(tasks.len());
                     for (j, task) in tasks.into_iter().enumerate() {
                         let mut task_path = task_path.clone();
@@ -741,6 +759,7 @@ where
                             },
                             ensemble,
                             profile,
+                            map_invert_output,
                             ensemble_fetcher.clone(),
                         ));
                     }
@@ -860,7 +879,8 @@ async fn get_vector_completion_flat_task_profile<CTXEXT>(
     path: Vec<u64>,
     task: objectiveai::functions::VectorCompletionTask,
     ensemble: objectiveai::vector::completions::request::Ensemble,
-    profile: Vec<rust_decimal::Decimal>,
+    profile: objectiveai::vector::completions::request::Profile,
+    invert_output: bool,
     ensemble_fetcher: Arc<
         crate::ensemble::fetcher::CachingFetcher<
             CTXEXT,
@@ -895,13 +915,18 @@ where
         }
     };
 
-    // validate profile length
-    if profile.len() != ensemble.llms.len() {
+    // normalize profile into (weight, invert) pairs and validate length
+    let profile_pairs = profile.to_weights_and_invert();
+    if profile_pairs.len() != ensemble.llms.len() {
         return Err(super::executions::Error::InvalidProfile(format!(
             "vector completion profile weights length ({}) does not match ensemble LLMs length ({})",
-            profile.len(), ensemble.llms.len()
+            profile_pairs.len(),
+            ensemble.llms.len()
         )));
     }
+
+    let profile: Vec<rust_decimal::Decimal> =
+        profile_pairs.into_iter().map(|(w, _)| w).collect();
 
     // construct flat task profile
     Ok(super::VectorCompletionFlatTaskProfile {
@@ -929,7 +954,7 @@ where
         tools: task.tools,
         responses: task.responses,
         output: task.output,
-        invert_output: task.invert_output,
+        invert_output,
     })
 }
 

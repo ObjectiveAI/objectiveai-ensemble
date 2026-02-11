@@ -361,14 +361,18 @@ where
         // prune votes that don't match responses length
         static_votes.retain(|vote| vote.vote.len() == request_responses_len);
 
+        // normalize profile into (weight, invert) pairs
+        let profile_pairs: Vec<(Decimal, bool)> =
+            request.profile.to_weights_and_invert();
+
         // validate profile
-        if request.profile.len() != ensemble.llms.len() {
+        if profile_pairs.len() != ensemble.llms.len() {
             return Err(super::Error::InvalidProfile(
                 "profile length must match ensemble length".to_string(),
             ));
         }
         let mut positive_weight_count = 0;
-        for weight in &request.profile {
+        for (weight, _) in &profile_pairs {
             if *weight > Decimal::ZERO {
                 if *weight > Decimal::ONE || *weight < Decimal::ZERO {
                     return Err(super::Error::InvalidProfile(
@@ -417,14 +421,15 @@ where
             .enumerate()
             .flat_map(|(ensemble_index, llm)| {
                 let count = llm.count as usize;
+                let (weight, invert) = profile_pairs[ensemble_index];
                 std::iter::repeat_n(
-                    (ensemble_index, llm, request.profile[ensemble_index]),
+                    (ensemble_index, llm, weight, invert),
                     count,
                 )
             })
             .enumerate()
             .filter_map(
-                |(flat_ensemble_index, (ensemble_index, llm, weight))| {
+                |(flat_ensemble_index, (ensemble_index, llm, weight, invert))| {
                     if weight <= Decimal::ZERO {
                         // skip LLMs with zero weight
                         None
@@ -434,7 +439,13 @@ where
                         // skip LLMs that have votes already
                         None
                     } else {
-                        Some((flat_ensemble_index, ensemble_index, llm, weight))
+                        Some((
+                            flat_ensemble_index,
+                            ensemble_index,
+                            llm,
+                            weight,
+                            invert,
+                        ))
                     }
                 },
             )
@@ -444,7 +455,7 @@ where
         if request.from_cache.is_some_and(|bool| bool) {
             // collect model refs so they're owned here
             let mut model_refs = Vec::with_capacity(llms.len());
-            for (_, _, llm, _) in &llms {
+            for (_, _, llm, _, _) in &llms {
                 let model =
                     objectiveai::chat::completions::request::Model::Provided(
                         llm.inner.base.clone(),
@@ -462,7 +473,7 @@ where
             // execute the futures
             let mut futs = Vec::with_capacity(llms.len());
             for (
-                (flat_ensemble_index, ensemble_index, _, weight),
+                (flat_ensemble_index, ensemble_index, _, weight, _),
                 (model, models),
             ) in llms.iter().zip(model_refs.iter())
             {
@@ -524,7 +535,7 @@ where
         }
 
         // filter LLMs that now have votes from cache
-        llms.retain(|(flat_ensemble_index, _, _, _)| {
+        llms.retain(|(flat_ensemble_index, _, _, _, _)| {
             !static_votes
                 .iter()
                 .any(|v| v.flat_ensemble_index == *flat_ensemble_index as u64)
@@ -533,7 +544,9 @@ where
         // generate votes with RNG if requested
         if request.from_rng.is_some_and(|bool| bool) {
             let mut rng = rand::rng();
-            for (flat_ensemble_index, ensemble_index, llm, weight) in &llms {
+            for (flat_ensemble_index, ensemble_index, llm, weight, invert) in
+                &llms
+            {
                 // initialize the vote vector
                 let mut vote = vec![Decimal::ZERO; request_responses_len];
                 // generate a random value for each entry
@@ -548,8 +561,8 @@ where
                 for v in &mut vote {
                     *v /= sum;
                 }
-                // optionally invert the vote
-                if llm.inner.base.invert_vote.is_some_and(|b| b) {
+                // optionally invert the vote based on the profile
+                if *invert {
                     vote = invert_and_l1_normalize(vote);
                 }
                 // push the vote
@@ -573,7 +586,7 @@ where
         }
 
         // filter LLMs that now have votes from RNG
-        llms.retain(|(flat_ensemble_index, _, _, _)| {
+        llms.retain(|(flat_ensemble_index, _, _, _, _)| {
             !static_votes
                 .iter()
                 .any(|v| v.flat_ensemble_index == *flat_ensemble_index as u64)
@@ -600,7 +613,7 @@ where
         // stream votes from each LLM in the ensemble
         let mut vote_stream =
             futures::stream::select_all(llms.into_iter().map(
-                |(flat_ensemble_index, ensemble_index, llm, weight)| {
+                |(flat_ensemble_index, ensemble_index, llm, weight, invert)| {
                     futures::stream::once(self.clone().llm_create_streaming(
                         ctx.clone(),
                         response_id.clone(),
@@ -611,6 +624,7 @@ where
                         ensemble_index,
                         flat_ensemble_index,
                         weight,
+                        invert,
                         request.clone(),
                         prompt_id.clone(),
                         tools_id.clone(),
@@ -735,6 +749,7 @@ where
         ensemble_index: usize,
         flat_ensemble_index: usize,
         weight: Decimal,
+        invert_vote: bool,
         request: Arc<objectiveai::vector::completions::request::VectorCompletionCreateParams>,
         prompt_id: String,
         tools_id: Option<String>,
@@ -785,7 +800,7 @@ where
                         pfx_tree,
                         responses_key_pattern,
                         responses_key_pattern_stripped,
-                        invert_vote: llm.base.invert_vote.is_some_and(|b| b),
+                        invert_vote,
                     },
                 );
                 vector_pfx_indices.push(Arc::new(pfx_indices));

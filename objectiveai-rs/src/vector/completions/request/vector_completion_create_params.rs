@@ -31,9 +31,13 @@ pub struct VectorCompletionCreateParams {
     pub provider: Option<chat::completions::request::Provider>,
     /// The Ensemble of LLMs to use.
     pub ensemble: super::Ensemble,
-    /// The weights for each LLM in the ensemble. Must have the same length as
-    /// the total LLM count in the ensemble.
-    pub profile: Vec<rust_decimal::Decimal>,
+    /// The profile weights for each LLM in the ensemble.
+    ///
+    /// Must have the same length as the total LLM count in the ensemble.
+    /// Can be either:
+    /// - A vector of decimals (legacy representation), or
+    /// - A vector of objects with `weight` and optional `invert` fields.
+    pub profile: super::Profile,
     /// Random seed for deterministic results.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seed: Option<i64>,

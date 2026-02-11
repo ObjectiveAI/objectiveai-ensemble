@@ -34,7 +34,11 @@ pub struct RemoteProfile {
     /// Configuration for each task in the corresponding Function.
     pub tasks: Vec<TaskProfile>,
     /// Weights for each Task in the corresponding Function.
-    pub profile: Vec<rust_decimal::Decimal>,
+    ///
+    /// Must have the same length as `tasks`. Can be either:
+    /// - A vector of decimals (legacy representation), or
+    /// - A vector of objects with `weight` and optional `invert` fields.
+    pub profile: crate::vector::completions::request::Profile,
 }
 
 /// An inline profile definition without metadata.
@@ -43,7 +47,11 @@ pub struct InlineProfile {
     /// Configuration for each task in the corresponding Function.
     pub tasks: Vec<TaskProfile>,
     /// Weights for each Task in the corresponding Function.
-    pub profile: Vec<rust_decimal::Decimal>,
+    ///
+    /// Must have the same length as `tasks`. Can be either:
+    /// - A vector of decimals (legacy representation), or
+    /// - A vector of objects with `weight` and optional `invert` fields.
+    pub profile: crate::vector::completions::request::Profile,
 }
 
 /// Configuration for a single task within a Profile.
@@ -69,7 +77,12 @@ pub enum TaskProfile {
         /// The ensemble to use for voting.
         ensemble: vector::completions::request::Ensemble,
         /// Weights for each LLM in the ensemble.
-        profile: Vec<rust_decimal::Decimal>,
+        ///
+        /// Must have the same length as the Ensemble's `llms` field (ignoring
+        /// `count`). Can be either:
+        /// - A vector of decimals (legacy representation), or
+        /// - A vector of objects with `weight` and optional `invert` fields.
+        profile: vector::completions::request::Profile,
     },
 }
 
