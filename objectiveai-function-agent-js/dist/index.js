@@ -4481,7 +4481,7 @@ Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example function
 
 This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create **at least 2 sub-functions** by spawning child agents.
 
-**Before spawning**, define the parent function's input schema using EditInputSchema, and input_maps using EditInputMaps if any tasks will use mapped iteration. The sub-function specs you write must describe input schemas that are derivable from this parent input schema, so define these first.
+**Before spawning**, define the parent function's input schema using EditInputSchema, and input_maps using AppendInputMap if any tasks will use mapped iteration. The sub-function specs you write must describe input schemas that are derivable from this parent input schema, so define these first.
 
 1. Analyze ESSAY_TASKS.md and create a spec for each sub-function describing:
    - What it evaluates (purpose, not implementation details)
