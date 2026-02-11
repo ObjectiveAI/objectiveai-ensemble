@@ -9,8 +9,12 @@ import { checkDescription, readDescription } from "./function/description";
 import { readReadme } from "./markdown";
 import { readName } from "./name";
 
-function gh(args: string): string {
-  return execSync(`gh ${args}`, { encoding: "utf-8", stdio: "pipe" }).trim();
+function ghEnv(ghToken: string): NodeJS.ProcessEnv {
+  return { ...process.env, GH_TOKEN: ghToken };
+}
+
+function gh(args: string, ghToken: string): string {
+  return execSync(`gh ${args}`, { encoding: "utf-8", stdio: "pipe", env: ghEnv(ghToken) }).trim();
 }
 
 function getUpstream(): string | null {
@@ -24,7 +28,7 @@ function getUpstream(): string | null {
   }
 }
 
-function ensureGitHubRepo(name: string, description: string): void {
+function ensureGitHubRepo(name: string, description: string, ghToken: string): void {
   const upstream = getUpstream();
 
   if (!upstream) {
@@ -32,7 +36,7 @@ function ensureGitHubRepo(name: string, description: string): void {
     if (description) {
       cmd += ` --description "${description.replace(/"/g, '\\"')}"`;
     }
-    gh(cmd);
+    gh(cmd, ghToken);
   } else {
     // Parse owner/repo from remote
     const match = upstream.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
@@ -41,16 +45,18 @@ function ensureGitHubRepo(name: string, description: string): void {
       if (description) {
         gh(
           `repo edit ${repo} --description "${description.replace(/"/g, '\\"')}"`,
+          ghToken,
         );
       }
     }
-    execSync("git push", { stdio: "inherit" });
+    execSync("git push", { stdio: "inherit", env: ghEnv(ghToken) });
   }
 }
 
 export interface SubmitGitIdentity {
   userName?: string;
   userEmail?: string;
+  ghToken?: string;
 }
 
 export async function submit(message: string, apiBase?: string, apiKey?: string, git?: SubmitGitIdentity): Promise<Result<string>> {
@@ -131,7 +137,7 @@ export async function submit(message: string, apiBase?: string, apiKey?: string,
   }
   const name = nameResult.value.trim();
 
-  // 5. Commit
+  // 7. Commit
   execSync("git add -A", { stdio: "pipe" });
   try {
     execSync("git diff --cached --quiet", { stdio: "pipe" });
@@ -148,9 +154,10 @@ export async function submit(message: string, apiBase?: string, apiKey?: string,
     });
   }
 
-  // 6. Push and ensure GitHub repo with correct description
+  // 8. Push and ensure GitHub repo with correct description
+  const ghToken = git?.ghToken ?? process.env.GH_TOKEN ?? "";
   try {
-    ensureGitHubRepo(name, description);
+    ensureGitHubRepo(name, description, ghToken);
   } catch (e) {
     return {
       ok: false,
@@ -159,7 +166,7 @@ export async function submit(message: string, apiBase?: string, apiKey?: string,
     };
   }
 
-  // 7. Get the commit SHA
+  // 9. Get the commit SHA
   const commit = execSync("git rev-parse HEAD", {
     encoding: "utf-8",
     stdio: "pipe",

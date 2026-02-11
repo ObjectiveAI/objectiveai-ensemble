@@ -15,6 +15,6 @@ export function makeWriteName(state: ToolState) {
     "WriteName",
     "Write name.txt",
     { content: z.string() },
-    async ({ content }) => resultFromResult(writeName(content)),
+    async ({ content }) => resultFromResult(writeName(content, state.ghToken)),
   );
 }

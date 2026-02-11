@@ -15,6 +15,7 @@ interface AgentOptions {
     instructions?: string;
     gitUserName: string;
     gitUserEmail: string;
+    ghToken: string;
 }
 declare function makeAgentOptions(options?: Partial<AgentOptions>): AgentOptions;
 
@@ -30,6 +31,7 @@ interface ToolState {
     submitApiKey: string;
     gitUserName: string;
     gitUserEmail: string;
+    ghToken: string;
 }
 
 declare function specMcp(state: ToolState, log: LogFn, sessionId?: string, spec?: string): Promise<string | undefined>;

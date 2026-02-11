@@ -10,6 +10,7 @@ export interface ToolState {
   submitApiKey: string;
   gitUserName: string;
   gitUserEmail: string;
+  ghToken: string;
 }
 
 export function makeToolState(options: {
@@ -19,6 +20,7 @@ export function makeToolState(options: {
   writePlanIndex: number;
   gitUserName: string;
   gitUserEmail: string;
+  ghToken: string;
 }): ToolState {
   return {
     spawnFunctionAgentsHasSpawned: false,
@@ -32,5 +34,6 @@ export function makeToolState(options: {
     submitApiKey: options.apiKey,
     gitUserName: options.gitUserName,
     gitUserEmail: options.gitUserEmail,
+    ghToken: options.ghToken,
   };
 }

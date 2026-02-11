@@ -18,6 +18,7 @@ export async function invent(partialOptions: Partial<AgentOptions> = {}): Promis
     writePlanIndex: nextPlanIndex,
     gitUserName: options.gitUserName,
     gitUserEmail: options.gitUserEmail,
+    ghToken: options.ghToken,
   });
 
   options.log("=== Initializing workspace ===");

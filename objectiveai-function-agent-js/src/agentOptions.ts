@@ -14,6 +14,7 @@ export interface AgentOptions {
   instructions?: string;
   gitUserName: string;
   gitUserEmail: string;
+  ghToken: string;
 }
 
 function readEnv(name: string): string | undefined {
@@ -62,6 +63,13 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
     throw new Error("Git user email is required. Set GIT_AUTHOR_EMAIL, configure git config user.email, or pass gitUserEmail.");
   }
 
+  const ghToken =
+    options.ghToken ??
+    readEnv("GH_TOKEN");
+  if (!ghToken) {
+    throw new Error("GitHub token is required. Set GH_TOKEN or pass ghToken.");
+  }
+
   return {
     ...options,
     apiBase,
@@ -70,5 +78,6 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
     depth,
     gitUserName,
     gitUserEmail,
+    ghToken,
   };
 }

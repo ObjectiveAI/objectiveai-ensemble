@@ -34,6 +34,7 @@ program
   .option("--instructions <text>", "Extra instructions for the invent agent")
   .option("--git-user-name <name>", "Git author/committer name")
   .option("--git-user-email <email>", "Git author/committer email")
+  .option("--gh-token <token>", "GitHub token for gh CLI")
   .action(async (spec: string | undefined, opts: Record<string, string | number | undefined>) => {
     await Claude.invent({
       spec,
@@ -44,6 +45,7 @@ program
       instructions: opts.instructions as string | undefined,
       gitUserName: opts.gitUserName as string | undefined,
       gitUserEmail: opts.gitUserEmail as string | undefined,
+      ghToken: opts.ghToken as string | undefined,
     });
   });
 

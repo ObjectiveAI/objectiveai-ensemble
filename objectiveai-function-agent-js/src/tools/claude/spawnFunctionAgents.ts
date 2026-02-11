@@ -30,6 +30,7 @@ export function makeSpawnFunctionAgents(state: ToolState) {
             apiKey: state.submitApiKey,
             gitUserName: state.gitUserName,
             gitUserEmail: state.gitUserEmail,
+            ghToken: state.ghToken,
           }));
         }
 
@@ -52,6 +53,7 @@ export function makeSpawnFunctionAgents(state: ToolState) {
             apiKey: state.submitApiKey,
             gitUserName: state.gitUserName,
             gitUserEmail: state.gitUserEmail,
+            ghToken: state.ghToken,
           }));
     },
   );

@@ -143,6 +143,10 @@ function makeAgentOptions(options = {}) {
   if (!gitUserEmail) {
     throw new Error("Git user email is required. Set GIT_AUTHOR_EMAIL, configure git config user.email, or pass gitUserEmail.");
   }
+  const ghToken = options.ghToken ?? readEnv("GH_TOKEN");
+  if (!ghToken) {
+    throw new Error("GitHub token is required. Set GH_TOKEN or pass ghToken.");
+  }
   return {
     ...options,
     apiBase,
@@ -150,7 +154,8 @@ function makeAgentOptions(options = {}) {
     log,
     depth,
     gitUserName,
-    gitUserEmail
+    gitUserEmail,
+    ghToken
   };
 }
 function getFunctionPath(ref) {
@@ -1544,28 +1549,35 @@ function readName() {
   }
   return { ok: true, value: fs.readFileSync("name.txt", "utf-8"), error: void 0 };
 }
-function getGitHubOwner() {
+function ghEnv(ghToken) {
+  return { ...process.env, GH_TOKEN: ghToken };
+}
+function getGitHubOwner(ghToken) {
   try {
     return child_process.execSync("gh api user --jq .login", {
       encoding: "utf-8",
-      stdio: "pipe"
+      stdio: "pipe",
+      env: ghEnv(ghToken)
     }).trim();
   } catch {
     return null;
   }
 }
-function repoExists(owner, name) {
+function repoExists(owner, name, ghToken) {
   try {
-    child_process.execSync(`gh repo view ${owner}/${name}`, { stdio: "ignore" });
+    child_process.execSync(`gh repo view ${owner}/${name}`, {
+      stdio: "ignore",
+      env: ghEnv(ghToken)
+    });
     return true;
   } catch {
     return false;
   }
 }
-function writeName(content) {
+function writeName(content, ghToken) {
   const name = content.trim();
-  const owner = getGitHubOwner();
-  if (owner && repoExists(owner, name)) {
+  const owner = getGitHubOwner(ghToken);
+  if (owner && repoExists(owner, name, ghToken)) {
     return {
       ok: false,
       value: void 0,
@@ -1588,7 +1600,7 @@ function makeWriteName(state) {
     "WriteName",
     "Write name.txt",
     { content: z19__default.default.string() },
-    async ({ content }) => resultFromResult(writeName(content))
+    async ({ content }) => resultFromResult(writeName(content, state.ghToken))
   );
 }
 
@@ -1599,13 +1611,13 @@ function nameIsNonEmpty() {
 async function nameMcp(state, log, sessionId, name) {
   if (nameIsNonEmpty()) return sessionId;
   if (name) {
-    writeName(name);
+    writeName(name, state.ghToken);
     return sessionId;
   }
   const tools = [
     makeReadSpec(),
     makeReadName(),
-    makeWriteName(),
+    makeWriteName(state),
     makeListExampleFunctions(),
     makeReadExampleFunction(),
     makeReadFunctionSchema()
@@ -2924,8 +2936,11 @@ function readSwissSystemNetworkTest(index) {
 }
 
 // src/tools/submit.ts
-function gh(args) {
-  return child_process.execSync(`gh ${args}`, { encoding: "utf-8", stdio: "pipe" }).trim();
+function ghEnv2(ghToken) {
+  return { ...process.env, GH_TOKEN: ghToken };
+}
+function gh(args, ghToken) {
+  return child_process.execSync(`gh ${args}`, { encoding: "utf-8", stdio: "pipe", env: ghEnv2(ghToken) }).trim();
 }
 function getUpstream() {
   try {
@@ -2937,25 +2952,26 @@ function getUpstream() {
     return null;
   }
 }
-function ensureGitHubRepo(name, description) {
+function ensureGitHubRepo(name, description, ghToken) {
   const upstream = getUpstream();
   if (!upstream) {
     let cmd = `repo create ${name} --public --source=. --push`;
     if (description) {
       cmd += ` --description "${description.replace(/"/g, '\\"')}"`;
     }
-    gh(cmd);
+    gh(cmd, ghToken);
   } else {
     const match = upstream.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
     if (match) {
       const repo = `${match[1]}/${match[2]}`;
       if (description) {
         gh(
-          `repo edit ${repo} --description "${description.replace(/"/g, '\\"')}"`
+          `repo edit ${repo} --description "${description.replace(/"/g, '\\"')}"`,
+          ghToken
         );
       }
     }
-    child_process.execSync("git push", { stdio: "inherit" });
+    child_process.execSync("git push", { stdio: "inherit", env: ghEnv2(ghToken) });
   }
 }
 async function submit(message, apiBase, apiKey, git) {
@@ -3042,8 +3058,9 @@ Use the EditDescription tool to fix it.`
       env: commitEnv
     });
   }
+  const ghToken = git?.ghToken ?? process.env.GH_TOKEN ?? "";
   try {
-    ensureGitHubRepo(name, description);
+    ensureGitHubRepo(name, description, ghToken);
   } catch (e) {
     return {
       ok: false,
@@ -3897,23 +3914,31 @@ function makeSubmit(state) {
     { message: z19__default.default.string().describe("Commit message") },
     async ({ message }) => resultFromResult(await submit(message, state.submitApiBase, state.submitApiKey, {
       userName: state.gitUserName,
-      userEmail: state.gitUserEmail
+      userEmail: state.gitUserEmail,
+      ghToken: state.ghToken
     }))
   );
 }
-function getGitHubOwner2() {
+function ghEnv3(ghToken) {
+  return { ...process.env, GH_TOKEN: ghToken };
+}
+function getGitHubOwner2(ghToken) {
   try {
     return child_process.execSync("gh api user --jq .login", {
       encoding: "utf-8",
-      stdio: "pipe"
+      stdio: "pipe",
+      env: ghEnv3(ghToken)
     }).trim();
   } catch {
     return null;
   }
 }
-function repoExists2(owner, name) {
+function repoExists2(owner, name, ghToken) {
   try {
-    child_process.execSync(`gh repo view ${owner}/${name}`, { stdio: "ignore" });
+    child_process.execSync(`gh repo view ${owner}/${name}`, {
+      stdio: "ignore",
+      env: ghEnv3(ghToken)
+    });
     return true;
   } catch {
     return false;
@@ -3962,6 +3987,7 @@ function runAgentInSubdir(name, spec, childDepth, childProcesses, opts) {
     if (opts?.apiKey) args.push("--api-key", opts.apiKey);
     if (opts?.gitUserName) args.push("--git-user-name", opts.gitUserName);
     if (opts?.gitUserEmail) args.push("--git-user-email", opts.gitUserEmail);
+    if (opts?.ghToken) args.push("--gh-token", opts.ghToken);
     const child = child_process.spawn(
       "objectiveai-function-agent",
       args,
@@ -3969,7 +3995,11 @@ function runAgentInSubdir(name, spec, childDepth, childProcesses, opts) {
         cwd: subdir,
         stdio: ["inherit", "pipe", "pipe"],
         shell: true,
-        env: { ...process.env, OBJECTIVEAI_PARENT_PID: String(process.pid) }
+        env: {
+          ...process.env,
+          OBJECTIVEAI_PARENT_PID: String(process.pid),
+          ...opts?.ghToken && { GH_TOKEN: opts.ghToken }
+        }
       }
     );
     childProcesses.push(child);
@@ -4046,11 +4076,11 @@ async function spawnFunctionAgents(params, opts) {
     }
   }
   const nonOverwriteParams = params.filter((p) => !p.overwrite);
-  if (nonOverwriteParams.length > 0) {
-    const owner = getGitHubOwner2();
+  if (nonOverwriteParams.length > 0 && opts?.ghToken) {
+    const owner = getGitHubOwner2(opts.ghToken);
     if (owner) {
       for (const param of nonOverwriteParams) {
-        if (repoExists2(owner, param.name)) {
+        if (repoExists2(owner, param.name, opts.ghToken)) {
           return {
             ok: false,
             value: void 0,
@@ -4146,7 +4176,8 @@ function makeSpawnFunctionAgents(state) {
             apiBase: state.submitApiBase,
             apiKey: state.submitApiKey,
             gitUserName: state.gitUserName,
-            gitUserEmail: state.gitUserEmail
+            gitUserEmail: state.gitUserEmail,
+            ghToken: state.ghToken
           }));
         }
         state.spawnFunctionAgentsRespawnRejected = true;
@@ -4161,7 +4192,8 @@ function makeSpawnFunctionAgents(state) {
         apiBase: state.submitApiBase,
         apiKey: state.submitApiKey,
         gitUserName: state.gitUserName,
-        gitUserEmail: state.gitUserEmail
+        gitUserEmail: state.gitUserEmail,
+        ghToken: state.ghToken
       }));
     }
   );
@@ -4639,7 +4671,8 @@ function makeToolState(options) {
     submitApiBase: options.apiBase,
     submitApiKey: options.apiKey,
     gitUserName: options.gitUserName,
-    gitUserEmail: options.gitUserEmail
+    gitUserEmail: options.gitUserEmail,
+    ghToken: options.ghToken
   };
 }
 
@@ -4653,7 +4686,8 @@ async function invent(partialOptions = {}) {
     readPlanIndex: nextPlanIndex,
     writePlanIndex: nextPlanIndex,
     gitUserName: options.gitUserName,
-    gitUserEmail: options.gitUserEmail
+    gitUserEmail: options.gitUserEmail,
+    ghToken: options.ghToken
   });
   options.log("=== Initializing workspace ===");
   await init(options);

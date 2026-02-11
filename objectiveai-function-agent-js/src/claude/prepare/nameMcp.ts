@@ -28,7 +28,7 @@ export async function nameMcp(
   if (nameIsNonEmpty()) return sessionId;
 
   if (name) {
-    writeName(name);
+    writeName(name, state.ghToken);
     return sessionId;
   }
 

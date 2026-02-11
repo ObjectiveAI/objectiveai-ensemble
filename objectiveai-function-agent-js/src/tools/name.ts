@@ -9,30 +9,38 @@ export function readName(): Result<string> {
   return { ok: true, value: readFileSync("name.txt", "utf-8"), error: undefined };
 }
 
-function getGitHubOwner(): string | null {
+function ghEnv(ghToken: string): NodeJS.ProcessEnv {
+  return { ...process.env, GH_TOKEN: ghToken };
+}
+
+function getGitHubOwner(ghToken: string): string | null {
   try {
     return execSync("gh api user --jq .login", {
       encoding: "utf-8",
       stdio: "pipe",
+      env: ghEnv(ghToken),
     }).trim();
   } catch {
     return null;
   }
 }
 
-function repoExists(owner: string, name: string): boolean {
+function repoExists(owner: string, name: string, ghToken: string): boolean {
   try {
-    execSync(`gh repo view ${owner}/${name}`, { stdio: "ignore" });
+    execSync(`gh repo view ${owner}/${name}`, {
+      stdio: "ignore",
+      env: ghEnv(ghToken),
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-export function writeName(content: string): Result<undefined> {
+export function writeName(content: string, ghToken: string): Result<undefined> {
   const name = content.trim();
-  const owner = getGitHubOwner();
-  if (owner && repoExists(owner, name)) {
+  const owner = getGitHubOwner(ghToken);
+  if (owner && repoExists(owner, name, ghToken)) {
     return {
       ok: false,
       value: undefined,

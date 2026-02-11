@@ -12,6 +12,7 @@ export function makeSubmit(state: ToolState) {
     async ({ message }) => resultFromResult(await submit(message, state.submitApiBase, state.submitApiKey, {
       userName: state.gitUserName,
       userEmail: state.gitUserEmail,
+      ghToken: state.ghToken,
     })),
   );
 }

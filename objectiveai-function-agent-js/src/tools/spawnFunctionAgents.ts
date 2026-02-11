@@ -26,20 +26,28 @@ interface AgentError {
 
 type SpawnResult = AgentResult | AgentError;
 
-function getGitHubOwner(): string | null {
+function ghEnv(ghToken: string): NodeJS.ProcessEnv {
+  return { ...process.env, GH_TOKEN: ghToken };
+}
+
+function getGitHubOwner(ghToken: string): string | null {
   try {
     return execSync("gh api user --jq .login", {
       encoding: "utf-8",
       stdio: "pipe",
+      env: ghEnv(ghToken),
     }).trim();
   } catch {
     return null;
   }
 }
 
-function repoExists(owner: string, name: string): boolean {
+function repoExists(owner: string, name: string, ghToken: string): boolean {
   try {
-    execSync(`gh repo view ${owner}/${name}`, { stdio: "ignore" });
+    execSync(`gh repo view ${owner}/${name}`, {
+      stdio: "ignore",
+      env: ghEnv(ghToken),
+    });
     return true;
   } catch {
     return false;
@@ -88,6 +96,7 @@ interface RunAgentOptions {
   apiKey?: string;
   gitUserName?: string;
   gitUserEmail?: string;
+  ghToken?: string;
 }
 
 function runAgentInSubdir(
@@ -111,6 +120,7 @@ function runAgentInSubdir(
     if (opts?.apiKey) args.push("--api-key", opts.apiKey);
     if (opts?.gitUserName) args.push("--git-user-name", opts.gitUserName);
     if (opts?.gitUserEmail) args.push("--git-user-email", opts.gitUserEmail);
+    if (opts?.ghToken) args.push("--gh-token", opts.ghToken);
 
     const child = spawn(
       "objectiveai-function-agent",
@@ -119,7 +129,11 @@ function runAgentInSubdir(
         cwd: subdir,
         stdio: ["inherit", "pipe", "pipe"],
         shell: true,
-        env: { ...process.env, OBJECTIVEAI_PARENT_PID: String(process.pid) },
+        env: {
+          ...process.env,
+          OBJECTIVEAI_PARENT_PID: String(process.pid),
+          ...(opts?.ghToken && { GH_TOKEN: opts.ghToken }),
+        },
       },
     );
 
@@ -214,11 +228,11 @@ export async function spawnFunctionAgents(
 
   // Check that no repos already exist on GitHub (non-overwrite only)
   const nonOverwriteParams = params.filter((p) => !p.overwrite);
-  if (nonOverwriteParams.length > 0) {
-    const owner = getGitHubOwner();
+  if (nonOverwriteParams.length > 0 && opts?.ghToken) {
+    const owner = getGitHubOwner(opts.ghToken);
     if (owner) {
       for (const param of nonOverwriteParams) {
-        if (repoExists(owner, param.name)) {
+        if (repoExists(owner, param.name, opts.ghToken)) {
           return {
             ok: false,
             value: undefined,
