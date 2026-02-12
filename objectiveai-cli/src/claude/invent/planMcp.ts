@@ -186,7 +186,9 @@ export async function planMcp(
     : `\n\n### Task Structure` +
       `\nThis function must use **vector completion tasks** (type: \`vector.completion\`). Plan ${widthDesc} inline vector completion tasks.` +
       `\n- Use \`map\` if a task needs to iterate over input items` +
-      `\n- Each task's prompt and responses define what gets evaluated`;
+      `\n- Each task's prompt and responses define what gets evaluated` +
+      `\n- Responses should be phrased as potential assistant messages (e.g. if ranking dating profiles, ask "what is a good dating profile" and make each response a dating profile)` +
+      `\n- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\``;
 
   const contentFormat = useFunctionTasks
     ? ""

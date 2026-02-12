@@ -404,6 +404,8 @@ Read the current function definition, tasks, and example inputs to understand th
 ### Modifying Tasks
 - Edit, add, or remove vector completion tasks as needed
 - Use \`map\` if a task needs to iterate over input items
+- Responses should be phrased as potential assistant messages. For example, if ranking dating profiles, don't ask "which profile is best" — instead ask "what is a good dating profile" and make each response a dating profile
+- If a task is for ranking items from an input array, the array items go into \`responses\`, not \`messages\`
 
 ### Updating Example Inputs
 - Modify, add, or remove example inputs to match the amended function behavior

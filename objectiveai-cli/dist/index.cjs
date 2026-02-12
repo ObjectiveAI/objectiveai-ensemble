@@ -4512,7 +4512,9 @@ This function must use **function tasks** (type: \`scalar.function\` or \`vector
 ### Task Structure
 This function must use **vector completion tasks** (type: \`vector.completion\`). Plan ${widthDesc} inline vector completion tasks.
 - Use \`map\` if a task needs to iterate over input items
-- Each task's prompt and responses define what gets evaluated`;
+- Each task's prompt and responses define what gets evaluated
+- Responses should be phrased as potential assistant messages (e.g. if ranking dating profiles, ask "what is a good dating profile" and make each response a dating profile)
+- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\``;
   const contentFormat = useFunctionTasks ? "" : `
 
 ### Message and Response Content Format
@@ -5179,6 +5181,8 @@ ${readLine}
 This function must use **vector completion tasks** (type: \`vector.completion\`). Create ${w} inline vector completion tasks using AppendTask:
 - Use \`map\` if a task needs to iterate over input items
 - Each task's prompt and responses define what gets evaluated
+- Responses should be phrased as potential assistant messages. For example, if ranking dating profiles, don't ask "which profile is best" \u2014 instead ask "what is a good dating profile" and make each response a dating profile
+- If a task is for ranking items from an input array, the array items go into \`responses\`, not \`messages\`
 
 ### Function Definition
 - Use the Edit* tools to define each function field
@@ -5388,7 +5392,9 @@ This function uses **function tasks** (type: \`scalar.function\` or \`vector.fun
 ### Task Structure
 This function uses **vector completion tasks** (type: \`vector.completion\`). Plan what changes are needed to the existing tasks.
 - Modify existing tasks as needed
-- Add or remove tasks if the amendment requires it`;
+- Add or remove tasks if the amendment requires it
+- Responses should be phrased as potential assistant messages (e.g. if ranking dating profiles, ask "what is a good dating profile" and make each response a dating profile)
+- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\``;
   const prompt = `You are amending an existing ObjectiveAI Function. The following amendment describes what needs to change:
 
 ## Amendment
@@ -5859,6 +5865,8 @@ Read the current function definition, tasks, and example inputs to understand th
 ### Modifying Tasks
 - Edit, add, or remove vector completion tasks as needed
 - Use \`map\` if a task needs to iterate over input items
+- Responses should be phrased as potential assistant messages. For example, if ranking dating profiles, don't ask "which profile is best" \u2014 instead ask "what is a good dating profile" and make each response a dating profile
+- If a task is for ranking items from an input array, the array items go into \`responses\`, not \`messages\`
 
 ### Updating Example Inputs
 - Modify, add, or remove example inputs to match the amended function behavior

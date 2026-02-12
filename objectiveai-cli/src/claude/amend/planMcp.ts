@@ -183,7 +183,9 @@ export async function planMcp(
     : `\n\n### Task Structure` +
       `\nThis function uses **vector completion tasks** (type: \`vector.completion\`). Plan what changes are needed to the existing tasks.` +
       `\n- Modify existing tasks as needed` +
-      `\n- Add or remove tasks if the amendment requires it`;
+      `\n- Add or remove tasks if the amendment requires it` +
+      `\n- Responses should be phrased as potential assistant messages (e.g. if ranking dating profiles, ask "what is a good dating profile" and make each response a dating profile)` +
+      `\n- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\``;
 
   const prompt =
     `You are amending an existing ObjectiveAI Function. The following amendment describes what needs to change:` +
