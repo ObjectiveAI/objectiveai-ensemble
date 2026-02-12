@@ -101,6 +101,11 @@ export function editInputSplit(value: unknown): Result<undefined> {
   return editFunction({ input_split: result.value });
 }
 
+export function isDefaultInputSplit(): boolean {
+  const result = readInputSplit();
+  return result.ok && result.value === undefined;
+}
+
 export function validateInputSplit(
   fn: DeserializedFunction,
 ): Result<InputSplit> {

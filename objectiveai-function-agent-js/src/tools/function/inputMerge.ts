@@ -101,6 +101,11 @@ export function editInputMerge(value: unknown): Result<undefined> {
   return editFunction({ input_merge: result.value });
 }
 
+export function isDefaultInputMerge(): boolean {
+  const result = readInputMerge();
+  return result.ok && result.value === undefined;
+}
+
 export function validateInputMerge(
   fn: DeserializedFunction,
 ): Result<InputMerge> {

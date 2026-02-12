@@ -8,6 +8,11 @@ export function readReadme(): Result<string> {
   return { ok: true, value: readFileSync("README.md", "utf-8"), error: undefined };
 }
 
+export function isDefaultReadme(): boolean {
+  const result = readReadme();
+  return !result.ok || !result.value.trim();
+}
+
 export function writeReadme(content: string): Result<undefined> {
   writeFileSync("README.md", content);
   return { ok: true, value: undefined, error: undefined };

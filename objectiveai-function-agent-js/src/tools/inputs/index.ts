@@ -102,6 +102,12 @@ export function delExampleInputs(): Result<undefined> {
   return { ok: true, value: undefined, error: undefined };
 }
 
+export function isDefaultExampleInputs(): boolean {
+  const result = readExampleInputsFile();
+  const v = result.ok ? result.value : [];
+  return !Array.isArray(v) || v.length === 0;
+}
+
 export function readExampleInputs(): Result<unknown> {
   return readExampleInputsFile();
 }

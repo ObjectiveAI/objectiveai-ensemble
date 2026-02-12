@@ -42,6 +42,11 @@ export function editDescription(value: unknown): Result<undefined> {
   return editFunction({ description: result.value });
 }
 
+export function isDefaultDescription(): boolean {
+  const result = readDescription();
+  return result.ok && result.value === undefined;
+}
+
 export function validateDescription(
   fn: DeserializedFunction,
 ): Result<Description> {

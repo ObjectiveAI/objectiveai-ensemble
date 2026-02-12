@@ -1,5 +1,5 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { resultFromResult, textResult } from "./util";
+import { resultFromResult, errorResult, textResult } from "./util";
 import {
   checkOutputLength,
   delOutputLength,
@@ -9,14 +9,17 @@ import {
 } from "../function";
 import z from "zod";
 import { formatZodSchema } from "../schema";
-import { ToolState } from "./toolState";
+import { ToolState, mustRead } from "./toolState";
 
 export function makeReadOutputLength(state: ToolState) {
   return tool(
     "ReadOutputLength",
     "Read the Function's `output_length` field",
     {},
-    async () => resultFromResult(readOutputLength()),
+    async () => {
+      state.hasReadOutputLength = true;
+      return resultFromResult(readOutputLength());
+    },
   );
 }
 
@@ -34,7 +37,11 @@ export function makeEditOutputLength(state: ToolState) {
     "EditOutputLength",
     "Edit the Function's `output_length` field",
     { value: z.unknown().nullable() },
-    async ({ value }) => resultFromResult(editOutputLength(value)),
+    async ({ value }) => {
+      const err = mustRead(state.hasReadOutputLength, "output_length");
+      if (err) return errorResult(err);
+      return resultFromResult(editOutputLength(value));
+    },
   );
 }
 
@@ -43,7 +50,11 @@ export function makeDelOutputLength(state: ToolState) {
     "DelOutputLength",
     "Delete the Function's `output_length` field",
     {},
-    async () => resultFromResult(delOutputLength()),
+    async () => {
+      const err = mustRead(state.hasReadOutputLength, "output_length");
+      if (err) return errorResult(err);
+      return resultFromResult(delOutputLength());
+    },
   );
 }
 

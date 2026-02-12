@@ -1,6 +1,6 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { ToolState } from "./toolState";
-import { resultFromResult, textResult } from "./util";
+import { ToolState, mustRead } from "./toolState";
+import { resultFromResult, errorResult, textResult } from "./util";
 import {
   appendTask,
   checkTasks,
@@ -21,7 +21,10 @@ export function makeReadTasks(state: ToolState) {
     "ReadTasks",
     "Read the Function's `tasks` field",
     {},
-    async () => resultFromResult(readTasks()),
+    async () => {
+      state.hasReadTasks = true;
+      return resultFromResult(readTasks());
+    },
   );
 }
 
@@ -39,7 +42,11 @@ export function makeAppendTask(state: ToolState) {
     "AppendTask",
     "Append a task to the Function's `tasks` array",
     { value: z.record(z.string(), z.unknown()) },
-    async ({ value }) => resultFromResult(appendTask(value)),
+    async ({ value }) => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(appendTask(value));
+    },
   );
 }
 
@@ -51,7 +58,11 @@ export function makeEditTask(state: ToolState) {
       index: z.number().int().nonnegative(),
       value: z.record(z.string(), z.unknown()),
     },
-    async ({ index, value }) => resultFromResult(editTask(index, value)),
+    async ({ index, value }) => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(editTask(index, value));
+    },
   );
 }
 
@@ -60,7 +71,11 @@ export function makeDelTask(state: ToolState) {
     "DelTask",
     "Delete a task at a specific index from the Function's `tasks` array",
     { index: z.int().nonnegative() },
-    async ({ index }) => resultFromResult(delTask(index)),
+    async ({ index }) => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(delTask(index));
+    },
   );
 }
 
@@ -69,7 +84,11 @@ export function makeDelTasks(state: ToolState) {
     "DelTasks",
     "Delete all tasks from the Function's `tasks` array",
     {},
-    async () => resultFromResult(delTasks()),
+    async () => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(delTasks());
+    },
   );
 }
 

@@ -47,6 +47,11 @@ export function editInputSchema(value: unknown): Result<undefined> {
   return editFunction({ input_schema: result.value });
 }
 
+export function isDefaultInputSchema(): boolean {
+  const result = readInputSchema();
+  return result.ok && result.value === undefined;
+}
+
 export function validateInputSchema(
   fn: DeserializedFunction,
 ): Result<Functions.Expression.InputSchema> {

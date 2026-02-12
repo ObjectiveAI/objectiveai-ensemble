@@ -9,7 +9,17 @@ export function makeReadFunction(state: ToolState) {
     "ReadFunction",
     "Read the full Function",
     {},
-    async () => resultFromResult(readFunction()),
+    async () => {
+      state.hasReadType = true;
+      state.hasReadDescription = true;
+      state.hasReadInputSchema = true;
+      state.hasReadInputMaps = true;
+      state.hasReadTasks = true;
+      state.hasReadOutputLength = true;
+      state.hasReadInputSplit = true;
+      state.hasReadInputMerge = true;
+      return resultFromResult(readFunction());
+    },
   );
 }
 

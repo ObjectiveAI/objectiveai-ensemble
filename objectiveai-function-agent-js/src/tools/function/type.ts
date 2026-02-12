@@ -55,6 +55,11 @@ export function editType(value: unknown): Result<undefined> {
   return editFunction({ type: result.value });
 }
 
+export function isDefaultType(): boolean {
+  const result = readType();
+  return result.ok && result.value === undefined;
+}
+
 export function validateType(fn: DeserializedFunction): Result<FunctionType> {
   const parsed = FunctionTypeSchema.safeParse(fn.type);
   if (!parsed.success) {

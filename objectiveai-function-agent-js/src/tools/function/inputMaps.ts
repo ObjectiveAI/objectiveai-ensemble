@@ -117,6 +117,12 @@ export function delInputMap(index: number): Result<string> {
   return { ok: true, value: `new length: ${newInputMaps.length}`, error: undefined };
 }
 
+export function isDefaultInputMaps(): boolean {
+  const result = readInputMaps();
+  const v = result.ok ? result.value : undefined;
+  return v === undefined || (Array.isArray(v) && v.length === 0);
+}
+
 export function validateInputMaps(
   fn: DeserializedFunction,
 ): Result<Functions.Expression.InputMapsExpression> {

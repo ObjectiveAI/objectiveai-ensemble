@@ -102,6 +102,11 @@ export function editOutputLength(value: unknown): Result<undefined> {
   return editFunction({ output_length: result.value });
 }
 
+export function isDefaultOutputLength(): boolean {
+  const result = readOutputLength();
+  return result.ok && result.value === undefined;
+}
+
 export function validateOutputLength(
   fn: DeserializedFunction,
 ): Result<OutputLength> {

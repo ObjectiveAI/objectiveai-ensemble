@@ -41,6 +41,16 @@ interface ToolState {
     hasReadOrWrittenPlan: boolean;
     hasReadExampleFunctions: boolean;
     anyStepRan: boolean;
+    hasReadType: boolean;
+    hasReadDescription: boolean;
+    hasReadInputSchema: boolean;
+    hasReadInputMaps: boolean;
+    hasReadTasks: boolean;
+    hasReadOutputLength: boolean;
+    hasReadInputSplit: boolean;
+    hasReadInputMerge: boolean;
+    hasReadExampleInputs: boolean;
+    hasReadReadme: boolean;
 }
 
 declare function specMcp(state: ToolState, log: LogFn, sessionId?: string, spec?: string): Promise<string | undefined>;
@@ -128,6 +138,7 @@ declare function readDescription(): Result<unknown>;
 declare function readDescriptionSchema(): typeof DescriptionSchema;
 declare function checkDescription(fn?: DeserializedFunction): Result<undefined>;
 declare function editDescription(value: unknown): Result<undefined>;
+declare function isDefaultDescription(): boolean;
 declare function validateDescription(fn: DeserializedFunction): Result<Description>;
 
 declare function readInputMaps(): Result<unknown>;
@@ -137,6 +148,7 @@ declare function delInputMaps(): Result<undefined>;
 declare function editInputMaps(value: unknown): Result<undefined>;
 declare function appendInputMap(value: unknown): Result<string>;
 declare function delInputMap(index: number): Result<string>;
+declare function isDefaultInputMaps(): boolean;
 declare function validateInputMaps(fn: DeserializedFunction): Result<Functions.Expression.InputMapsExpression>;
 
 declare const InputMergeSchema: z.ZodUnion<readonly [z.ZodObject<{
@@ -150,12 +162,14 @@ declare function readInputMergeSchema(): typeof InputMergeSchema;
 declare function checkInputMerge(fn?: DeserializedFunction): Result<undefined>;
 declare function delInputMerge(): Result<undefined>;
 declare function editInputMerge(value: unknown): Result<undefined>;
+declare function isDefaultInputMerge(): boolean;
 declare function validateInputMerge(fn: DeserializedFunction): Result<InputMerge>;
 
 declare function readInputSchema(dir?: string): Result<unknown>;
 declare function readInputSchemaSchema(): typeof Functions.Expression.InputSchemaSchema;
 declare function checkInputSchema(fn?: DeserializedFunction): Result<undefined>;
 declare function editInputSchema(value: unknown): Result<undefined>;
+declare function isDefaultInputSchema(): boolean;
 declare function validateInputSchema(fn: DeserializedFunction): Result<Functions.Expression.InputSchema>;
 
 declare const InputSplitSchema: z.ZodUnion<readonly [z.ZodObject<{
@@ -169,6 +183,7 @@ declare function readInputSplitSchema(): typeof InputSplitSchema;
 declare function checkInputSplit(fn?: DeserializedFunction): Result<undefined>;
 declare function delInputSplit(): Result<undefined>;
 declare function editInputSplit(value: unknown): Result<undefined>;
+declare function isDefaultInputSplit(): boolean;
 declare function validateInputSplit(fn: DeserializedFunction): Result<InputSplit>;
 
 declare const OutputLengthSchema: z.ZodUnion<readonly [z.ZodUInt32, z.ZodUnion<readonly [z.ZodObject<{
@@ -182,6 +197,7 @@ declare function readOutputLengthSchema(): typeof OutputLengthSchema;
 declare function checkOutputLength(fn?: DeserializedFunction): Result<undefined>;
 declare function delOutputLength(): Result<undefined>;
 declare function editOutputLength(value: unknown): Result<undefined>;
+declare function isDefaultOutputLength(): boolean;
 declare function validateOutputLength(fn: DeserializedFunction): Result<OutputLength>;
 
 declare const TasksSchema: z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -11570,6 +11586,7 @@ declare function editTasks(value: unknown): Result<undefined>;
 declare function appendTask(value: unknown): Result<string>;
 declare function editTask(index: number, value: unknown): Result<undefined>;
 declare function delTask(index: number): Result<string>;
+declare function isDefaultTasks(): boolean;
 declare function validateTasks(fn: DeserializedFunction): Result<Tasks>;
 
 declare const FunctionTypeSchema: z.ZodEnum<{
@@ -11580,6 +11597,7 @@ declare function readType(): Result<unknown>;
 declare function readTypeSchema(): typeof FunctionTypeSchema;
 declare function checkType(fn?: DeserializedFunction): Result<undefined>;
 declare function editType(value: unknown): Result<undefined>;
+declare function isDefaultType(): boolean;
 declare function validateType(fn: DeserializedFunction): Result<FunctionType>;
 
 type index$5_DeserializedFunction = DeserializedFunction;
@@ -11611,6 +11629,14 @@ declare const index$5_editOutputLength: typeof editOutputLength;
 declare const index$5_editTask: typeof editTask;
 declare const index$5_editTasks: typeof editTasks;
 declare const index$5_editType: typeof editType;
+declare const index$5_isDefaultDescription: typeof isDefaultDescription;
+declare const index$5_isDefaultInputMaps: typeof isDefaultInputMaps;
+declare const index$5_isDefaultInputMerge: typeof isDefaultInputMerge;
+declare const index$5_isDefaultInputSchema: typeof isDefaultInputSchema;
+declare const index$5_isDefaultInputSplit: typeof isDefaultInputSplit;
+declare const index$5_isDefaultOutputLength: typeof isDefaultOutputLength;
+declare const index$5_isDefaultTasks: typeof isDefaultTasks;
+declare const index$5_isDefaultType: typeof isDefaultType;
 declare const index$5_readDescription: typeof readDescription;
 declare const index$5_readDescriptionSchema: typeof readDescriptionSchema;
 declare const index$5_readFunction: typeof readFunction;
@@ -11642,7 +11668,7 @@ declare const index$5_validateOutputLength: typeof validateOutputLength;
 declare const index$5_validateTasks: typeof validateTasks;
 declare const index$5_validateType: typeof validateType;
 declare namespace index$5 {
-  export { type index$5_DeserializedFunction as DeserializedFunction, index$5_appendInputMap as appendInputMap, index$5_appendTask as appendTask, index$5_checkDescription as checkDescription, index$5_checkFunction as checkFunction, index$5_checkInputMaps as checkInputMaps, index$5_checkInputMerge as checkInputMerge, index$5_checkInputSchema as checkInputSchema, index$5_checkInputSplit as checkInputSplit, index$5_checkOutputLength as checkOutputLength, index$5_checkTasks as checkTasks, index$5_checkType as checkType, index$5_delInputMap as delInputMap, index$5_delInputMaps as delInputMaps, index$5_delInputMerge as delInputMerge, index$5_delInputSplit as delInputSplit, index$5_delOutputLength as delOutputLength, index$5_delTask as delTask, index$5_delTasks as delTasks, index$5_editDescription as editDescription, index$5_editFunction as editFunction, index$5_editInputMaps as editInputMaps, index$5_editInputMerge as editInputMerge, index$5_editInputSchema as editInputSchema, index$5_editInputSplit as editInputSplit, index$5_editOutputLength as editOutputLength, index$5_editTask as editTask, index$5_editTasks as editTasks, index$5_editType as editType, index$5_readDescription as readDescription, index$5_readDescriptionSchema as readDescriptionSchema, index$5_readFunction as readFunction, index$5_readFunctionSchema as readFunctionSchema, index$5_readInputMaps as readInputMaps, index$5_readInputMapsSchema as readInputMapsSchema, index$5_readInputMerge as readInputMerge, index$5_readInputMergeSchema as readInputMergeSchema, index$5_readInputSchema as readInputSchema, index$5_readInputSchemaSchema as readInputSchemaSchema, index$5_readInputSplit as readInputSplit, index$5_readInputSplitSchema as readInputSplitSchema, index$5_readMessagesSchema as readMessagesSchema, index$5_readOutputLength as readOutputLength, index$5_readOutputLengthSchema as readOutputLengthSchema, index$5_readResponsesSchema as readResponsesSchema, index$5_readTasks as readTasks, index$5_readTasksSchema as readTasksSchema, index$5_readToolsSchema as readToolsSchema, index$5_readType as readType, index$5_readTypeSchema as readTypeSchema, index$5_validateDescription as validateDescription, index$5_validateFunction as validateFunction, index$5_validateInputMaps as validateInputMaps, index$5_validateInputMerge as validateInputMerge, index$5_validateInputSchema as validateInputSchema, index$5_validateInputSplit as validateInputSplit, index$5_validateOutputLength as validateOutputLength, index$5_validateTasks as validateTasks, index$5_validateType as validateType };
+  export { type index$5_DeserializedFunction as DeserializedFunction, index$5_appendInputMap as appendInputMap, index$5_appendTask as appendTask, index$5_checkDescription as checkDescription, index$5_checkFunction as checkFunction, index$5_checkInputMaps as checkInputMaps, index$5_checkInputMerge as checkInputMerge, index$5_checkInputSchema as checkInputSchema, index$5_checkInputSplit as checkInputSplit, index$5_checkOutputLength as checkOutputLength, index$5_checkTasks as checkTasks, index$5_checkType as checkType, index$5_delInputMap as delInputMap, index$5_delInputMaps as delInputMaps, index$5_delInputMerge as delInputMerge, index$5_delInputSplit as delInputSplit, index$5_delOutputLength as delOutputLength, index$5_delTask as delTask, index$5_delTasks as delTasks, index$5_editDescription as editDescription, index$5_editFunction as editFunction, index$5_editInputMaps as editInputMaps, index$5_editInputMerge as editInputMerge, index$5_editInputSchema as editInputSchema, index$5_editInputSplit as editInputSplit, index$5_editOutputLength as editOutputLength, index$5_editTask as editTask, index$5_editTasks as editTasks, index$5_editType as editType, index$5_isDefaultDescription as isDefaultDescription, index$5_isDefaultInputMaps as isDefaultInputMaps, index$5_isDefaultInputMerge as isDefaultInputMerge, index$5_isDefaultInputSchema as isDefaultInputSchema, index$5_isDefaultInputSplit as isDefaultInputSplit, index$5_isDefaultOutputLength as isDefaultOutputLength, index$5_isDefaultTasks as isDefaultTasks, index$5_isDefaultType as isDefaultType, index$5_readDescription as readDescription, index$5_readDescriptionSchema as readDescriptionSchema, index$5_readFunction as readFunction, index$5_readFunctionSchema as readFunctionSchema, index$5_readInputMaps as readInputMaps, index$5_readInputMapsSchema as readInputMapsSchema, index$5_readInputMerge as readInputMerge, index$5_readInputMergeSchema as readInputMergeSchema, index$5_readInputSchema as readInputSchema, index$5_readInputSchemaSchema as readInputSchemaSchema, index$5_readInputSplit as readInputSplit, index$5_readInputSplitSchema as readInputSplitSchema, index$5_readMessagesSchema as readMessagesSchema, index$5_readOutputLength as readOutputLength, index$5_readOutputLengthSchema as readOutputLengthSchema, index$5_readResponsesSchema as readResponsesSchema, index$5_readTasks as readTasks, index$5_readTasksSchema as readTasksSchema, index$5_readToolsSchema as readToolsSchema, index$5_readType as readType, index$5_readTypeSchema as readTypeSchema, index$5_validateDescription as validateDescription, index$5_validateFunction as validateFunction, index$5_validateInputMaps as validateInputMaps, index$5_validateInputMerge as validateInputMerge, index$5_validateInputSchema as validateInputSchema, index$5_validateInputSplit as validateInputSplit, index$5_validateOutputLength as validateOutputLength, index$5_validateTasks as validateTasks, index$5_validateType as validateType };
 }
 
 declare const ExampleInputSchema: z.ZodObject<{
@@ -58053,6 +58079,7 @@ type ExampleInputs = z.infer<typeof ExampleInputsSchema>;
 declare function validateExampleInput(value: unknown, fn: DeserializedFunction): Result<ExampleInput>;
 declare function validateExampleInputs(value: unknown, fn: DeserializedFunction): Result<ExampleInputs>;
 declare function delExampleInputs(): Result<undefined>;
+declare function isDefaultExampleInputs(): boolean;
 declare function readExampleInputs(): Result<unknown>;
 declare function readExampleInputsSchema(): Result<z.ZodType>;
 declare function appendExampleInput(value: unknown): Result<string>;
@@ -58069,12 +58096,13 @@ declare const index$4_collectModalities: typeof collectModalities;
 declare const index$4_delExampleInput: typeof delExampleInput;
 declare const index$4_delExampleInputs: typeof delExampleInputs;
 declare const index$4_editExampleInput: typeof editExampleInput;
+declare const index$4_isDefaultExampleInputs: typeof isDefaultExampleInputs;
 declare const index$4_readExampleInputs: typeof readExampleInputs;
 declare const index$4_readExampleInputsSchema: typeof readExampleInputsSchema;
 declare const index$4_validateExampleInput: typeof validateExampleInput;
 declare const index$4_validateExampleInputs: typeof validateExampleInputs;
 declare namespace index$4 {
-  export { type index$4_Modality as Modality, index$4_appendExampleInput as appendExampleInput, index$4_checkExampleInputs as checkExampleInputs, index$4_collectModalities as collectModalities, index$4_delExampleInput as delExampleInput, index$4_delExampleInputs as delExampleInputs, index$4_editExampleInput as editExampleInput, index$4_readExampleInputs as readExampleInputs, index$4_readExampleInputsSchema as readExampleInputsSchema, index$4_validateExampleInput as validateExampleInput, index$4_validateExampleInputs as validateExampleInputs };
+  export { type index$4_Modality as Modality, index$4_appendExampleInput as appendExampleInput, index$4_checkExampleInputs as checkExampleInputs, index$4_collectModalities as collectModalities, index$4_delExampleInput as delExampleInput, index$4_delExampleInputs as delExampleInputs, index$4_editExampleInput as editExampleInput, index$4_isDefaultExampleInputs as isDefaultExampleInputs, index$4_readExampleInputs as readExampleInputs, index$4_readExampleInputsSchema as readExampleInputsSchema, index$4_validateExampleInput as validateExampleInput, index$4_validateExampleInputs as validateExampleInputs };
 }
 
 declare function readEssay(): Result<string>;
@@ -58088,12 +58116,14 @@ declare function writePlan(index: number, content: string): Result<undefined>;
 declare function getLatestPlanIndex(): Result<number>;
 
 declare function readReadme(): Result<string>;
+declare function isDefaultReadme(): boolean;
 declare function writeReadme(content: string): Result<undefined>;
 
 declare function readSpec(): Result<string>;
 declare function writeSpec(content: string): Result<undefined>;
 
 declare const index$3_getLatestPlanIndex: typeof getLatestPlanIndex;
+declare const index$3_isDefaultReadme: typeof isDefaultReadme;
 declare const index$3_readEssay: typeof readEssay;
 declare const index$3_readEssayTasks: typeof readEssayTasks;
 declare const index$3_readPlan: typeof readPlan;
@@ -58105,7 +58135,7 @@ declare const index$3_writePlan: typeof writePlan;
 declare const index$3_writeReadme: typeof writeReadme;
 declare const index$3_writeSpec: typeof writeSpec;
 declare namespace index$3 {
-  export { index$3_getLatestPlanIndex as getLatestPlanIndex, index$3_readEssay as readEssay, index$3_readEssayTasks as readEssayTasks, index$3_readPlan as readPlan, index$3_readReadme as readReadme, index$3_readSpec as readSpec, index$3_writeEssay as writeEssay, index$3_writeEssayTasks as writeEssayTasks, index$3_writePlan as writePlan, index$3_writeReadme as writeReadme, index$3_writeSpec as writeSpec };
+  export { index$3_getLatestPlanIndex as getLatestPlanIndex, index$3_isDefaultReadme as isDefaultReadme, index$3_readEssay as readEssay, index$3_readEssayTasks as readEssayTasks, index$3_readPlan as readPlan, index$3_readReadme as readReadme, index$3_readSpec as readSpec, index$3_writeEssay as writeEssay, index$3_writeEssayTasks as writeEssayTasks, index$3_writePlan as writePlan, index$3_writeReadme as writeReadme, index$3_writeSpec as writeSpec };
 }
 
 declare const ParametersSchema: z.ZodObject<{

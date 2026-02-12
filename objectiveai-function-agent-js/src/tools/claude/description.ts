@@ -1,5 +1,5 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { resultFromResult, textResult } from "./util";
+import { resultFromResult, errorResult, textResult } from "./util";
 import {
   checkDescription,
   editDescription,
@@ -8,14 +8,17 @@ import {
 } from "../function";
 import z from "zod";
 import { formatZodSchema } from "../schema";
-import { ToolState } from "./toolState";
+import { ToolState, mustRead } from "./toolState";
 
 export function makeReadDescription(state: ToolState) {
   return tool(
     "ReadDescription",
     "Read the Function's `description` field",
     {},
-    async () => resultFromResult(readDescription()),
+    async () => {
+      state.hasReadDescription = true;
+      return resultFromResult(readDescription());
+    },
   );
 }
 
@@ -33,7 +36,11 @@ export function makeEditDescription(state: ToolState) {
     "EditDescription",
     "Edit the Function's `description` field",
     { value: z.string() },
-    async ({ value }) => resultFromResult(editDescription(value)),
+    async ({ value }) => {
+      const err = mustRead(state.hasReadDescription, "description");
+      if (err) return errorResult(err);
+      return resultFromResult(editDescription(value));
+    },
   );
 }
 

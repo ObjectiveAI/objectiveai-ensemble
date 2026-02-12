@@ -1,17 +1,15 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { resultFromResult, textResult } from "./util";
+import { resultFromResult, errorResult, textResult } from "./util";
 import { checkType, editType, readType, readTypeSchema } from "../function";
 import z from "zod";
 import { formatZodSchema } from "../schema";
-import { ToolState } from "./toolState";
+import { ToolState, mustRead } from "./toolState";
 
 export function makeReadType(state: ToolState) {
-  return tool(
-    "ReadType",
-    "Read the Function's `type` field",
-    {},
-    async () => resultFromResult(readType()),
-  );
+  return tool("ReadType", "Read the Function's `type` field", {}, async () => {
+    state.hasReadType = true;
+    return resultFromResult(readType());
+  });
 }
 
 export function makeReadTypeSchema(state: ToolState) {
@@ -28,7 +26,11 @@ export function makeEditType(state: ToolState) {
     "EditType",
     "Edit the Function's `type` field",
     { value: z.string() },
-    async ({ value }) => resultFromResult(editType(value)),
+    async ({ value }) => {
+      const err = mustRead(state.hasReadType, "type");
+      if (err) return errorResult(err);
+      return resultFromResult(editType(value));
+    },
   );
 }
 

@@ -1,6 +1,6 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { ToolState } from "./toolState";
-import { resultFromResult, textResult } from "./util";
+import { ToolState, mustRead } from "./toolState";
+import { resultFromResult, textResult, errorResult } from "./util";
 import {
   checkInputSchema,
   editInputSchema,
@@ -17,7 +17,10 @@ export function makeReadInputSchema(state: ToolState) {
     "ReadInputSchema",
     "Read the Function's `input_schema` field",
     {},
-    async () => resultFromResult(readInputSchema()),
+    async () => {
+      state.hasReadInputSchema = true;
+      return resultFromResult(readInputSchema());
+    },
   );
 }
 
@@ -39,6 +42,9 @@ export function makeEditInputSchema(state: ToolState) {
       dangerouslyRemoveModalities: z.boolean().optional(),
     },
     async ({ value, dangerouslyRemoveModalities }) => {
+      const readErr = mustRead(state.hasReadInputSchema, "input_schema");
+      if (readErr) return errorResult(readErr);
+
       if (dangerouslyRemoveModalities) {
         if (!state.editInputSchemaModalityRemovalRejected) {
           return resultFromResult({

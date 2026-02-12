@@ -1,5 +1,5 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { ToolState } from "./toolState";
+import { ToolState, mustRead } from "./toolState";
 import { Functions } from "objectiveai";
 import { resultFromResult, textResult, errorResult } from "./util";
 import {
@@ -46,7 +46,10 @@ export function makeReadExampleInputs(state: ToolState) {
     "ReadExampleInputs",
     "Read the Function's example inputs",
     {},
-    async () => resultFromResult(readExampleInputs()),
+    async () => {
+      state.hasReadExampleInputs = true;
+      return resultFromResult(readExampleInputs());
+    },
   );
 }
 
@@ -71,6 +74,8 @@ export function makeAppendExampleInput(state: ToolState) {
     "Append an example input to the Function's example inputs array. Provide just the input value — compiledTasks and outputLength are computed automatically.",
     { value: Functions.Expression.InputValueSchema },
     async ({ value }) => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
       const built = buildExampleInput(value);
       if (!built.ok) return errorResult(built.error);
       return resultFromResult(appendExampleInput(built.value));
@@ -87,6 +92,8 @@ export function makeEditExampleInput(state: ToolState) {
       value: Functions.Expression.InputValueSchema,
     },
     async ({ index, value }) => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
       const built = buildExampleInput(value);
       if (!built.ok) return errorResult(built.error);
       return resultFromResult(editExampleInput(index, built.value));
@@ -99,7 +106,11 @@ export function makeDelExampleInput(state: ToolState) {
     "DelExampleInput",
     "Delete an example input at a specific index from the Function's example inputs array",
     { index: z.number().int().nonnegative() },
-    async ({ index }) => resultFromResult(delExampleInput(index)),
+    async ({ index }) => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
+      return resultFromResult(delExampleInput(index));
+    },
   );
 }
 
@@ -108,7 +119,11 @@ export function makeDelExampleInputs(state: ToolState) {
     "DelExampleInputs",
     "Delete all example inputs from the Function's example inputs array",
     {},
-    async () => resultFromResult(delExampleInputs()),
+    async () => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
+      return resultFromResult(delExampleInputs());
+    },
   );
 }
 

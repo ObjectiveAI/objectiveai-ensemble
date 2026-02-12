@@ -1,5 +1,5 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { resultFromResult, textResult } from "./util";
+import { resultFromResult, errorResult, textResult } from "./util";
 import {
   checkInputMerge,
   delInputMerge,
@@ -9,14 +9,17 @@ import {
 } from "../function";
 import z from "zod";
 import { formatZodSchema } from "../schema";
-import { ToolState } from "./toolState";
+import { ToolState, mustRead } from "./toolState";
 
 export function makeReadInputMerge(state: ToolState) {
   return tool(
     "ReadInputMerge",
     "Read the Function's `input_merge` field",
     {},
-    async () => resultFromResult(readInputMerge()),
+    async () => {
+      state.hasReadInputMerge = true;
+      return resultFromResult(readInputMerge());
+    },
   );
 }
 
@@ -34,7 +37,11 @@ export function makeEditInputMerge(state: ToolState) {
     "EditInputMerge",
     "Edit the Function's `input_merge` field",
     { value: z.unknown().nullable() },
-    async ({ value }) => resultFromResult(editInputMerge(value)),
+    async ({ value }) => {
+      const err = mustRead(state.hasReadInputMerge, "input_merge");
+      if (err) return errorResult(err);
+      return resultFromResult(editInputMerge(value));
+    },
   );
 }
 
@@ -43,7 +50,11 @@ export function makeDelInputMerge(state: ToolState) {
     "DelInputMerge",
     "Delete the Function's `input_merge` field",
     {},
-    async () => resultFromResult(delInputMerge()),
+    async () => {
+      const err = mustRead(state.hasReadInputMerge, "input_merge");
+      if (err) return errorResult(err);
+      return resultFromResult(delInputMerge());
+    },
   );
 }
 

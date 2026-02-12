@@ -1,3 +1,16 @@
+import {
+  isDefaultType,
+  isDefaultDescription,
+  isDefaultInputSchema,
+  isDefaultInputMaps,
+  isDefaultTasks,
+  isDefaultOutputLength,
+  isDefaultInputSplit,
+  isDefaultInputMerge,
+} from "../function";
+import { isDefaultExampleInputs } from "../inputs";
+import { isDefaultReadme } from "../markdown";
+
 export interface ToolState {
   spawnFunctionAgentsHasSpawned: boolean;
   editInputSchemaModalityRemovalRejected: boolean;
@@ -18,6 +31,16 @@ export interface ToolState {
   hasReadOrWrittenPlan: boolean;
   hasReadExampleFunctions: boolean;
   anyStepRan: boolean;
+  hasReadType: boolean;
+  hasReadDescription: boolean;
+  hasReadInputSchema: boolean;
+  hasReadInputMaps: boolean;
+  hasReadTasks: boolean;
+  hasReadOutputLength: boolean;
+  hasReadInputSplit: boolean;
+  hasReadInputMerge: boolean;
+  hasReadExampleInputs: boolean;
+  hasReadReadme: boolean;
 }
 
 export function formatReadList(items: string[]): string {
@@ -25,6 +48,11 @@ export function formatReadList(items: string[]): string {
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+export function mustRead(flag: boolean, fieldName: string): string | undefined {
+  if (!flag) return `Read the ${fieldName} field before modifying it.`;
+  return undefined;
 }
 
 export function makeToolState(options: {
@@ -58,5 +86,15 @@ export function makeToolState(options: {
     hasReadOrWrittenPlan: false,
     hasReadExampleFunctions: false,
     anyStepRan: false,
+    hasReadType: isDefaultType(),
+    hasReadDescription: isDefaultDescription(),
+    hasReadInputSchema: isDefaultInputSchema(),
+    hasReadInputMaps: isDefaultInputMaps(),
+    hasReadTasks: isDefaultTasks(),
+    hasReadOutputLength: isDefaultOutputLength(),
+    hasReadInputSplit: isDefaultInputSplit(),
+    hasReadInputMerge: isDefaultInputMerge(),
+    hasReadExampleInputs: isDefaultExampleInputs(),
+    hasReadReadme: isDefaultReadme(),
   };
 }

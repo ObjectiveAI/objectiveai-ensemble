@@ -1,5 +1,5 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
-import { resultFromResult, textResult } from "./util";
+import { resultFromResult, errorResult, textResult } from "./util";
 import {
   appendInputMap,
   checkInputMaps,
@@ -11,14 +11,17 @@ import {
 } from "../function";
 import z from "zod";
 import { formatZodSchema } from "../schema";
-import { ToolState } from "./toolState";
+import { ToolState, mustRead } from "./toolState";
 
 export function makeReadInputMaps(state: ToolState) {
   return tool(
     "ReadInputMaps",
     "Read the Function's `input_maps` field",
     {},
-    async () => resultFromResult(readInputMaps()),
+    async () => {
+      state.hasReadInputMaps = true;
+      return resultFromResult(readInputMaps());
+    },
   );
 }
 
@@ -36,7 +39,11 @@ export function makeEditInputMaps(state: ToolState) {
     "EditInputMaps",
     "Edit the Function's `input_maps` field",
     { value: z.unknown().nullable() },
-    async ({ value }) => resultFromResult(editInputMaps(value)),
+    async ({ value }) => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(editInputMaps(value));
+    },
   );
 }
 
@@ -45,7 +52,11 @@ export function makeAppendInputMap(state: ToolState) {
     "AppendInputMap",
     "Append an input map to the Function's `input_maps` array",
     { value: z.unknown() },
-    async ({ value }) => resultFromResult(appendInputMap(value)),
+    async ({ value }) => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(appendInputMap(value));
+    },
   );
 }
 
@@ -54,7 +65,11 @@ export function makeDelInputMap(state: ToolState) {
     "DelInputMap",
     "Delete an input map at a specific index from the Function's `input_maps` array",
     { index: z.int().nonnegative() },
-    async ({ index }) => resultFromResult(delInputMap(index)),
+    async ({ index }) => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(delInputMap(index));
+    },
   );
 }
 
@@ -63,7 +78,11 @@ export function makeDelInputMaps(state: ToolState) {
     "DelInputMaps",
     "Delete the Function's `input_maps` field",
     {},
-    async () => resultFromResult(delInputMaps()),
+    async () => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(delInputMaps());
+    },
   );
 }
 

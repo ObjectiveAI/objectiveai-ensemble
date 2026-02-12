@@ -187,6 +187,12 @@ export function delTask(index: number): Result<string> {
   };
 }
 
+export function isDefaultTasks(): boolean {
+  const result = readTasks();
+  const v = result.ok ? result.value : undefined;
+  return v === undefined || (Array.isArray(v) && v.length === 0);
+}
+
 export function validateTasks(fn: DeserializedFunction): Result<Tasks> {
   const parsed = TasksSchema.safeParse(fn.tasks);
   if (!parsed.success) {

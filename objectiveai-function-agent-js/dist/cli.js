@@ -305,6 +305,10 @@ function readReadme() {
   }
   return { ok: true, value: readFileSync("README.md", "utf-8"), error: void 0 };
 }
+function isDefaultReadme() {
+  const result = readReadme();
+  return !result.ok || !result.value.trim();
+}
 function writeReadme(content) {
   writeFileSync("README.md", content);
   return { ok: true, value: void 0, error: void 0 };
@@ -455,6 +459,10 @@ function editType(value) {
   }
   return editFunction({ type: result.value });
 }
+function isDefaultType() {
+  const result = readType();
+  return result.ok && result.value === void 0;
+}
 function validateType(fn) {
   const parsed = FunctionTypeSchema.safeParse(fn.type);
   if (!parsed.success) {
@@ -500,6 +508,10 @@ function editInputSchema(value) {
     };
   }
   return editFunction({ input_schema: result.value });
+}
+function isDefaultInputSchema() {
+  const result = readInputSchema();
+  return result.ok && result.value === void 0;
 }
 function validateInputSchema(fn) {
   const parsed = Functions.Expression.InputSchemaSchema.safeParse(
@@ -599,6 +611,11 @@ function delInputMap(index) {
     return editResult;
   }
   return { ok: true, value: `new length: ${newInputMaps.length}`, error: void 0 };
+}
+function isDefaultInputMaps() {
+  const result = readInputMaps();
+  const v = result.ok ? result.value : void 0;
+  return v === void 0 || Array.isArray(v) && v.length === 0;
 }
 function validateInputMaps(fn) {
   const parsed = Functions.Expression.InputMapsExpressionSchema.safeParse(
@@ -780,6 +797,11 @@ function delTask(index) {
     error: void 0
   };
 }
+function isDefaultTasks() {
+  const result = readTasks();
+  const v = result.ok ? result.value : void 0;
+  return v === void 0 || Array.isArray(v) && v.length === 0;
+}
 function validateTasks(fn) {
   const parsed = TasksSchema.safeParse(fn.tasks);
   if (!parsed.success) {
@@ -903,6 +925,10 @@ function editOutputLength(value) {
   }
   return editFunction({ output_length: result.value });
 }
+function isDefaultOutputLength() {
+  const result = readOutputLength();
+  return result.ok && result.value === void 0;
+}
 function validateOutputLength(fn) {
   const parsed = OutputLengthSchema.safeParse(fn.output_length);
   if (!parsed.success) {
@@ -994,6 +1020,10 @@ function editInputSplit(value) {
   }
   return editFunction({ input_split: result.value });
 }
+function isDefaultInputSplit() {
+  const result = readInputSplit();
+  return result.ok && result.value === void 0;
+}
 function validateInputSplit(fn) {
   const parsed = InputSplitSchema.safeParse(fn.input_split);
   if (!parsed.success) {
@@ -1084,6 +1114,10 @@ function editInputMerge(value) {
     };
   }
   return editFunction({ input_merge: result.value });
+}
+function isDefaultInputMerge() {
+  const result = readInputMerge();
+  return result.ok && result.value === void 0;
 }
 function validateInputMerge(fn) {
   const parsed = InputMergeSchema.safeParse(fn.input_merge);
@@ -1243,6 +1277,10 @@ function editDescription(value) {
     return { ok: false, value: void 0, error: `Invalid description: ${result.error}` };
   }
   return editFunction({ description: result.value });
+}
+function isDefaultDescription() {
+  const result = readDescription();
+  return result.ok && result.value === void 0;
 }
 function validateDescription(fn) {
   const parsed = DescriptionSchema.safeParse(fn.description);
@@ -1439,7 +1477,17 @@ function makeReadFunction(state) {
     "ReadFunction",
     "Read the full Function",
     {},
-    async () => resultFromResult(readFunction())
+    async () => {
+      state.hasReadType = true;
+      state.hasReadDescription = true;
+      state.hasReadInputSchema = true;
+      state.hasReadInputMaps = true;
+      state.hasReadTasks = true;
+      state.hasReadOutputLength = true;
+      state.hasReadInputSplit = true;
+      state.hasReadInputMerge = true;
+      return resultFromResult(readFunction());
+    }
   );
 }
 function makeReadFunctionSchema(state) {
@@ -1578,320 +1626,14 @@ function makeWriteName(state) {
     async ({ content }) => resultFromResult(writeName(content, state.ghToken))
   );
 }
-
-// src/tools/claude/toolState.ts
-function formatReadList(items) {
-  if (items.length === 0) return "";
-  if (items.length === 1) return items[0];
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
-}
-function makeToolState(options) {
-  return {
-    spawnFunctionAgentsHasSpawned: false,
-    editInputSchemaModalityRemovalRejected: false,
-    runNetworkTestsApiBase: options.apiBase,
-    runNetworkTestsApiKey: options.apiKey,
-    readPlanIndex: options.readPlanIndex,
-    writePlanIndex: options.writePlanIndex,
-    submitApiBase: options.apiBase,
-    submitApiKey: options.apiKey,
-    gitUserName: options.gitUserName,
-    gitUserEmail: options.gitUserEmail,
-    ghToken: options.ghToken,
-    minWidth: options.minWidth,
-    maxWidth: options.maxWidth,
-    hasReadOrWrittenSpec: false,
-    hasReadOrWrittenEssay: false,
-    hasReadOrWrittenEssayTasks: false,
-    hasReadOrWrittenPlan: false,
-    hasReadExampleFunctions: false,
-    anyStepRan: false
-  };
-}
-
-// src/claude/prepare/nameMcp.ts
-function nameIsNonEmpty() {
-  return existsSync("name.txt") && readFileSync("name.txt", "utf-8").trim().length > 0;
-}
-async function nameMcp(state, log, sessionId, name) {
-  if (nameIsNonEmpty()) return sessionId;
-  if (name) {
-    writeName(name, state.ghToken);
-    return sessionId;
-  }
-  const tools = [
-    makeReadSpec(state),
-    makeReadName(),
-    makeWriteName(state),
-    makeListExampleFunctions(state),
-    makeReadExampleFunction(state),
-    makeReadFunctionSchema()
-  ];
-  const mcpServer = createSdkMcpServer({ name: "name", tools });
-  const reads = [];
-  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
-  if (!state.hasReadExampleFunctions) reads.push("example functions");
-  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context, then create` : "Create";
-  sessionId = await consumeStream(
-    query({
-      prompt: `${readPrefix} name.txt with the function name.
-**Do NOT include "objectiveai" or "function" or "scalar" or "vector" in the name.** Name it like you would name a function:
-- Use all lowercase
-- Use dashes (\`-\`) to separate words if there's more than one`,
-      options: {
-        tools: [],
-        mcpServers: { name: mcpServer },
-        allowedTools: ["mcp__name__*"],
-        disallowedTools: ["AskUserQuestion"],
-        permissionMode: "dontAsk",
-        resume: sessionId
-      }
-    }),
-    log,
-    sessionId
-  );
-  let retry = 1;
-  while (!nameIsNonEmpty()) {
-    if (retry > 10) {
-      throw new Error("name.txt is empty after name phase");
-    }
-    sessionId = await consumeStream(
-      query({
-        prompt: 'name.txt is empty after your name phase. Create name.txt with the function name.\n**Do NOT include "objectiveai" or "function" or "scalar" or "vector" in the name.** Name it like you would name a function:\n- Use all lowercase\n- Use dashes (`-`) to separate words if there\'s more than one',
-        options: {
-          tools: [],
-          mcpServers: { name: mcpServer },
-          allowedTools: ["mcp__name__*"],
-          disallowedTools: ["AskUserQuestion"],
-          permissionMode: "dontAsk",
-          resume: sessionId
-        }
-      }),
-      log,
-      sessionId
-    );
-    retry += 1;
-  }
-  state.anyStepRan = true;
-  if (sessionId) writeSession(sessionId);
-  return sessionId;
-}
-function makeReadEssay(state) {
-  return tool("ReadEssay", "Read ESSAY.md", {}, async () => {
-    state.hasReadOrWrittenEssay = true;
-    return resultFromResult(readEssay());
-  });
-}
-function makeWriteEssay(state) {
-  return tool(
-    "WriteEssay",
-    "Write ESSAY.md",
-    { content: z18.string() },
-    async ({ content }) => {
-      state.hasReadOrWrittenEssay = true;
-      return resultFromResult(writeEssay(content));
-    }
-  );
-}
-
-// src/claude/prepare/essayMcp.ts
-function essayIsNonEmpty() {
-  return existsSync("ESSAY.md") && readFileSync("ESSAY.md", "utf-8").trim().length > 0;
-}
-async function essayMcp(state, log, sessionId) {
-  if (essayIsNonEmpty()) return sessionId;
-  const tools = [
-    makeReadSpec(state),
-    makeReadName(),
-    makeWriteEssay(state),
-    makeListExampleFunctions(state),
-    makeReadExampleFunction(state),
-    makeReadFunctionSchema()
-  ];
-  const mcpServer = createSdkMcpServer({ name: "essay", tools });
-  const reads = [];
-  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
-  reads.push("name.txt");
-  if (!state.hasReadExampleFunctions) reads.push("example functions");
-  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context. ` : "";
-  const prompt = readPrefix + "Create ESSAY.md describing the ObjectiveAI Function you are building. Explore the purpose, inputs, outputs, and use-cases of the function in detail. Explore, in great detail, the various qualities, values, and sentiments that must be evaluated by the function. This essay will guide the development of the function and underpins its philosophy.";
-  sessionId = await consumeStream(
-    query({
-      prompt,
-      options: {
-        tools: [],
-        mcpServers: { essay: mcpServer },
-        allowedTools: ["mcp__essay__*"],
-        disallowedTools: ["AskUserQuestion"],
-        permissionMode: "dontAsk",
-        resume: sessionId
-      }
-    }),
-    log,
-    sessionId
-  );
-  let retry = 1;
-  while (!essayIsNonEmpty()) {
-    if (retry > 3) {
-      throw new Error("ESSAY.md is empty after essay phase");
-    }
-    sessionId = await consumeStream(
-      query({
-        prompt: "ESSAY.md is empty after your essay phase. Create ESSAY.md describing the ObjectiveAI Function you are building. Explore the purpose, inputs, outputs, and use-cases of the function in detail. Explore, in great detail, the various qualities, values, and sentiments that must be evaluated by the function. This essay will guide the development of the function and underpins its philosophy.",
-        options: {
-          tools: [],
-          mcpServers: { essay: mcpServer },
-          allowedTools: ["mcp__essay__*"],
-          disallowedTools: ["AskUserQuestion"],
-          permissionMode: "dontAsk",
-          resume: sessionId
-        }
-      }),
-      log,
-      sessionId
-    );
-    retry += 1;
-  }
-  state.anyStepRan = true;
-  if (sessionId) writeSession(sessionId);
-  return sessionId;
-}
-function makeReadEssayTasks(state) {
-  return tool(
-    "ReadEssayTasks",
-    "Read ESSAY_TASKS.md",
-    {},
-    async () => {
-      state.hasReadOrWrittenEssayTasks = true;
-      return resultFromResult(readEssayTasks());
-    }
-  );
-}
-function makeWriteEssayTasks(state) {
-  return tool(
-    "WriteEssayTasks",
-    "Write ESSAY_TASKS.md",
-    { content: z18.string() },
-    async ({ content }) => {
-      state.hasReadOrWrittenEssayTasks = true;
-      return resultFromResult(writeEssayTasks(content));
-    }
-  );
-}
-
-// src/claude/prepare/essayTasksMcp.ts
-function essayTasksIsNonEmpty() {
-  return existsSync("ESSAY_TASKS.md") && readFileSync("ESSAY_TASKS.md", "utf-8").trim().length > 0;
-}
-async function essayTasksMcp(state, log, sessionId) {
-  if (essayTasksIsNonEmpty()) return sessionId;
-  const tools = [
-    makeReadSpec(state),
-    makeReadName(),
-    makeReadEssay(state),
-    makeWriteEssayTasks(state),
-    makeListExampleFunctions(state),
-    makeReadExampleFunction(state),
-    makeReadFunctionSchema()
-  ];
-  const mcpServer = createSdkMcpServer({ name: "essayTasks", tools });
-  const widthDesc = state.minWidth === state.maxWidth ? `exactly ${state.minWidth}` : `between ${state.minWidth} and ${state.maxWidth}`;
-  const reads = [];
-  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
-  reads.push("name.txt");
-  if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
-  if (!state.hasReadExampleFunctions) reads.push("example functions");
-  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context, then create` : "Create";
-  const prompt = `${readPrefix} ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's \`tasks\` array. There must be ${widthDesc} tasks.`;
-  sessionId = await consumeStream(
-    query({
-      prompt,
-      options: {
-        tools: [],
-        mcpServers: { essayTasks: mcpServer },
-        allowedTools: ["mcp__essayTasks__*"],
-        disallowedTools: ["AskUserQuestion"],
-        permissionMode: "dontAsk",
-        resume: sessionId
-      }
-    }),
-    log,
-    sessionId
-  );
-  let retry = 1;
-  while (!essayTasksIsNonEmpty()) {
-    if (retry > 3) {
-      throw new Error("ESSAY_TASKS.md is empty after essayTasks phase");
-    }
-    sessionId = await consumeStream(
-      query({
-        prompt: `ESSAY_TASKS.md is empty after your essayTasks phase. Create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's \`tasks\` array. There must be ${widthDesc} tasks.`,
-        options: {
-          tools: [],
-          mcpServers: { essayTasks: mcpServer },
-          allowedTools: ["mcp__essayTasks__*"],
-          disallowedTools: ["AskUserQuestion"],
-          permissionMode: "dontAsk",
-          resume: sessionId
-        }
-      }),
-      log,
-      sessionId
-    );
-    retry += 1;
-  }
-  state.anyStepRan = true;
-  if (sessionId) writeSession(sessionId);
-  return sessionId;
-}
-
-// src/claude/prepare/index.ts
-async function runStep(state, log, sessionId, fn) {
-  try {
-    return await fn(sessionId);
-  } catch (e) {
-    if (!state.anyStepRan) {
-      log("Session may be invalid, retrying without session...");
-      return await fn(void 0);
-    } else {
-      throw e;
-    }
-  }
-}
-async function prepare(state, options) {
-  const log = options.log;
-  let sessionId = options.sessionId;
-  log("=== Step 1: SPEC.md ===");
-  sessionId = await runStep(
-    state,
-    log,
-    sessionId,
-    (sid) => specMcp(state, log, sid, options.spec)
-  );
-  log("=== Step 2: name.txt ===");
-  sessionId = await runStep(
-    state,
-    log,
-    sessionId,
-    (sid) => nameMcp(state, log, sid, options.name)
-  );
-  log("=== Step 3: ESSAY.md ===");
-  sessionId = await runStep(
-    state,
-    log,
-    sessionId,
-    (sid) => essayMcp(state, log, sid)
-  );
-  log("=== Step 4: ESSAY_TASKS.md ===");
-  sessionId = await runStep(
-    state,
-    log,
-    sessionId,
-    (sid) => essayTasksMcp(state, log, sid)
-  );
-  return sessionId;
-}
+var ExampleInputSchema = z18.object({
+  value: Functions.Expression.InputValueSchema,
+  compiledTasks: Functions.CompiledTasksSchema,
+  outputLength: z18.number().int().nonnegative().nullable().describe("Expected output length for vector functions")
+});
+var ExampleInputsSchema = z18.array(ExampleInputSchema).min(10).max(100).describe(
+  "An array of example inputs for the function. Must contain between 10 and 100 items."
+);
 var defaultVectorCompletionTaskProfile = {
   ensemble: {
     llms: [
@@ -1993,14 +1735,6 @@ function buildProfile() {
   writeFileSync("profile.json", JSON.stringify(profile, null, 2));
   return { ok: true, value: void 0, error: void 0 };
 }
-var ExampleInputSchema = z18.object({
-  value: Functions.Expression.InputValueSchema,
-  compiledTasks: Functions.CompiledTasksSchema,
-  outputLength: z18.number().int().nonnegative().nullable().describe("Expected output length for vector functions")
-});
-var ExampleInputsSchema = z18.array(ExampleInputSchema).min(10).max(100).describe(
-  "An array of example inputs for the function. Must contain between 10 and 100 items."
-);
 
 // src/tools/inputs/index.ts
 function validateExampleInput(value, fn) {
@@ -2070,6 +1804,11 @@ function validateExampleInputs(value, fn) {
 function delExampleInputs() {
   writeFileSync("inputs.json", "[]");
   return { ok: true, value: void 0, error: void 0 };
+}
+function isDefaultExampleInputs() {
+  const result = readExampleInputsFile();
+  const v = result.ok ? result.value : [];
+  return !Array.isArray(v) || v.length === 0;
 }
 function readExampleInputs() {
   return readExampleInputsFile();
@@ -2684,6 +2423,334 @@ function compiledTasksEqual(a, b) {
     return false;
   }
 }
+
+// src/tools/claude/toolState.ts
+function formatReadList(items) {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+function mustRead(flag, fieldName) {
+  if (!flag) return `Read the ${fieldName} field before modifying it.`;
+  return void 0;
+}
+function makeToolState(options) {
+  return {
+    spawnFunctionAgentsHasSpawned: false,
+    editInputSchemaModalityRemovalRejected: false,
+    runNetworkTestsApiBase: options.apiBase,
+    runNetworkTestsApiKey: options.apiKey,
+    readPlanIndex: options.readPlanIndex,
+    writePlanIndex: options.writePlanIndex,
+    submitApiBase: options.apiBase,
+    submitApiKey: options.apiKey,
+    gitUserName: options.gitUserName,
+    gitUserEmail: options.gitUserEmail,
+    ghToken: options.ghToken,
+    minWidth: options.minWidth,
+    maxWidth: options.maxWidth,
+    hasReadOrWrittenSpec: false,
+    hasReadOrWrittenEssay: false,
+    hasReadOrWrittenEssayTasks: false,
+    hasReadOrWrittenPlan: false,
+    hasReadExampleFunctions: false,
+    anyStepRan: false,
+    hasReadType: isDefaultType(),
+    hasReadDescription: isDefaultDescription(),
+    hasReadInputSchema: isDefaultInputSchema(),
+    hasReadInputMaps: isDefaultInputMaps(),
+    hasReadTasks: isDefaultTasks(),
+    hasReadOutputLength: isDefaultOutputLength(),
+    hasReadInputSplit: isDefaultInputSplit(),
+    hasReadInputMerge: isDefaultInputMerge(),
+    hasReadExampleInputs: isDefaultExampleInputs(),
+    hasReadReadme: isDefaultReadme()
+  };
+}
+
+// src/claude/prepare/nameMcp.ts
+function nameIsNonEmpty() {
+  return existsSync("name.txt") && readFileSync("name.txt", "utf-8").trim().length > 0;
+}
+async function nameMcp(state, log, sessionId, name) {
+  if (nameIsNonEmpty()) return sessionId;
+  if (name) {
+    writeName(name, state.ghToken);
+    return sessionId;
+  }
+  const tools = [
+    makeReadSpec(state),
+    makeReadName(),
+    makeWriteName(state),
+    makeListExampleFunctions(state),
+    makeReadExampleFunction(state),
+    makeReadFunctionSchema()
+  ];
+  const mcpServer = createSdkMcpServer({ name: "name", tools });
+  const reads = [];
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
+  if (!state.hasReadExampleFunctions) reads.push("example functions");
+  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context, then create` : "Create";
+  sessionId = await consumeStream(
+    query({
+      prompt: `${readPrefix} name.txt with the function name.
+**Do NOT include "objectiveai" or "function" or "scalar" or "vector" in the name.** Name it like you would name a function:
+- Use all lowercase
+- Use dashes (\`-\`) to separate words if there's more than one`,
+      options: {
+        tools: [],
+        mcpServers: { name: mcpServer },
+        allowedTools: ["mcp__name__*"],
+        disallowedTools: ["AskUserQuestion"],
+        permissionMode: "dontAsk",
+        resume: sessionId
+      }
+    }),
+    log,
+    sessionId
+  );
+  let retry = 1;
+  while (!nameIsNonEmpty()) {
+    if (retry > 10) {
+      throw new Error("name.txt is empty after name phase");
+    }
+    sessionId = await consumeStream(
+      query({
+        prompt: 'name.txt is empty after your name phase. Create name.txt with the function name.\n**Do NOT include "objectiveai" or "function" or "scalar" or "vector" in the name.** Name it like you would name a function:\n- Use all lowercase\n- Use dashes (`-`) to separate words if there\'s more than one',
+        options: {
+          tools: [],
+          mcpServers: { name: mcpServer },
+          allowedTools: ["mcp__name__*"],
+          disallowedTools: ["AskUserQuestion"],
+          permissionMode: "dontAsk",
+          resume: sessionId
+        }
+      }),
+      log,
+      sessionId
+    );
+    retry += 1;
+  }
+  state.anyStepRan = true;
+  if (sessionId) writeSession(sessionId);
+  return sessionId;
+}
+function makeReadEssay(state) {
+  return tool("ReadEssay", "Read ESSAY.md", {}, async () => {
+    state.hasReadOrWrittenEssay = true;
+    return resultFromResult(readEssay());
+  });
+}
+function makeWriteEssay(state) {
+  return tool(
+    "WriteEssay",
+    "Write ESSAY.md",
+    { content: z18.string() },
+    async ({ content }) => {
+      state.hasReadOrWrittenEssay = true;
+      return resultFromResult(writeEssay(content));
+    }
+  );
+}
+
+// src/claude/prepare/essayMcp.ts
+function essayIsNonEmpty() {
+  return existsSync("ESSAY.md") && readFileSync("ESSAY.md", "utf-8").trim().length > 0;
+}
+async function essayMcp(state, log, sessionId) {
+  if (essayIsNonEmpty()) return sessionId;
+  const tools = [
+    makeReadSpec(state),
+    makeReadName(),
+    makeWriteEssay(state),
+    makeListExampleFunctions(state),
+    makeReadExampleFunction(state),
+    makeReadFunctionSchema()
+  ];
+  const mcpServer = createSdkMcpServer({ name: "essay", tools });
+  const reads = [];
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
+  reads.push("name.txt");
+  if (!state.hasReadExampleFunctions) reads.push("example functions");
+  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context. ` : "";
+  const prompt = readPrefix + "Create ESSAY.md describing the ObjectiveAI Function you are building. Explore the purpose, inputs, outputs, and use-cases of the function in detail. Explore, in great detail, the various qualities, values, and sentiments that must be evaluated by the function. This essay will guide the development of the function and underpins its philosophy.";
+  sessionId = await consumeStream(
+    query({
+      prompt,
+      options: {
+        tools: [],
+        mcpServers: { essay: mcpServer },
+        allowedTools: ["mcp__essay__*"],
+        disallowedTools: ["AskUserQuestion"],
+        permissionMode: "dontAsk",
+        resume: sessionId
+      }
+    }),
+    log,
+    sessionId
+  );
+  let retry = 1;
+  while (!essayIsNonEmpty()) {
+    if (retry > 3) {
+      throw new Error("ESSAY.md is empty after essay phase");
+    }
+    sessionId = await consumeStream(
+      query({
+        prompt: "ESSAY.md is empty after your essay phase. Create ESSAY.md describing the ObjectiveAI Function you are building. Explore the purpose, inputs, outputs, and use-cases of the function in detail. Explore, in great detail, the various qualities, values, and sentiments that must be evaluated by the function. This essay will guide the development of the function and underpins its philosophy.",
+        options: {
+          tools: [],
+          mcpServers: { essay: mcpServer },
+          allowedTools: ["mcp__essay__*"],
+          disallowedTools: ["AskUserQuestion"],
+          permissionMode: "dontAsk",
+          resume: sessionId
+        }
+      }),
+      log,
+      sessionId
+    );
+    retry += 1;
+  }
+  state.anyStepRan = true;
+  if (sessionId) writeSession(sessionId);
+  return sessionId;
+}
+function makeReadEssayTasks(state) {
+  return tool(
+    "ReadEssayTasks",
+    "Read ESSAY_TASKS.md",
+    {},
+    async () => {
+      state.hasReadOrWrittenEssayTasks = true;
+      return resultFromResult(readEssayTasks());
+    }
+  );
+}
+function makeWriteEssayTasks(state) {
+  return tool(
+    "WriteEssayTasks",
+    "Write ESSAY_TASKS.md",
+    { content: z18.string() },
+    async ({ content }) => {
+      state.hasReadOrWrittenEssayTasks = true;
+      return resultFromResult(writeEssayTasks(content));
+    }
+  );
+}
+
+// src/claude/prepare/essayTasksMcp.ts
+function essayTasksIsNonEmpty() {
+  return existsSync("ESSAY_TASKS.md") && readFileSync("ESSAY_TASKS.md", "utf-8").trim().length > 0;
+}
+async function essayTasksMcp(state, log, sessionId) {
+  if (essayTasksIsNonEmpty()) return sessionId;
+  const tools = [
+    makeReadSpec(state),
+    makeReadName(),
+    makeReadEssay(state),
+    makeWriteEssayTasks(state),
+    makeListExampleFunctions(state),
+    makeReadExampleFunction(state),
+    makeReadFunctionSchema()
+  ];
+  const mcpServer = createSdkMcpServer({ name: "essayTasks", tools });
+  const widthDesc = state.minWidth === state.maxWidth ? `exactly ${state.minWidth}` : `between ${state.minWidth} and ${state.maxWidth}`;
+  const reads = [];
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
+  reads.push("name.txt");
+  if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
+  if (!state.hasReadExampleFunctions) reads.push("example functions");
+  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context, then create` : "Create";
+  const prompt = `${readPrefix} ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's \`tasks\` array. There must be ${widthDesc} tasks.`;
+  sessionId = await consumeStream(
+    query({
+      prompt,
+      options: {
+        tools: [],
+        mcpServers: { essayTasks: mcpServer },
+        allowedTools: ["mcp__essayTasks__*"],
+        disallowedTools: ["AskUserQuestion"],
+        permissionMode: "dontAsk",
+        resume: sessionId
+      }
+    }),
+    log,
+    sessionId
+  );
+  let retry = 1;
+  while (!essayTasksIsNonEmpty()) {
+    if (retry > 3) {
+      throw new Error("ESSAY_TASKS.md is empty after essayTasks phase");
+    }
+    sessionId = await consumeStream(
+      query({
+        prompt: `ESSAY_TASKS.md is empty after your essayTasks phase. Create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's \`tasks\` array. There must be ${widthDesc} tasks.`,
+        options: {
+          tools: [],
+          mcpServers: { essayTasks: mcpServer },
+          allowedTools: ["mcp__essayTasks__*"],
+          disallowedTools: ["AskUserQuestion"],
+          permissionMode: "dontAsk",
+          resume: sessionId
+        }
+      }),
+      log,
+      sessionId
+    );
+    retry += 1;
+  }
+  state.anyStepRan = true;
+  if (sessionId) writeSession(sessionId);
+  return sessionId;
+}
+
+// src/claude/prepare/index.ts
+async function runStep(state, log, sessionId, fn) {
+  try {
+    return await fn(sessionId);
+  } catch (e) {
+    if (!state.anyStepRan) {
+      log("Session may be invalid, retrying without session...");
+      return await fn(void 0);
+    } else {
+      throw e;
+    }
+  }
+}
+async function prepare(state, options) {
+  const log = options.log;
+  let sessionId = options.sessionId;
+  log("=== Step 1: SPEC.md ===");
+  sessionId = await runStep(
+    state,
+    log,
+    sessionId,
+    (sid) => specMcp(state, log, sid, options.spec)
+  );
+  log("=== Step 2: name.txt ===");
+  sessionId = await runStep(
+    state,
+    log,
+    sessionId,
+    (sid) => nameMcp(state, log, sid, options.name)
+  );
+  log("=== Step 3: ESSAY.md ===");
+  sessionId = await runStep(
+    state,
+    log,
+    sessionId,
+    (sid) => essayMcp(state, log, sid)
+  );
+  log("=== Step 4: ESSAY_TASKS.md ===");
+  sessionId = await runStep(
+    state,
+    log,
+    sessionId,
+    (sid) => essayTasksMcp(state, log, sid)
+  );
+  return sessionId;
+}
 function clearDir(dir) {
   if (!existsSync(dir)) return;
   for (const file of readdirSync(dir)) {
@@ -3139,12 +3206,10 @@ function makeReadOutputParamSchema(state) {
   );
 }
 function makeReadType(state) {
-  return tool(
-    "ReadType",
-    "Read the Function's `type` field",
-    {},
-    async () => resultFromResult(readType())
-  );
+  return tool("ReadType", "Read the Function's `type` field", {}, async () => {
+    state.hasReadType = true;
+    return resultFromResult(readType());
+  });
 }
 function makeReadTypeSchema(state) {
   return tool(
@@ -3159,7 +3224,11 @@ function makeEditType(state) {
     "EditType",
     "Edit the Function's `type` field",
     { value: z18.string() },
-    async ({ value }) => resultFromResult(editType(value))
+    async ({ value }) => {
+      const err = mustRead(state.hasReadType, "type");
+      if (err) return errorResult(err);
+      return resultFromResult(editType(value));
+    }
   );
 }
 function makeCheckType(state) {
@@ -3175,7 +3244,10 @@ function makeReadDescription(state) {
     "ReadDescription",
     "Read the Function's `description` field",
     {},
-    async () => resultFromResult(readDescription())
+    async () => {
+      state.hasReadDescription = true;
+      return resultFromResult(readDescription());
+    }
   );
 }
 function makeReadDescriptionSchema(state) {
@@ -3191,7 +3263,11 @@ function makeEditDescription(state) {
     "EditDescription",
     "Edit the Function's `description` field",
     { value: z18.string() },
-    async ({ value }) => resultFromResult(editDescription(value))
+    async ({ value }) => {
+      const err = mustRead(state.hasReadDescription, "description");
+      if (err) return errorResult(err);
+      return resultFromResult(editDescription(value));
+    }
   );
 }
 function makeCheckDescription(state) {
@@ -3207,7 +3283,10 @@ function makeReadInputSchema(state) {
     "ReadInputSchema",
     "Read the Function's `input_schema` field",
     {},
-    async () => resultFromResult(readInputSchema())
+    async () => {
+      state.hasReadInputSchema = true;
+      return resultFromResult(readInputSchema());
+    }
   );
 }
 function makeReadInputSchemaSchema(state) {
@@ -3227,6 +3306,8 @@ function makeEditInputSchema(state) {
       dangerouslyRemoveModalities: z18.boolean().optional()
     },
     async ({ value, dangerouslyRemoveModalities }) => {
+      const readErr = mustRead(state.hasReadInputSchema, "input_schema");
+      if (readErr) return errorResult(readErr);
       if (dangerouslyRemoveModalities) {
         if (!state.editInputSchemaModalityRemovalRejected) {
           return resultFromResult({
@@ -3279,7 +3360,10 @@ function makeReadInputMaps(state) {
     "ReadInputMaps",
     "Read the Function's `input_maps` field",
     {},
-    async () => resultFromResult(readInputMaps())
+    async () => {
+      state.hasReadInputMaps = true;
+      return resultFromResult(readInputMaps());
+    }
   );
 }
 function makeReadInputMapsSchema(state) {
@@ -3295,7 +3379,11 @@ function makeAppendInputMap(state) {
     "AppendInputMap",
     "Append an input map to the Function's `input_maps` array",
     { value: z18.unknown() },
-    async ({ value }) => resultFromResult(appendInputMap(value))
+    async ({ value }) => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(appendInputMap(value));
+    }
   );
 }
 function makeDelInputMap(state) {
@@ -3303,7 +3391,11 @@ function makeDelInputMap(state) {
     "DelInputMap",
     "Delete an input map at a specific index from the Function's `input_maps` array",
     { index: z18.int().nonnegative() },
-    async ({ index }) => resultFromResult(delInputMap(index))
+    async ({ index }) => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(delInputMap(index));
+    }
   );
 }
 function makeDelInputMaps(state) {
@@ -3311,7 +3403,11 @@ function makeDelInputMaps(state) {
     "DelInputMaps",
     "Delete the Function's `input_maps` field",
     {},
-    async () => resultFromResult(delInputMaps())
+    async () => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(delInputMaps());
+    }
   );
 }
 function makeCheckInputMaps(state) {
@@ -3327,7 +3423,10 @@ function makeReadOutputLength(state) {
     "ReadOutputLength",
     "Read the Function's `output_length` field",
     {},
-    async () => resultFromResult(readOutputLength())
+    async () => {
+      state.hasReadOutputLength = true;
+      return resultFromResult(readOutputLength());
+    }
   );
 }
 function makeReadOutputLengthSchema(state) {
@@ -3343,7 +3442,11 @@ function makeEditOutputLength(state) {
     "EditOutputLength",
     "Edit the Function's `output_length` field",
     { value: z18.unknown().nullable() },
-    async ({ value }) => resultFromResult(editOutputLength(value))
+    async ({ value }) => {
+      const err = mustRead(state.hasReadOutputLength, "output_length");
+      if (err) return errorResult(err);
+      return resultFromResult(editOutputLength(value));
+    }
   );
 }
 function makeDelOutputLength(state) {
@@ -3351,7 +3454,11 @@ function makeDelOutputLength(state) {
     "DelOutputLength",
     "Delete the Function's `output_length` field",
     {},
-    async () => resultFromResult(delOutputLength())
+    async () => {
+      const err = mustRead(state.hasReadOutputLength, "output_length");
+      if (err) return errorResult(err);
+      return resultFromResult(delOutputLength());
+    }
   );
 }
 function makeCheckOutputLength(state) {
@@ -3367,7 +3474,10 @@ function makeReadInputSplit(state) {
     "ReadInputSplit",
     "Read the Function's `input_split` field",
     {},
-    async () => resultFromResult(readInputSplit())
+    async () => {
+      state.hasReadInputSplit = true;
+      return resultFromResult(readInputSplit());
+    }
   );
 }
 function makeReadInputSplitSchema(state) {
@@ -3383,7 +3493,11 @@ function makeEditInputSplit(state) {
     "EditInputSplit",
     "Edit the Function's `input_split` field",
     { value: z18.unknown().nullable() },
-    async ({ value }) => resultFromResult(editInputSplit(value))
+    async ({ value }) => {
+      const err = mustRead(state.hasReadInputSplit, "input_split");
+      if (err) return errorResult(err);
+      return resultFromResult(editInputSplit(value));
+    }
   );
 }
 function makeDelInputSplit(state) {
@@ -3391,7 +3505,11 @@ function makeDelInputSplit(state) {
     "DelInputSplit",
     "Delete the Function's `input_split` field",
     {},
-    async () => resultFromResult(delInputSplit())
+    async () => {
+      const err = mustRead(state.hasReadInputSplit, "input_split");
+      if (err) return errorResult(err);
+      return resultFromResult(delInputSplit());
+    }
   );
 }
 function makeCheckInputSplit(state) {
@@ -3407,7 +3525,10 @@ function makeReadInputMerge(state) {
     "ReadInputMerge",
     "Read the Function's `input_merge` field",
     {},
-    async () => resultFromResult(readInputMerge())
+    async () => {
+      state.hasReadInputMerge = true;
+      return resultFromResult(readInputMerge());
+    }
   );
 }
 function makeReadInputMergeSchema(state) {
@@ -3423,7 +3544,11 @@ function makeEditInputMerge(state) {
     "EditInputMerge",
     "Edit the Function's `input_merge` field",
     { value: z18.unknown().nullable() },
-    async ({ value }) => resultFromResult(editInputMerge(value))
+    async ({ value }) => {
+      const err = mustRead(state.hasReadInputMerge, "input_merge");
+      if (err) return errorResult(err);
+      return resultFromResult(editInputMerge(value));
+    }
   );
 }
 function makeDelInputMerge(state) {
@@ -3431,7 +3556,11 @@ function makeDelInputMerge(state) {
     "DelInputMerge",
     "Delete the Function's `input_merge` field",
     {},
-    async () => resultFromResult(delInputMerge())
+    async () => {
+      const err = mustRead(state.hasReadInputMerge, "input_merge");
+      if (err) return errorResult(err);
+      return resultFromResult(delInputMerge());
+    }
   );
 }
 function makeCheckInputMerge(state) {
@@ -3447,7 +3576,10 @@ function makeReadTasks(state) {
     "ReadTasks",
     "Read the Function's `tasks` field",
     {},
-    async () => resultFromResult(readTasks())
+    async () => {
+      state.hasReadTasks = true;
+      return resultFromResult(readTasks());
+    }
   );
 }
 function makeReadTasksSchema(state) {
@@ -3463,7 +3595,11 @@ function makeAppendTask(state) {
     "AppendTask",
     "Append a task to the Function's `tasks` array",
     { value: z18.record(z18.string(), z18.unknown()) },
-    async ({ value }) => resultFromResult(appendTask(value))
+    async ({ value }) => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(appendTask(value));
+    }
   );
 }
 function makeEditTask(state) {
@@ -3474,7 +3610,11 @@ function makeEditTask(state) {
       index: z18.number().int().nonnegative(),
       value: z18.record(z18.string(), z18.unknown())
     },
-    async ({ index, value }) => resultFromResult(editTask(index, value))
+    async ({ index, value }) => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(editTask(index, value));
+    }
   );
 }
 function makeDelTask(state) {
@@ -3482,7 +3622,11 @@ function makeDelTask(state) {
     "DelTask",
     "Delete a task at a specific index from the Function's `tasks` array",
     { index: z18.int().nonnegative() },
-    async ({ index }) => resultFromResult(delTask(index))
+    async ({ index }) => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(delTask(index));
+    }
   );
 }
 function makeDelTasks(state) {
@@ -3490,7 +3634,11 @@ function makeDelTasks(state) {
     "DelTasks",
     "Delete all tasks from the Function's `tasks` array",
     {},
-    async () => resultFromResult(delTasks())
+    async () => {
+      const err = mustRead(state.hasReadTasks, "tasks");
+      if (err) return errorResult(err);
+      return resultFromResult(delTasks());
+    }
   );
 }
 function makeCheckTasks(state) {
@@ -3548,7 +3696,10 @@ function makeReadExampleInputs(state) {
     "ReadExampleInputs",
     "Read the Function's example inputs",
     {},
-    async () => resultFromResult(readExampleInputs())
+    async () => {
+      state.hasReadExampleInputs = true;
+      return resultFromResult(readExampleInputs());
+    }
   );
 }
 function makeReadExampleInputsSchema(state) {
@@ -3571,6 +3722,8 @@ function makeAppendExampleInput(state) {
     "Append an example input to the Function's example inputs array. Provide just the input value \u2014 compiledTasks and outputLength are computed automatically.",
     { value: Functions.Expression.InputValueSchema },
     async ({ value }) => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
       const built = buildExampleInput(value);
       if (!built.ok) return errorResult(built.error);
       return resultFromResult(appendExampleInput(built.value));
@@ -3586,6 +3739,8 @@ function makeEditExampleInput(state) {
       value: Functions.Expression.InputValueSchema
     },
     async ({ index, value }) => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
       const built = buildExampleInput(value);
       if (!built.ok) return errorResult(built.error);
       return resultFromResult(editExampleInput(index, built.value));
@@ -3597,7 +3752,11 @@ function makeDelExampleInput(state) {
     "DelExampleInput",
     "Delete an example input at a specific index from the Function's example inputs array",
     { index: z18.number().int().nonnegative() },
-    async ({ index }) => resultFromResult(delExampleInput(index))
+    async ({ index }) => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
+      return resultFromResult(delExampleInput(index));
+    }
   );
 }
 function makeDelExampleInputs(state) {
@@ -3605,7 +3764,11 @@ function makeDelExampleInputs(state) {
     "DelExampleInputs",
     "Delete all example inputs from the Function's example inputs array",
     {},
-    async () => resultFromResult(delExampleInputs())
+    async () => {
+      const err = mustRead(state.hasReadExampleInputs, "example inputs");
+      if (err) return errorResult(err);
+      return resultFromResult(delExampleInputs());
+    }
   );
 }
 function makeCheckExampleInputs(state) {
@@ -3861,7 +4024,10 @@ function makeReadReadme(state) {
     "ReadReadme",
     "Read README.md",
     {},
-    async () => resultFromResult(readReadme())
+    async () => {
+      state.hasReadReadme = true;
+      return resultFromResult(readReadme());
+    }
   );
 }
 function makeWriteReadme(state) {
@@ -3869,7 +4035,11 @@ function makeWriteReadme(state) {
     "WriteReadme",
     "Write README.md",
     { content: z18.string() },
-    async ({ content }) => resultFromResult(writeReadme(content))
+    async ({ content }) => {
+      const err = mustRead(state.hasReadReadme, "README.md");
+      if (err) return errorResult(err);
+      return resultFromResult(writeReadme(content));
+    }
   );
 }
 function makeSubmit(state) {
@@ -3895,7 +4065,7 @@ async function planMcp(state, log, depth, sessionId, instructions) {
     makeReadExampleFunction(state),
     makeReadFunctionSchema(),
     // Function
-    makeReadFunction(),
+    makeReadFunction(state),
     makeCheckFunction(),
     makeReadMessagesExpressionSchema(),
     makeReadToolsExpressionSchema(),
@@ -3936,11 +4106,11 @@ async function planMcp(state, log, depth, sessionId, instructions) {
     makeReadCompiledVectorFunctionTaskSchema(),
     makeReadCompiledVectorCompletionTaskSchema(),
     // Example inputs
-    makeReadExampleInputs(),
+    makeReadExampleInputs(state),
     makeReadExampleInputsSchema(),
     makeCheckExampleInputs(),
     // README
-    makeReadReadme(),
+    makeReadReadme(state),
     // Network tests
     makeRunNetworkTests(state),
     makeReadDefaultNetworkTest(),
@@ -4415,47 +4585,47 @@ function getCommonTools(state) {
     makeReadExampleFunction(state),
     makeReadFunctionSchema(),
     // Function
-    makeReadFunction(),
+    makeReadFunction(state),
     makeCheckFunction(),
-    makeReadType(),
+    makeReadType(state),
     makeReadTypeSchema(),
-    makeEditType(),
+    makeEditType(state),
     makeCheckType(),
-    makeReadDescription(),
+    makeReadDescription(state),
     makeReadDescriptionSchema(),
-    makeEditDescription(),
+    makeEditDescription(state),
     makeCheckDescription(),
-    makeReadInputSchema(),
+    makeReadInputSchema(state),
     makeReadInputSchemaSchema(),
     makeEditInputSchema(state),
     makeCheckInputSchema(),
-    makeReadInputMaps(),
+    makeReadInputMaps(state),
     makeReadInputMapsSchema(),
-    makeAppendInputMap(),
-    makeDelInputMap(),
-    makeDelInputMaps(),
+    makeAppendInputMap(state),
+    makeDelInputMap(state),
+    makeDelInputMaps(state),
     makeCheckInputMaps(),
-    makeReadOutputLength(),
+    makeReadOutputLength(state),
     makeReadOutputLengthSchema(),
-    makeEditOutputLength(),
-    makeDelOutputLength(),
+    makeEditOutputLength(state),
+    makeDelOutputLength(state),
     makeCheckOutputLength(),
-    makeReadInputSplit(),
+    makeReadInputSplit(state),
     makeReadInputSplitSchema(),
-    makeEditInputSplit(),
-    makeDelInputSplit(),
+    makeEditInputSplit(state),
+    makeDelInputSplit(state),
     makeCheckInputSplit(),
-    makeReadInputMerge(),
+    makeReadInputMerge(state),
     makeReadInputMergeSchema(),
-    makeEditInputMerge(),
-    makeDelInputMerge(),
+    makeEditInputMerge(state),
+    makeDelInputMerge(state),
     makeCheckInputMerge(),
-    makeReadTasks(),
+    makeReadTasks(state),
     makeReadTasksSchema(),
-    makeAppendTask(),
-    makeEditTask(),
-    makeDelTask(),
-    makeDelTasks(),
+    makeAppendTask(state),
+    makeEditTask(state),
+    makeDelTask(state),
+    makeDelTasks(state),
     makeCheckTasks(),
     makeReadMessagesExpressionSchema(),
     makeReadToolsExpressionSchema(),
@@ -4496,16 +4666,16 @@ function getCommonTools(state) {
     makeReadCompiledVectorFunctionTaskSchema(),
     makeReadCompiledVectorCompletionTaskSchema(),
     // Example inputs
-    makeReadExampleInputs(),
+    makeReadExampleInputs(state),
     makeReadExampleInputsSchema(),
-    makeAppendExampleInput(),
-    makeEditExampleInput(),
-    makeDelExampleInput(),
-    makeDelExampleInputs(),
+    makeAppendExampleInput(state),
+    makeEditExampleInput(state),
+    makeDelExampleInput(state),
+    makeDelExampleInputs(state),
     makeCheckExampleInputs(),
     // README
-    makeReadReadme(),
-    makeWriteReadme(),
+    makeReadReadme(state),
+    makeWriteReadme(state),
     // Network tests
     makeRunNetworkTests(state),
     makeReadDefaultNetworkTest(),
