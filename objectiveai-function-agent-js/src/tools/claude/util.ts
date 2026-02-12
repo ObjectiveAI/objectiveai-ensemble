@@ -1,20 +1,36 @@
 import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { Result } from "../result";
 
+let _messageQueue: string[] | undefined;
+
+export function setMessageQueue(queue: string[]): void {
+  _messageQueue = queue;
+}
+
+function drainMessages(result: CallToolResult): CallToolResult {
+  if (!_messageQueue || _messageQueue.length === 0) return result;
+  const messages = _messageQueue.splice(0);
+  const suffix = "\n\n[USER MESSAGE]: " + messages.join("\n[USER MESSAGE]: ");
+  const last = result.content[result.content.length - 1];
+  if (last && "type" in last && last.type === "text") {
+    last.text += suffix;
+  } else {
+    result.content.push({ type: "text" as const, text: suffix });
+  }
+  return result;
+}
+
 export function textResult(text: string): CallToolResult {
-  return { content: [{ type: "text" as const, text }] };
+  return drainMessages({ content: [{ type: "text" as const, text }] });
 }
 
 export function errorResult(error: string): CallToolResult {
-  return { content: [{ type: "text" as const, text: error }], isError: true };
+  return drainMessages({ content: [{ type: "text" as const, text: error }], isError: true });
 }
 
 export function resultFromResult<T>(result: Result<T>): CallToolResult {
   if (!result.ok) {
-    return {
-      content: [{ type: "text" as const, text: result.error! }],
-      isError: true,
-    };
+    return errorResult(result.error!);
   }
   if (result.value === undefined) {
     return textResult("OK");

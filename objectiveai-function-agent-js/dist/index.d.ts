@@ -68,6 +68,7 @@ interface ToolState {
     hasReadExampleInputs: boolean;
     hasReadReadme: boolean;
     onChildEvent?: (evt: AgentEvent) => void;
+    messageQueue: string[];
 }
 
 declare function specMcp(state: ToolState, log: LogFn, sessionId?: string, spec?: string): Promise<string | undefined>;

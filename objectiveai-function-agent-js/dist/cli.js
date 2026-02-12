@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { createInterface } from 'readline';
 import { execSync, spawn } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, readdirSync, appendFileSync, mkdirSync, unlinkSync, statSync } from 'fs';
 import { join, dirname } from 'path';
@@ -392,18 +393,31 @@ ${content}`);
 }
 
 // src/tools/claude/util.ts
+var _messageQueue;
+function setMessageQueue(queue) {
+  _messageQueue = queue;
+}
+function drainMessages(result) {
+  if (!_messageQueue || _messageQueue.length === 0) return result;
+  const messages = _messageQueue.splice(0);
+  const suffix = "\n\n[USER MESSAGE]: " + messages.join("\n[USER MESSAGE]: ");
+  const last = result.content[result.content.length - 1];
+  if (last && "type" in last && last.type === "text") {
+    last.text += suffix;
+  } else {
+    result.content.push({ type: "text", text: suffix });
+  }
+  return result;
+}
 function textResult(text) {
-  return { content: [{ type: "text", text }] };
+  return drainMessages({ content: [{ type: "text", text }] });
 }
 function errorResult(error) {
-  return { content: [{ type: "text", text: error }], isError: true };
+  return drainMessages({ content: [{ type: "text", text: error }], isError: true });
 }
 function resultFromResult(result) {
   if (!result.ok) {
-    return {
-      content: [{ type: "text", text: result.error }],
-      isError: true
-    };
+    return errorResult(result.error);
   }
   if (result.value === void 0) {
     return textResult("OK");
@@ -2545,7 +2559,8 @@ function makeToolState(options) {
     hasReadInputMerge: isDefaultInputMerge(),
     hasReadExampleInputs: isDefaultExampleInputs(),
     hasReadReadme: isDefaultReadme(),
-    onChildEvent: options.onChildEvent
+    onChildEvent: options.onChildEvent,
+    messageQueue: []
   };
 }
 
@@ -5784,6 +5799,15 @@ function emitNameEvent(isChild, dashboard) {
     }
   }
 }
+function startStdinReader(queue) {
+  if (!process.stdin.isTTY) return void 0;
+  const rl = createInterface({ input: process.stdin });
+  rl.on("line", (line) => {
+    const trimmed = line.trim();
+    if (trimmed) queue.push(trimmed);
+  });
+  return () => rl.close();
+}
 function emitDoneAndDispose(isChild, dashboard) {
   if (isChild) {
     process.stdout.write(serializeEvent({ event: "done", path: "" }) + "\n");
@@ -5812,6 +5836,8 @@ async function invent(partialOptions = {}) {
     maxWidth: options.maxWidth,
     onChildEvent
   });
+  setMessageQueue(toolState.messageQueue);
+  const closeStdin = !isChild ? startStdinReader(toolState.messageQueue) : void 0;
   options.log("=== Initializing workspace ===");
   await init(options);
   options.log("=== Preparing ===");
@@ -5819,6 +5845,7 @@ async function invent(partialOptions = {}) {
   emitNameEvent(isChild, dashboard);
   options.log("=== Inventing ===");
   await inventMcp(toolState, { ...options, sessionId });
+  closeStdin?.();
   emitDoneAndDispose(isChild, dashboard);
 }
 async function amend(partialOptions = {}) {
@@ -5847,6 +5874,8 @@ async function amend(partialOptions = {}) {
     maxWidth: options.maxWidth,
     onChildEvent
   });
+  setMessageQueue(toolState.messageQueue);
+  const closeStdin = !isChild ? startStdinReader(toolState.messageQueue) : void 0;
   options.log("=== Initializing workspace ===");
   await init(options);
   options.log("=== Preparing ===");
@@ -5854,6 +5883,7 @@ async function amend(partialOptions = {}) {
   emitNameEvent(isChild, dashboard);
   options.log("=== Amending ===");
   await amendMcp(toolState, { ...options, sessionId }, amendment);
+  closeStdin?.();
   emitDoneAndDispose(isChild, dashboard);
 }
 

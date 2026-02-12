@@ -43,6 +43,7 @@ export interface ToolState {
   hasReadExampleInputs: boolean;
   hasReadReadme: boolean;
   onChildEvent?: (evt: AgentEvent) => void;
+  messageQueue: string[];
 }
 
 export function formatReadList(items: string[]): string {
@@ -100,5 +101,6 @@ export function makeToolState(options: {
     hasReadExampleInputs: isDefaultExampleInputs(),
     hasReadReadme: isDefaultReadme(),
     onChildEvent: options.onChildEvent,
+    messageQueue: [],
   };
 }

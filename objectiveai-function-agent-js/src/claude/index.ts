@@ -1,9 +1,11 @@
+import { createInterface } from "readline";
 import { AgentOptions, makeAgentOptions } from "../agentOptions";
 import { init } from "../init";
 import { prepare } from "./prepare";
 import { inventMcp } from "./invent";
 import { amendMcp } from "./amend";
 import { makeToolState } from "../tools/claude/toolState";
+import { setMessageQueue } from "../tools/claude/util";
 import { getNextPlanIndex } from "./planIndex";
 import { Dashboard } from "../dashboard";
 import { createRootLogger, createChildLogger } from "../logging";
@@ -52,6 +54,16 @@ function emitNameEvent(
   }
 }
 
+function startStdinReader(queue: string[]): (() => void) | undefined {
+  if (!process.stdin.isTTY) return undefined;
+  const rl = createInterface({ input: process.stdin });
+  rl.on("line", (line) => {
+    const trimmed = line.trim();
+    if (trimmed) queue.push(trimmed);
+  });
+  return () => rl.close();
+}
+
 function emitDoneAndDispose(
   isChild: boolean,
   dashboard: Dashboard | undefined,
@@ -87,6 +99,9 @@ export async function invent(partialOptions: Partial<AgentOptions> = {}): Promis
     onChildEvent,
   });
 
+  setMessageQueue(toolState.messageQueue);
+  const closeStdin = !isChild ? startStdinReader(toolState.messageQueue) : undefined;
+
   options.log("=== Initializing workspace ===");
   await init(options);
 
@@ -98,6 +113,7 @@ export async function invent(partialOptions: Partial<AgentOptions> = {}): Promis
   options.log("=== Inventing ===");
   await inventMcp(toolState, { ...options, sessionId });
 
+  closeStdin?.();
   emitDoneAndDispose(isChild, dashboard);
 }
 
@@ -133,6 +149,9 @@ export async function amend(partialOptions: Partial<AgentOptions> = {}): Promise
     onChildEvent,
   });
 
+  setMessageQueue(toolState.messageQueue);
+  const closeStdin = !isChild ? startStdinReader(toolState.messageQueue) : undefined;
+
   options.log("=== Initializing workspace ===");
   await init(options);
 
@@ -144,5 +163,6 @@ export async function amend(partialOptions: Partial<AgentOptions> = {}): Promise
   options.log("=== Amending ===");
   await amendMcp(toolState, { ...options, sessionId }, amendment);
 
+  closeStdin?.();
   emitDoneAndDispose(isChild, dashboard);
 }
