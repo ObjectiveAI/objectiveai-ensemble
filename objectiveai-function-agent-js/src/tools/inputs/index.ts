@@ -108,6 +108,19 @@ export function isDefaultExampleInputs(): boolean {
   return !Array.isArray(v) || v.length === 0;
 }
 
+export function readExampleInput(index: number): Result<unknown> {
+  const file = readExampleInputsFile();
+  if (!file.ok) return file;
+  if (index < 0 || index >= file.value.length) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `index ${index} is out of bounds (length ${file.value.length})`,
+    };
+  }
+  return { ok: true, value: file.value[index], error: undefined };
+}
+
 export function readExampleInputs(): Result<unknown> {
   return readExampleInputsFile();
 }

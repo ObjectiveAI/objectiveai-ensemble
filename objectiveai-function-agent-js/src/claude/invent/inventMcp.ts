@@ -90,6 +90,7 @@ import {
 
 // Tools - example inputs
 import {
+  makeReadExampleInput,
   makeReadExampleInputs,
   makeReadExampleInputsSchema,
   makeAppendExampleInput,
@@ -272,6 +273,7 @@ function getCommonTools(state: ToolState) {
     makeReadCompiledVectorCompletionTaskSchema(state),
 
     // Example inputs
+    makeReadExampleInput(state),
     makeReadExampleInputs(state),
     makeReadExampleInputsSchema(state),
     makeAppendExampleInput(state),

@@ -8,6 +8,7 @@ import {
   delExampleInput,
   delExampleInputs,
   editExampleInput,
+  readExampleInput,
   readExampleInputs,
   readExampleInputsSchema,
 } from "../inputs";
@@ -39,6 +40,18 @@ function buildExampleInput(value: Functions.Expression.InputValue) {
       : null;
 
   return { ok: true as const, value: { value, compiledTasks, outputLength } };
+}
+
+export function makeReadExampleInput(state: ToolState) {
+  return tool(
+    "ReadExampleInput",
+    "Read a single example input at a specific index from the Function's example inputs array",
+    { index: z.number().int().nonnegative() },
+    async ({ index }) => {
+      state.hasReadExampleInputs = true;
+      return resultFromResult(readExampleInput(index));
+    },
+  );
 }
 
 export function makeReadExampleInputs(state: ToolState) {

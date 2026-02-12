@@ -1866,6 +1866,18 @@ function isDefaultExampleInputs() {
   const v = result.ok ? result.value : [];
   return !Array.isArray(v) || v.length === 0;
 }
+function readExampleInput(index) {
+  const file = readExampleInputsFile();
+  if (!file.ok) return file;
+  if (index < 0 || index >= file.value.length) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `index ${index} is out of bounds (length ${file.value.length})`
+    };
+  }
+  return { ok: true, value: file.value[index], error: void 0 };
+}
 function readExampleInputs() {
   return readExampleInputsFile();
 }
@@ -3748,6 +3760,17 @@ function buildExampleInput(value) {
   const outputLength = func.type === "vector.function" ? Functions.compileFunctionOutputLength(func, value) : null;
   return { ok: true, value: { value, compiledTasks, outputLength } };
 }
+function makeReadExampleInput(state) {
+  return tool(
+    "ReadExampleInput",
+    "Read a single example input at a specific index from the Function's example inputs array",
+    { index: z18.number().int().nonnegative() },
+    async ({ index }) => {
+      state.hasReadExampleInputs = true;
+      return resultFromResult(readExampleInput(index));
+    }
+  );
+}
 function makeReadExampleInputs(state) {
   return tool(
     "ReadExampleInputs",
@@ -4744,6 +4767,7 @@ function getCommonTools(state) {
     makeReadCompiledVectorFunctionTaskSchema(),
     makeReadCompiledVectorCompletionTaskSchema(),
     // Example inputs
+    makeReadExampleInput(state),
     makeReadExampleInputs(state),
     makeReadExampleInputsSchema(),
     makeAppendExampleInput(state),
