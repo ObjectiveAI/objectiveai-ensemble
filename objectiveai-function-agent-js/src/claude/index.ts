@@ -1,6 +1,7 @@
 import { createInterface } from "readline";
 import type { Writable } from "stream";
 import { AgentOptions, makeAgentOptions } from "../agentOptions";
+import { printBanner } from "../banner";
 import { init } from "../init";
 import { prepare } from "./prepare";
 import { inventMcp } from "./invent";
@@ -136,6 +137,7 @@ function emitDoneAndDispose(
 
 export async function invent(partialOptions: Partial<AgentOptions> = {}): Promise<void> {
   const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
+  if (!isChild) printBanner();
 
   const options = makeAgentOptions({
     ...partialOptions,
@@ -178,6 +180,7 @@ export async function invent(partialOptions: Partial<AgentOptions> = {}): Promis
 
 export async function amend(partialOptions: Partial<AgentOptions> = {}): Promise<void> {
   const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
+  if (!isChild) printBanner();
 
   const options = makeAgentOptions({
     ...partialOptions,

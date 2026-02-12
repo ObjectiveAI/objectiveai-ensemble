@@ -238,6 +238,29 @@ function makeAgentOptions(options = {}) {
     ghToken
   };
 }
+
+// src/banner.ts
+var PURPLE = "\x1B[38;2;107;92;255m";
+var BOLD = "\x1B[1m";
+var RESET = "\x1B[0m";
+var LOGO = [
+  `  ${PURPLE}\u256D\u2500\u256E${RESET}              ${PURPLE}\u256D\u2500\u256E${RESET}`,
+  ` ${PURPLE}\u256D\u256F \u2502${RESET}   __ _  (_)  ${PURPLE}\u2502 \u2570\u256E${RESET}`,
+  `${PURPLE}\u256D\u256F  \u2502${RESET}  / _\` | |   ${PURPLE}\u2502  \u2570\u256E${RESET}`,
+  `${PURPLE}\u2570\u256E  \u2502${RESET}  \\__,_| |   ${PURPLE}\u2502  \u256D\u256F${RESET}`,
+  ` ${PURPLE}\u2570\u256E \u2502${RESET}       |_|   ${PURPLE}\u2502 \u256D\u256F${RESET}`,
+  `  ${PURPLE}\u2570\u2500\u256F${RESET}              ${PURPLE}\u2570\u2500\u256F${RESET}`
+];
+function printBanner() {
+  const title = `${BOLD}ObjectiveAI${RESET}`;
+  console.log();
+  console.log(`      ${title}`);
+  console.log();
+  for (const line of LOGO) {
+    console.log(line);
+  }
+  console.log();
+}
 function getFunctionPath(ref) {
   return join(
     "examples",
@@ -6178,6 +6201,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 async function dryrun() {
+  printBanner();
   const dashboard = new Dashboard(5);
   dashboard.setRootName(AGENTS[0].name);
   for (const agent of AGENTS) {
@@ -6283,6 +6307,7 @@ function emitDoneAndDispose(isChild, dashboard) {
 }
 async function invent(partialOptions = {}) {
   const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
+  if (!isChild) printBanner();
   const options = makeAgentOptions({
     ...partialOptions,
     ...logOverride && { log: logOverride.log },
@@ -6316,6 +6341,7 @@ async function invent(partialOptions = {}) {
 }
 async function amend(partialOptions = {}) {
   const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
+  if (!isChild) printBanner();
   const options = makeAgentOptions({
     ...partialOptions,
     ...logOverride && { log: logOverride.log },

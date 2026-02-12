@@ -1,5 +1,5 @@
+import { printBanner } from "../banner";
 import { Dashboard } from "../dashboard";
-import { AgentEvent } from "../events";
 
 interface SimAgent {
   path: string;
@@ -101,6 +101,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function dryrun(): Promise<void> {
+  printBanner();
   const dashboard = new Dashboard(5);
 
   // Set root name
