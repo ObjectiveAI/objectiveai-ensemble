@@ -1,11 +1,11 @@
 {
-  "name": "@objectiveai/function-agent",
+  "name": "@objectiveai/cli",
   "version": "0.1.0",
-  "description": "ObjectiveAI Function Agent SDK for JavaScript/TypeScript",
+  "description": "ObjectiveAI CLI",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "bin": {
-    "objectiveai-function-agent": "./dist/cli.js"
+    "objectiveai": "./dist/cli.js"
   },
   "repository": {
     "type": "git",

@@ -6307,7 +6307,7 @@ if (parentPid) {
   watchdog.unref();
 }
 var program = new Command();
-program.name("objectiveai-function-agent").description("Autonomous agent for creating ObjectiveAI Functions");
+program.name("objectiveai").description("ObjectiveAI CLI");
 program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).action(async (spec, opts) => {
   await claude_exports.invent({
     spec,

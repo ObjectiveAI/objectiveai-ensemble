@@ -20,8 +20,8 @@ if (parentPid) {
 const program = new Command();
 
 program
-  .name("objectiveai-function-agent")
-  .description("Autonomous agent for creating ObjectiveAI Functions");
+  .name("objectiveai")
+  .description("ObjectiveAI CLI");
 
 program
   .command("invent")
