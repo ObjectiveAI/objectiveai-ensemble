@@ -1929,25 +1929,9 @@ function makeWritePlan(state) {
     async ({ content }) => resultFromResult(writePlan(state.writePlanIndex, content))
   );
 }
-function getNextPlanIndex() {
-  const plansDir = "plans";
-  let nextPlanIndex = 1;
-  if (existsSync(plansDir)) {
-    const files = readdirSync(plansDir);
-    const planNumbers = files.filter((f) => /^\d+\.md$/.test(f)).map((f) => parseInt(f.replace(".md", ""), 10)).filter((n) => !isNaN(n));
-    if (planNumbers.length > 0) {
-      nextPlanIndex = Math.max(...planNumbers) + 1;
-    }
-  }
-  return nextPlanIndex;
-}
-function getPlanPath(index) {
-  return `plans/${index}.md`;
-}
 
 // src/claude/prepare/planMcp.ts
 async function planMcp(state, log, sessionId, instructions) {
-  const planPath = getPlanPath(state.writePlanIndex);
   const tools = [
     makeReadSpec(),
     makeReadName(),
@@ -1959,7 +1943,7 @@ async function planMcp(state, log, sessionId, instructions) {
     makeReadFunctionSchema()
   ];
   const mcpServer = createSdkMcpServer({ name: "plan", tools });
-  let prompt = `Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the function type, and example functions to understand the context. Then write your implementation plan to \`${planPath}\` (plan index ${state.writePlanIndex}). Include:
+  let prompt = `Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the function type, and example functions to understand the context. Then write your implementation plan using the WritePlan tool. Include:
 - The input schema structure and field descriptions
 - Whether any input maps are needed for mapped task execution
 - What the function definition will look like
@@ -4794,8 +4778,21 @@ function makeToolState(options) {
     gitUserEmail: options.gitUserEmail,
     ghToken: options.ghToken,
     minWidth: options.minWidth,
-    maxWidth: options.maxWidth
+    maxWidth: options.maxWidth,
+    hasReadSpecOnce: false
   };
+}
+function getNextPlanIndex() {
+  const plansDir = "plans";
+  let nextPlanIndex = 1;
+  if (existsSync(plansDir)) {
+    const files = readdirSync(plansDir);
+    const planNumbers = files.filter((f) => /^\d+\.md$/.test(f)).map((f) => parseInt(f.replace(".md", ""), 10)).filter((n) => !isNaN(n));
+    if (planNumbers.length > 0) {
+      nextPlanIndex = Math.max(...planNumbers) + 1;
+    }
+  }
+  return nextPlanIndex;
 }
 
 // src/claude/index.ts

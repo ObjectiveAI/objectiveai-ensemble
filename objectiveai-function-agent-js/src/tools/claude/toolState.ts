@@ -13,6 +13,7 @@ export interface ToolState {
   ghToken: string;
   minWidth: number;
   maxWidth: number;
+  hasReadSpecOnce: boolean;
 }
 
 export function makeToolState(options: {
@@ -41,5 +42,6 @@ export function makeToolState(options: {
     ghToken: options.ghToken,
     minWidth: options.minWidth,
     maxWidth: options.maxWidth,
+    hasReadSpecOnce: false,
   };
 }

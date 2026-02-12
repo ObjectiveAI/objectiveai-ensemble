@@ -36,6 +36,7 @@ interface ToolState {
     ghToken: string;
     minWidth: number;
     maxWidth: number;
+    hasReadSpecOnce: boolean;
 }
 
 declare function specMcp(state: ToolState, log: LogFn, sessionId?: string, spec?: string): Promise<string | undefined>;
