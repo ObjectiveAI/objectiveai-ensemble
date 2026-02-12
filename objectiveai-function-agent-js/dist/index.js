@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, append
 import { join, dirname } from 'path';
 import { Functions, Chat, ObjectiveAI, JsonValueSchema, JsonValueExpressionSchema } from 'objectiveai';
 import { createSdkMcpServer, query, tool } from '@anthropic-ai/claude-agent-sdk';
-import z19, { z } from 'zod';
+import z10, { z } from 'zod';
 
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
@@ -383,7 +383,7 @@ function makeWriteSpec(state) {
   return tool(
     "WriteSpec",
     "Write SPEC.md",
-    { content: z19.string() },
+    { content: z10.string() },
     async ({ content }) => {
       state.hasReadOrWrittenSpec = true;
       return resultFromResult(writeSpec(content));
@@ -429,9 +429,9 @@ function makeReadExampleFunction(state) {
     "ReadExampleFunction",
     "Read an example function by owner, repository, and commit",
     {
-      owner: z19.string(),
-      repository: z19.string(),
-      commit: z19.string()
+      owner: z10.string(),
+      repository: z10.string(),
+      commit: z10.string()
     },
     async ({ owner, repository, commit }) => resultFromResult(readExampleFunction(owner, repository, commit))
   );
@@ -499,7 +499,7 @@ __export(function_exports, {
   validateTasks: () => validateTasks,
   validateType: () => validateType
 });
-var FunctionTypeSchema = z19.enum([
+var FunctionTypeSchema = z10.enum([
   ...new Set(
     Functions.RemoteFunctionSchema.options.map((opt) => opt.shape.type.value)
   )
@@ -717,10 +717,10 @@ __export(parameters_exports, {
   readParametersSchema: () => readParametersSchema,
   validateParameters: () => validateParameters
 });
-var ParametersSchema = z19.object({
-  depth: z19.number().int().nonnegative(),
-  min_width: z19.int().positive(),
-  max_width: z19.int().positive()
+var ParametersSchema = z10.object({
+  depth: z10.number().int().nonnegative(),
+  min_width: z10.int().positive(),
+  max_width: z10.int().positive()
 });
 function readParameters() {
   if (!existsSync("parameters.json")) {
@@ -1345,7 +1345,7 @@ function editFunction(fields) {
 }
 
 // src/tools/function/description.ts
-var DescriptionSchema = z19.string().nonempty();
+var DescriptionSchema = z10.string().nonempty();
 function readDescription() {
   const fn = readFunction();
   if (!fn.ok) {
@@ -1705,7 +1705,7 @@ function makeWriteName(state) {
   return tool(
     "WriteName",
     "Write name.txt",
-    { content: z19.string() },
+    { content: z10.string() },
     async ({ content }) => resultFromResult(writeName(content, state.ghToken))
   );
 }
@@ -1815,7 +1815,7 @@ function makeWriteEssay(state) {
   return tool(
     "WriteEssay",
     "Write ESSAY.md",
-    { content: z19.string() },
+    { content: z10.string() },
     async ({ content }) => {
       state.hasReadOrWrittenEssay = true;
       return resultFromResult(writeEssay(content));
@@ -1898,7 +1898,7 @@ function makeWriteEssayTasks(state) {
   return tool(
     "WriteEssayTasks",
     "Write ESSAY_TASKS.md",
-    { content: z19.string() },
+    { content: z10.string() },
     async ({ content }) => {
       state.hasReadOrWrittenEssayTasks = true;
       return resultFromResult(writeEssayTasks(content));
@@ -1984,7 +1984,7 @@ function makeWritePlan(state) {
   return tool(
     "WritePlan",
     "Write the plan",
-    { content: z19.string() },
+    { content: z10.string() },
     async ({ content }) => {
       state.hasReadOrWrittenPlan = true;
       return resultFromResult(writePlan(state.writePlanIndex, content));
@@ -1992,74 +1992,369 @@ function makeWritePlan(state) {
   );
 }
 
-// src/claude/prepare/planMcp.ts
-async function planMcp(state, log, sessionId, instructions) {
-  const tools = [
-    makeReadSpec(state),
-    makeReadName(),
-    makeReadEssay(state),
-    makeReadEssayTasks(state),
-    makeWritePlan(state),
-    makeListExampleFunctions(),
-    makeReadExampleFunction(),
-    makeReadFunctionSchema()
-  ];
-  const mcpServer = createSdkMcpServer({ name: "plan", tools });
-  const reads = [];
-  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
-  reads.push("name.txt");
-  if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
-  if (!state.hasReadOrWrittenEssayTasks) reads.push("ESSAY_TASKS.md");
-  reads.push("the function type");
-  reads.push("example functions");
-  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context. Then write` : "Write";
-  let prompt = `${readPrefix} your implementation plan using the WritePlan tool. Include:
-- The input schema structure and field descriptions
-- Whether any input maps are needed for mapped task execution
-- What the function definition will look like
-- What expressions need to be written
-- What test inputs will cover edge cases and diverse scenarios`;
-  if (instructions) {
-    prompt += `
-
-## Extra Instructions
-
-${instructions}`;
+// src/tools/expressionParams/index.ts
+var expressionParams_exports = {};
+__export(expressionParams_exports, {
+  readInputParamSchema: () => readInputParamSchema,
+  readMapParamSchema: () => readMapParamSchema,
+  readOutputParamSchema: () => readOutputParamSchema
+});
+function readInputParamSchema() {
+  const fn = readFunction();
+  if (!fn.ok) {
+    return { ok: false, value: void 0, error: fn.error };
   }
-  sessionId = await consumeStream(
-    query({
-      prompt,
-      options: {
-        tools: [],
-        mcpServers: { plan: mcpServer },
-        allowedTools: ["mcp__plan__*"],
-        disallowedTools: ["AskUserQuestion"],
-        permissionMode: "dontAsk",
-        resume: sessionId
-      }
-    }),
-    log,
-    sessionId
+  const validated = validateInputSchema(fn.value);
+  if (!validated.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `input_schema must be defined before reading the input parameter schema: ${validated.error}`
+    };
+  }
+  const zodSchema = Functions.Expression.InputSchemaExt.toZodSchema(
+    validated.value
   );
-  return sessionId;
+  return { ok: true, value: zodSchema, error: void 0 };
+}
+function readMapParamSchema() {
+  return Functions.Expression.InputMapsAsParameterSchema;
+}
+function readOutputParamSchema() {
+  return Functions.Expression.TaskOutputSchema;
 }
 
-// src/claude/prepare/index.ts
-async function prepare(state, options) {
-  const log = options.log;
-  let sessionId = options.sessionId;
-  log("=== Step 1: SPEC.md ===");
-  sessionId = await specMcp(state, log, sessionId, options.spec);
-  log("=== Step 2: name.txt ===");
-  sessionId = await nameMcp(state, log, sessionId, options.name);
-  log("=== Step 3: ESSAY.md ===");
-  sessionId = await essayMcp(state, log, sessionId);
-  log("=== Step 4: ESSAY_TASKS.md ===");
-  sessionId = await essayTasksMcp(state, log, sessionId);
-  log("=== Step 5: Plan ===");
-  sessionId = await planMcp(state, log, sessionId, options.instructions);
-  return sessionId;
+// src/tools/claude/expressionParams.ts
+function makeReadInputParamSchema(state) {
+  return tool(
+    "ReadInputParamSchema",
+    "Read the schema for `input` available in expression context.",
+    {},
+    async () => {
+      const result = readInputParamSchema();
+      if (!result.ok) {
+        return resultFromResult(result);
+      }
+      return textResult(formatZodSchema(result.value));
+    }
+  );
 }
+function makeReadMapParamSchema(state) {
+  return tool(
+    "ReadMapParamSchema",
+    "Read the schema for `map` available in mapped task expression context. For a task with `map: i`, the task is compiled once per element in `input_maps[i]`. Each compiled instance receives the current element as `map`.",
+    {},
+    async () => textResult(formatZodSchema(readMapParamSchema()))
+  );
+}
+function makeReadOutputParamSchema(state) {
+  return tool(
+    "ReadOutputParamSchema",
+    "Read the schema for `output` available in task output expression context.",
+    {},
+    async () => textResult(formatZodSchema(readOutputParamSchema()))
+  );
+}
+function makeReadTasks(state) {
+  return tool(
+    "ReadTasks",
+    "Read the Function's `tasks` field",
+    {},
+    async () => resultFromResult(readTasks())
+  );
+}
+function makeReadTasksSchema(state) {
+  return tool(
+    "ReadTasksSchema",
+    "Read the schema for Function `tasks` field",
+    {},
+    async () => textResult(formatZodSchema(readTasksSchema()))
+  );
+}
+function makeAppendTask(state) {
+  return tool(
+    "AppendTask",
+    "Append a task to the Function's `tasks` array",
+    { value: z10.record(z10.string(), z10.unknown()) },
+    async ({ value }) => resultFromResult(appendTask(value))
+  );
+}
+function makeEditTask(state) {
+  return tool(
+    "EditTask",
+    "Replace a task at a specific index in the Function's `tasks` array",
+    {
+      index: z10.number().int().nonnegative(),
+      value: z10.record(z10.string(), z10.unknown())
+    },
+    async ({ index, value }) => resultFromResult(editTask(index, value))
+  );
+}
+function makeDelTask(state) {
+  return tool(
+    "DelTask",
+    "Delete a task at a specific index from the Function's `tasks` array",
+    { index: z10.int().nonnegative() },
+    async ({ index }) => resultFromResult(delTask(index))
+  );
+}
+function makeDelTasks(state) {
+  return tool(
+    "DelTasks",
+    "Delete all tasks from the Function's `tasks` array",
+    {},
+    async () => resultFromResult(delTasks())
+  );
+}
+function makeCheckTasks(state) {
+  return tool(
+    "CheckTasks",
+    "Validate the Function's `tasks` field",
+    {},
+    async () => resultFromResult(checkTasks())
+  );
+}
+function makeReadMessagesExpressionSchema(state) {
+  return tool(
+    "ReadMessagesExpressionSchema",
+    "Read the schema for the `messages` field of a vector.completion task",
+    {},
+    async () => textResult(formatZodSchema(readMessagesSchema()))
+  );
+}
+function makeReadToolsExpressionSchema(state) {
+  return tool(
+    "ReadToolsExpressionSchema",
+    "Read the schema for the `tools` field of a vector.completion task",
+    {},
+    async () => textResult(formatZodSchema(readToolsSchema()))
+  );
+}
+function makeReadResponsesExpressionSchema(state) {
+  return tool(
+    "ReadResponsesExpressionSchema",
+    "Read the schema for the `responses` field of a vector.completion task",
+    {},
+    async () => textResult(formatZodSchema(readResponsesSchema()))
+  );
+}
+function makeReadJsonValueSchema(state) {
+  return tool(
+    "ReadJsonValueSchema",
+    "Read the schema for the JsonValue type (recursive)",
+    {},
+    async () => textResult(formatZodSchema(JsonValueSchema, { resolveLazy: true }))
+  );
+}
+function makeReadJsonValueExpressionSchema(state) {
+  return tool(
+    "ReadJsonValueExpressionSchema",
+    "Read the schema for the JsonValueExpression type (recursive, supports expressions)",
+    {},
+    async () => textResult(formatZodSchema(JsonValueExpressionSchema, { resolveLazy: true }))
+  );
+}
+function makeReadInputValueSchema(state) {
+  return tool(
+    "ReadInputValueSchema",
+    "Read the schema for the InputValue type (recursive, supports media)",
+    {},
+    async () => textResult(formatZodSchema(Functions.Expression.InputValueSchema, { resolveLazy: true }))
+  );
+}
+function makeReadInputValueExpressionSchema(state) {
+  return tool(
+    "ReadInputValueExpressionSchema",
+    "Read the schema for the InputValueExpression type (recursive, supports media and expressions)",
+    {},
+    async () => textResult(formatZodSchema(Functions.Expression.InputValueExpressionSchema, { resolveLazy: true }))
+  );
+}
+var Request = Chat.Completions.Request;
+function makeReadDeveloperMessageSchema(state) {
+  return tool(
+    "ReadDeveloperMessageSchema",
+    "Read the schema for a compiled developer message (role: developer)",
+    {},
+    async () => textResult(formatZodSchema(Request.DeveloperMessageSchema))
+  );
+}
+function makeReadSystemMessageSchema(state) {
+  return tool(
+    "ReadSystemMessageSchema",
+    "Read the schema for a compiled system message (role: system)",
+    {},
+    async () => textResult(formatZodSchema(Request.SystemMessageSchema))
+  );
+}
+function makeReadUserMessageSchema(state) {
+  return tool(
+    "ReadUserMessageSchema",
+    "Read the schema for a compiled user message (role: user)",
+    {},
+    async () => textResult(formatZodSchema(Request.UserMessageSchema))
+  );
+}
+function makeReadToolMessageSchema(state) {
+  return tool(
+    "ReadToolMessageSchema",
+    "Read the schema for a compiled tool message (role: tool)",
+    {},
+    async () => textResult(formatZodSchema(Request.ToolMessageSchema))
+  );
+}
+function makeReadAssistantMessageSchema(state) {
+  return tool(
+    "ReadAssistantMessageSchema",
+    "Read the schema for a compiled assistant message (role: assistant)",
+    {},
+    async () => textResult(formatZodSchema(Request.AssistantMessageSchema))
+  );
+}
+function makeReadDeveloperMessageExpressionSchema(state) {
+  return tool(
+    "ReadDeveloperMessageExpressionSchema",
+    "Read the schema for a developer message expression (role: developer, supports $starlark/$jmespath)",
+    {},
+    async () => textResult(formatZodSchema(Request.DeveloperMessageExpressionSchema))
+  );
+}
+function makeReadSystemMessageExpressionSchema(state) {
+  return tool(
+    "ReadSystemMessageExpressionSchema",
+    "Read the schema for a system message expression (role: system, supports $starlark/$jmespath)",
+    {},
+    async () => textResult(formatZodSchema(Request.SystemMessageExpressionSchema))
+  );
+}
+function makeReadUserMessageExpressionSchema(state) {
+  return tool(
+    "ReadUserMessageExpressionSchema",
+    "Read the schema for a user message expression (role: user, supports $starlark/$jmespath)",
+    {},
+    async () => textResult(formatZodSchema(Request.UserMessageExpressionSchema))
+  );
+}
+function makeReadToolMessageExpressionSchema(state) {
+  return tool(
+    "ReadToolMessageExpressionSchema",
+    "Read the schema for a tool message expression (role: tool, supports $starlark/$jmespath)",
+    {},
+    async () => textResult(formatZodSchema(Request.ToolMessageExpressionSchema))
+  );
+}
+function makeReadAssistantMessageExpressionSchema(state) {
+  return tool(
+    "ReadAssistantMessageExpressionSchema",
+    "Read the schema for an assistant message expression (role: assistant, supports $starlark/$jmespath)",
+    {},
+    async () => textResult(formatZodSchema(Request.AssistantMessageExpressionSchema))
+  );
+}
+var Request2 = Chat.Completions.Request;
+function makeReadSimpleContentSchema(state) {
+  return tool(
+    "ReadSimpleContentSchema",
+    "Read the schema for compiled SimpleContent (text-only content used by developer/system messages)",
+    {},
+    async () => textResult(formatZodSchema(Request2.SimpleContentSchema))
+  );
+}
+function makeReadRichContentSchema(state) {
+  return tool(
+    "ReadRichContentSchema",
+    "Read the schema for compiled RichContent (text, images, audio, video, files \u2014 used by user/tool/assistant messages)",
+    {},
+    async () => textResult(formatZodSchema(Request2.RichContentSchema))
+  );
+}
+function makeReadSimpleContentExpressionSchema(state) {
+  return tool(
+    "ReadSimpleContentExpressionSchema",
+    "Read the schema for SimpleContent expression (text-only content, supports $starlark/$jmespath)",
+    {},
+    async () => textResult(formatZodSchema(Request2.SimpleContentExpressionSchema))
+  );
+}
+function makeReadRichContentExpressionSchema(state) {
+  return tool(
+    "ReadRichContentExpressionSchema",
+    "Read the schema for RichContent expression (text, images, audio, video, files \u2014 supports $starlark/$jmespath)",
+    {},
+    async () => textResult(formatZodSchema(Request2.RichContentExpressionSchema))
+  );
+}
+function makeReadScalarFunctionTaskSchema(state) {
+  return tool(
+    "ReadScalarFunctionTaskSchema",
+    "Read the schema for a scalar.function task",
+    {},
+    async () => textResult(formatZodSchema(Functions.ScalarFunctionTaskExpressionSchema))
+  );
+}
+function makeReadVectorFunctionTaskSchema(state) {
+  return tool(
+    "ReadVectorFunctionTaskSchema",
+    "Read the schema for a vector.function task",
+    {},
+    async () => textResult(formatZodSchema(Functions.VectorFunctionTaskExpressionSchema))
+  );
+}
+function makeReadVectorCompletionTaskSchema(state) {
+  return tool(
+    "ReadVectorCompletionTaskSchema",
+    "Read the schema for a vector.completion task",
+    {},
+    async () => textResult(formatZodSchema(Functions.VectorCompletionTaskExpressionSchema))
+  );
+}
+function makeReadCompiledScalarFunctionTaskSchema(state) {
+  return tool(
+    "ReadCompiledScalarFunctionTaskSchema",
+    "Read the schema for a compiled scalar.function task (used in compiledTasks within ExampleInputs)",
+    {},
+    async () => textResult(formatZodSchema(Functions.ScalarFunctionTaskSchema))
+  );
+}
+function makeReadCompiledVectorFunctionTaskSchema(state) {
+  return tool(
+    "ReadCompiledVectorFunctionTaskSchema",
+    "Read the schema for a compiled vector.function task (used in compiledTasks within ExampleInputs)",
+    {},
+    async () => textResult(formatZodSchema(Functions.VectorFunctionTaskSchema))
+  );
+}
+function makeReadCompiledVectorCompletionTaskSchema(state) {
+  return tool(
+    "ReadCompiledVectorCompletionTaskSchema",
+    "Read the schema for a compiled vector.completion task (used in compiledTasks within ExampleInputs)",
+    {},
+    async () => textResult(formatZodSchema(Functions.VectorCompletionTaskSchema))
+  );
+}
+
+// src/tools/inputs/index.ts
+var inputs_exports = {};
+__export(inputs_exports, {
+  appendExampleInput: () => appendExampleInput,
+  checkExampleInputs: () => checkExampleInputs,
+  collectModalities: () => collectModalities,
+  delExampleInput: () => delExampleInput,
+  delExampleInputs: () => delExampleInputs,
+  editExampleInput: () => editExampleInput,
+  readExampleInputs: () => readExampleInputs,
+  readExampleInputsSchema: () => readExampleInputsSchema,
+  validateExampleInput: () => validateExampleInput,
+  validateExampleInputs: () => validateExampleInputs
+});
+var ExampleInputSchema = z10.object({
+  value: Functions.Expression.InputValueSchema,
+  compiledTasks: Functions.CompiledTasksSchema,
+  outputLength: z10.number().int().nonnegative().nullable().describe("Expected output length for vector functions")
+});
+var ExampleInputsSchema = z10.array(ExampleInputSchema).min(10).max(100).describe(
+  "An array of example inputs for the function. Must contain between 10 and 100 items."
+);
 
 // src/tools/profile/index.ts
 var profile_exports = {};
@@ -2192,29 +2487,6 @@ function buildProfile() {
 }
 
 // src/tools/inputs/index.ts
-var inputs_exports = {};
-__export(inputs_exports, {
-  appendExampleInput: () => appendExampleInput,
-  checkExampleInputs: () => checkExampleInputs,
-  collectModalities: () => collectModalities,
-  delExampleInput: () => delExampleInput,
-  delExampleInputs: () => delExampleInputs,
-  editExampleInput: () => editExampleInput,
-  readExampleInputs: () => readExampleInputs,
-  readExampleInputsSchema: () => readExampleInputsSchema,
-  validateExampleInput: () => validateExampleInput,
-  validateExampleInputs: () => validateExampleInputs
-});
-var ExampleInputSchema = z19.object({
-  value: Functions.Expression.InputValueSchema,
-  compiledTasks: Functions.CompiledTasksSchema,
-  outputLength: z19.number().int().nonnegative().nullable().describe("Expected output length for vector functions")
-});
-var ExampleInputsSchema = z19.array(ExampleInputSchema).min(10).max(100).describe(
-  "An array of example inputs for the function. Must contain between 10 and 100 items."
-);
-
-// src/tools/inputs/index.ts
 function validateExampleInput(value, fn) {
   const parsed = ExampleInputSchema.safeParse(value);
   if (!parsed.success) {
@@ -2297,7 +2569,7 @@ function readExampleInputsSchema() {
   }
   const zodSchema = Functions.Expression.InputSchemaExt.toZodSchema(inputSchemaResult.value);
   const itemSchema = ExampleInputSchema.extend({ value: zodSchema });
-  let arraySchema = z19.array(itemSchema);
+  let arraySchema = z10.array(itemSchema);
   const def = ExampleInputsSchema._def ?? ExampleInputsSchema.def;
   if (def?.minLength != null) {
     arraySchema = arraySchema.min(def.minLength.value ?? def.minLength);
@@ -2896,6 +3168,113 @@ function compiledTasksEqual(a, b) {
     return false;
   }
 }
+function buildExampleInput(value) {
+  const fnRaw = readFunction();
+  if (!fnRaw.ok) return { ok: false, error: fnRaw.error };
+  const funcResult = validateFunction(fnRaw.value);
+  if (!funcResult.ok) return { ok: false, error: funcResult.error };
+  const func = funcResult.value;
+  let compiledTasks;
+  try {
+    compiledTasks = Functions.compileFunctionTasks(func, value);
+  } catch (e) {
+    return {
+      ok: false,
+      error: `Failed to compile tasks: ${e.message}`
+    };
+  }
+  const outputLength = func.type === "vector.function" ? Functions.compileFunctionOutputLength(func, value) : null;
+  return { ok: true, value: { value, compiledTasks, outputLength } };
+}
+function makeReadExampleInputs(state) {
+  return tool(
+    "ReadExampleInputs",
+    "Read the Function's example inputs",
+    {},
+    async () => resultFromResult(readExampleInputs())
+  );
+}
+function makeReadExampleInputsSchema(state) {
+  return tool(
+    "ReadExampleInputsSchema",
+    "Read the schema for Function example inputs",
+    {},
+    async () => {
+      const result = readExampleInputsSchema();
+      if (!result.ok) {
+        return resultFromResult(result);
+      }
+      return textResult(formatZodSchema(result.value));
+    }
+  );
+}
+function makeAppendExampleInput(state) {
+  return tool(
+    "AppendExampleInput",
+    "Append an example input to the Function's example inputs array. Provide just the input value \u2014 compiledTasks and outputLength are computed automatically.",
+    { value: Functions.Expression.InputValueSchema },
+    async ({ value }) => {
+      const built = buildExampleInput(value);
+      if (!built.ok) return errorResult(built.error);
+      return resultFromResult(appendExampleInput(built.value));
+    }
+  );
+}
+function makeEditExampleInput(state) {
+  return tool(
+    "EditExampleInput",
+    "Replace an example input at a specific index in the Function's example inputs array. Provide just the input value \u2014 compiledTasks and outputLength are computed automatically.",
+    {
+      index: z10.number().int().nonnegative(),
+      value: Functions.Expression.InputValueSchema
+    },
+    async ({ index, value }) => {
+      const built = buildExampleInput(value);
+      if (!built.ok) return errorResult(built.error);
+      return resultFromResult(editExampleInput(index, built.value));
+    }
+  );
+}
+function makeDelExampleInput(state) {
+  return tool(
+    "DelExampleInput",
+    "Delete an example input at a specific index from the Function's example inputs array",
+    { index: z10.number().int().nonnegative() },
+    async ({ index }) => resultFromResult(delExampleInput(index))
+  );
+}
+function makeDelExampleInputs(state) {
+  return tool(
+    "DelExampleInputs",
+    "Delete all example inputs from the Function's example inputs array",
+    {},
+    async () => resultFromResult(delExampleInputs())
+  );
+}
+function makeCheckExampleInputs(state) {
+  return tool(
+    "CheckExampleInputs",
+    "Validate the Function's example inputs",
+    {},
+    async () => resultFromResult(checkExampleInputs())
+  );
+}
+function makeReadReadme(state) {
+  return tool(
+    "ReadReadme",
+    "Read README.md",
+    {},
+    async () => resultFromResult(readReadme())
+  );
+}
+function makeWriteReadme(state) {
+  return tool(
+    "WriteReadme",
+    "Write README.md",
+    { content: z10.string() },
+    async ({ content }) => resultFromResult(writeReadme(content))
+  );
+}
 function clearDir(dir) {
   if (!existsSync(dir)) return;
   for (const file of readdirSync(dir)) {
@@ -3096,8 +3475,150 @@ function readSwissSystemNetworkTest(index) {
     };
   }
 }
+function makeRunNetworkTests(state) {
+  return tool(
+    "RunNetworkTests",
+    "Execute the function once for each example input and write results to network_tests/",
+    {},
+    async () => resultFromResult(await runNetworkTests(state.runNetworkTestsApiBase, state.runNetworkTestsApiKey))
+  );
+}
+function makeReadDefaultNetworkTest(state) {
+  return tool(
+    "ReadDefaultNetworkTest",
+    "Read a default strategy network test result by index",
+    { index: z10.number().int().nonnegative() },
+    async ({ index }) => resultFromResult(readDefaultNetworkTest(index))
+  );
+}
+function makeReadSwissSystemNetworkTest(state) {
+  return tool(
+    "ReadSwissSystemNetworkTest",
+    "Read a swiss_system strategy network test result by index",
+    { index: z10.number().int().nonnegative() },
+    async ({ index }) => resultFromResult(readSwissSystemNetworkTest(index))
+  );
+}
 
-// src/tools/submit.ts
+// src/claude/prepare/planMcp.ts
+async function planMcp(state, log, sessionId, instructions) {
+  const tools = [
+    makeReadSpec(state),
+    makeReadName(),
+    makeReadEssay(state),
+    makeReadEssayTasks(state),
+    makeWritePlan(state),
+    makeListExampleFunctions(),
+    makeReadExampleFunction(),
+    makeReadFunctionSchema(),
+    // Function
+    makeReadFunction(),
+    makeCheckFunction(),
+    makeReadMessagesExpressionSchema(),
+    makeReadToolsExpressionSchema(),
+    makeReadResponsesExpressionSchema(),
+    // Expression params
+    makeReadInputParamSchema(),
+    makeReadMapParamSchema(),
+    makeReadOutputParamSchema(),
+    // Recursive type schemas (referenced by $ref in other schemas)
+    makeReadJsonValueSchema(),
+    makeReadJsonValueExpressionSchema(),
+    makeReadInputValueSchema(),
+    makeReadInputValueExpressionSchema(),
+    // Message role schemas (expression variants, referenced by $ref in ReadMessagesExpressionSchema)
+    makeReadDeveloperMessageExpressionSchema(),
+    makeReadSystemMessageExpressionSchema(),
+    makeReadUserMessageExpressionSchema(),
+    makeReadToolMessageExpressionSchema(),
+    makeReadAssistantMessageExpressionSchema(),
+    // Message role schemas (compiled variants, referenced by $ref in ReadCompiledVectorCompletionTaskSchema)
+    makeReadDeveloperMessageSchema(),
+    makeReadSystemMessageSchema(),
+    makeReadUserMessageSchema(),
+    makeReadToolMessageSchema(),
+    makeReadAssistantMessageSchema(),
+    // Content schemas (expression variants, referenced by $ref in expression message schemas)
+    makeReadSimpleContentExpressionSchema(),
+    makeReadRichContentExpressionSchema(),
+    // Content schemas (compiled variants, referenced by $ref in compiled message schemas)
+    makeReadSimpleContentSchema(),
+    makeReadRichContentSchema(),
+    // Task type schemas (referenced by $ref in ReadTasksSchema)
+    makeReadScalarFunctionTaskSchema(),
+    makeReadVectorFunctionTaskSchema(),
+    makeReadVectorCompletionTaskSchema(),
+    // Compiled task type schemas (referenced by $ref in ReadExampleInputsSchema)
+    makeReadCompiledScalarFunctionTaskSchema(),
+    makeReadCompiledVectorFunctionTaskSchema(),
+    makeReadCompiledVectorCompletionTaskSchema(),
+    // Example inputs
+    makeReadExampleInputs(),
+    makeReadExampleInputsSchema(),
+    makeCheckExampleInputs(),
+    // README
+    makeReadReadme(),
+    // Network tests
+    makeRunNetworkTests(state),
+    makeReadDefaultNetworkTest(),
+    makeReadSwissSystemNetworkTest()
+  ];
+  const mcpServer = createSdkMcpServer({ name: "plan", tools });
+  const reads = [];
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
+  reads.push("name.txt");
+  if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
+  if (!state.hasReadOrWrittenEssayTasks) reads.push("ESSAY_TASKS.md");
+  reads.push("the function type");
+  reads.push("example functions");
+  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context. Then write` : "Write";
+  let prompt = `${readPrefix} your implementation plan using the WritePlan tool. Include:
+- The input schema structure and field descriptions
+- Whether any input maps are needed for mapped task execution
+- What the function definition will look like
+- What expressions need to be written
+- What test inputs will cover edge cases and diverse scenarios`;
+  if (instructions) {
+    prompt += `
+
+## Extra Instructions
+
+${instructions}`;
+  }
+  sessionId = await consumeStream(
+    query({
+      prompt,
+      options: {
+        tools: [],
+        mcpServers: { plan: mcpServer },
+        allowedTools: ["mcp__plan__*"],
+        disallowedTools: ["AskUserQuestion"],
+        permissionMode: "dontAsk",
+        resume: sessionId
+      }
+    }),
+    log,
+    sessionId
+  );
+  return sessionId;
+}
+
+// src/claude/prepare/index.ts
+async function prepare(state, options) {
+  const log = options.log;
+  let sessionId = options.sessionId;
+  log("=== Step 1: SPEC.md ===");
+  sessionId = await specMcp(state, log, sessionId, options.spec);
+  log("=== Step 2: name.txt ===");
+  sessionId = await nameMcp(state, log, sessionId, options.name);
+  log("=== Step 3: ESSAY.md ===");
+  sessionId = await essayMcp(state, log, sessionId);
+  log("=== Step 4: ESSAY_TASKS.md ===");
+  sessionId = await essayTasksMcp(state, log, sessionId);
+  log("=== Step 5: Plan ===");
+  sessionId = await planMcp(state, log, sessionId, options.instructions);
+  return sessionId;
+}
 function ghEnv2(ghToken) {
   return { ...process.env, GH_TOKEN: ghToken };
 }
@@ -3293,70 +3814,6 @@ function registerSchemaRefs() {
   registerPropertyRefs(Functions.ScalarFunctionTaskSchema, compiledFunctionTaskInputRef);
   registerPropertyRefs(Functions.VectorFunctionTaskSchema, compiledFunctionTaskInputRef);
 }
-
-// src/tools/expressionParams/index.ts
-var expressionParams_exports = {};
-__export(expressionParams_exports, {
-  readInputParamSchema: () => readInputParamSchema,
-  readMapParamSchema: () => readMapParamSchema,
-  readOutputParamSchema: () => readOutputParamSchema
-});
-function readInputParamSchema() {
-  const fn = readFunction();
-  if (!fn.ok) {
-    return { ok: false, value: void 0, error: fn.error };
-  }
-  const validated = validateInputSchema(fn.value);
-  if (!validated.ok) {
-    return {
-      ok: false,
-      value: void 0,
-      error: `input_schema must be defined before reading the input parameter schema: ${validated.error}`
-    };
-  }
-  const zodSchema = Functions.Expression.InputSchemaExt.toZodSchema(
-    validated.value
-  );
-  return { ok: true, value: zodSchema, error: void 0 };
-}
-function readMapParamSchema() {
-  return Functions.Expression.InputMapsAsParameterSchema;
-}
-function readOutputParamSchema() {
-  return Functions.Expression.TaskOutputSchema;
-}
-
-// src/tools/claude/expressionParams.ts
-function makeReadInputParamSchema(state) {
-  return tool(
-    "ReadInputParamSchema",
-    "Read the schema for `input` available in expression context.",
-    {},
-    async () => {
-      const result = readInputParamSchema();
-      if (!result.ok) {
-        return resultFromResult(result);
-      }
-      return textResult(formatZodSchema(result.value));
-    }
-  );
-}
-function makeReadMapParamSchema(state) {
-  return tool(
-    "ReadMapParamSchema",
-    "Read the schema for `map` available in mapped task expression context. For a task with `map: i`, the task is compiled once per element in `input_maps[i]`. Each compiled instance receives the current element as `map`.",
-    {},
-    async () => textResult(formatZodSchema(readMapParamSchema()))
-  );
-}
-function makeReadOutputParamSchema(state) {
-  return tool(
-    "ReadOutputParamSchema",
-    "Read the schema for `output` available in task output expression context.",
-    {},
-    async () => textResult(formatZodSchema(readOutputParamSchema()))
-  );
-}
 function makeReadType(state) {
   return tool(
     "ReadType",
@@ -3377,7 +3834,7 @@ function makeEditType(state) {
   return tool(
     "EditType",
     "Edit the Function's `type` field",
-    { value: z19.string() },
+    { value: z10.string() },
     async ({ value }) => resultFromResult(editType(value))
   );
 }
@@ -3409,7 +3866,7 @@ function makeEditDescription(state) {
   return tool(
     "EditDescription",
     "Edit the Function's `description` field",
-    { value: z19.string() },
+    { value: z10.string() },
     async ({ value }) => resultFromResult(editDescription(value))
   );
 }
@@ -3442,8 +3899,8 @@ function makeEditInputSchema(state) {
     "EditInputSchema",
     "Edit the Function's `input_schema` field. If the new schema removes multimodal types present in the current schema, you must pass `dangerouslyRemoveModalities: true` \u2014 but only after re-reading SPEC.md to confirm this does not contradict it.",
     {
-      value: z19.record(z19.string(), z19.unknown()),
-      dangerouslyRemoveModalities: z19.boolean().optional()
+      value: z10.record(z10.string(), z10.unknown()),
+      dangerouslyRemoveModalities: z10.boolean().optional()
     },
     async ({ value, dangerouslyRemoveModalities }) => {
       if (dangerouslyRemoveModalities) {
@@ -3513,7 +3970,7 @@ function makeAppendInputMap(state) {
   return tool(
     "AppendInputMap",
     "Append an input map to the Function's `input_maps` array",
-    { value: z19.unknown() },
+    { value: z10.unknown() },
     async ({ value }) => resultFromResult(appendInputMap(value))
   );
 }
@@ -3521,7 +3978,7 @@ function makeDelInputMap(state) {
   return tool(
     "DelInputMap",
     "Delete an input map at a specific index from the Function's `input_maps` array",
-    { index: z19.int().nonnegative() },
+    { index: z10.int().nonnegative() },
     async ({ index }) => resultFromResult(delInputMap(index))
   );
 }
@@ -3561,7 +4018,7 @@ function makeEditOutputLength(state) {
   return tool(
     "EditOutputLength",
     "Edit the Function's `output_length` field",
-    { value: z19.unknown().nullable() },
+    { value: z10.unknown().nullable() },
     async ({ value }) => resultFromResult(editOutputLength(value))
   );
 }
@@ -3601,7 +4058,7 @@ function makeEditInputSplit(state) {
   return tool(
     "EditInputSplit",
     "Edit the Function's `input_split` field",
-    { value: z19.unknown().nullable() },
+    { value: z10.unknown().nullable() },
     async ({ value }) => resultFromResult(editInputSplit(value))
   );
 }
@@ -3641,7 +4098,7 @@ function makeEditInputMerge(state) {
   return tool(
     "EditInputMerge",
     "Edit the Function's `input_merge` field",
-    { value: z19.unknown().nullable() },
+    { value: z10.unknown().nullable() },
     async ({ value }) => resultFromResult(editInputMerge(value))
   );
 }
@@ -3661,419 +4118,11 @@ function makeCheckInputMerge(state) {
     async () => resultFromResult(checkInputMerge())
   );
 }
-function makeReadTasks(state) {
-  return tool(
-    "ReadTasks",
-    "Read the Function's `tasks` field",
-    {},
-    async () => resultFromResult(readTasks())
-  );
-}
-function makeReadTasksSchema(state) {
-  return tool(
-    "ReadTasksSchema",
-    "Read the schema for Function `tasks` field",
-    {},
-    async () => textResult(formatZodSchema(readTasksSchema()))
-  );
-}
-function makeAppendTask(state) {
-  return tool(
-    "AppendTask",
-    "Append a task to the Function's `tasks` array",
-    { value: z19.record(z19.string(), z19.unknown()) },
-    async ({ value }) => resultFromResult(appendTask(value))
-  );
-}
-function makeEditTask(state) {
-  return tool(
-    "EditTask",
-    "Replace a task at a specific index in the Function's `tasks` array",
-    {
-      index: z19.number().int().nonnegative(),
-      value: z19.record(z19.string(), z19.unknown())
-    },
-    async ({ index, value }) => resultFromResult(editTask(index, value))
-  );
-}
-function makeDelTask(state) {
-  return tool(
-    "DelTask",
-    "Delete a task at a specific index from the Function's `tasks` array",
-    { index: z19.int().nonnegative() },
-    async ({ index }) => resultFromResult(delTask(index))
-  );
-}
-function makeDelTasks(state) {
-  return tool(
-    "DelTasks",
-    "Delete all tasks from the Function's `tasks` array",
-    {},
-    async () => resultFromResult(delTasks())
-  );
-}
-function makeCheckTasks(state) {
-  return tool(
-    "CheckTasks",
-    "Validate the Function's `tasks` field",
-    {},
-    async () => resultFromResult(checkTasks())
-  );
-}
-function makeReadMessagesExpressionSchema(state) {
-  return tool(
-    "ReadMessagesExpressionSchema",
-    "Read the schema for the `messages` field of a vector.completion task",
-    {},
-    async () => textResult(formatZodSchema(readMessagesSchema()))
-  );
-}
-function makeReadToolsExpressionSchema(state) {
-  return tool(
-    "ReadToolsExpressionSchema",
-    "Read the schema for the `tools` field of a vector.completion task",
-    {},
-    async () => textResult(formatZodSchema(readToolsSchema()))
-  );
-}
-function makeReadResponsesExpressionSchema(state) {
-  return tool(
-    "ReadResponsesExpressionSchema",
-    "Read the schema for the `responses` field of a vector.completion task",
-    {},
-    async () => textResult(formatZodSchema(readResponsesSchema()))
-  );
-}
-function buildExampleInput(value) {
-  const fnRaw = readFunction();
-  if (!fnRaw.ok) return { ok: false, error: fnRaw.error };
-  const funcResult = validateFunction(fnRaw.value);
-  if (!funcResult.ok) return { ok: false, error: funcResult.error };
-  const func = funcResult.value;
-  let compiledTasks;
-  try {
-    compiledTasks = Functions.compileFunctionTasks(func, value);
-  } catch (e) {
-    return {
-      ok: false,
-      error: `Failed to compile tasks: ${e.message}`
-    };
-  }
-  const outputLength = func.type === "vector.function" ? Functions.compileFunctionOutputLength(func, value) : null;
-  return { ok: true, value: { value, compiledTasks, outputLength } };
-}
-function makeReadExampleInputs(state) {
-  return tool(
-    "ReadExampleInputs",
-    "Read the Function's example inputs",
-    {},
-    async () => resultFromResult(readExampleInputs())
-  );
-}
-function makeReadExampleInputsSchema(state) {
-  return tool(
-    "ReadExampleInputsSchema",
-    "Read the schema for Function example inputs",
-    {},
-    async () => {
-      const result = readExampleInputsSchema();
-      if (!result.ok) {
-        return resultFromResult(result);
-      }
-      return textResult(formatZodSchema(result.value));
-    }
-  );
-}
-function makeAppendExampleInput(state) {
-  return tool(
-    "AppendExampleInput",
-    "Append an example input to the Function's example inputs array. Provide just the input value \u2014 compiledTasks and outputLength are computed automatically.",
-    { value: Functions.Expression.InputValueSchema },
-    async ({ value }) => {
-      const built = buildExampleInput(value);
-      if (!built.ok) return errorResult(built.error);
-      return resultFromResult(appendExampleInput(built.value));
-    }
-  );
-}
-function makeEditExampleInput(state) {
-  return tool(
-    "EditExampleInput",
-    "Replace an example input at a specific index in the Function's example inputs array. Provide just the input value \u2014 compiledTasks and outputLength are computed automatically.",
-    {
-      index: z19.number().int().nonnegative(),
-      value: Functions.Expression.InputValueSchema
-    },
-    async ({ index, value }) => {
-      const built = buildExampleInput(value);
-      if (!built.ok) return errorResult(built.error);
-      return resultFromResult(editExampleInput(index, built.value));
-    }
-  );
-}
-function makeDelExampleInput(state) {
-  return tool(
-    "DelExampleInput",
-    "Delete an example input at a specific index from the Function's example inputs array",
-    { index: z19.number().int().nonnegative() },
-    async ({ index }) => resultFromResult(delExampleInput(index))
-  );
-}
-function makeDelExampleInputs(state) {
-  return tool(
-    "DelExampleInputs",
-    "Delete all example inputs from the Function's example inputs array",
-    {},
-    async () => resultFromResult(delExampleInputs())
-  );
-}
-function makeCheckExampleInputs(state) {
-  return tool(
-    "CheckExampleInputs",
-    "Validate the Function's example inputs",
-    {},
-    async () => resultFromResult(checkExampleInputs())
-  );
-}
-function makeRunNetworkTests(state) {
-  return tool(
-    "RunNetworkTests",
-    "Execute the function once for each example input and write results to network_tests/",
-    {},
-    async () => resultFromResult(await runNetworkTests(state.runNetworkTestsApiBase, state.runNetworkTestsApiKey))
-  );
-}
-function makeReadDefaultNetworkTest(state) {
-  return tool(
-    "ReadDefaultNetworkTest",
-    "Read a default strategy network test result by index",
-    { index: z19.number().int().nonnegative() },
-    async ({ index }) => resultFromResult(readDefaultNetworkTest(index))
-  );
-}
-function makeReadSwissSystemNetworkTest(state) {
-  return tool(
-    "ReadSwissSystemNetworkTest",
-    "Read a swiss_system strategy network test result by index",
-    { index: z19.number().int().nonnegative() },
-    async ({ index }) => resultFromResult(readSwissSystemNetworkTest(index))
-  );
-}
-function makeReadJsonValueSchema(state) {
-  return tool(
-    "ReadJsonValueSchema",
-    "Read the schema for the JsonValue type (recursive)",
-    {},
-    async () => textResult(formatZodSchema(JsonValueSchema, { resolveLazy: true }))
-  );
-}
-function makeReadJsonValueExpressionSchema(state) {
-  return tool(
-    "ReadJsonValueExpressionSchema",
-    "Read the schema for the JsonValueExpression type (recursive, supports expressions)",
-    {},
-    async () => textResult(formatZodSchema(JsonValueExpressionSchema, { resolveLazy: true }))
-  );
-}
-function makeReadInputValueSchema(state) {
-  return tool(
-    "ReadInputValueSchema",
-    "Read the schema for the InputValue type (recursive, supports media)",
-    {},
-    async () => textResult(formatZodSchema(Functions.Expression.InputValueSchema, { resolveLazy: true }))
-  );
-}
-function makeReadInputValueExpressionSchema(state) {
-  return tool(
-    "ReadInputValueExpressionSchema",
-    "Read the schema for the InputValueExpression type (recursive, supports media and expressions)",
-    {},
-    async () => textResult(formatZodSchema(Functions.Expression.InputValueExpressionSchema, { resolveLazy: true }))
-  );
-}
-var Request = Chat.Completions.Request;
-function makeReadDeveloperMessageSchema(state) {
-  return tool(
-    "ReadDeveloperMessageSchema",
-    "Read the schema for a compiled developer message (role: developer)",
-    {},
-    async () => textResult(formatZodSchema(Request.DeveloperMessageSchema))
-  );
-}
-function makeReadSystemMessageSchema(state) {
-  return tool(
-    "ReadSystemMessageSchema",
-    "Read the schema for a compiled system message (role: system)",
-    {},
-    async () => textResult(formatZodSchema(Request.SystemMessageSchema))
-  );
-}
-function makeReadUserMessageSchema(state) {
-  return tool(
-    "ReadUserMessageSchema",
-    "Read the schema for a compiled user message (role: user)",
-    {},
-    async () => textResult(formatZodSchema(Request.UserMessageSchema))
-  );
-}
-function makeReadToolMessageSchema(state) {
-  return tool(
-    "ReadToolMessageSchema",
-    "Read the schema for a compiled tool message (role: tool)",
-    {},
-    async () => textResult(formatZodSchema(Request.ToolMessageSchema))
-  );
-}
-function makeReadAssistantMessageSchema(state) {
-  return tool(
-    "ReadAssistantMessageSchema",
-    "Read the schema for a compiled assistant message (role: assistant)",
-    {},
-    async () => textResult(formatZodSchema(Request.AssistantMessageSchema))
-  );
-}
-function makeReadDeveloperMessageExpressionSchema(state) {
-  return tool(
-    "ReadDeveloperMessageExpressionSchema",
-    "Read the schema for a developer message expression (role: developer, supports $starlark/$jmespath)",
-    {},
-    async () => textResult(formatZodSchema(Request.DeveloperMessageExpressionSchema))
-  );
-}
-function makeReadSystemMessageExpressionSchema(state) {
-  return tool(
-    "ReadSystemMessageExpressionSchema",
-    "Read the schema for a system message expression (role: system, supports $starlark/$jmespath)",
-    {},
-    async () => textResult(formatZodSchema(Request.SystemMessageExpressionSchema))
-  );
-}
-function makeReadUserMessageExpressionSchema(state) {
-  return tool(
-    "ReadUserMessageExpressionSchema",
-    "Read the schema for a user message expression (role: user, supports $starlark/$jmespath)",
-    {},
-    async () => textResult(formatZodSchema(Request.UserMessageExpressionSchema))
-  );
-}
-function makeReadToolMessageExpressionSchema(state) {
-  return tool(
-    "ReadToolMessageExpressionSchema",
-    "Read the schema for a tool message expression (role: tool, supports $starlark/$jmespath)",
-    {},
-    async () => textResult(formatZodSchema(Request.ToolMessageExpressionSchema))
-  );
-}
-function makeReadAssistantMessageExpressionSchema(state) {
-  return tool(
-    "ReadAssistantMessageExpressionSchema",
-    "Read the schema for an assistant message expression (role: assistant, supports $starlark/$jmespath)",
-    {},
-    async () => textResult(formatZodSchema(Request.AssistantMessageExpressionSchema))
-  );
-}
-var Request2 = Chat.Completions.Request;
-function makeReadSimpleContentSchema(state) {
-  return tool(
-    "ReadSimpleContentSchema",
-    "Read the schema for compiled SimpleContent (text-only content used by developer/system messages)",
-    {},
-    async () => textResult(formatZodSchema(Request2.SimpleContentSchema))
-  );
-}
-function makeReadRichContentSchema(state) {
-  return tool(
-    "ReadRichContentSchema",
-    "Read the schema for compiled RichContent (text, images, audio, video, files \u2014 used by user/tool/assistant messages)",
-    {},
-    async () => textResult(formatZodSchema(Request2.RichContentSchema))
-  );
-}
-function makeReadSimpleContentExpressionSchema(state) {
-  return tool(
-    "ReadSimpleContentExpressionSchema",
-    "Read the schema for SimpleContent expression (text-only content, supports $starlark/$jmespath)",
-    {},
-    async () => textResult(formatZodSchema(Request2.SimpleContentExpressionSchema))
-  );
-}
-function makeReadRichContentExpressionSchema(state) {
-  return tool(
-    "ReadRichContentExpressionSchema",
-    "Read the schema for RichContent expression (text, images, audio, video, files \u2014 supports $starlark/$jmespath)",
-    {},
-    async () => textResult(formatZodSchema(Request2.RichContentExpressionSchema))
-  );
-}
-function makeReadScalarFunctionTaskSchema(state) {
-  return tool(
-    "ReadScalarFunctionTaskSchema",
-    "Read the schema for a scalar.function task",
-    {},
-    async () => textResult(formatZodSchema(Functions.ScalarFunctionTaskExpressionSchema))
-  );
-}
-function makeReadVectorFunctionTaskSchema(state) {
-  return tool(
-    "ReadVectorFunctionTaskSchema",
-    "Read the schema for a vector.function task",
-    {},
-    async () => textResult(formatZodSchema(Functions.VectorFunctionTaskExpressionSchema))
-  );
-}
-function makeReadVectorCompletionTaskSchema(state) {
-  return tool(
-    "ReadVectorCompletionTaskSchema",
-    "Read the schema for a vector.completion task",
-    {},
-    async () => textResult(formatZodSchema(Functions.VectorCompletionTaskExpressionSchema))
-  );
-}
-function makeReadCompiledScalarFunctionTaskSchema(state) {
-  return tool(
-    "ReadCompiledScalarFunctionTaskSchema",
-    "Read the schema for a compiled scalar.function task (used in compiledTasks within ExampleInputs)",
-    {},
-    async () => textResult(formatZodSchema(Functions.ScalarFunctionTaskSchema))
-  );
-}
-function makeReadCompiledVectorFunctionTaskSchema(state) {
-  return tool(
-    "ReadCompiledVectorFunctionTaskSchema",
-    "Read the schema for a compiled vector.function task (used in compiledTasks within ExampleInputs)",
-    {},
-    async () => textResult(formatZodSchema(Functions.VectorFunctionTaskSchema))
-  );
-}
-function makeReadCompiledVectorCompletionTaskSchema(state) {
-  return tool(
-    "ReadCompiledVectorCompletionTaskSchema",
-    "Read the schema for a compiled vector.completion task (used in compiledTasks within ExampleInputs)",
-    {},
-    async () => textResult(formatZodSchema(Functions.VectorCompletionTaskSchema))
-  );
-}
-function makeReadReadme(state) {
-  return tool(
-    "ReadReadme",
-    "Read README.md",
-    {},
-    async () => resultFromResult(readReadme())
-  );
-}
-function makeWriteReadme(state) {
-  return tool(
-    "WriteReadme",
-    "Write README.md",
-    { content: z19.string() },
-    async ({ content }) => resultFromResult(writeReadme(content))
-  );
-}
 function makeSubmit(state) {
   return tool(
     "Submit",
     "Check function, check example inputs, run network tests, commit and push to GitHub (if all successful)",
-    { message: z19.string().describe("Commit message") },
+    { message: z10.string().describe("Commit message") },
     async ({ message }) => resultFromResult(await submit(message, state.submitApiBase, state.submitApiKey, {
       userName: state.gitUserName,
       userEmail: state.gitUserEmail,
@@ -4323,7 +4372,7 @@ function makeSpawnFunctionAgents(state) {
     "Spawn child function agents in parallel",
     {
       params: SpawnFunctionAgentsParamsSchema,
-      dangerouslyRespawn: z19.boolean().optional()
+      dangerouslyRespawn: z10.boolean().optional()
     },
     async ({ params, dangerouslyRespawn }) => {
       if (state.spawnFunctionAgentsHasSpawned) {
@@ -4451,7 +4500,7 @@ function makeReadAgentFunction(state) {
   return tool(
     "ReadAgentFunction",
     "Read an agent function by name",
-    { name: z19.string() },
+    { name: z10.string() },
     async ({ name }) => resultFromResult(readAgentFunction(name))
   );
 }
