@@ -421,7 +421,7 @@ This function must use **vector completion tasks** (type: \`vector.completion\`)
 - Use \`map\` if a task needs to iterate over input items
 - Each task's prompt and responses define what gets evaluated
 - Responses should be phrased as potential assistant messages. For example, if ranking dating profiles, don't ask "which profile is best" — instead ask "what is a good dating profile" and make each response a dating profile
-- If a task is for ranking items from an input array, the array items go into \`responses\`, not \`messages\`
+- If a task is for ranking items from an input array, the array items go into \`responses\`, not \`messages\`${state.maxWidth > 1 ? `\n- For tasks with a fixed number of responses, vary the number of responses across tasks to make the function diverse and creative` : ""}
 
 ### Function Definition
 - Use the Edit* tools to define each function field

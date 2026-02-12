@@ -188,7 +188,8 @@ export async function planMcp(
       `\n- Use \`map\` if a task needs to iterate over input items` +
       `\n- Each task's prompt and responses define what gets evaluated` +
       `\n- Responses should be phrased as potential assistant messages (e.g. if ranking dating profiles, ask "what is a good dating profile" and make each response a dating profile)` +
-      `\n- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\``;
+      `\n- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\`` +
+      (state.maxWidth > 1 ? `\n- For tasks with a fixed number of responses, vary the number of responses across tasks to make the function diverse and creative` : "");
 
   const contentFormat = useFunctionTasks
     ? ""
