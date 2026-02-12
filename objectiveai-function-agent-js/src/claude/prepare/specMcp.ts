@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import { LogFn } from "../../agentOptions";
 import { consumeStream } from "../../logging";
 import { writeSpec } from "../../tools/markdown";
-import { makeReadSpec, makeWriteSpec } from "../../tools/claude/spec";
+import { makeWriteSpec } from "../../tools/claude/spec";
 import {
   makeListExampleFunctions,
   makeReadExampleFunction,

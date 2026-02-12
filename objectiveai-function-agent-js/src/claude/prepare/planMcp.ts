@@ -1,7 +1,7 @@
 import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { LogFn } from "../../agentOptions";
 import { consumeStream } from "../../logging";
-import { makeReadPlan, makeWritePlan } from "../../tools/claude/plan";
+import { makeWritePlan } from "../../tools/claude/plan";
 import { makeReadSpec } from "../../tools/claude/spec";
 import { makeReadName } from "../../tools/claude/name";
 import { makeReadEssay } from "../../tools/claude/essay";

@@ -2,7 +2,7 @@ import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { existsSync, readFileSync } from "fs";
 import { LogFn } from "../../agentOptions";
 import { consumeStream } from "../../logging";
-import { makeReadEssayTasks, makeWriteEssayTasks } from "../../tools/claude/essayTasks";
+import { makeWriteEssayTasks } from "../../tools/claude/essayTasks";
 import { makeReadSpec } from "../../tools/claude/spec";
 import { makeReadName } from "../../tools/claude/name";
 import { makeReadEssay } from "../../tools/claude/essay";
@@ -38,9 +38,10 @@ export async function essayTasksMcp(
   ];
   const mcpServer = createSdkMcpServer({ name: "essayTasks", tools });
 
-  const widthDesc = state.minWidth === state.maxWidth
-    ? `exactly ${state.minWidth}`
-    : `between ${state.minWidth} and ${state.maxWidth}`;
+  const widthDesc =
+    state.minWidth === state.maxWidth
+      ? `exactly ${state.minWidth}`
+      : `between ${state.minWidth} and ${state.maxWidth}`;
 
   const prompt =
     "Read SPEC.md, name.txt, ESSAY.md, and example functions to understand the context, then create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md." +

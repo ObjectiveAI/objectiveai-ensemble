@@ -2,7 +2,7 @@ import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { existsSync, readFileSync } from "fs";
 import { LogFn } from "../../agentOptions";
 import { consumeStream } from "../../logging";
-import { makeReadEssay, makeWriteEssay } from "../../tools/claude/essay";
+import { makeWriteEssay } from "../../tools/claude/essay";
 import { makeReadSpec } from "../../tools/claude/spec";
 import { makeReadName } from "../../tools/claude/name";
 import {
