@@ -6,3 +6,9 @@ env
 .claude/
 **/.DS_Store
 coding-agent-scratch/package-lock.json
+
+# Ignore markdown files at repository root (Claude working files)
+/*.md
+!README.md
+!CLAUDE.md
+
