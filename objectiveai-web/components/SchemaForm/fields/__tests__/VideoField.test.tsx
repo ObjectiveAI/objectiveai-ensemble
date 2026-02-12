@@ -5,7 +5,6 @@ import VideoField from "../VideoField";
 import type { VideoInputSchema, VideoRichContentPart } from "../../types";
 import {
   mockFileReader,
-  mockFileReaderError,
   createTestVideo,
   createSampleVideoPart,
   SAMPLE_VIDEO_BASE64,

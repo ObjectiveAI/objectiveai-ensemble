@@ -67,7 +67,7 @@ describe("AudioField", () => {
     it("shows error message when validation fails", () => {
       const propsWithError = {
         ...defaultProps,
-        errors: { "test.audio": "Audio is required" },
+        errors: [{ path: "test.audio", message: "Audio is required", type: "required" as const }],
       };
       render(<AudioField {...propsWithError} />);
       expect(screen.getByText("Audio is required")).toBeInTheDocument();

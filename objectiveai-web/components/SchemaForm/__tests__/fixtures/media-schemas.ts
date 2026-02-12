@@ -201,6 +201,7 @@ export const anyOfMediaSchema: InputSchema = {
     {
       type: "object",
       properties: {
+        // @ts-expect-error - Testing edge case with JSON Schema const keyword
         type: { const: "image" },
         content: { type: "image" },
       },
@@ -209,6 +210,7 @@ export const anyOfMediaSchema: InputSchema = {
     {
       type: "object",
       properties: {
+        // @ts-expect-error - Testing edge case with JSON Schema const keyword
         type: { const: "text" },
         content: { type: "string" },
       },

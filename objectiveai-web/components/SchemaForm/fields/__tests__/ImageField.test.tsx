@@ -67,7 +67,7 @@ describe("ImageField", () => {
     it("does not show description when there is an error", () => {
       const propsWithError = {
         ...defaultProps,
-        errors: [{ path: "test.image", message: "Image is required" }],
+        errors: [{ path: "test.image", message: "Image is required", type: "required" as const }],
       };
       render(<ImageField {...propsWithError} />);
       expect(screen.queryByText("Upload an image")).not.toBeInTheDocument();
@@ -76,7 +76,7 @@ describe("ImageField", () => {
     it("shows error message when validation fails", () => {
       const propsWithError = {
         ...defaultProps,
-        errors: [{ path: "test.image", message: "Image is required" }],
+        errors: [{ path: "test.image", message: "Image is required", type: "required" as const }],
       };
       render(<ImageField {...propsWithError} />);
       expect(screen.getByText("Image is required")).toBeInTheDocument();
@@ -85,9 +85,9 @@ describe("ImageField", () => {
     it("applies error styling when there is an error", () => {
       const propsWithError = {
         ...defaultProps,
-        errors: [{ path: "test.image", message: "Image is required" }],
+        errors: [{ path: "test.image", message: "Image is required", type: "required" as const }],
       };
-      const { container } = render(<ImageField {...propsWithError} />);
+      render(<ImageField {...propsWithError} />);
       const button = screen.getByText("Upload image").closest("button");
       expect(button).toHaveStyle({ borderColor: expect.stringContaining("error") });
     });

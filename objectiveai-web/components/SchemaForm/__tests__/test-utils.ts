@@ -47,7 +47,7 @@ export function mockFileReader(base64Result: string = SAMPLE_IMAGE_BASE64) {
       if (mockReader.onload) {
         mockReader.onload.call(mockReader as unknown as FileReader, {
           target: mockReader,
-        } as ProgressEvent<FileReader>);
+        } as unknown as ProgressEvent<FileReader>);
       }
     }, 0);
   });
@@ -75,7 +75,7 @@ export function mockFileReaderError(errorMessage: string = "File read error") {
       if (mockReader.onerror) {
         mockReader.onerror.call(mockReader as unknown as FileReader, {
           target: mockReader,
-        } as ProgressEvent<FileReader>);
+        } as unknown as ProgressEvent<FileReader>);
       }
     }, 0);
   });

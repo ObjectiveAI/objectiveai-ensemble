@@ -11,7 +11,6 @@ import {
   multiMediaObjectSchema,
   requiredImageSchema,
   imageArraySchema,
-  fileArraySchema,
   nestedMediaSchema,
   mixedSchema,
   optionalMediaSchema,
@@ -20,14 +19,10 @@ import {
 import {
   mockFileReader,
   createTestImage,
-  createTestAudio,
-  createTestVideo,
-  createTestFile,
   createSampleImagePart,
   createSampleAudioPart,
   createSampleFilePart,
   SAMPLE_IMAGE_BASE64,
-  SAMPLE_AUDIO_BASE64,
   cleanupMocks,
   waitForAsync,
 } from "./test-utils";

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import ImageField from "../fields/ImageField";
 import AudioField from "../fields/AudioField";
@@ -14,7 +14,6 @@ import {
   mockFileReader,
   mockFileReaderError,
   createTestImage,
-  createTestAudio,
   cleanupMocks,
   waitForAsync,
   SAMPLE_IMAGE_BASE64,
@@ -41,7 +40,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -76,7 +75,7 @@ describe("Edge Cases - Media Upload", () => {
             value={null}
             onChange={mockOnChange}
             path="test"
-            errors={{}}
+            errors={[]}
             disabled={false}
             isMobile={false}
           />
@@ -99,7 +98,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -141,7 +140,7 @@ describe("Edge Cases - Media Upload", () => {
           value={initialValue}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -158,7 +157,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -194,7 +193,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -228,7 +227,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -260,7 +259,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -291,7 +290,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -315,7 +314,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -354,7 +353,7 @@ describe("Edge Cases - Media Upload", () => {
             value={invalidValue}
             onChange={mockOnChange}
             path="test"
-            errors={{}}
+            errors={[]}
             disabled={false}
             isMobile={false}
           />
@@ -379,7 +378,7 @@ describe("Edge Cases - Media Upload", () => {
             value={wrongTypeValue}
             onChange={mockOnChange}
             path="test"
-            errors={{}}
+            errors={[]}
             disabled={false}
             isMobile={false}
           />
@@ -399,7 +398,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -445,7 +444,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -473,7 +472,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -499,7 +498,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -518,13 +517,13 @@ describe("Edge Cases - Media Upload", () => {
     it("handles file input ref becoming null", () => {
       const mockOnChange = vi.fn();
 
-      const { rerender } = render(
+      render(
         <VideoField
           schema={{ type: "video" } as VideoInputSchema}
           value={{ type: "video_url", video_url: { url: "test" } }}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -552,7 +551,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />
@@ -581,7 +580,7 @@ describe("Edge Cases - Media Upload", () => {
           value={null}
           onChange={mockOnChange}
           path="test"
-          errors={{}}
+          errors={[]}
           disabled={false}
           isMobile={false}
         />

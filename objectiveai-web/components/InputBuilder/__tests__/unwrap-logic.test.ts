@@ -8,7 +8,18 @@
 import { describe, it, expect } from 'vitest';
 
 // Mock the conversion functions to test unwrap logic
-function contentItemsToInputValue(items: any[]): any {
+interface ContentItem {
+  type: string;
+  value: unknown;
+  children?: Array<{ value: unknown }>;
+}
+
+interface PropertySchema {
+  type?: string;
+  [key: string]: unknown;
+}
+
+function contentItemsToInputValue(items: ContentItem[]): unknown[] {
   if (items.length === 0) return [];
   return items.map(item => {
     switch (item.type) {
@@ -17,14 +28,14 @@ function contentItemsToInputValue(items: any[]): any {
       case "audio": return item.value;
       case "video": return item.value;
       case "file": return item.value;
-      case "group": return item.children.map((c: any) => c.value);
+      case "group": return item.children?.map((c) => c.value);
       default: return item.value;
     }
   });
 }
 
 // The FIXED unwrap logic we'll add to PropertyContentList
-function unwrapValue(converted: any, propertySchema: any): any {
+function unwrapValue(converted: unknown, propertySchema: PropertySchema | null | undefined): unknown {
   // Safety: If no schema provided, don't unwrap (safer default)
   if (!propertySchema) {
     return converted;
@@ -60,7 +71,7 @@ describe('InputBuilder Unwrap Logic', () => {
     });
 
     it('should convert empty array to null', () => {
-      const items: any[] = [];
+      const items: ContentItem[] = [];
       const converted = contentItemsToInputValue(items);
       const result = unwrapValue(converted, schema);
 
@@ -98,7 +109,7 @@ describe('InputBuilder Unwrap Logic', () => {
     });
 
     it('should convert empty image to null', () => {
-      const items: any[] = [];
+      const items: ContentItem[] = [];
       const converted = contentItemsToInputValue(items);
       const result = unwrapValue(converted, schema);
 
@@ -212,7 +223,7 @@ describe('InputBuilder Unwrap Logic', () => {
     });
 
     it('should keep empty array for array properties', () => {
-      const items: any[] = [];
+      const items: ContentItem[] = [];
       const converted = contentItemsToInputValue(items);
       const result = unwrapValue(converted, schema);
 
