@@ -97,6 +97,8 @@ interface RunAgentOptions {
   gitUserName?: string;
   gitUserEmail?: string;
   ghToken?: string;
+  minWidth?: number;
+  maxWidth?: number;
 }
 
 function runAgentInSubdir(
@@ -121,6 +123,8 @@ function runAgentInSubdir(
     if (opts?.gitUserName) args.push("--git-user-name", opts.gitUserName);
     if (opts?.gitUserEmail) args.push("--git-user-email", opts.gitUserEmail);
     if (opts?.ghToken) args.push("--gh-token", opts.ghToken);
+    if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
+    if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
 
     const child = spawn(
       "objectiveai-function-agent",

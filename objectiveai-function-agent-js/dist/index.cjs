@@ -135,6 +135,23 @@ function makeAgentOptions(options = {}) {
   }
   const log = options.log ?? createFileLogger().log;
   const depth = options.depth ?? 0;
+  const rawMin = options.minWidth && options.minWidth > 0 ? Math.round(options.minWidth) : void 0;
+  const rawMax = options.maxWidth && options.maxWidth > 0 ? Math.round(options.maxWidth) : void 0;
+  let minWidth;
+  let maxWidth;
+  if (rawMin && rawMax) {
+    minWidth = rawMin;
+    maxWidth = rawMax;
+  } else if (rawMin) {
+    minWidth = rawMin;
+    maxWidth = Math.max(10, minWidth);
+  } else if (rawMax) {
+    maxWidth = rawMax;
+    minWidth = Math.min(5, maxWidth);
+  } else {
+    minWidth = 5;
+    maxWidth = 10;
+  }
   const gitUserName = options.gitUserName ?? readEnv("GIT_AUTHOR_NAME") ?? readEnv("GIT_COMMITTER_NAME") ?? getGitConfig("user.name");
   if (!gitUserName) {
     throw new Error("Git user name is required. Set GIT_AUTHOR_NAME, configure git config user.name, or pass gitUserName.");
@@ -153,6 +170,8 @@ function makeAgentOptions(options = {}) {
     apiKey,
     log,
     depth,
+    minWidth,
+    maxWidth,
     gitUserName,
     gitUserEmail,
     ghToken
@@ -229,7 +248,9 @@ async function init(options) {
   await fetchExamples(options.apiBase, options.apiKey);
   if (!fs.existsSync("parameters.json")) {
     const parameters = {
-      depth: options.depth
+      depth: options.depth,
+      min_width: options.minWidth,
+      max_width: options.maxWidth
     };
     fs.writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
   }
@@ -692,6 +713,53 @@ function validateInputMaps(fn) {
   }
   return { ok: true, value: parsed.data, error: void 0 };
 }
+
+// src/tools/parameters/index.ts
+var parameters_exports = {};
+__export(parameters_exports, {
+  checkParameters: () => checkParameters,
+  readParameters: () => readParameters,
+  readParametersSchema: () => readParametersSchema,
+  validateParameters: () => validateParameters
+});
+var ParametersSchema = z19__default.default.object({
+  depth: z19__default.default.number().int().nonnegative(),
+  min_width: z19__default.default.int().positive(),
+  max_width: z19__default.default.int().positive()
+});
+function readParameters() {
+  if (!fs.existsSync("parameters.json")) {
+    return { ok: true, value: { depth: 0 }, error: void 0 };
+  }
+  try {
+    return { ok: true, value: JSON.parse(fs.readFileSync("parameters.json", "utf-8")), error: void 0 };
+  } catch {
+    return { ok: false, value: void 0, error: "parameters.json is not valid JSON" };
+  }
+}
+function readParametersSchema() {
+  return ParametersSchema;
+}
+function validateParameters(value) {
+  const parsed = ParametersSchema.safeParse(value);
+  if (!parsed.success) {
+    return { ok: false, value: void 0, error: parsed.error.message };
+  }
+  return { ok: true, value: parsed.data, error: void 0 };
+}
+function checkParameters() {
+  const raw = readParameters();
+  if (!raw.ok) {
+    return { ok: false, value: void 0, error: raw.error };
+  }
+  const result = validateParameters(raw.value);
+  if (!result.ok) {
+    return { ok: false, value: void 0, error: `Parameters are invalid: ${result.error}` };
+  }
+  return { ok: true, value: void 0, error: void 0 };
+}
+
+// src/tools/function/tasks.ts
 var TasksSchema = objectiveai.Functions.TaskExpressionsSchema.min(1);
 function delTasks() {
   return editFunction({ tasks: [] });
@@ -866,6 +934,26 @@ function validateTasks(fn) {
       };
     }
     seen.add(idx);
+  }
+  const paramsRaw = readParameters();
+  if (paramsRaw.ok) {
+    const paramsResult = validateParameters(paramsRaw.value);
+    if (paramsResult.ok) {
+      if (parsed.data.length < paramsResult.value.min_width) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Too few tasks: ${parsed.data.length} is below min_width of ${paramsResult.value.min_width}`
+        };
+      }
+      if (parsed.data.length > paramsResult.value.max_width) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Too many tasks: ${parsed.data.length} exceeds max_width of ${paramsResult.value.max_width}`
+        };
+      }
+    }
   }
   return { ok: true, value: parsed.data, error: void 0 };
 }
@@ -1790,7 +1878,8 @@ async function essayTasksMcp(state, log, sessionId) {
     makeReadFunctionSchema()
   ];
   const mcpServer = claudeAgentSdk.createSdkMcpServer({ name: "essayTasks", tools });
-  const prompt = "Read SPEC.md, name.txt, ESSAY.md, and example functions to understand the context, then create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's `tasks` array.";
+  const widthDesc = state.minWidth === state.maxWidth ? `exactly ${state.minWidth}` : `between ${state.minWidth} and ${state.maxWidth}`;
+  const prompt = `Read SPEC.md, name.txt, ESSAY.md, and example functions to understand the context, then create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's \`tasks\` array. There must be ${widthDesc} tasks.`;
   sessionId = await consumeStream(
     claudeAgentSdk.query({
       prompt,
@@ -1813,7 +1902,7 @@ async function essayTasksMcp(state, log, sessionId) {
     }
     sessionId = await consumeStream(
       claudeAgentSdk.query({
-        prompt: "ESSAY_TASKS.md is empty after your essayTasks phase. Create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's `tasks` array.",
+        prompt: `ESSAY_TASKS.md is empty after your essayTasks phase. Create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md. Each task is a plain language description of a task which will go into the function's \`tasks\` array. There must be ${widthDesc} tasks.`,
         options: {
           tools: [],
           mcpServers: { essayTasks: mcpServer },
@@ -2077,49 +2166,6 @@ var ExampleInputsSchema = z19__default.default.array(ExampleInputSchema).min(10)
   "An array of example inputs for the function. Must contain between 10 and 100 items."
 );
 
-// src/tools/parameters/index.ts
-var parameters_exports = {};
-__export(parameters_exports, {
-  checkParameters: () => checkParameters,
-  readParameters: () => readParameters,
-  readParametersSchema: () => readParametersSchema,
-  validateParameters: () => validateParameters
-});
-var ParametersSchema = z19__default.default.object({
-  depth: z19__default.default.number().int().nonnegative()
-});
-function readParameters() {
-  if (!fs.existsSync("parameters.json")) {
-    return { ok: true, value: { depth: 0 }, error: void 0 };
-  }
-  try {
-    return { ok: true, value: JSON.parse(fs.readFileSync("parameters.json", "utf-8")), error: void 0 };
-  } catch {
-    return { ok: false, value: void 0, error: "parameters.json is not valid JSON" };
-  }
-}
-function readParametersSchema() {
-  return ParametersSchema;
-}
-function validateParameters(value) {
-  const parsed = ParametersSchema.safeParse(value);
-  if (!parsed.success) {
-    return { ok: false, value: void 0, error: parsed.error.message };
-  }
-  return { ok: true, value: parsed.data, error: void 0 };
-}
-function checkParameters() {
-  const raw = readParameters();
-  if (!raw.ok) {
-    return { ok: false, value: void 0, error: raw.error };
-  }
-  const result = validateParameters(raw.value);
-  if (!result.ok) {
-    return { ok: false, value: void 0, error: `Parameters are invalid: ${result.error}` };
-  }
-  return { ok: true, value: void 0, error: void 0 };
-}
-
 // src/tools/inputs/index.ts
 function validateExampleInput(value, fn) {
   const parsed = ExampleInputSchema.safeParse(value);
@@ -2358,9 +2404,6 @@ function checkExampleInputs() {
   }
   const parameters = paramsResult.value;
   if (parameters.depth === 0) {
-    if (func.tasks.length === 0) {
-      return { ok: false, value: void 0, error: "There must be at least 1 task" };
-    }
     for (const task of func.tasks) {
       if (task.type !== "vector.completion") {
         return { ok: false, value: void 0, error: `All tasks must be vector.completion at depth 0, but found task of type: ${task.type}` };
@@ -2372,9 +2415,12 @@ function checkExampleInputs() {
         return { ok: false, value: void 0, error: `All tasks must be function tasks (scalar.function or vector.function) at depth > 0, but found task of type: ${task.type}` };
       }
     }
-    if (func.tasks.length < 2) {
-      return { ok: false, value: void 0, error: `There must be at least 2 tasks at depth > 0, but found ${func.tasks.length}` };
-    }
+  }
+  if (func.tasks.length < parameters.min_width) {
+    return { ok: false, value: void 0, error: `Too few tasks: ${func.tasks.length} is below min_width of ${parameters.min_width}` };
+  }
+  if (func.tasks.length > parameters.max_width) {
+    return { ok: false, value: void 0, error: `Too many tasks: ${func.tasks.length} exceeds max_width of ${parameters.max_width}` };
   }
   const file = readExampleInputsFile();
   if (!file.ok) {
@@ -4056,6 +4102,8 @@ function runAgentInSubdir(name, spec, childDepth, childProcesses, opts) {
     if (opts?.gitUserName) args.push("--git-user-name", opts.gitUserName);
     if (opts?.gitUserEmail) args.push("--git-user-email", opts.gitUserEmail);
     if (opts?.ghToken) args.push("--gh-token", opts.ghToken);
+    if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
+    if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     const child = child_process.spawn(
       "objectiveai-function-agent",
       args,
@@ -4245,7 +4293,9 @@ function makeSpawnFunctionAgents(state) {
             apiKey: state.submitApiKey,
             gitUserName: state.gitUserName,
             gitUserEmail: state.gitUserEmail,
-            ghToken: state.ghToken
+            ghToken: state.ghToken,
+            minWidth: state.minWidth,
+            maxWidth: state.maxWidth
           }));
         }
         state.spawnFunctionAgentsRespawnRejected = true;
@@ -4261,7 +4311,9 @@ function makeSpawnFunctionAgents(state) {
         apiKey: state.submitApiKey,
         gitUserName: state.gitUserName,
         gitUserEmail: state.gitUserEmail,
-        ghToken: state.ghToken
+        ghToken: state.ghToken,
+        minWidth: state.minWidth,
+        maxWidth: state.maxWidth
       }));
     }
   );
@@ -4476,7 +4528,12 @@ function getFunctionTasksTools(state) {
     makeReadAgentFunction()
   ];
 }
-function buildFunctionTasksPrompt() {
+function widthText(minWidth, maxWidth) {
+  if (minWidth === maxWidth) return `exactly **${minWidth}**`;
+  return `between **${minWidth}** and **${maxWidth}**`;
+}
+function buildFunctionTasksPrompt(state) {
+  const w = widthText(state.minWidth, state.maxWidth);
   return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
 
 Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example functions to understand the context, if needed.
@@ -4485,7 +4542,7 @@ Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example function
 
 ### Task Structure
 
-This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create **at least 2 sub-functions** by spawning child agents.
+This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create ${w} sub-functions by spawning child agents.
 
 **Before spawning**, define the parent function's input schema using EditInputSchema, and input_maps using AppendInputMap if any tasks will use mapped iteration. The sub-function specs you write must describe input schemas that are derivable from this parent input schema, so define these first.
 
@@ -4574,7 +4631,8 @@ Once all tests pass and SPEC.md compliance is verified:
 - **Prefer Starlark over JMESPath** - Starlark is more readable and powerful
 `;
 }
-function buildVectorTasksPrompt() {
+function buildVectorTasksPrompt(state) {
+  const w = widthText(state.minWidth, state.maxWidth);
   return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
 
 Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example functions to understand the context, if needed.
@@ -4583,7 +4641,7 @@ Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example function
 
 ### Task Structure
 
-This function must use **vector completion tasks** (type: \`vector.completion\`). Create 1 or more inline vector completion tasks using AppendTask:
+This function must use **vector completion tasks** (type: \`vector.completion\`). Create ${w} inline vector completion tasks using AppendTask:
 - Use \`map\` if a task needs to iterate over input items
 - Each task's prompt and responses define what gets evaluated
 
@@ -4656,7 +4714,7 @@ async function inventLoop(state, log, useFunctionTasks, sessionId) {
     const mcpServer = claudeAgentSdk.createSdkMcpServer({ name: "invent", tools });
     let prompt;
     if (attempt === 1) {
-      prompt = useFunctionTasks ? buildFunctionTasksPrompt() : buildVectorTasksPrompt();
+      prompt = useFunctionTasks ? buildFunctionTasksPrompt(state) : buildVectorTasksPrompt(state);
     } else {
       prompt = `Your previous attempt failed:
 ${lastFailureReasons.map((r) => `- ${r}`).join("\n")}
@@ -4740,7 +4798,9 @@ function makeToolState(options) {
     submitApiKey: options.apiKey,
     gitUserName: options.gitUserName,
     gitUserEmail: options.gitUserEmail,
-    ghToken: options.ghToken
+    ghToken: options.ghToken,
+    minWidth: options.minWidth,
+    maxWidth: options.maxWidth
   };
 }
 
@@ -4755,7 +4815,9 @@ async function invent(partialOptions = {}) {
     writePlanIndex: nextPlanIndex,
     gitUserName: options.gitUserName,
     gitUserEmail: options.gitUserEmail,
-    ghToken: options.ghToken
+    ghToken: options.ghToken,
+    minWidth: options.minWidth,
+    maxWidth: options.maxWidth
   });
   options.log("=== Initializing workspace ===");
   await init(options);

@@ -300,7 +300,13 @@ function getFunctionTasksTools(state: ToolState) {
   ];
 }
 
-function buildFunctionTasksPrompt(): string {
+function widthText(minWidth: number, maxWidth: number): string {
+  if (minWidth === maxWidth) return `exactly **${minWidth}**`;
+  return `between **${minWidth}** and **${maxWidth}**`;
+}
+
+function buildFunctionTasksPrompt(state: ToolState): string {
+  const w = widthText(state.minWidth, state.maxWidth);
   return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
 
 Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example functions to understand the context, if needed.
@@ -309,7 +315,7 @@ Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example function
 
 ### Task Structure
 
-This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create **at least 2 sub-functions** by spawning child agents.
+This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create ${w} sub-functions by spawning child agents.
 
 **Before spawning**, define the parent function's input schema using EditInputSchema, and input_maps using AppendInputMap if any tasks will use mapped iteration. The sub-function specs you write must describe input schemas that are derivable from this parent input schema, so define these first.
 
@@ -399,7 +405,8 @@ Once all tests pass and SPEC.md compliance is verified:
 `;
 }
 
-function buildVectorTasksPrompt(): string {
+function buildVectorTasksPrompt(state: ToolState): string {
+  const w = widthText(state.minWidth, state.maxWidth);
   return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
 
 Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example functions to understand the context, if needed.
@@ -408,7 +415,7 @@ Read SPEC.md, name.txt, ESSAY.md, ESSAY_TASKS.md, the plan, and example function
 
 ### Task Structure
 
-This function must use **vector completion tasks** (type: \`vector.completion\`). Create 1 or more inline vector completion tasks using AppendTask:
+This function must use **vector completion tasks** (type: \`vector.completion\`). Create ${w} inline vector completion tasks using AppendTask:
 - Use \`map\` if a task needs to iterate over input items
 - Each task's prompt and responses define what gets evaluated
 
@@ -494,8 +501,8 @@ async function inventLoop(
 
     if (attempt === 1) {
       prompt = useFunctionTasks
-        ? buildFunctionTasksPrompt()
-        : buildVectorTasksPrompt();
+        ? buildFunctionTasksPrompt(state)
+        : buildVectorTasksPrompt(state);
     } else {
       prompt = `Your previous attempt failed:
 ${lastFailureReasons.map((r) => `- ${r}`).join("\n")}

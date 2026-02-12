@@ -35,11 +35,16 @@ program
   .option("--git-user-name <name>", "Git author/committer name")
   .option("--git-user-email <email>", "Git author/committer email")
   .option("--gh-token <token>", "GitHub token for gh CLI")
+  .option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt)
+  .option("--min-width <n>", "Minimum number of tasks", parseInt)
+  .option("--max-width <n>", "Maximum number of tasks", parseInt)
   .action(async (spec: string | undefined, opts: Record<string, string | number | undefined>) => {
     await Claude.invent({
       spec,
       name: opts.name as string | undefined,
       depth: opts.depth as number | undefined,
+      minWidth: (opts.width as number | undefined) ?? (opts.minWidth as number | undefined),
+      maxWidth: (opts.width as number | undefined) ?? (opts.maxWidth as number | undefined),
       apiBase: opts.apiBase as string | undefined,
       apiKey: opts.apiKey as string | undefined,
       instructions: opts.instructions as string | undefined,

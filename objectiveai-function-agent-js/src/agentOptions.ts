@@ -11,6 +11,8 @@ export interface AgentOptions {
   sessionId?: string;
   log: LogFn;
   depth: number;
+  minWidth: number;
+  maxWidth: number;
   instructions?: string;
   gitUserName: string;
   gitUserEmail: string;
@@ -45,6 +47,24 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
   const log = options.log ?? createFileLogger().log;
   const depth = options.depth ?? 0;
 
+  const rawMin = options.minWidth && options.minWidth > 0 ? Math.round(options.minWidth) : undefined;
+  const rawMax = options.maxWidth && options.maxWidth > 0 ? Math.round(options.maxWidth) : undefined;
+  let minWidth: number;
+  let maxWidth: number;
+  if (rawMin && rawMax) {
+    minWidth = rawMin;
+    maxWidth = rawMax;
+  } else if (rawMin) {
+    minWidth = rawMin;
+    maxWidth = Math.max(10, minWidth);
+  } else if (rawMax) {
+    maxWidth = rawMax;
+    minWidth = Math.min(5, maxWidth);
+  } else {
+    minWidth = 5;
+    maxWidth = 10;
+  }
+
   const gitUserName =
     options.gitUserName ??
     readEnv("GIT_AUTHOR_NAME") ??
@@ -76,6 +96,8 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
     apiKey,
     log,
     depth,
+    minWidth,
+    maxWidth,
     gitUserName,
     gitUserEmail,
     ghToken,

@@ -298,9 +298,6 @@ export function checkExampleInputs(): Result<undefined> {
 
   // Task type validation
   if (parameters.depth === 0) {
-    if (func.tasks.length === 0) {
-      return { ok: false, value: undefined, error: "There must be at least 1 task" };
-    }
     for (const task of func.tasks) {
       if (task.type !== "vector.completion") {
         return { ok: false, value: undefined, error: `All tasks must be vector.completion at depth 0, but found task of type: ${task.type}` };
@@ -312,9 +309,14 @@ export function checkExampleInputs(): Result<undefined> {
         return { ok: false, value: undefined, error: `All tasks must be function tasks (scalar.function or vector.function) at depth > 0, but found task of type: ${task.type}` };
       }
     }
-    if (func.tasks.length < 2) {
-      return { ok: false, value: undefined, error: `There must be at least 2 tasks at depth > 0, but found ${func.tasks.length}` };
-    }
+  }
+
+  // Task count validation
+  if (func.tasks.length < parameters.min_width) {
+    return { ok: false, value: undefined, error: `Too few tasks: ${func.tasks.length} is below min_width of ${parameters.min_width}` };
+  }
+  if (func.tasks.length > parameters.max_width) {
+    return { ok: false, value: undefined, error: `Too many tasks: ${func.tasks.length} exceeds max_width of ${parameters.max_width}` };
   }
 
   // Read and validate inputs.json

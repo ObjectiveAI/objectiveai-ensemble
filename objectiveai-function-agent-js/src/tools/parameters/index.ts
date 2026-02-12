@@ -4,6 +4,8 @@ import { Result } from "../result";
 
 const ParametersSchema = z.object({
   depth: z.number().int().nonnegative(),
+  min_width: z.int().positive(),
+  max_width: z.int().positive(),
 });
 type Parameters = z.infer<typeof ParametersSchema>;
 

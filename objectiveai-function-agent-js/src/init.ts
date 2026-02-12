@@ -6,6 +6,8 @@ import { AgentOptions } from "./agentOptions";
 
 export interface Parameters {
   depth: number;
+  min_width: number;
+  max_width: number;
 }
 
 type FunctionRef = { owner: string; repository: string; commit: string };
@@ -105,6 +107,8 @@ export async function init(options: AgentOptions): Promise<void> {
   if (!existsSync("parameters.json")) {
     const parameters: Parameters = {
       depth: options.depth,
+      min_width: options.minWidth,
+      max_width: options.maxWidth,
     };
     writeFileSync("parameters.json", JSON.stringify(parameters, null, 2));
   }

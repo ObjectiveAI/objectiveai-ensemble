@@ -12,6 +12,8 @@ interface AgentOptions {
     sessionId?: string;
     log: LogFn;
     depth: number;
+    minWidth: number;
+    maxWidth: number;
     instructions?: string;
     gitUserName: string;
     gitUserEmail: string;
@@ -32,6 +34,8 @@ interface ToolState {
     gitUserName: string;
     gitUserEmail: string;
     ghToken: string;
+    minWidth: number;
+    maxWidth: number;
 }
 
 declare function specMcp(state: ToolState, log: LogFn, sessionId?: string, spec?: string): Promise<string | undefined>;
@@ -58108,6 +58112,8 @@ declare namespace index$3 {
 
 declare const ParametersSchema: z.ZodObject<{
     depth: z.ZodNumber;
+    min_width: z.ZodInt;
+    max_width: z.ZodInt;
 }, z.core.$strip>;
 type Parameters$1 = z.infer<typeof ParametersSchema>;
 declare function readParameters(): Result<unknown>;
@@ -58195,6 +58201,8 @@ declare namespace index {
 
 interface Parameters {
     depth: number;
+    min_width: number;
+    max_width: number;
 }
 declare function init(options: AgentOptions): Promise<void>;
 

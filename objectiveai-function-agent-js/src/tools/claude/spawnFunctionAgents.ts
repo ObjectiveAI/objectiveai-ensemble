@@ -31,6 +31,8 @@ export function makeSpawnFunctionAgents(state: ToolState) {
             gitUserName: state.gitUserName,
             gitUserEmail: state.gitUserEmail,
             ghToken: state.ghToken,
+            minWidth: state.minWidth,
+            maxWidth: state.maxWidth,
           }));
         }
 
@@ -54,6 +56,8 @@ export function makeSpawnFunctionAgents(state: ToolState) {
             gitUserName: state.gitUserName,
             gitUserEmail: state.gitUserEmail,
             ghToken: state.ghToken,
+            minWidth: state.minWidth,
+            maxWidth: state.maxWidth,
           }));
     },
   );

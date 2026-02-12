@@ -1,6 +1,7 @@
 import { Functions } from "objectiveai";
 import { Result } from "../result";
 import { DeserializedFunction, editFunction, readFunction } from "./function";
+import { readParameters, validateParameters } from "../parameters";
 import z from "zod";
 
 const TasksSchema = Functions.TaskExpressionsSchema.min(1);
@@ -205,6 +206,28 @@ export function validateTasks(fn: DeserializedFunction): Result<Tasks> {
       };
     }
     seen.add(idx);
+  }
+
+  // Enforce min_width/max_width from parameters.json
+  const paramsRaw = readParameters();
+  if (paramsRaw.ok) {
+    const paramsResult = validateParameters(paramsRaw.value);
+    if (paramsResult.ok) {
+      if (parsed.data.length < paramsResult.value.min_width) {
+        return {
+          ok: false,
+          value: undefined,
+          error: `Too few tasks: ${parsed.data.length} is below min_width of ${paramsResult.value.min_width}`,
+        };
+      }
+      if (parsed.data.length > paramsResult.value.max_width) {
+        return {
+          ok: false,
+          value: undefined,
+          error: `Too many tasks: ${parsed.data.length} exceeds max_width of ${paramsResult.value.max_width}`,
+        };
+      }
+    }
   }
 
   return { ok: true, value: parsed.data, error: undefined };

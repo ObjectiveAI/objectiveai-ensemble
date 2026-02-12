@@ -38,9 +38,14 @@ export async function essayTasksMcp(
   ];
   const mcpServer = createSdkMcpServer({ name: "essayTasks", tools });
 
+  const widthDesc = state.minWidth === state.maxWidth
+    ? `exactly ${state.minWidth}`
+    : `between ${state.minWidth} and ${state.maxWidth}`;
+
   const prompt =
     "Read SPEC.md, name.txt, ESSAY.md, and example functions to understand the context, then create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md." +
-    " Each task is a plain language description of a task which will go into the function's `tasks` array.";
+    " Each task is a plain language description of a task which will go into the function's `tasks` array." +
+    ` There must be ${widthDesc} tasks.`;
 
   sessionId = await consumeStream(
     query({
@@ -68,7 +73,8 @@ export async function essayTasksMcp(
         prompt:
           "ESSAY_TASKS.md is empty after your essayTasks phase." +
           " Create ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md." +
-          " Each task is a plain language description of a task which will go into the function's `tasks` array.",
+          " Each task is a plain language description of a task which will go into the function's `tasks` array." +
+          ` There must be ${widthDesc} tasks.`,
         options: {
           tools: [],
           mcpServers: { essayTasks: mcpServer },

@@ -11,6 +11,8 @@ export interface ToolState {
   gitUserName: string;
   gitUserEmail: string;
   ghToken: string;
+  minWidth: number;
+  maxWidth: number;
 }
 
 export function makeToolState(options: {
@@ -21,6 +23,8 @@ export function makeToolState(options: {
   gitUserName: string;
   gitUserEmail: string;
   ghToken: string;
+  minWidth: number;
+  maxWidth: number;
 }): ToolState {
   return {
     spawnFunctionAgentsHasSpawned: false,
@@ -35,5 +39,7 @@ export function makeToolState(options: {
     gitUserName: options.gitUserName,
     gitUserEmail: options.gitUserEmail,
     ghToken: options.ghToken,
+    minWidth: options.minWidth,
+    maxWidth: options.maxWidth,
   };
 }
