@@ -23,7 +23,6 @@ declare function makeAgentOptions(options?: Partial<AgentOptions>): AgentOptions
 
 interface ToolState {
     spawnFunctionAgentsHasSpawned: boolean;
-    spawnFunctionAgentsRespawnRejected: boolean;
     editInputSchemaModalityRemovalRejected: boolean;
     runNetworkTestsApiBase: string;
     runNetworkTestsApiKey: string;

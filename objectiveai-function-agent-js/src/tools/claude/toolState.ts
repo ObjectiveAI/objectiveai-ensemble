@@ -1,6 +1,5 @@
 export interface ToolState {
   spawnFunctionAgentsHasSpawned: boolean;
-  spawnFunctionAgentsRespawnRejected: boolean;
   editInputSchemaModalityRemovalRejected: boolean;
   runNetworkTestsApiBase: string;
   runNetworkTestsApiKey: string;
@@ -41,7 +40,6 @@ export function makeToolState(options: {
 }): ToolState {
   return {
     spawnFunctionAgentsHasSpawned: false,
-    spawnFunctionAgentsRespawnRejected: false,
     editInputSchemaModalityRemovalRejected: false,
     runNetworkTestsApiBase: options.apiBase,
     runNetworkTestsApiKey: options.apiKey,
