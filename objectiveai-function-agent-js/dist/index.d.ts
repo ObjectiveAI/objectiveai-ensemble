@@ -51,12 +51,8 @@ declare function essayMcp(state: ToolState, log: LogFn, sessionId?: string): Pro
 
 declare function essayTasksMcp(state: ToolState, log: LogFn, sessionId?: string): Promise<string | undefined>;
 
-declare function planMcp(state: ToolState, log: LogFn, depth: number, sessionId?: string, instructions?: string): Promise<string | undefined>;
-
 declare function prepare(state: ToolState, options: AgentOptions): Promise<string | undefined>;
 
-declare function inventFunctionTasksMcp(state: ToolState, options: AgentOptions): Promise<void>;
-declare function inventVectorTasksMcp(state: ToolState, options: AgentOptions): Promise<void>;
 declare function inventMcp(state: ToolState, options: AgentOptions): Promise<void>;
 
 declare function invent(partialOptions?: Partial<AgentOptions>): Promise<void>;
@@ -64,15 +60,12 @@ declare function invent(partialOptions?: Partial<AgentOptions>): Promise<void>;
 declare const index$7_essayMcp: typeof essayMcp;
 declare const index$7_essayTasksMcp: typeof essayTasksMcp;
 declare const index$7_invent: typeof invent;
-declare const index$7_inventFunctionTasksMcp: typeof inventFunctionTasksMcp;
 declare const index$7_inventMcp: typeof inventMcp;
-declare const index$7_inventVectorTasksMcp: typeof inventVectorTasksMcp;
 declare const index$7_nameMcp: typeof nameMcp;
-declare const index$7_planMcp: typeof planMcp;
 declare const index$7_prepare: typeof prepare;
 declare const index$7_specMcp: typeof specMcp;
 declare namespace index$7 {
-  export { index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, index$7_invent as invent, index$7_inventFunctionTasksMcp as inventFunctionTasksMcp, index$7_inventMcp as inventMcp, index$7_inventVectorTasksMcp as inventVectorTasksMcp, index$7_nameMcp as nameMcp, index$7_planMcp as planMcp, index$7_prepare as prepare, index$7_specMcp as specMcp };
+  export { index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, index$7_invent as invent, index$7_inventMcp as inventMcp, index$7_nameMcp as nameMcp, index$7_prepare as prepare, index$7_specMcp as specMcp };
 }
 
 type Result<T> = {

@@ -157,6 +157,9 @@ import { makeReadReadme, makeWriteReadme } from "../../tools/claude/readme";
 // Tools - submit
 import { makeSubmit } from "../../tools/claude/submit";
 
+// Plan
+import { planMcp } from "./planMcp";
+
 // Tools - agent functions (for function tasks variant)
 import { makeSpawnFunctionAgents } from "../../tools/claude/spawnFunctionAgents";
 import {
@@ -526,41 +529,20 @@ Please try again. Remember to:
   return sessionId;
 }
 
-// Main entry point for inventing with function tasks (depth > 0)
-export async function inventFunctionTasksMcp(
-  state: ToolState,
-  options: AgentOptions,
-): Promise<void> {
-  const log = options.log;
-
-  log("=== Invent Loop: Creating new function (function tasks) ===");
-  await inventLoop(state, log, true, options.sessionId);
-
-  log("=== ObjectiveAI Function invention complete ===");
-}
-
-// Main entry point for inventing with vector tasks (depth === 0)
-export async function inventVectorTasksMcp(
-  state: ToolState,
-  options: AgentOptions,
-): Promise<void> {
-  const log = options.log;
-
-  log("=== Invent Loop: Creating new function (vector tasks) ===");
-  await inventLoop(state, log, false, options.sessionId);
-
-  log("=== ObjectiveAI Function invention complete ===");
-}
-
 // Unified entry point that selects variant based on depth
 export async function inventMcp(
   state: ToolState,
   options: AgentOptions,
 ): Promise<void> {
+  const log = options.log;
   const depth = options.depth;
-  if (depth === 0) {
-    await inventVectorTasksMcp(state, options);
-  } else {
-    await inventFunctionTasksMcp(state, options);
-  }
+  const useFunctionTasks = depth > 0;
+
+  log("=== Plan ===");
+  const sessionId = await planMcp(state, log, depth, options.sessionId, options.instructions);
+
+  log(`=== Invent Loop: Creating new function (${useFunctionTasks ? "function" : "vector"} tasks) ===`);
+  await inventLoop(state, log, useFunctionTasks, sessionId);
+
+  log("=== ObjectiveAI Function invention complete ===");
 }

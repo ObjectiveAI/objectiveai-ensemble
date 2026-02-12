@@ -2,7 +2,6 @@ export * from "./specMcp";
 export * from "./nameMcp";
 export * from "./essayMcp";
 export * from "./essayTasksMcp";
-export * from "./planMcp";
 
 import { AgentOptions } from "../../agentOptions";
 import { ToolState } from "../../tools/claude/toolState";
@@ -10,9 +9,8 @@ import { specMcp } from "./specMcp";
 import { nameMcp } from "./nameMcp";
 import { essayMcp } from "./essayMcp";
 import { essayTasksMcp } from "./essayTasksMcp";
-import { planMcp } from "./planMcp";
 
-// Runs init and steps 1-5
+// Runs init and steps 1-4
 export async function prepare(
   state: ToolState,
   options: AgentOptions,
@@ -33,9 +31,6 @@ export async function prepare(
 
   log("=== Step 4: ESSAY_TASKS.md ===");
   sessionId = await essayTasksMcp(state, log, sessionId);
-
-  log("=== Step 5: Plan ===");
-  sessionId = await planMcp(state, log, options.depth, sessionId, options.instructions);
 
   return sessionId;
 }
