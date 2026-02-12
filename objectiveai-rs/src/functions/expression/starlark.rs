@@ -4,12 +4,13 @@
 //! Variables `input`, `output`, and `map` are injected into the global scope.
 
 use serde::de::DeserializeOwned;
-use serde_json::Value;
+use serde_json::{Map as JsonMap, Number as JsonNumber, Value};
 use starlark::environment::{Globals, GlobalsBuilder, Module};
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::syntax::{AstModule, Dialect};
 use starlark::values::float::UnpackFloat;
+use starlark::values::dict::DictRef;
 use starlark::values::list::ListRef;
 use starlark::values::{Heap, UnpackValue, Value as SValue};
 use std::sync::LazyLock;
@@ -230,6 +231,73 @@ where
             .map_err(ExpressionError::DeserializationError)?;
         Ok(v)
     }
+}
+
+/// Convert a Starlark value to `serde_json::Value` without using `to_json_value`.
+fn starlark_value_to_json(value: &SValue) -> Result<Value, ExpressionError> {
+    // None -> null
+    if value.is_none() {
+        return Ok(Value::Null);
+    }
+
+    // Booleans
+    if let Ok(Some(b)) = bool::unpack_value(*value) {
+        return Ok(Value::Bool(b));
+    }
+
+    // Integers (prefer i64, fall back to f64 for non-integral numbers)
+    if let Ok(Some(i)) = i64::unpack_value(*value) {
+        return Ok(Value::Number(JsonNumber::from(i)));
+    }
+
+    // Floats
+    if let Ok(Some(UnpackFloat(f))) = UnpackFloat::unpack_value(*value) {
+        let n = JsonNumber::from_f64(f).ok_or_else(|| {
+            ExpressionError::StarlarkConversionError(
+                "cannot represent float as JSON number".to_string(),
+            )
+        })?;
+        return Ok(Value::Number(n));
+    }
+
+    // Strings
+    if let Ok(Some(s)) = <&str as UnpackValue>::unpack_value(*value) {
+        return Ok(Value::String(s.to_owned()));
+    }
+
+    // Lists / arrays
+    if let Some(list) = ListRef::from_value(*value) {
+        let mut items = Vec::with_capacity(list.len());
+        for v in list.iter() {
+            items.push(starlark_value_to_json(&v)?);
+        }
+        return Ok(Value::Array(items));
+    }
+
+    // Dicts / objects
+    if let Some(dict) = DictRef::from_value(*value) {
+        let mut obj = JsonMap::with_capacity(dict.len());
+        for (k, v) in dict.iter() {
+            // We only support string keys here, which matches how we construct
+            // objects when injecting inputs into the Starlark heap.
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| {
+                    ExpressionError::StarlarkConversionError(e.to_string())
+                })?
+                .ok_or_else(|| {
+                    ExpressionError::StarlarkConversionError(
+                        "expected string key in Starlark dict".to_string(),
+                    )
+                })?;
+            obj.insert(key.to_owned(), starlark_value_to_json(&v)?);
+        }
+        return Ok(Value::Object(obj));
+    }
+
+    Err(ExpressionError::StarlarkConversionError(format!(
+        "unsupported Starlark value type: {}",
+        value.get_type()
+    )))
 }
 
 /// Evaluate a Starlark expression with the given parameters.
