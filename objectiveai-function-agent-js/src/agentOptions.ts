@@ -15,7 +15,6 @@ export interface AgentOptions {
   depth: number;
   minWidth: number;
   maxWidth: number;
-  instructions?: string;
   gitUserName: string;
   gitUserEmail: string;
   ghToken: string;

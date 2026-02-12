@@ -2,17 +2,20 @@ import { AgentOptions, makeAgentOptions } from "../agentOptions";
 import { init } from "../init";
 import { prepare } from "./prepare";
 import { inventMcp } from "./invent";
+import { amendMcp } from "./amend";
 import { makeToolState } from "../tools/claude/toolState";
 import { getNextPlanIndex } from "./planIndex";
 import { Dashboard } from "../dashboard";
-import { createRootLogger, createChildLogger, createFileLogger } from "../logging";
+import { createRootLogger, createChildLogger } from "../logging";
 import { serializeEvent, AgentEvent } from "../events";
 import { readName } from "../tools/name";
+import { appendAmendment } from "../tools/markdown";
 
 export * from "./prepare";
 export * from "./invent";
+export * from "./amend";
 
-export async function invent(partialOptions: Partial<AgentOptions> = {}): Promise<void> {
+function setupLogging() {
   const isChild = !!process.env.OBJECTIVEAI_PARENT_PID;
 
   let dashboard: Dashboard | undefined;
@@ -29,6 +32,40 @@ export async function invent(partialOptions: Partial<AgentOptions> = {}): Promis
     logOverride = createRootLogger(dashboard);
     onChildEvent = (evt) => dashboard!.handleEvent(evt);
   }
+
+  return { isChild, dashboard, onChildEvent, logOverride };
+}
+
+function emitNameEvent(
+  isChild: boolean,
+  dashboard: Dashboard | undefined,
+) {
+  const nameResult = readName();
+  if (nameResult.ok && nameResult.value) {
+    const name = nameResult.value.trim();
+    if (dashboard) {
+      dashboard.setRootName(name);
+    }
+    if (isChild) {
+      process.stdout.write(serializeEvent({ event: "name", path: "", name }) + "\n");
+    }
+  }
+}
+
+function emitDoneAndDispose(
+  isChild: boolean,
+  dashboard: Dashboard | undefined,
+) {
+  if (isChild) {
+    process.stdout.write(serializeEvent({ event: "done", path: "" }) + "\n");
+  }
+  if (dashboard) {
+    dashboard.dispose();
+  }
+}
+
+export async function invent(partialOptions: Partial<AgentOptions> = {}): Promise<void> {
+  const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
 
   const options = makeAgentOptions({
     ...partialOptions,
@@ -56,27 +93,56 @@ export async function invent(partialOptions: Partial<AgentOptions> = {}): Promis
   options.log("=== Preparing ===");
   const sessionId = await prepare(toolState, options);
 
-  // Update dashboard/parent with the function name after prepare
-  const nameResult = readName();
-  if (nameResult.ok && nameResult.value) {
-    const name = nameResult.value.trim();
-    if (dashboard) {
-      dashboard.setRootName(name);
-    }
-    if (isChild) {
-      process.stdout.write(serializeEvent({ event: "name", path: "", name }) + "\n");
-    }
-  }
+  emitNameEvent(isChild, dashboard);
 
   options.log("=== Inventing ===");
   await inventMcp(toolState, { ...options, sessionId });
 
-  // Signal done if child
-  if (isChild) {
-    process.stdout.write(serializeEvent({ event: "done", path: "" }) + "\n");
+  emitDoneAndDispose(isChild, dashboard);
+}
+
+export async function amend(partialOptions: Partial<AgentOptions> = {}): Promise<void> {
+  const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
+
+  const options = makeAgentOptions({
+    ...partialOptions,
+    ...(logOverride && { log: logOverride.log }),
+    onChildEvent,
+  });
+
+  const amendment = options.spec;
+  if (!amendment) {
+    throw new Error("Amendment spec is required. Pass spec as the first argument.");
   }
 
-  if (dashboard) {
-    dashboard.dispose();
-  }
+  // Append amendment to SPEC.md
+  const n = appendAmendment(amendment);
+  options.log(`=== Appended AMENDMENT ${n} to SPEC.md ===`);
+
+  const nextPlanIndex = getNextPlanIndex();
+  const toolState = makeToolState({
+    apiBase: options.apiBase,
+    apiKey: options.apiKey,
+    readPlanIndex: nextPlanIndex,
+    writePlanIndex: nextPlanIndex,
+    gitUserName: options.gitUserName,
+    gitUserEmail: options.gitUserEmail,
+    ghToken: options.ghToken,
+    minWidth: options.minWidth,
+    maxWidth: options.maxWidth,
+    onChildEvent,
+  });
+
+  options.log("=== Initializing workspace ===");
+  await init(options);
+
+  options.log("=== Preparing ===");
+  const sessionId = await prepare(toolState, options);
+
+  emitNameEvent(isChild, dashboard);
+
+  options.log("=== Amending ===");
+  await amendMcp(toolState, { ...options, sessionId }, amendment);
+
+  emitDoneAndDispose(isChild, dashboard);
 }

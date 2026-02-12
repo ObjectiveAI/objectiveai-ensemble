@@ -79,6 +79,7 @@ export async function planMcp(
   state: ToolState,
   log: LogFn,
   depth: number,
+  amendment: string,
   sessionId?: string,
 ): Promise<string | undefined> {
   const tools = [
@@ -94,6 +95,8 @@ export async function planMcp(
     // Function
     makeReadFunction(state),
     makeCheckFunction(state),
+    makeReadTasks(state),
+    makeReadTasksSchema(state),
     makeReadMessagesExpressionSchema(state),
     makeReadToolsExpressionSchema(state),
     makeReadResponsesExpressionSchema(state),
@@ -103,40 +106,40 @@ export async function planMcp(
     makeReadMapParamSchema(state),
     makeReadOutputParamSchema(state),
 
-    // Recursive type schemas (referenced by $ref in other schemas)
+    // Recursive type schemas
     makeReadJsonValueSchema(state),
     makeReadJsonValueExpressionSchema(state),
     makeReadInputValueSchema(state),
     makeReadInputValueExpressionSchema(state),
 
-    // Message role schemas (expression variants, referenced by $ref in ReadMessagesExpressionSchema)
+    // Message role schemas (expression variants)
     makeReadDeveloperMessageExpressionSchema(state),
     makeReadSystemMessageExpressionSchema(state),
     makeReadUserMessageExpressionSchema(state),
     makeReadToolMessageExpressionSchema(state),
     makeReadAssistantMessageExpressionSchema(state),
 
-    // Message role schemas (compiled variants, referenced by $ref in ReadCompiledVectorCompletionTaskSchema)
+    // Message role schemas (compiled variants)
     makeReadDeveloperMessageSchema(state),
     makeReadSystemMessageSchema(state),
     makeReadUserMessageSchema(state),
     makeReadToolMessageSchema(state),
     makeReadAssistantMessageSchema(state),
 
-    // Content schemas (expression variants, referenced by $ref in expression message schemas)
+    // Content schemas (expression variants)
     makeReadSimpleContentExpressionSchema(state),
     makeReadRichContentExpressionSchema(state),
 
-    // Content schemas (compiled variants, referenced by $ref in compiled message schemas)
+    // Content schemas (compiled variants)
     makeReadSimpleContentSchema(state),
     makeReadRichContentSchema(state),
 
-    // Task type schemas (referenced by $ref in ReadTasksSchema)
+    // Task type schemas
     makeReadScalarFunctionTaskSchema(state),
     makeReadVectorFunctionTaskSchema(state),
     makeReadVectorCompletionTaskSchema(state),
 
-    // Compiled task type schemas (referenced by $ref in ReadExampleInputsSchema)
+    // Compiled task type schemas
     makeReadCompiledScalarFunctionTaskSchema(state),
     makeReadCompiledVectorFunctionTaskSchema(state),
     makeReadCompiledVectorCompletionTaskSchema(state),
@@ -154,85 +157,56 @@ export async function planMcp(
     makeReadDefaultNetworkTest(state),
     makeReadSwissSystemNetworkTest(state),
   ];
-  const mcpServer = createSdkMcpServer({ name: "plan", tools });
+  const mcpServer = createSdkMcpServer({ name: "amend-plan", tools });
 
   const reads: string[] = [];
   if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
   reads.push("name.txt");
   if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
   if (!state.hasReadOrWrittenEssayTasks) reads.push("ESSAY_TASKS.md");
-  reads.push("the function type");
+  reads.push("the current function definition");
+  reads.push("the current example inputs");
   if (!state.hasReadExampleFunctions) reads.push("example functions");
 
   const readPrefix =
     reads.length > 0
-      ? `Read ${formatReadList(reads)} to understand the context. Then write`
+      ? `Read ${formatReadList(reads)} to understand the current state. Then write`
       : "Write";
-
-  const widthDesc =
-    state.minWidth === state.maxWidth
-      ? `exactly ${state.minWidth}`
-      : `between ${state.minWidth} and ${state.maxWidth}`;
 
   const useFunctionTasks = depth > 0;
 
   const taskStructure = useFunctionTasks
     ? `\n\n### Task Structure` +
-      `\nThis function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). Plan ${widthDesc} sub-functions, each responsible for a distinct evaluation task from ESSAY_TASKS.md.` +
-      `\n- Each sub-function will be spawned as a child agent` +
-      `\n- The parent function's input schema must support deriving each sub-function's input` +
-      `\n- Plan whether any input_maps are needed for mapped task execution` +
-      `\n- For each sub-function, describe: what it evaluates, its input schema, whether it's scalar or vector`
+      `\nThis function uses **function tasks** (type: \`scalar.function\` or \`vector.function\`). Plan what changes are needed to the existing sub-functions and whether any new sub-functions need to be spawned or existing ones amended.` +
+      `\n- Use AmendFunctionAgents to amend existing sub-functions` +
+      `\n- Use SpawnFunctionAgents to create new sub-functions if needed`
     : `\n\n### Task Structure` +
-      `\nThis function must use **vector completion tasks** (type: \`vector.completion\`). Plan ${widthDesc} inline vector completion tasks.` +
-      `\n- Use \`map\` if a task needs to iterate over input items` +
-      `\n- Each task's prompt and responses define what gets evaluated`;
+      `\nThis function uses **vector completion tasks** (type: \`vector.completion\`). Plan what changes are needed to the existing tasks.` +
+      `\n- Modify existing tasks as needed` +
+      `\n- Add or remove tasks if the amendment requires it`;
 
-  const contentFormat = useFunctionTasks
-    ? ""
-    : `\n\n### Message and Response Content Format` +
-      `\n- **Messages**: Always use array-of-parts format for message \`content\`, never plain strings` +
-      `\n  - Correct: \`{"role": "user", "content": [{"type": "text", "text": "..."}]}\`` +
-      `\n  - Wrong: \`{"role": "user", "content": "..."}\`` +
-      `\n- **Responses**: Always use array-of-parts format for each response, never plain strings` +
-      `\n  - Correct: \`[[{"type": "text", "text": "good"}], [{"type": "text", "text": "bad"}]]\`` +
-      `\n  - Wrong: \`["good", "bad"]\`` +
-      `\n- **Never use \`str()\` on multimodal content** — pass rich content directly (or via expressions)`;
-
-  let prompt =
-    `${readPrefix} your implementation plan using the WritePlan tool. Include:` +
-    `\n- The input schema structure and field descriptions` +
-    `\n- Whether any input maps are needed for mapped task execution` +
-    `\n- What the function definition will look like` +
-    `\n- What expressions need to be written` +
-    `\n- What test inputs will cover edge cases and diverse scenarios` +
+  const prompt =
+    `You are amending an existing ObjectiveAI Function. The following amendment describes what needs to change:` +
+    `\n\n## Amendment\n\n${amendment}` +
+    `\n\n${readPrefix} your amendment plan using the WritePlan tool. Include:` +
+    `\n- What the amendment changes about the function` +
+    `\n- Which parts of the existing function definition need to be modified` +
+    `\n- What example inputs need to be added, modified, or removed` +
+    `\n- Whether any expressions need to change` +
     taskStructure +
-    `\n\n### Expression Language` +
-    `\n- **Prefer Starlark** (\`{"$starlark": "..."}\`) for most expressions — it's Python-like and more readable` +
-    `\n- Only use JMESPath (\`{"$jmespath": "..."}\`) for very simple field access expressions` +
-    `\n- Starlark example: \`{"$starlark": "input['items'][0]"}\`` +
-    `\n- JMESPath example: \`{"$jmespath": "input.name"}\` (simple field access only)` +
-    `\n\n### Expression Context` +
-    `\nExpressions receive a single object with these fields:` +
-    `\n- \`input\` — Always present, the function input` +
-    `\n- \`map\` — Present in mapped tasks, the current map element` +
-    `\n- \`output\` — Present in task output expressions, the raw task result` +
-    contentFormat +
-    `\n\n### Example Inputs` +
-    `\nPlan for diverse test inputs (minimum 10, maximum 100):` +
-    `\n- **Diversity in structure**: edge cases, empty arrays, single items, boundary values, missing optional fields` +
-    `\n- **Diversity in intended output**: cover the full range of expected scores (low, medium, high)` +
-    `\n- **Multimodal content**: if using image/video/audio/file types, use placeholder URLs for testing` +
     `\n\n### Important` +
-    `\n- **SPEC.md is the universal source of truth** — never contradict it`;
+    `\n- **SPEC.md (including amendments) is the universal source of truth** — the amended function must satisfy both the original spec and all amendments` +
+    `\n- **Only implement this amendment** — previous amendments have already been applied` +
+    `\n- **Preserve existing functionality** unless the amendment explicitly changes it` +
+    `\n- **Minimize changes** — only modify what the amendment requires`;
 
   sessionId = await consumeStream(
     query({
       prompt,
       options: {
         tools: [],
-        mcpServers: { plan: mcpServer },
-        allowedTools: ["mcp__plan__*"],
+        mcpServers: { "amend-plan": mcpServer },
+        allowedTools: ["mcp__amend-plan__*"],
         disallowedTools: ["AskUserQuestion"],
         permissionMode: "dontAsk",
         resume: sessionId,

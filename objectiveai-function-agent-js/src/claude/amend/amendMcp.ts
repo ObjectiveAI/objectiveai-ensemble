@@ -159,10 +159,11 @@ import { makeReadReadme, makeWriteReadme } from "../../tools/claude/readme";
 import { makeSubmit } from "../../tools/claude/submit";
 
 // Plan
-import { planMcp } from "./planMcp";
+import { planMcp as amendPlanMcp } from "./planMcp";
 
 // Tools - agent functions (for function tasks variant)
 import { makeSpawnFunctionAgents } from "../../tools/claude/spawnFunctionAgents";
+import { makeAmendFunctionAgents } from "../../tools/claude/amendFunctionAgents";
 import {
   makeListAgentFunctions,
   makeReadAgentFunction,
@@ -240,34 +241,34 @@ function getCommonTools(state: ToolState) {
     makeReadInputValueSchema(state),
     makeReadInputValueExpressionSchema(state),
 
-    // Message role schemas (expression variants, referenced by $ref in ReadMessagesExpressionSchema)
+    // Message role schemas (expression variants)
     makeReadDeveloperMessageExpressionSchema(state),
     makeReadSystemMessageExpressionSchema(state),
     makeReadUserMessageExpressionSchema(state),
     makeReadToolMessageExpressionSchema(state),
     makeReadAssistantMessageExpressionSchema(state),
 
-    // Message role schemas (compiled variants, referenced by $ref in ReadCompiledVectorCompletionTaskSchema)
+    // Message role schemas (compiled variants)
     makeReadDeveloperMessageSchema(state),
     makeReadSystemMessageSchema(state),
     makeReadUserMessageSchema(state),
     makeReadToolMessageSchema(state),
     makeReadAssistantMessageSchema(state),
 
-    // Content schemas (expression variants, referenced by $ref in expression message schemas)
+    // Content schemas (expression variants)
     makeReadSimpleContentExpressionSchema(state),
     makeReadRichContentExpressionSchema(state),
 
-    // Content schemas (compiled variants, referenced by $ref in compiled message schemas)
+    // Content schemas (compiled variants)
     makeReadSimpleContentSchema(state),
     makeReadRichContentSchema(state),
 
-    // Task type schemas (referenced by $ref in ReadTasksSchema)
+    // Task type schemas
     makeReadScalarFunctionTaskSchema(state),
     makeReadVectorFunctionTaskSchema(state),
     makeReadVectorCompletionTaskSchema(state),
 
-    // Compiled task type schemas (referenced by $ref in ReadExampleInputsSchema)
+    // Compiled task type schemas
     makeReadCompiledScalarFunctionTaskSchema(state),
     makeReadCompiledVectorFunctionTaskSchema(state),
     makeReadCompiledVectorCompletionTaskSchema(state),
@@ -296,10 +297,11 @@ function getCommonTools(state: ToolState) {
   ];
 }
 
-// Additional tools for function tasks variant (sub-function spawning)
+// Additional tools for function tasks variant
 function getFunctionTasksTools(state: ToolState) {
   return [
     makeSpawnFunctionAgents(state),
+    makeAmendFunctionAgents(state),
     makeListAgentFunctions(state),
     makeReadAgentFunction(state),
   ];
@@ -312,145 +314,129 @@ function widthText(minWidth: number, maxWidth: number): string {
 
 function buildReadLine(state: ToolState): string {
   const reads: string[] = [];
-  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md (including amendments)");
   reads.push("name.txt");
   if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
   if (!state.hasReadOrWrittenEssayTasks) reads.push("ESSAY_TASKS.md");
-  if (!state.hasReadOrWrittenPlan) reads.push("the plan");
   if (!state.hasReadExampleFunctions) reads.push("example functions");
+  reads.push("the current function definition");
+  reads.push("the current example inputs");
   if (reads.length === 0) return "";
-  return `\nRead ${formatReadList(reads)} to understand the context, if needed.\n`;
+  return `\nRead ${formatReadList(reads)} to understand the current state.\n`;
 }
 
-function buildFunctionTasksPrompt(state: ToolState): string {
-  const w = widthText(state.minWidth, state.maxWidth);
+function buildAmendFunctionTasksPrompt(state: ToolState, amendment: string): string {
   const readLine = buildReadLine(state);
-  return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
+  return `You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
+
+## Amendment
+
+${amendment}
 ${readLine}
 
-## Phase 1: Implementation
+## Phase 1: Understand the Amendment
 
-### Task Structure
+Read the current function definition, tasks, and example inputs to understand the existing implementation. Only implement the amendment above — previous amendments have already been applied.
 
-This function must use **function tasks** (type: \`scalar.function\` or \`vector.function\`). You must create ${w} sub-functions by spawning child agents.
+## Phase 2: Apply Changes
 
-**Before spawning**, define the parent function's input schema using EditInputSchema, and input_maps using AppendInputMap if any tasks will use mapped iteration. The sub-function specs you write must describe input schemas that are derivable from this parent input schema, so define these first.
-
-1. Analyze ESSAY_TASKS.md and create a spec for each sub-function describing:
-   - What it evaluates (purpose, not implementation details)
-   - The input schema it expects
-   - Whether it's scalar or vector
-   - Key evaluation criteria
-
-2. Use the SpawnFunctionAgents tool with an array of objects, each containing:
-   - \`name\`: A short, descriptive name for the sub-function (used as directory name)
-   - \`spec\`: The full spec text for the sub-function
-   \`\`\`json
-   [
-     {"name": "humor-scorer", "spec": "Spec for humor scoring..."},
-     {"name": "clarity-scorer", "spec": "Spec for clarity scoring..."}
-   ]
-   \`\`\`
-
-3. Parse the result to get \`{name, owner, repository, commit}\` for each. Use ReadAgentFunction to read each spawned sub-function's \`function.json\`.
-
-4. Create function tasks using AppendTask referencing those sub-functions:
-   \`\`\`json
-   {
-     "type": "<scalar/vector>.function",
-     "owner": "<owner>",
-     "repository": "<repository>",
-     "commit": "<commit>",
-     "input": {"$starlark": "..."},
-     "output": {"$starlark": "..."}
-   }
-   \`\`\`
-
-5. Handle any errors in the spawn results
-
-**Retrying Failed Sub-Functions**
-If a sub-function fails (result contains \`{error: "..."}\`), call SpawnFunctionAgents again:
-- Include only the failed entries and add \`"overwrite": true\` to each
-- Example: \`[{"name": "clarity-scorer", "spec": "Updated spec...", "overwrite": true}]\`
-- This deletes the existing \`agent_functions/clarity-scorer/\` directory and re-spawns the agent
-
-**Reading Sub-Functions**
-Use ListAgentFunctions and ReadAgentFunction to inspect spawned sub-functions.
-
-### Function Definition
-- Use the Edit* tools to define each function field
+### Modifying the Function Definition
+- Use the Edit* tools to modify function fields as needed
 - Read the *Schema tools to understand what types are expected
+- Only change what the amendment requires — preserve existing functionality
+
+### Modifying Sub-Functions
+- Use **AmendFunctionAgents** to amend existing sub-functions that need changes
+- Use **SpawnFunctionAgents** to create new sub-functions if the amendment requires them
+- Use ListAgentFunctions and ReadAgentFunction to inspect existing sub-functions
+
+### Updating Example Inputs
+- Modify, add, or remove example inputs to match the amended function behavior
+- Ensure example inputs still cover edge cases and diverse scenarios
 
 ### Build and Test
 - Fix issues and repeat until all tests pass
 
-## Phase 2: Verify SPEC.md Compliance
+## Phase 3: Verify Compliance
 
-Before finalizing, verify that everything adheres to SPEC.md:
+Before finalizing, verify that everything adheres to SPEC.md (including amendments):
 - Re-read SPEC.md carefully
-- Ensure the function definition, inputs, and outputs match what SPEC.md describes
-- If anything contradicts SPEC.md, fix it to match the spec
-- **SPEC.md is the universal source of truth** - the final product must not contradict it
+- Ensure the function definition, inputs, and outputs satisfy both the original spec and all amendments
+- **SPEC.md (including amendments) is the universal source of truth**
 
-## Phase 3: Finalize
+## Phase 4: Finalize
 
-Once all tests pass and SPEC.md compliance is verified:
+Once all tests pass and compliance is verified:
 - Use the Submit tool with a commit message to validate, commit, and push
 - If Submit fails, fix the issues it reports and try again
 
 ## Important Notes
 
-- **SPEC.md is the universal source of truth** - never contradict it
-- **No API key is needed for tests** - tests run against a local server
+- **SPEC.md (including amendments) is the universal source of truth** — never contradict it
+- **Only implement this amendment** — previous amendments have already been applied
+- **Preserve existing functionality** unless the amendment explicitly changes it
+- **No API key is needed for tests** — tests run against a local server
 `;
 }
 
-function buildVectorTasksPrompt(state: ToolState): string {
-  const w = widthText(state.minWidth, state.maxWidth);
+function buildAmendVectorTasksPrompt(state: ToolState, amendment: string): string {
   const readLine = buildReadLine(state);
-  return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
+  return `You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
+
+## Amendment
+
+${amendment}
 ${readLine}
 
-## Phase 1: Implementation
+## Phase 1: Understand the Amendment
 
-### Task Structure
+Read the current function definition, tasks, and example inputs to understand the existing implementation. Only implement the amendment above — previous amendments have already been applied.
 
-This function must use **vector completion tasks** (type: \`vector.completion\`). Create ${w} inline vector completion tasks using AppendTask:
+## Phase 2: Apply Changes
+
+### Modifying the Function Definition
+- Use the Edit* tools to modify function fields as needed
+- Read the *Schema tools to understand what types are expected
+- Only change what the amendment requires — preserve existing functionality
+
+### Modifying Tasks
+- Edit, add, or remove vector completion tasks as needed
 - Use \`map\` if a task needs to iterate over input items
-- Each task's prompt and responses define what gets evaluated
 
-### Function Definition
-- Use the Edit* tools to define each function field
-- Read the *Schema tools to understand what types are expected
+### Updating Example Inputs
+- Modify, add, or remove example inputs to match the amended function behavior
+- Ensure example inputs still cover edge cases and diverse scenarios
 
 ### Build and Test
 - Fix issues and repeat until all tests pass
 
-## Phase 2: Verify SPEC.md Compliance
+## Phase 3: Verify Compliance
 
-Before finalizing, verify that everything adheres to SPEC.md:
+Before finalizing, verify that everything adheres to SPEC.md (including amendments):
 - Re-read SPEC.md carefully
-- Ensure the function definition, inputs, and outputs match what SPEC.md describes
-- If anything contradicts SPEC.md, fix it to match the spec
-- **SPEC.md is the universal source of truth** - the final product must not contradict it
+- Ensure the function definition, inputs, and outputs satisfy both the original spec and all amendments
+- **SPEC.md (including amendments) is the universal source of truth**
 
-## Phase 3: Finalize
+## Phase 4: Finalize
 
-Once all tests pass and SPEC.md compliance is verified:
+Once all tests pass and compliance is verified:
 - Use the Submit tool with a commit message to validate, commit, and push
 - If Submit fails, fix the issues it reports and try again
 
 ## Important Notes
 
-- **SPEC.md is the universal source of truth** - never contradict it
-- **No API key is needed for tests** - tests run against a local server
+- **SPEC.md (including amendments) is the universal source of truth** — never contradict it
+- **Only implement this amendment** — previous amendments have already been applied
+- **Preserve existing functionality** unless the amendment explicitly changes it
+- **No API key is needed for tests** — tests run against a local server
 `;
 }
 
-async function inventLoop(
+async function amendLoop(
   state: ToolState,
   log: LogFn,
   useFunctionTasks: boolean,
+  amendment: string,
   sessionId?: string,
 ): Promise<string | undefined> {
   const maxAttempts = 5;
@@ -460,22 +446,22 @@ async function inventLoop(
 
   while (attempt < maxAttempts && !success) {
     attempt++;
-    log(`Invent loop attempt ${attempt}/${maxAttempts}`);
+    log(`Amend loop attempt ${attempt}/${maxAttempts}`);
 
     // Build tools list
     const tools = [
       ...getCommonTools(state),
       ...(useFunctionTasks ? getFunctionTasksTools(state) : []),
     ];
-    const mcpServer = createSdkMcpServer({ name: "invent", tools });
+    const mcpServer = createSdkMcpServer({ name: "amend", tools });
 
-    // Build the prompt - full on first attempt, short on retry
+    // Build the prompt
     let prompt: string;
 
     if (attempt === 1) {
       prompt = useFunctionTasks
-        ? buildFunctionTasksPrompt(state)
-        : buildVectorTasksPrompt(state);
+        ? buildAmendFunctionTasksPrompt(state, amendment)
+        : buildAmendVectorTasksPrompt(state, amendment);
     } else {
       prompt = `Your previous attempt failed:
 ${lastFailureReasons.map((r) => `- ${r}`).join("\n")}
@@ -492,8 +478,8 @@ Please try again. Remember to:
           prompt,
           options: {
             tools: [],
-            mcpServers: { invent: mcpServer },
-            allowedTools: ["mcp__invent__*"],
+            mcpServers: { amend: mcpServer },
+            allowedTools: ["mcp__amend__*"],
             disallowedTools: ["AskUserQuestion"],
             permissionMode: "dontAsk",
             resume: sid,
@@ -519,7 +505,7 @@ Please try again. Remember to:
     log("Running submit...");
     lastFailureReasons = [];
     const submitResult = await submit(
-      "submit",
+      "amend",
       state.submitApiBase,
       state.submitApiKey,
       {
@@ -537,38 +523,37 @@ Please try again. Remember to:
     }
   }
 
-  // If all attempts failed, reset to initial revision
   if (!success) {
-    throw new Error("Invent loop failed after maximum attempts.");
+    throw new Error("Amend loop failed after maximum attempts.");
   }
 
   return sessionId;
 }
 
-// Unified entry point that selects variant based on depth
-export async function inventMcp(
+export async function amendMcp(
   state: ToolState,
   options: AgentOptions,
+  amendment: string,
 ): Promise<void> {
   const log = options.log;
   const depth = options.depth;
   const useFunctionTasks = depth > 0;
 
-  log("=== Plan ===");
+  log("=== Amend Plan ===");
   let sessionId: string | undefined;
   try {
-    sessionId = await planMcp(state, log, depth, options.sessionId);
+    sessionId = await amendPlanMcp(state, log, depth, amendment, options.sessionId);
   } catch (e) {
     if (!state.anyStepRan) {
       log("Session may be invalid, retrying without session...");
-      sessionId = await planMcp(state, log, depth, undefined);
+      sessionId = await amendPlanMcp(state, log, depth, amendment, undefined);
     } else {
       throw e;
     }
   }
 
-  log(`=== Invent Loop: Creating new function (${useFunctionTasks ? "function" : "vector"} tasks) ===`);
-  await inventLoop(state, log, useFunctionTasks, sessionId);
+  log(`=== Amend Loop: Modifying function (${useFunctionTasks ? "function" : "vector"} tasks) ===`);
+  await amendLoop(state, log, useFunctionTasks, amendment, sessionId);
 
-  log("=== ObjectiveAI Function invention complete ===");
+  log("=== ObjectiveAI Function amendment complete ===");
 }

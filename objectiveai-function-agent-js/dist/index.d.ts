@@ -30,7 +30,6 @@ interface AgentOptions {
     depth: number;
     minWidth: number;
     maxWidth: number;
-    instructions?: string;
     gitUserName: string;
     gitUserEmail: string;
     ghToken: string;
@@ -83,8 +82,13 @@ declare function prepare(state: ToolState, options: AgentOptions): Promise<strin
 
 declare function inventMcp(state: ToolState, options: AgentOptions): Promise<void>;
 
-declare function invent(partialOptions?: Partial<AgentOptions>): Promise<void>;
+declare function amendMcp(state: ToolState, options: AgentOptions, amendment: string): Promise<void>;
 
+declare function invent(partialOptions?: Partial<AgentOptions>): Promise<void>;
+declare function amend(partialOptions?: Partial<AgentOptions>): Promise<void>;
+
+declare const index$7_amend: typeof amend;
+declare const index$7_amendMcp: typeof amendMcp;
 declare const index$7_essayMcp: typeof essayMcp;
 declare const index$7_essayTasksMcp: typeof essayTasksMcp;
 declare const index$7_invent: typeof invent;
@@ -93,7 +97,7 @@ declare const index$7_nameMcp: typeof nameMcp;
 declare const index$7_prepare: typeof prepare;
 declare const index$7_specMcp: typeof specMcp;
 declare namespace index$7 {
-  export { index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, index$7_invent as invent, index$7_inventMcp as inventMcp, index$7_nameMcp as nameMcp, index$7_prepare as prepare, index$7_specMcp as specMcp };
+  export { index$7_amend as amend, index$7_amendMcp as amendMcp, index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, index$7_invent as invent, index$7_inventMcp as inventMcp, index$7_nameMcp as nameMcp, index$7_prepare as prepare, index$7_specMcp as specMcp };
 }
 
 type Result<T> = {
@@ -58141,7 +58145,9 @@ declare function writeReadme(content: string): Result<undefined>;
 
 declare function readSpec(): Result<string>;
 declare function writeSpec(content: string): Result<undefined>;
+declare function appendAmendment(content: string): number;
 
+declare const index$3_appendAmendment: typeof appendAmendment;
 declare const index$3_getLatestPlanIndex: typeof getLatestPlanIndex;
 declare const index$3_isDefaultReadme: typeof isDefaultReadme;
 declare const index$3_readEssay: typeof readEssay;
@@ -58155,7 +58161,7 @@ declare const index$3_writePlan: typeof writePlan;
 declare const index$3_writeReadme: typeof writeReadme;
 declare const index$3_writeSpec: typeof writeSpec;
 declare namespace index$3 {
-  export { index$3_getLatestPlanIndex as getLatestPlanIndex, index$3_isDefaultReadme as isDefaultReadme, index$3_readEssay as readEssay, index$3_readEssayTasks as readEssayTasks, index$3_readPlan as readPlan, index$3_readReadme as readReadme, index$3_readSpec as readSpec, index$3_writeEssay as writeEssay, index$3_writeEssayTasks as writeEssayTasks, index$3_writePlan as writePlan, index$3_writeReadme as writeReadme, index$3_writeSpec as writeSpec };
+  export { index$3_appendAmendment as appendAmendment, index$3_getLatestPlanIndex as getLatestPlanIndex, index$3_isDefaultReadme as isDefaultReadme, index$3_readEssay as readEssay, index$3_readEssayTasks as readEssayTasks, index$3_readPlan as readPlan, index$3_readReadme as readReadme, index$3_readSpec as readSpec, index$3_writeEssay as writeEssay, index$3_writeEssayTasks as writeEssayTasks, index$3_writePlan as writePlan, index$3_writeReadme as writeReadme, index$3_writeSpec as writeSpec };
 }
 
 declare const ParametersSchema: z.ZodObject<{

@@ -14,6 +14,8 @@ var __export = (target, all) => {
 // src/claude/index.ts
 var claude_exports = {};
 __export(claude_exports, {
+  amend: () => amend,
+  amendMcp: () => amendMcp,
   essayMcp: () => essayMcp,
   essayTasksMcp: () => essayTasksMcp,
   invent: () => invent,
@@ -338,6 +340,7 @@ function cloneAgentFunctions(ghToken) {
 // src/tools/markdown/index.ts
 var markdown_exports = {};
 __export(markdown_exports, {
+  appendAmendment: () => appendAmendment,
   getLatestPlanIndex: () => getLatestPlanIndex,
   isDefaultReadme: () => isDefaultReadme,
   readEssay: () => readEssay,
@@ -417,6 +420,15 @@ function readSpec() {
 function writeSpec(content) {
   writeFileSync("SPEC.md", content);
   return { ok: true, value: void 0, error: void 0 };
+}
+function appendAmendment(content) {
+  const existing = existsSync("SPEC.md") ? readFileSync("SPEC.md", "utf-8") : "";
+  const matches = existing.match(/===AMENDMENT \d+===/g);
+  const nextIndex = matches ? matches.length + 1 : 1;
+  appendFileSync("SPEC.md", `
+===AMENDMENT ${nextIndex}===
+${content}`);
+  return nextIndex;
 }
 
 // src/tools/claude/util.ts
@@ -2684,7 +2696,7 @@ function compiledTasksEqual(a, b) {
     return b !== null && !Array.isArray(b) && b.type === "vector.function" && b.owner === a.owner && b.repository === a.repository && b.commit === a.commit && JSON.stringify(a.input) === JSON.stringify(b.input);
   } else if (a.type === "vector.completion") {
     return b !== null && !Array.isArray(b) && b.type === "vector.completion" && JSON.stringify(a.messages) === JSON.stringify(b.messages) && JSON.stringify(a.responses) === JSON.stringify(b.responses) && a.tools === void 0 ? b.tools === void 0 : b.tools !== void 0 && a.tools.length === b.tools.length && a.tools.every(
-      (tool28, index) => JSON.stringify(tool28) === JSON.stringify(
+      (tool29, index) => JSON.stringify(tool29) === JSON.stringify(
         b.tools[index]
       )
     );
@@ -4343,7 +4355,7 @@ function makeSubmit(state) {
     }))
   );
 }
-async function planMcp(state, log, depth, sessionId, instructions) {
+async function planMcp(state, log, depth, sessionId) {
   const tools = [
     makeReadSpec(state),
     makeReadName(),
@@ -4438,7 +4450,7 @@ This function must use **vector completion tasks** (type: \`vector.completion\`)
 - **Responses**: Always use array-of-parts format for each response, never plain strings
   - Correct: \`[[{"type": "text", "text": "good"}], [{"type": "text", "text": "bad"}]]\`
   - Wrong: \`["good", "bad"]\`
-- **Never use \`str()\` on multimodal content** \u2014 pass rich content directly via expressions`;
+- **Never use \`str()\` on multimodal content** \u2014 pass rich content directly (or via expressions)`;
   let prompt = `${readPrefix} your implementation plan using the WritePlan tool. Include:
 - The input schema structure and field descriptions
 - Whether any input maps are needed for mapped task execution
@@ -4466,13 +4478,6 @@ Plan for diverse test inputs (minimum 10, maximum 100):
 
 ### Important
 - **SPEC.md is the universal source of truth** \u2014 never contradict it`;
-  if (instructions) {
-    prompt += `
-
-## Extra Instructions
-
-${instructions}`;
-  }
   sessionId = await consumeStream(
     query({
       prompt,
@@ -5225,11 +5230,11 @@ async function inventMcp(state, options) {
   log("=== Plan ===");
   let sessionId;
   try {
-    sessionId = await planMcp(state, log, depth, options.sessionId, options.instructions);
+    sessionId = await planMcp(state, log, depth, options.sessionId);
   } catch (e) {
     if (!state.anyStepRan) {
       log("Session may be invalid, retrying without session...");
-      sessionId = await planMcp(state, log, depth, void 0, options.instructions);
+      sessionId = await planMcp(state, log, depth, void 0);
     } else {
       throw e;
     }
@@ -5237,6 +5242,661 @@ async function inventMcp(state, options) {
   log(`=== Invent Loop: Creating new function (${useFunctionTasks ? "function" : "vector"} tasks) ===`);
   await inventLoop(state, log, useFunctionTasks, sessionId);
   log("=== ObjectiveAI Function invention complete ===");
+}
+async function planMcp2(state, log, depth, amendment, sessionId) {
+  const tools = [
+    makeReadSpec(state),
+    makeReadName(),
+    makeReadEssay(state),
+    makeReadEssayTasks(state),
+    makeWritePlan(state),
+    makeListExampleFunctions(state),
+    makeReadExampleFunction(state),
+    makeReadFunctionSchema(),
+    // Function
+    makeReadFunction(state),
+    makeCheckFunction(),
+    makeReadTasks(state),
+    makeReadTasksSchema(),
+    makeReadMessagesExpressionSchema(),
+    makeReadToolsExpressionSchema(),
+    makeReadResponsesExpressionSchema(),
+    // Expression params
+    makeReadInputParamSchema(),
+    makeReadMapParamSchema(),
+    makeReadOutputParamSchema(),
+    // Recursive type schemas
+    makeReadJsonValueSchema(),
+    makeReadJsonValueExpressionSchema(),
+    makeReadInputValueSchema(),
+    makeReadInputValueExpressionSchema(),
+    // Message role schemas (expression variants)
+    makeReadDeveloperMessageExpressionSchema(),
+    makeReadSystemMessageExpressionSchema(),
+    makeReadUserMessageExpressionSchema(),
+    makeReadToolMessageExpressionSchema(),
+    makeReadAssistantMessageExpressionSchema(),
+    // Message role schemas (compiled variants)
+    makeReadDeveloperMessageSchema(),
+    makeReadSystemMessageSchema(),
+    makeReadUserMessageSchema(),
+    makeReadToolMessageSchema(),
+    makeReadAssistantMessageSchema(),
+    // Content schemas (expression variants)
+    makeReadSimpleContentExpressionSchema(),
+    makeReadRichContentExpressionSchema(),
+    // Content schemas (compiled variants)
+    makeReadSimpleContentSchema(),
+    makeReadRichContentSchema(),
+    // Task type schemas
+    makeReadScalarFunctionTaskSchema(),
+    makeReadVectorFunctionTaskSchema(),
+    makeReadVectorCompletionTaskSchema(),
+    // Compiled task type schemas
+    makeReadCompiledScalarFunctionTaskSchema(),
+    makeReadCompiledVectorFunctionTaskSchema(),
+    makeReadCompiledVectorCompletionTaskSchema(),
+    // Example inputs
+    makeReadExampleInputs(state),
+    makeReadExampleInputsSchema(),
+    makeCheckExampleInputs(),
+    // README
+    makeReadReadme(state),
+    // Network tests
+    makeRunNetworkTests(state),
+    makeReadDefaultNetworkTest(),
+    makeReadSwissSystemNetworkTest()
+  ];
+  const mcpServer = createSdkMcpServer({ name: "amend-plan", tools });
+  const reads = [];
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
+  reads.push("name.txt");
+  if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
+  if (!state.hasReadOrWrittenEssayTasks) reads.push("ESSAY_TASKS.md");
+  reads.push("the current function definition");
+  reads.push("the current example inputs");
+  if (!state.hasReadExampleFunctions) reads.push("example functions");
+  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the current state. Then write` : "Write";
+  const useFunctionTasks = depth > 0;
+  const taskStructure = useFunctionTasks ? `
+
+### Task Structure
+This function uses **function tasks** (type: \`scalar.function\` or \`vector.function\`). Plan what changes are needed to the existing sub-functions and whether any new sub-functions need to be spawned or existing ones amended.
+- Use AmendFunctionAgents to amend existing sub-functions
+- Use SpawnFunctionAgents to create new sub-functions if needed` : `
+
+### Task Structure
+This function uses **vector completion tasks** (type: \`vector.completion\`). Plan what changes are needed to the existing tasks.
+- Modify existing tasks as needed
+- Add or remove tasks if the amendment requires it`;
+  const prompt = `You are amending an existing ObjectiveAI Function. The following amendment describes what needs to change:
+
+## Amendment
+
+${amendment}
+
+${readPrefix} your amendment plan using the WritePlan tool. Include:
+- What the amendment changes about the function
+- Which parts of the existing function definition need to be modified
+- What example inputs need to be added, modified, or removed
+- Whether any expressions need to change` + taskStructure + `
+
+### Important
+- **SPEC.md (including amendments) is the universal source of truth** \u2014 the amended function must satisfy both the original spec and all amendments
+- **Only implement this amendment** \u2014 previous amendments have already been applied
+- **Preserve existing functionality** unless the amendment explicitly changes it
+- **Minimize changes** \u2014 only modify what the amendment requires`;
+  sessionId = await consumeStream(
+    query({
+      prompt,
+      options: {
+        tools: [],
+        mcpServers: { "amend-plan": mcpServer },
+        allowedTools: ["mcp__amend-plan__*"],
+        disallowedTools: ["AskUserQuestion"],
+        permissionMode: "dontAsk",
+        resume: sessionId
+      }
+    }),
+    log,
+    sessionId
+  );
+  state.anyStepRan = true;
+  if (sessionId) writeSession(sessionId);
+  return sessionId;
+}
+function runAmendInSubdir(name, childProcesses, opts) {
+  const subdir = join("agent_functions", name);
+  return new Promise((resolve) => {
+    const args = ["amend"];
+    if (opts?.apiBase) args.push("--api-base", opts.apiBase);
+    if (opts?.apiKey) args.push("--api-key", opts.apiKey);
+    if (opts?.gitUserName) args.push("--git-user-name", opts.gitUserName);
+    if (opts?.gitUserEmail) args.push("--git-user-email", opts.gitUserEmail);
+    if (opts?.ghToken) args.push("--gh-token", opts.ghToken);
+    if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
+    if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
+    const child = spawn(
+      "objectiveai-function-agent",
+      args,
+      {
+        cwd: subdir,
+        stdio: ["inherit", "pipe", "pipe"],
+        shell: true,
+        env: {
+          ...process.env,
+          OBJECTIVEAI_PARENT_PID: String(process.pid),
+          ...opts?.ghToken && { GH_TOKEN: opts.ghToken }
+        }
+      }
+    );
+    childProcesses.push(child);
+    opts?.onChildEvent?.({ event: "start", path: name });
+    let stdoutBuffer = "";
+    child.stdout?.on("data", (data) => {
+      if (!opts?.onChildEvent) return;
+      stdoutBuffer += data.toString();
+      const lines = stdoutBuffer.split("\n");
+      stdoutBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const evt = parseEvent(line);
+        if (evt) {
+          opts.onChildEvent(prefixEvent(evt, name));
+        }
+      }
+    });
+    child.stderr?.on("data", () => {
+    });
+    child.on("close", (code) => {
+      if (opts?.onChildEvent && stdoutBuffer.trim()) {
+        const evt = parseEvent(stdoutBuffer);
+        if (evt) {
+          opts.onChildEvent(prefixEvent(evt, name));
+        }
+      }
+      opts?.onChildEvent?.({ event: "done", path: name });
+      if (code !== 0) {
+        resolve({
+          name,
+          error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.`
+        });
+        return;
+      }
+      try {
+        const remote = execSync("git remote get-url origin", {
+          cwd: subdir,
+          encoding: "utf-8"
+        }).trim();
+        const match = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
+        const owner = match?.[1] ?? "unknown";
+        const repository = match?.[2] ?? name;
+        const commit = execSync("git rev-parse HEAD", {
+          cwd: subdir,
+          encoding: "utf-8"
+        }).trim();
+        resolve({ name, owner, repository, commit });
+      } catch (err) {
+        resolve({ name, error: `Failed to extract result: ${err}` });
+      }
+    });
+    child.on("error", (err) => {
+      resolve({ name, error: `Failed to spawn agent: ${err.message}` });
+    });
+  });
+}
+async function amendFunctionAgents(params, opts) {
+  if (params.length === 0) {
+    return { ok: false, value: void 0, error: "params array is empty" };
+  }
+  const names = params.map((p) => p.name);
+  const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
+  if (duplicates.length > 0) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Duplicate names: ${[...new Set(duplicates)].join(", ")}`
+    };
+  }
+  for (const param of params) {
+    const dir = join("agent_functions", param.name);
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) {
+      return {
+        ok: false,
+        value: void 0,
+        error: `agent_functions/${param.name} does not exist. Cannot amend a function that was never invented.`
+      };
+    }
+  }
+  const originalCwd = process.cwd();
+  for (const param of params) {
+    const dir = join("agent_functions", param.name);
+    try {
+      process.chdir(dir);
+      appendAmendment(param.spec);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  }
+  const childProcesses = [];
+  const killAll = () => {
+    for (const child of childProcesses) {
+      if (child.killed) continue;
+      try {
+        if (process.platform === "win32" && child.pid) {
+          execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: "ignore" });
+        } else {
+          child.kill("SIGKILL");
+        }
+      } catch {
+      }
+    }
+  };
+  const onExit = () => killAll();
+  const onSignal = () => {
+    killAll();
+    process.exit(1);
+  };
+  const onError = () => {
+    killAll();
+    process.exit(1);
+  };
+  process.on("exit", onExit);
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  process.on("uncaughtException", onError);
+  process.on("unhandledRejection", onError);
+  const removeListeners = () => {
+    process.removeListener("exit", onExit);
+    process.removeListener("SIGINT", onSignal);
+    process.removeListener("SIGTERM", onSignal);
+    process.removeListener("uncaughtException", onError);
+    process.removeListener("unhandledRejection", onError);
+  };
+  try {
+    const results = await Promise.all(
+      params.map(
+        (param) => runAmendInSubdir(param.name, childProcesses, opts)
+      )
+    );
+    return { ok: true, value: results, error: void 0 };
+  } catch (e) {
+    killAll();
+    return {
+      ok: false,
+      value: void 0,
+      error: `Amend failed: ${e.message}`
+    };
+  } finally {
+    killAll();
+    removeListeners();
+  }
+}
+var AmendFunctionAgentsParamsSchema = z.array(
+  z.object({
+    name: z.string(),
+    spec: z.string()
+  })
+);
+
+// src/tools/claude/amendFunctionAgents.ts
+function makeAmendFunctionAgents(state) {
+  const opts = () => ({
+    apiBase: state.submitApiBase,
+    apiKey: state.submitApiKey,
+    gitUserName: state.gitUserName,
+    gitUserEmail: state.gitUserEmail,
+    ghToken: state.ghToken,
+    minWidth: state.minWidth,
+    maxWidth: state.maxWidth,
+    onChildEvent: state.onChildEvent
+  });
+  return tool(
+    "AmendFunctionAgents",
+    "Amend existing child function agents in parallel. Each agent's spec is appended as an amendment to its SPEC.md.",
+    { params: AmendFunctionAgentsParamsSchema },
+    async ({ params }) => {
+      return resultFromResult(await amendFunctionAgents(params, opts()));
+    }
+  );
+}
+
+// src/claude/amend/amendMcp.ts
+function getCommonTools2(state) {
+  registerSchemaRefs();
+  return [
+    // Core Context
+    makeReadSpec(state),
+    makeReadName(),
+    makeReadEssay(state),
+    makeReadEssayTasks(state),
+    makeReadPlan(state),
+    makeListExampleFunctions(state),
+    makeReadExampleFunction(state),
+    makeReadFunctionSchema(),
+    // Function
+    makeReadFunction(state),
+    makeCheckFunction(),
+    makeReadType(state),
+    makeReadTypeSchema(),
+    makeEditType(state),
+    makeCheckType(),
+    makeReadDescription(state),
+    makeReadDescriptionSchema(),
+    makeEditDescription(state),
+    makeCheckDescription(),
+    makeReadInputSchema(state),
+    makeReadInputSchemaSchema(),
+    makeEditInputSchema(state),
+    makeCheckInputSchema(),
+    makeReadInputMaps(state),
+    makeReadInputMapsSchema(),
+    makeAppendInputMap(state),
+    makeDelInputMap(state),
+    makeDelInputMaps(state),
+    makeCheckInputMaps(),
+    makeReadOutputLength(state),
+    makeReadOutputLengthSchema(),
+    makeEditOutputLength(state),
+    makeDelOutputLength(state),
+    makeCheckOutputLength(),
+    makeReadInputSplit(state),
+    makeReadInputSplitSchema(),
+    makeEditInputSplit(state),
+    makeDelInputSplit(state),
+    makeCheckInputSplit(),
+    makeReadInputMerge(state),
+    makeReadInputMergeSchema(),
+    makeEditInputMerge(state),
+    makeDelInputMerge(state),
+    makeCheckInputMerge(),
+    makeReadTasks(state),
+    makeReadTasksSchema(),
+    makeAppendTask(state),
+    makeEditTask(state),
+    makeDelTask(state),
+    makeDelTasks(state),
+    makeCheckTasks(),
+    makeReadMessagesExpressionSchema(),
+    makeReadToolsExpressionSchema(),
+    makeReadResponsesExpressionSchema(),
+    // Expression params
+    makeReadInputParamSchema(),
+    makeReadMapParamSchema(),
+    makeReadOutputParamSchema(),
+    // Recursive type schemas (referenced by $ref in other schemas)
+    makeReadJsonValueSchema(),
+    makeReadJsonValueExpressionSchema(),
+    makeReadInputValueSchema(),
+    makeReadInputValueExpressionSchema(),
+    // Message role schemas (expression variants)
+    makeReadDeveloperMessageExpressionSchema(),
+    makeReadSystemMessageExpressionSchema(),
+    makeReadUserMessageExpressionSchema(),
+    makeReadToolMessageExpressionSchema(),
+    makeReadAssistantMessageExpressionSchema(),
+    // Message role schemas (compiled variants)
+    makeReadDeveloperMessageSchema(),
+    makeReadSystemMessageSchema(),
+    makeReadUserMessageSchema(),
+    makeReadToolMessageSchema(),
+    makeReadAssistantMessageSchema(),
+    // Content schemas (expression variants)
+    makeReadSimpleContentExpressionSchema(),
+    makeReadRichContentExpressionSchema(),
+    // Content schemas (compiled variants)
+    makeReadSimpleContentSchema(),
+    makeReadRichContentSchema(),
+    // Task type schemas
+    makeReadScalarFunctionTaskSchema(),
+    makeReadVectorFunctionTaskSchema(),
+    makeReadVectorCompletionTaskSchema(),
+    // Compiled task type schemas
+    makeReadCompiledScalarFunctionTaskSchema(),
+    makeReadCompiledVectorFunctionTaskSchema(),
+    makeReadCompiledVectorCompletionTaskSchema(),
+    // Example inputs
+    makeReadExampleInput(state),
+    makeReadExampleInputs(state),
+    makeReadExampleInputsSchema(),
+    makeAppendExampleInput(state),
+    makeEditExampleInput(state),
+    makeDelExampleInput(state),
+    makeDelExampleInputs(state),
+    makeCheckExampleInputs(),
+    // README
+    makeReadReadme(state),
+    makeWriteReadme(state),
+    // Network tests
+    makeRunNetworkTests(state),
+    makeReadDefaultNetworkTest(),
+    makeReadSwissSystemNetworkTest(),
+    // Submit
+    makeSubmit(state)
+  ];
+}
+function getFunctionTasksTools2(state) {
+  return [
+    makeSpawnFunctionAgents(state),
+    makeAmendFunctionAgents(state),
+    makeListAgentFunctions(),
+    makeReadAgentFunction()
+  ];
+}
+function buildReadLine2(state) {
+  const reads = [];
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md (including amendments)");
+  reads.push("name.txt");
+  if (!state.hasReadOrWrittenEssay) reads.push("ESSAY.md");
+  if (!state.hasReadOrWrittenEssayTasks) reads.push("ESSAY_TASKS.md");
+  if (!state.hasReadExampleFunctions) reads.push("example functions");
+  reads.push("the current function definition");
+  reads.push("the current example inputs");
+  if (reads.length === 0) return "";
+  return `
+Read ${formatReadList(reads)} to understand the current state.
+`;
+}
+function buildAmendFunctionTasksPrompt(state, amendment) {
+  const readLine = buildReadLine2(state);
+  return `You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
+
+## Amendment
+
+${amendment}
+${readLine}
+
+## Phase 1: Understand the Amendment
+
+Read the current function definition, tasks, and example inputs to understand the existing implementation. Only implement the amendment above \u2014 previous amendments have already been applied.
+
+## Phase 2: Apply Changes
+
+### Modifying the Function Definition
+- Use the Edit* tools to modify function fields as needed
+- Read the *Schema tools to understand what types are expected
+- Only change what the amendment requires \u2014 preserve existing functionality
+
+### Modifying Sub-Functions
+- Use **AmendFunctionAgents** to amend existing sub-functions that need changes
+- Use **SpawnFunctionAgents** to create new sub-functions if the amendment requires them
+- Use ListAgentFunctions and ReadAgentFunction to inspect existing sub-functions
+
+### Updating Example Inputs
+- Modify, add, or remove example inputs to match the amended function behavior
+- Ensure example inputs still cover edge cases and diverse scenarios
+
+### Build and Test
+- Fix issues and repeat until all tests pass
+
+## Phase 3: Verify Compliance
+
+Before finalizing, verify that everything adheres to SPEC.md (including amendments):
+- Re-read SPEC.md carefully
+- Ensure the function definition, inputs, and outputs satisfy both the original spec and all amendments
+- **SPEC.md (including amendments) is the universal source of truth**
+
+## Phase 4: Finalize
+
+Once all tests pass and compliance is verified:
+- Use the Submit tool with a commit message to validate, commit, and push
+- If Submit fails, fix the issues it reports and try again
+
+## Important Notes
+
+- **SPEC.md (including amendments) is the universal source of truth** \u2014 never contradict it
+- **Only implement this amendment** \u2014 previous amendments have already been applied
+- **Preserve existing functionality** unless the amendment explicitly changes it
+- **No API key is needed for tests** \u2014 tests run against a local server
+`;
+}
+function buildAmendVectorTasksPrompt(state, amendment) {
+  const readLine = buildReadLine2(state);
+  return `You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
+
+## Amendment
+
+${amendment}
+${readLine}
+
+## Phase 1: Understand the Amendment
+
+Read the current function definition, tasks, and example inputs to understand the existing implementation. Only implement the amendment above \u2014 previous amendments have already been applied.
+
+## Phase 2: Apply Changes
+
+### Modifying the Function Definition
+- Use the Edit* tools to modify function fields as needed
+- Read the *Schema tools to understand what types are expected
+- Only change what the amendment requires \u2014 preserve existing functionality
+
+### Modifying Tasks
+- Edit, add, or remove vector completion tasks as needed
+- Use \`map\` if a task needs to iterate over input items
+
+### Updating Example Inputs
+- Modify, add, or remove example inputs to match the amended function behavior
+- Ensure example inputs still cover edge cases and diverse scenarios
+
+### Build and Test
+- Fix issues and repeat until all tests pass
+
+## Phase 3: Verify Compliance
+
+Before finalizing, verify that everything adheres to SPEC.md (including amendments):
+- Re-read SPEC.md carefully
+- Ensure the function definition, inputs, and outputs satisfy both the original spec and all amendments
+- **SPEC.md (including amendments) is the universal source of truth**
+
+## Phase 4: Finalize
+
+Once all tests pass and compliance is verified:
+- Use the Submit tool with a commit message to validate, commit, and push
+- If Submit fails, fix the issues it reports and try again
+
+## Important Notes
+
+- **SPEC.md (including amendments) is the universal source of truth** \u2014 never contradict it
+- **Only implement this amendment** \u2014 previous amendments have already been applied
+- **Preserve existing functionality** unless the amendment explicitly changes it
+- **No API key is needed for tests** \u2014 tests run against a local server
+`;
+}
+async function amendLoop(state, log, useFunctionTasks, amendment, sessionId) {
+  const maxAttempts = 5;
+  let attempt = 0;
+  let success = false;
+  let lastFailureReasons = [];
+  while (attempt < maxAttempts && !success) {
+    attempt++;
+    log(`Amend loop attempt ${attempt}/${maxAttempts}`);
+    const tools = [
+      ...getCommonTools2(state),
+      ...useFunctionTasks ? getFunctionTasksTools2(state) : []
+    ];
+    const mcpServer = createSdkMcpServer({ name: "amend", tools });
+    let prompt;
+    if (attempt === 1) {
+      prompt = useFunctionTasks ? buildAmendFunctionTasksPrompt(state, amendment) : buildAmendVectorTasksPrompt(state, amendment);
+    } else {
+      prompt = `Your previous attempt failed:
+${lastFailureReasons.map((r) => `- ${r}`).join("\n")}
+
+Please try again. Remember to:
+1. Use RunNetworkTests to test
+2. Use Submit to validate, commit, and push
+`;
+    }
+    const runQuery = (sid) => consumeStream(
+      query({
+        prompt,
+        options: {
+          tools: [],
+          mcpServers: { amend: mcpServer },
+          allowedTools: ["mcp__amend__*"],
+          disallowedTools: ["AskUserQuestion"],
+          permissionMode: "dontAsk",
+          resume: sid
+        }
+      }),
+      log,
+      sid
+    );
+    try {
+      sessionId = await runQuery(sessionId);
+    } catch (e) {
+      if (!state.anyStepRan) {
+        log("Session may be invalid, retrying without session...");
+        sessionId = await runQuery(void 0);
+      } else {
+        throw e;
+      }
+    }
+    state.anyStepRan = true;
+    log("Running submit...");
+    lastFailureReasons = [];
+    const submitResult = await submit(
+      "amend",
+      state.submitApiBase,
+      state.submitApiKey,
+      {
+        userName: state.gitUserName,
+        userEmail: state.gitUserEmail
+      },
+      sessionId
+    );
+    if (submitResult.ok) {
+      success = true;
+      log(`Success: Submitted commit ${submitResult.value}`);
+    } else {
+      lastFailureReasons.push(submitResult.error);
+      log(`Submit failed: ${submitResult.error}`);
+    }
+  }
+  if (!success) {
+    throw new Error("Amend loop failed after maximum attempts.");
+  }
+  return sessionId;
+}
+async function amendMcp(state, options, amendment) {
+  const log = options.log;
+  const depth = options.depth;
+  const useFunctionTasks = depth > 0;
+  log("=== Amend Plan ===");
+  let sessionId;
+  try {
+    sessionId = await planMcp2(state, log, depth, amendment, options.sessionId);
+  } catch (e) {
+    if (!state.anyStepRan) {
+      log("Session may be invalid, retrying without session...");
+      sessionId = await planMcp2(state, log, depth, amendment, void 0);
+    } else {
+      throw e;
+    }
+  }
+  log(`=== Amend Loop: Modifying function (${useFunctionTasks ? "function" : "vector"} tasks) ===`);
+  await amendLoop(state, log, useFunctionTasks, amendment, sessionId);
+  log("=== ObjectiveAI Function amendment complete ===");
 }
 function getNextPlanIndex() {
   const plansDir = "plans";
@@ -5350,7 +6010,7 @@ var Dashboard = class {
 };
 
 // src/claude/index.ts
-async function invent(partialOptions = {}) {
+function setupLogging() {
   const isChild = !!process.env.OBJECTIVEAI_PARENT_PID;
   let dashboard;
   let onChildEvent;
@@ -5365,6 +6025,30 @@ async function invent(partialOptions = {}) {
     logOverride = createRootLogger(dashboard);
     onChildEvent = (evt) => dashboard.handleEvent(evt);
   }
+  return { isChild, dashboard, onChildEvent, logOverride };
+}
+function emitNameEvent(isChild, dashboard) {
+  const nameResult = readName();
+  if (nameResult.ok && nameResult.value) {
+    const name = nameResult.value.trim();
+    if (dashboard) {
+      dashboard.setRootName(name);
+    }
+    if (isChild) {
+      process.stdout.write(serializeEvent({ event: "name", path: "", name }) + "\n");
+    }
+  }
+}
+function emitDoneAndDispose(isChild, dashboard) {
+  if (isChild) {
+    process.stdout.write(serializeEvent({ event: "done", path: "" }) + "\n");
+  }
+  if (dashboard) {
+    dashboard.dispose();
+  }
+}
+async function invent(partialOptions = {}) {
+  const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
   const options = makeAgentOptions({
     ...partialOptions,
     ...logOverride && { log: logOverride.log },
@@ -5387,24 +6071,45 @@ async function invent(partialOptions = {}) {
   await init(options);
   options.log("=== Preparing ===");
   const sessionId = await prepare(toolState, options);
-  const nameResult = readName();
-  if (nameResult.ok && nameResult.value) {
-    const name = nameResult.value.trim();
-    if (dashboard) {
-      dashboard.setRootName(name);
-    }
-    if (isChild) {
-      process.stdout.write(serializeEvent({ event: "name", path: "", name }) + "\n");
-    }
-  }
+  emitNameEvent(isChild, dashboard);
   options.log("=== Inventing ===");
   await inventMcp(toolState, { ...options, sessionId });
-  if (isChild) {
-    process.stdout.write(serializeEvent({ event: "done", path: "" }) + "\n");
+  emitDoneAndDispose(isChild, dashboard);
+}
+async function amend(partialOptions = {}) {
+  const { isChild, dashboard, onChildEvent, logOverride } = setupLogging();
+  const options = makeAgentOptions({
+    ...partialOptions,
+    ...logOverride && { log: logOverride.log },
+    onChildEvent
+  });
+  const amendment = options.spec;
+  if (!amendment) {
+    throw new Error("Amendment spec is required. Pass spec as the first argument.");
   }
-  if (dashboard) {
-    dashboard.dispose();
-  }
+  const n = appendAmendment(amendment);
+  options.log(`=== Appended AMENDMENT ${n} to SPEC.md ===`);
+  const nextPlanIndex = getNextPlanIndex();
+  const toolState = makeToolState({
+    apiBase: options.apiBase,
+    apiKey: options.apiKey,
+    readPlanIndex: nextPlanIndex,
+    writePlanIndex: nextPlanIndex,
+    gitUserName: options.gitUserName,
+    gitUserEmail: options.gitUserEmail,
+    ghToken: options.ghToken,
+    minWidth: options.minWidth,
+    maxWidth: options.maxWidth,
+    onChildEvent
+  });
+  options.log("=== Initializing workspace ===");
+  await init(options);
+  options.log("=== Preparing ===");
+  const sessionId = await prepare(toolState, options);
+  emitNameEvent(isChild, dashboard);
+  options.log("=== Amending ===");
+  await amendMcp(toolState, { ...options, sessionId }, amendment);
+  emitDoneAndDispose(isChild, dashboard);
 }
 
 // src/tools/index.ts
