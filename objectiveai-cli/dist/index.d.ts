@@ -121,7 +121,7 @@ interface ToolState {
     hasReadReadme: boolean;
     onChildEvent?: (evt: AgentEvent) => void;
     messageQueue: MessageQueue;
-    pendingAgentResults: Promise<CallToolResult> | null;
+    pendingAgentResults: Promise<CallToolResult>[];
     activeChildren: Map<string, stream.Writable>;
 }
 

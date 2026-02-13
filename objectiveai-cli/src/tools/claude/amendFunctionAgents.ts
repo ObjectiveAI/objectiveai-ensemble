@@ -22,16 +22,8 @@ export function makeAmendFunctionAgents(state: ToolState) {
     "Amend existing child function agents in parallel",
     { params: AmendFunctionAgentsParamsSchema },
     async ({ params }) => {
-      if (state.pendingAgentResults) {
-        return resultFromResult({
-          ok: false,
-          value: undefined,
-          error: "Agents are already running. Call WaitFunctionAgents to wait for results.",
-        });
-      }
-
-      state.pendingAgentResults = amendFunctionAgents(params, opts()).then((r) =>
-        resultFromResult(r),
+      state.pendingAgentResults.push(
+        amendFunctionAgents(params, opts()).then((r) => resultFromResult(r)),
       );
 
       return textResult(

@@ -214,16 +214,12 @@ export class Dashboard {
       out.push(`\x1b[2m>\x1b[0m ${this.inputBuffer}`);
     }
 
-    const output = out.join("\n");
-
-    // Move cursor to top-left and clear screen
-    process.stdout.write("\x1b[H\x1b[0J");
-    process.stdout.write(output);
-
-    // Show cursor only on the input line
-    if (this.inputEnabled) {
-      process.stdout.write("\x1b[?25h");
-    }
+    // Overwrite in place: clear to end of each line, then clear below.
+    // Single write call to avoid flicker.
+    const output = out.map((l) => l + "\x1b[K").join("\n");
+    process.stdout.write(
+      "\x1b[H" + output + "\x1b[0J" + (this.inputEnabled ? "\x1b[?25h" : ""),
+    );
   }
 
   findPathByName(name: string): string | undefined {

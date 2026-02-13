@@ -1,6 +1,13 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { ToolState } from "./toolState";
 import { textResult, errorResult } from "./util";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+
+function mergeResults(results: CallToolResult[]): CallToolResult {
+  const content = results.flatMap((r) => r.content);
+  const isError = results.some((r) => r.isError);
+  return { content, ...(isError && { isError }) };
+}
 
 export function makeWaitFunctionAgents(state: ToolState) {
   return tool(
@@ -8,18 +15,23 @@ export function makeWaitFunctionAgents(state: ToolState) {
     "Wait for running function agents to finish",
     {},
     async () => {
-      if (!state.pendingAgentResults) {
+      if (state.pendingAgentResults.length === 0) {
         return errorResult("No agents are currently running.");
       }
 
       const outcome = await Promise.race([
-        state.pendingAgentResults.then((r) => ({ type: "done" as const, result: r })),
-        state.messageQueue.waitForMessage().then(() => ({ type: "message" as const })),
+        Promise.all(state.pendingAgentResults).then((r) => ({
+          type: "done" as const,
+          results: r,
+        })),
+        state.messageQueue
+          .waitForMessage()
+          .then(() => ({ type: "message" as const })),
       ]);
 
       if (outcome.type === "done") {
-        state.pendingAgentResults = null;
-        return outcome.result;
+        state.pendingAgentResults = [];
+        return mergeResults(outcome.results);
       }
 
       // Woke up from user message — agents still running

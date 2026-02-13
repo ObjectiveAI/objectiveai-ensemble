@@ -3065,7 +3065,7 @@ function makeToolState(options) {
     hasReadReadme: isDefaultReadme(),
     onChildEvent: options.onChildEvent,
     messageQueue: new MessageQueue(),
-    pendingAgentResults: null,
+    pendingAgentResults: [],
     activeChildren: /* @__PURE__ */ new Map()
   };
 }
@@ -5051,13 +5051,6 @@ function makeSpawnFunctionAgents(state) {
     "Spawn child function agents in parallel",
     { params: SpawnFunctionAgentsParamsSchema },
     async ({ params }) => {
-      if (state.pendingAgentResults) {
-        return resultFromResult({
-          ok: false,
-          value: void 0,
-          error: "Agents are already running. Call WaitFunctionAgents to wait for results."
-        });
-      }
       if (state.spawnFunctionAgentsHasSpawned) {
         const owner = getGitHubOwner2(state.ghToken);
         const alreadyOnGitHub = [];
@@ -5077,8 +5070,8 @@ function makeSpawnFunctionAgents(state) {
         }
       }
       state.spawnFunctionAgentsHasSpawned = true;
-      state.pendingAgentResults = spawnFunctionAgents(params, opts()).then(
-        (r) => resultFromResult(r)
+      state.pendingAgentResults.push(
+        spawnFunctionAgents(params, opts()).then((r) => resultFromResult(r))
       );
       return textResult(
         "Agents spawned. Call WaitFunctionAgents to wait for results."
@@ -5086,22 +5079,30 @@ function makeSpawnFunctionAgents(state) {
     }
   );
 }
+function mergeResults(results) {
+  const content = results.flatMap((r) => r.content);
+  const isError = results.some((r) => r.isError);
+  return { content, ...isError && { isError } };
+}
 function makeWaitFunctionAgents(state) {
   return claudeAgentSdk.tool(
     "WaitFunctionAgents",
     "Wait for running function agents to finish",
     {},
     async () => {
-      if (!state.pendingAgentResults) {
+      if (state.pendingAgentResults.length === 0) {
         return errorResult("No agents are currently running.");
       }
       const outcome = await Promise.race([
-        state.pendingAgentResults.then((r) => ({ type: "done", result: r })),
+        Promise.all(state.pendingAgentResults).then((r) => ({
+          type: "done",
+          results: r
+        })),
         state.messageQueue.waitForMessage().then(() => ({ type: "message" }))
       ]);
       if (outcome.type === "done") {
-        state.pendingAgentResults = null;
-        return outcome.result;
+        state.pendingAgentResults = [];
+        return mergeResults(outcome.results);
       }
       const messages = state.messageQueue.drain();
       return textResult(
@@ -5894,15 +5895,8 @@ function makeAmendFunctionAgents(state) {
     "Amend existing child function agents in parallel",
     { params: AmendFunctionAgentsParamsSchema },
     async ({ params }) => {
-      if (state.pendingAgentResults) {
-        return resultFromResult({
-          ok: false,
-          value: void 0,
-          error: "Agents are already running. Call WaitFunctionAgents to wait for results."
-        });
-      }
-      state.pendingAgentResults = amendFunctionAgents(params, opts()).then(
-        (r) => resultFromResult(r)
+      state.pendingAgentResults.push(
+        amendFunctionAgents(params, opts()).then((r) => resultFromResult(r))
       );
       return textResult(
         "Agents spawned. Call WaitFunctionAgents to wait for results."
@@ -6428,12 +6422,10 @@ var Dashboard = class {
       out.push("");
       out.push(`\x1B[2m>\x1B[0m ${this.inputBuffer}`);
     }
-    const output = out.join("\n");
-    process.stdout.write("\x1B[H\x1B[0J");
-    process.stdout.write(output);
-    if (this.inputEnabled) {
-      process.stdout.write("\x1B[?25h");
-    }
+    const output = out.map((l) => l + "\x1B[K").join("\n");
+    process.stdout.write(
+      "\x1B[H" + output + "\x1B[0J" + (this.inputEnabled ? "\x1B[?25h" : "")
+    );
   }
   findPathByName(name) {
     for (const [path] of this.panels) {

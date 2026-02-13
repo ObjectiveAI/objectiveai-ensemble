@@ -47,7 +47,7 @@ export interface ToolState {
   hasReadReadme: boolean;
   onChildEvent?: (evt: AgentEvent) => void;
   messageQueue: MessageQueue;
-  pendingAgentResults: Promise<CallToolResult> | null;
+  pendingAgentResults: Promise<CallToolResult>[];
   activeChildren: Map<string, import("stream").Writable>;
 }
 
@@ -107,7 +107,7 @@ export function makeToolState(options: {
     hasReadReadme: isDefaultReadme(),
     onChildEvent: options.onChildEvent,
     messageQueue: new MessageQueue(),
-    pendingAgentResults: null,
+    pendingAgentResults: [],
     activeChildren: new Map(),
   };
 }

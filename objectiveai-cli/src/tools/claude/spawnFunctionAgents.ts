@@ -22,14 +22,6 @@ export function makeSpawnFunctionAgents(state: ToolState) {
     "Spawn child function agents in parallel",
     { params: SpawnFunctionAgentsParamsSchema },
     async ({ params }) => {
-      if (state.pendingAgentResults) {
-        return resultFromResult({
-          ok: false,
-          value: undefined,
-          error: "Agents are already running. Call WaitFunctionAgents to wait for results.",
-        });
-      }
-
       if (state.spawnFunctionAgentsHasSpawned) {
         // Only allow respawning agents whose repos don't exist on GitHub (i.e. they failed)
         const owner = getGitHubOwner(state.ghToken);
@@ -55,8 +47,8 @@ export function makeSpawnFunctionAgents(state: ToolState) {
       }
 
       state.spawnFunctionAgentsHasSpawned = true;
-      state.pendingAgentResults = spawnFunctionAgents(params, opts()).then((r) =>
-        resultFromResult(r),
+      state.pendingAgentResults.push(
+        spawnFunctionAgents(params, opts()).then((r) => resultFromResult(r)),
       );
 
       return textResult(
