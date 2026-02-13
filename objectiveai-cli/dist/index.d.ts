@@ -122,12 +122,13 @@ declare function inventMcp(state: ToolState, options: AgentOptions): Promise<voi
 
 declare function amendMcp(state: ToolState, options: AgentOptions, amendment: string): Promise<void>;
 
-declare function dryrun$1(): Promise<void>;
+declare function dryrun(): Promise<void>;
 
 declare function invent$1(partialOptions?: Partial<AgentOptions>): Promise<void>;
 declare function amend$1(partialOptions?: Partial<AgentOptions>): Promise<void>;
 
 declare const index$7_amendMcp: typeof amendMcp;
+declare const index$7_dryrun: typeof dryrun;
 declare const index$7_essayMcp: typeof essayMcp;
 declare const index$7_essayTasksMcp: typeof essayTasksMcp;
 declare const index$7_inventMcp: typeof inventMcp;
@@ -135,7 +136,7 @@ declare const index$7_nameMcp: typeof nameMcp;
 declare const index$7_prepare: typeof prepare;
 declare const index$7_specMcp: typeof specMcp;
 declare namespace index$7 {
-  export { amend$1 as amend, index$7_amendMcp as amendMcp, dryrun$1 as dryrun, index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, invent$1 as invent, index$7_inventMcp as inventMcp, index$7_nameMcp as nameMcp, index$7_prepare as prepare, index$7_specMcp as specMcp };
+  export { amend$1 as amend, index$7_amendMcp as amendMcp, index$7_dryrun as dryrun, index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, invent$1 as invent, index$7_inventMcp as inventMcp, index$7_nameMcp as nameMcp, index$7_prepare as prepare, index$7_specMcp as specMcp };
 }
 
 type Result<T> = {
@@ -58374,6 +58375,5 @@ type SpawnFunctionAgentsParams = z$1.infer<typeof SpawnFunctionAgentsParamsSchem
 
 declare function invent(partialOptions?: Partial<AgentOptions>): Promise<void>;
 declare function amend(partialOptions?: Partial<AgentOptions>): Promise<void>;
-declare function dryrun(partialOptions?: Partial<AgentOptions>): Promise<void>;
 
 export { type AgentOptions, index$7 as Claude, type ExampleInput, ExampleInputSchema, type ExampleInputs, ExampleInputsSchema, type LogFn, type Parameters, type ResolvedValue, type SpawnFunctionAgentsParams, SpawnFunctionAgentsParamsSchema, index as Tools, amend, checkConfig, consumeStream, createChildLogger, createFileLogger, createRootLogger, dryrun, formatMessage, getLatestLogPath, init, invent, isGhAvailable, isGitAvailable, makeAgentOptions, resolveAgentUpstream, resolveApiBase, resolveApiKey, resolveGhToken, resolveGitUserEmail, resolveGitUserName };

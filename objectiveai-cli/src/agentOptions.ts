@@ -51,13 +51,20 @@ export function isGhAvailable(): boolean {
 }
 
 function readEnv(name: string): string | undefined {
-  return typeof process !== "undefined" ? process.env?.[name]?.trim() || undefined : undefined;
+  return typeof process !== "undefined"
+    ? process.env?.[name]?.trim() || undefined
+    : undefined;
 }
 
 function getGitConfig(key: string): string | undefined {
   if (!isGitAvailable()) return undefined;
   try {
-    return execSync(`git config ${key}`, { encoding: "utf-8", stdio: "pipe" }).trim() || undefined;
+    return (
+      execSync(`git config ${key}`, {
+        encoding: "utf-8",
+        stdio: "pipe",
+      }).trim() || undefined
+    );
   } catch {
     return undefined;
   }
@@ -76,65 +83,101 @@ function configSource(key: keyof ConfigJson, config?: ConfigJson): string {
   return "config";
 }
 
-export function resolveApiBase(override?: string, config?: ConfigJson): ResolvedValue {
-  const cfg = config ?? getConfig();
+export function resolveApiBase(
+  override?: string,
+  config?: ConfigJson,
+): ResolvedValue {
   if (override) return { value: override, source: "flag" };
   const env = readEnv("OBJECTIVEAI_API_BASE");
   if (env) return { value: env, source: "env OBJECTIVEAI_API_BASE" };
-  if (cfg.apiBase) return { value: cfg.apiBase, source: configSource("apiBase", config) };
+  const cfg = config ?? getConfig();
+  if (cfg.apiBase)
+    return { value: cfg.apiBase, source: configSource("apiBase", config) };
   return { value: "https://api.objective-ai.io", source: "default" };
 }
 
-export function resolveApiKey(override?: string, config?: ConfigJson): ResolvedValue {
-  const cfg = config ?? getConfig();
+export function resolveApiKey(
+  override?: string,
+  config?: ConfigJson,
+): ResolvedValue {
   if (override) return { value: override, source: "flag" };
   const env = readEnv("OBJECTIVEAI_API_KEY");
   if (env) return { value: env, source: "env OBJECTIVEAI_API_KEY" };
-  if (cfg.apiKey) return { value: cfg.apiKey, source: configSource("apiKey", config) };
+  const cfg = config ?? getConfig();
+  if (cfg.apiKey)
+    return { value: cfg.apiKey, source: configSource("apiKey", config) };
   return { value: undefined, source: "not set" };
 }
 
-export function resolveGitUserName(override?: string, config?: ConfigJson): ResolvedValue {
-  const cfg = config ?? getConfig();
+export function resolveGitUserName(
+  override?: string,
+  config?: ConfigJson,
+): ResolvedValue {
   if (override) return { value: override, source: "flag" };
   const authorName = readEnv("GIT_AUTHOR_NAME");
   if (authorName) return { value: authorName, source: "env GIT_AUTHOR_NAME" };
   const committerName = readEnv("GIT_COMMITTER_NAME");
-  if (committerName) return { value: committerName, source: "env GIT_COMMITTER_NAME" };
-  if (cfg.gitUserName) return { value: cfg.gitUserName, source: configSource("gitUserName", config) };
+  if (committerName)
+    return { value: committerName, source: "env GIT_COMMITTER_NAME" };
+  const cfg = config ?? getConfig();
+  if (cfg.gitUserName)
+    return {
+      value: cfg.gitUserName,
+      source: configSource("gitUserName", config),
+    };
   const gitCfg = getGitConfig("user.name");
   if (gitCfg) return { value: gitCfg, source: "git config" };
   return { value: undefined, source: "not set" };
 }
 
-export function resolveGitUserEmail(override?: string, config?: ConfigJson): ResolvedValue {
-  const cfg = config ?? getConfig();
+export function resolveGitUserEmail(
+  override?: string,
+  config?: ConfigJson,
+): ResolvedValue {
   if (override) return { value: override, source: "flag" };
   const authorEmail = readEnv("GIT_AUTHOR_EMAIL");
-  if (authorEmail) return { value: authorEmail, source: "env GIT_AUTHOR_EMAIL" };
+  if (authorEmail)
+    return { value: authorEmail, source: "env GIT_AUTHOR_EMAIL" };
   const committerEmail = readEnv("GIT_COMMITTER_EMAIL");
-  if (committerEmail) return { value: committerEmail, source: "env GIT_COMMITTER_EMAIL" };
-  if (cfg.gitUserEmail) return { value: cfg.gitUserEmail, source: configSource("gitUserEmail", config) };
+  if (committerEmail)
+    return { value: committerEmail, source: "env GIT_COMMITTER_EMAIL" };
+  const cfg = config ?? getConfig();
+  if (cfg.gitUserEmail)
+    return {
+      value: cfg.gitUserEmail,
+      source: configSource("gitUserEmail", config),
+    };
   const gitCfg = getGitConfig("user.email");
   if (gitCfg) return { value: gitCfg, source: "git config" };
   return { value: undefined, source: "not set" };
 }
 
-export function resolveGhToken(override?: string, config?: ConfigJson): ResolvedValue {
-  const cfg = config ?? getConfig();
+export function resolveGhToken(
+  override?: string,
+  config?: ConfigJson,
+): ResolvedValue {
   if (override) return { value: override, source: "flag" };
   const env = readEnv("GH_TOKEN");
   if (env) return { value: env, source: "env GH_TOKEN" };
-  if (cfg.ghToken) return { value: cfg.ghToken, source: configSource("ghToken", config) };
+  const cfg = config ?? getConfig();
+  if (cfg.ghToken)
+    return { value: cfg.ghToken, source: configSource("ghToken", config) };
   return { value: undefined, source: "not set" };
 }
 
-export function resolveAgentUpstream(override?: string, config?: ConfigJson): ResolvedValue {
-  const cfg = config ?? getConfig();
+export function resolveAgentUpstream(
+  override?: string,
+  config?: ConfigJson,
+): ResolvedValue {
   if (override) return { value: override, source: "flag" };
   const env = readEnv("OBJECTIVEAI_AGENT_UPSTREAM");
   if (env) return { value: env, source: "env OBJECTIVEAI_AGENT_UPSTREAM" };
-  if (cfg.agentUpstream) return { value: cfg.agentUpstream, source: configSource("agentUpstream", config) };
+  const cfg = config ?? getConfig();
+  if (cfg.agentUpstream)
+    return {
+      value: cfg.agentUpstream,
+      source: configSource("agentUpstream", config),
+    };
   return { value: "claude", source: "default" };
 }
 
@@ -179,27 +222,39 @@ export function checkConfig(options: Partial<AgentOptions> = {}): void {
         console.error(`  objectiveai config ${m.configKey} <value>`);
       }
     }
-    console.error("\n  Run \x1b[1mobjectiveai config\x1b[0m to see all options.\n");
+    console.error(
+      "\n  Run \x1b[1mobjectiveai config\x1b[0m to see all options.\n",
+    );
     process.exit(1);
   }
 }
 
-export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOptions {
+export function makeAgentOptions(
+  options: Partial<AgentOptions> = {},
+): AgentOptions {
   const config = getConfig();
 
   const apiBase = resolveApiBase(options.apiBase, config).value!;
 
   const apiKeyResult = resolveApiKey(options.apiKey, config);
   if (!apiKeyResult.value) {
-    throw new Error("API key is required. Set OBJECTIVEAI_API_KEY or pass apiKey.");
+    throw new Error(
+      "API key is required. Set OBJECTIVEAI_API_KEY or pass apiKey.",
+    );
   }
   const apiKey = apiKeyResult.value;
 
   const log = options.log ?? createFileLogger().log;
   const depth = options.depth ?? 0;
 
-  const rawMin = options.minWidth && options.minWidth > 0 ? Math.round(options.minWidth) : undefined;
-  const rawMax = options.maxWidth && options.maxWidth > 0 ? Math.round(options.maxWidth) : undefined;
+  const rawMin =
+    options.minWidth && options.minWidth > 0
+      ? Math.round(options.minWidth)
+      : undefined;
+  const rawMax =
+    options.maxWidth && options.maxWidth > 0
+      ? Math.round(options.maxWidth)
+      : undefined;
   let minWidth: number;
   let maxWidth: number;
   if (rawMin && rawMax) {
@@ -218,13 +273,17 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
 
   const gitUserNameResult = resolveGitUserName(options.gitUserName, config);
   if (!gitUserNameResult.value) {
-    throw new Error("Git user name is required. Set GIT_AUTHOR_NAME, configure git config user.name, or pass gitUserName.");
+    throw new Error(
+      "Git user name is required. Set GIT_AUTHOR_NAME, configure git config user.name, or pass gitUserName.",
+    );
   }
   const gitUserName = gitUserNameResult.value;
 
   const gitUserEmailResult = resolveGitUserEmail(options.gitUserEmail, config);
   if (!gitUserEmailResult.value) {
-    throw new Error("Git user email is required. Set GIT_AUTHOR_EMAIL, configure git config user.email, or pass gitUserEmail.");
+    throw new Error(
+      "Git user email is required. Set GIT_AUTHOR_EMAIL, configure git config user.email, or pass gitUserEmail.",
+    );
   }
   const gitUserEmail = gitUserEmailResult.value;
 
@@ -234,7 +293,10 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
   }
   const ghToken = ghTokenResult.value;
 
-  const agentUpstream = resolveAgentUpstream(options.agentUpstream, config).value!;
+  const agentUpstream = resolveAgentUpstream(
+    options.agentUpstream,
+    config,
+  ).value!;
 
   const sessionId = options.sessionId ?? readSession();
 
