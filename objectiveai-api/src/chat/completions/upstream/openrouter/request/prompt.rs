@@ -52,11 +52,11 @@ pub fn new_for_vector(
     request: &[objectiveai::chat::completions::request::Message],
     ensemble_llm_suffix: Option<&[objectiveai::chat::completions::request::Message]>,
 ) -> Vec<objectiveai::chat::completions::request::Message> {
-    // convert vector responses into rich content parts for prompt
+    let mutation = vector::completions::mutations::ImageLabelMutation;
     let vector_responses_for_prompt = vector::completions::vector_responses::into_parts_for_prompt(
         vector_responses,
         vector_pfx_indices,
-        None,
+        Some(&mutation),
     );
 
     // merge messages

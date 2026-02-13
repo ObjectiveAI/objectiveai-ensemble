@@ -2,6 +2,8 @@
 
 use objectiveai::chat::completions::request::{File, ImageUrl, InputAudio, VideoUrl};
 
+use crate::vector::completions::image_overlay;
+
 /// Hook to attach the response key into content. Default = no-op.
 pub trait MultimodalMutation: Send + Sync {
     fn mutate_image(
@@ -43,6 +45,26 @@ pub struct NoOpMutation;
 
 impl MultimodalMutation for NoOpMutation {}
 
+/// Puts response key on images (data URLs). Audio/video/file left unchanged; use custom impl for TTS/ffmpeg.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ImageLabelMutation;
+
+impl MultimodalMutation for ImageLabelMutation {
+    fn mutate_image(
+        &self,
+        image_url: &ImageUrl,
+        response_key: &str,
+    ) -> Result<ImageUrl, MutateError> {
+        image_overlay::overlay_label(image_url, response_key).map_err(MutateError::from)
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("multimodal mutation failed: {0}")]
 pub struct MutateError(pub String);
+
+impl From<String> for MutateError {
+    fn from(s: String) -> Self {
+        MutateError(s)
+    }
+}

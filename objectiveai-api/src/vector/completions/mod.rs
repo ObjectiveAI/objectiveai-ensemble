@@ -12,6 +12,7 @@ mod client;
 pub mod completion_votes_fetcher;
 mod error;
 mod get_vote;
+mod image_overlay;
 /// Multimodal mutations for embedding response keys into content.
 pub mod mutations;
 mod pfx;
