@@ -50,7 +50,7 @@ function ensureGitHubRepo(name: string, description: string, ghToken: string): v
         );
       }
     }
-    execSync("git push", { stdio: "inherit", env: ghEnv(ghToken) });
+    execSync("git push", { stdio: "pipe", env: ghEnv(ghToken) });
   }
 }
 
@@ -151,7 +151,7 @@ export async function submit(message: string, apiBase?: string, apiKey?: string,
       ...(git?.userEmail && { GIT_AUTHOR_EMAIL: git.userEmail, GIT_COMMITTER_EMAIL: git.userEmail }),
     };
     execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, {
-      stdio: "inherit",
+      stdio: "pipe",
       env: commitEnv,
     });
   }
