@@ -272,7 +272,7 @@ mod tests {
         })
     }
 
-    fn starlark_one<T: serde::de::DeserializeOwned>(
+    fn starlark_one<T: serde::de::DeserializeOwned + crate::functions::expression::starlark::FromStarlarkValue>(
         code: &str,
         params: &Params,
     ) -> T {
