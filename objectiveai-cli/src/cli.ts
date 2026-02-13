@@ -73,6 +73,7 @@ program
     console.log("  objectiveai invent [spec]   Invent a new function");
     console.log("  objectiveai amend [spec]    Amend an existing function");
     console.log("  objectiveai config          Show configuration details");
+    console.log("  objectiveai dryrun          Preview the dashboard with simulated agents");
     console.log("");
   });
 

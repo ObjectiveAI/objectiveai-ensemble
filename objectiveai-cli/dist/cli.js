@@ -6528,6 +6528,7 @@ ${BOLD2}Commands${RESET2}
   console.log("  objectiveai invent [spec]   Invent a new function");
   console.log("  objectiveai amend [spec]    Amend an existing function");
   console.log("  objectiveai config          Show configuration details");
+  console.log("  objectiveai dryrun          Preview the dashboard with simulated agents");
   console.log("");
 });
 program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).action(async (spec, opts) => {
