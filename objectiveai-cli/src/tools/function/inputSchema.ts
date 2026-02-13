@@ -35,6 +35,17 @@ export function checkInputSchema(fn?: DeserializedFunction): Result<undefined> {
   return { ok: true, value: undefined, error: undefined };
 }
 
+function hasArrayProperty(schema: Record<string, unknown>): boolean {
+  const props = schema.properties;
+  if (typeof props !== "object" || props === null) return false;
+  for (const val of Object.values(props as Record<string, unknown>)) {
+    if (typeof val === "object" && val !== null && (val as Record<string, unknown>).type === "array") {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function editInputSchema(value: unknown): Result<undefined> {
   const result = validateInputSchema({ input_schema: value });
   if (!result.ok) {
@@ -44,6 +55,20 @@ export function editInputSchema(value: unknown): Result<undefined> {
       error: `Invalid input_schema: ${result.error}`,
     };
   }
+
+  // Vector functions need an array input (either top-level array or object with array property)
+  const fn = readFunction();
+  if (fn.ok && fn.value.type === "vector.function") {
+    const schema = result.value as Record<string, unknown>;
+    if (schema.type !== "array" && !(schema.type === "object" && hasArrayProperty(schema))) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Vector functions require an input schema that is an array or an object with at least one array property.`,
+      };
+    }
+  }
+
   return editFunction({ input_schema: result.value });
 }
 

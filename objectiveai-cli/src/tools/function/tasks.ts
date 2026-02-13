@@ -63,6 +63,20 @@ export function checkTasks(fn?: DeserializedFunction): Result<undefined> {
     };
   }
 
+  // At most 50% of tasks can have a map (unless there's only 1 task)
+  if (result.value.length > 1) {
+    const mappedCount = result.value.filter(
+      (t) => typeof (t as Record<string, unknown>).map === "number",
+    ).length;
+    if (mappedCount > result.value.length / 2) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Too many mapped tasks: ${mappedCount} of ${result.value.length} tasks have a map index. At most 50% of tasks can be mapped.`,
+      };
+    }
+  }
+
   // Width constraints are only checked here (not during mutations)
   const widthResult = validateTasksWidth(result.value);
   if (!widthResult.ok) {

@@ -950,6 +950,16 @@ function checkInputSchema(fn) {
   }
   return { ok: true, value: void 0, error: void 0 };
 }
+function hasArrayProperty(schema) {
+  const props = schema.properties;
+  if (typeof props !== "object" || props === null) return false;
+  for (const val of Object.values(props)) {
+    if (typeof val === "object" && val !== null && val.type === "array") {
+      return true;
+    }
+  }
+  return false;
+}
 function editInputSchema(value) {
   const result = validateInputSchema({ input_schema: value });
   if (!result.ok) {
@@ -958,6 +968,17 @@ function editInputSchema(value) {
       value: void 0,
       error: `Invalid input_schema: ${result.error}`
     };
+  }
+  const fn = readFunction();
+  if (fn.ok && fn.value.type === "vector.function") {
+    const schema = result.value;
+    if (schema.type !== "array" && !(schema.type === "object" && hasArrayProperty(schema))) {
+      return {
+        ok: false,
+        value: void 0,
+        error: `Vector functions require an input schema that is an array or an object with at least one array property.`
+      };
+    }
   }
   return editFunction({ input_schema: result.value });
 }
@@ -1216,6 +1237,18 @@ function checkTasks(fn) {
       value: void 0,
       error: `tasks is invalid: ${result.error}`
     };
+  }
+  if (result.value.length > 1) {
+    const mappedCount = result.value.filter(
+      (t) => typeof t.map === "number"
+    ).length;
+    if (mappedCount > result.value.length / 2) {
+      return {
+        ok: false,
+        value: void 0,
+        error: `Too many mapped tasks: ${mappedCount} of ${result.value.length} tasks have a map index. At most 50% of tasks can be mapped.`
+      };
+    }
   }
   const widthResult = validateTasksWidth(result.value);
   if (!widthResult.ok) {
