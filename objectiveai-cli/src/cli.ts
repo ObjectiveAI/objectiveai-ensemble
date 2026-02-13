@@ -7,6 +7,7 @@ import {
   resolveGitUserName,
   resolveGitUserEmail,
   resolveGhToken,
+  resolveAgentUpstream,
   checkConfig,
   isGitAvailable,
   isGhAvailable,
@@ -88,6 +89,7 @@ program
   .option("--git-user-name <name>", "Git author/committer name")
   .option("--git-user-email <email>", "Git author/committer email")
   .option("--gh-token <token>", "GitHub token for gh CLI")
+  .option("--agent-upstream <upstream>", "Agent upstream (default: claude)")
   .option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt)
   .option("--min-width <n>", "Minimum number of tasks", parseInt)
   .option("--max-width <n>", "Maximum number of tasks", parseInt)
@@ -103,6 +105,7 @@ program
       gitUserName: opts.gitUserName as string | undefined,
       gitUserEmail: opts.gitUserEmail as string | undefined,
       ghToken: opts.ghToken as string | undefined,
+      agentUpstream: opts.agentUpstream as string | undefined,
     };
     checkConfig(partialOpts);
     await Claude.invent(partialOpts);
@@ -119,6 +122,7 @@ program
   .option("--git-user-name <name>", "Git author/committer name")
   .option("--git-user-email <email>", "Git author/committer email")
   .option("--gh-token <token>", "GitHub token for gh CLI")
+  .option("--agent-upstream <upstream>", "Agent upstream (default: claude)")
   .option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt)
   .option("--min-width <n>", "Minimum number of tasks", parseInt)
   .option("--max-width <n>", "Maximum number of tasks", parseInt)
@@ -134,6 +138,7 @@ program
       gitUserName: opts.gitUserName as string | undefined,
       gitUserEmail: opts.gitUserEmail as string | undefined,
       ghToken: opts.ghToken as string | undefined,
+      agentUpstream: opts.agentUpstream as string | undefined,
     };
     checkConfig(partialOpts);
     await Claude.amend(partialOpts);
@@ -258,6 +263,14 @@ function validateGhToken(value: string): string | null {
   }
 }
 
+function validateAgentUpstream(value: string): string | null {
+  const validUpstreams = ["claude"];
+  if (!validUpstreams.includes(value)) {
+    return `Invalid agent upstream. Valid values: ${validUpstreams.join(", ")}`;
+  }
+  return null;
+}
+
 type Validator = (value: string) => string | null;
 
 function setAndReport(
@@ -291,6 +304,7 @@ configCmd
     const gitUserName = resolveGitUserName();
     const gitUserEmail = resolveGitUserEmail();
     const ghToken = resolveGhToken();
+    const agentUpstream = resolveAgentUpstream();
 
     console.log(`${BOLD}Current Configuration${RESET}\n`);
     console.log(formatRow("ObjectiveAI API Base", apiBase));
@@ -298,6 +312,7 @@ configCmd
     console.log(formatRow("Git User Name", gitUserName));
     console.log(formatRow("Git User Email", gitUserEmail));
     console.log(formatRow("GitHub Token", ghToken, true));
+    console.log(formatRow("Agent Upstream", agentUpstream));
 
     console.log(`\n${BOLD}Configuration Sources${RESET} (highest to lowest priority)\n`);
     console.log("  1. CLI flags (--api-key, --gh-token, etc.)");
@@ -312,6 +327,7 @@ configCmd
     console.log("  objectiveai config gitUserName  Show git user name");
     console.log("  objectiveai config gitUserEmail Show git user email");
     console.log("  objectiveai config ghToken      Show GitHub token");
+    console.log("  objectiveai config agentUpstream Show agent upstream");
     console.log("");
   });
 
@@ -438,6 +454,31 @@ configCmd
         ],
         "ghToken",
         true,
+      );
+    }
+  });
+
+configCmd
+  .command("agentUpstream")
+  .description("Show or set agent upstream")
+  .argument("[value]", "Agent upstream to set (e.g. claude)")
+  .option("--project", "Write to project config instead of user config")
+  .action((value: string | undefined, opts: { project?: boolean }) => {
+    if (value) {
+      setAndReport("agentUpstream", value, !!opts.project, validateAgentUpstream);
+    } else {
+      showConfigDetail(
+        "Agent Upstream",
+        resolveAgentUpstream(),
+        "Upstream agent provider for function generation and amendment.",
+        [
+          { label: "CLI flag: --agent-upstream <upstream>", key: "flag" },
+          { label: "Environment variable: OBJECTIVEAI_AGENT_UPSTREAM", key: "env OBJECTIVEAI_AGENT_UPSTREAM" },
+          { label: ".objectiveai/config.json (project)", key: "project" },
+          { label: "~/.objectiveai/config.json (user)", key: "user config" },
+          { label: "Default: claude", key: "default" },
+        ],
+        "agentUpstream",
       );
     }
   });

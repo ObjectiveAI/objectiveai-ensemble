@@ -316,6 +316,14 @@ function resolveGhToken(override, config) {
   if (cfg.ghToken) return { value: cfg.ghToken, source: configSource("ghToken", config) };
   return { value: void 0, source: "not set" };
 }
+function resolveAgentUpstream(override, config) {
+  const cfg = config ?? getConfig();
+  if (override) return { value: override, source: "flag" };
+  const env = readEnv("OBJECTIVEAI_AGENT_UPSTREAM");
+  if (env) return { value: env, source: "env OBJECTIVEAI_AGENT_UPSTREAM" };
+  if (cfg.agentUpstream) return { value: cfg.agentUpstream, source: configSource("agentUpstream", config) };
+  return { value: "claude", source: "default" };
+}
 function checkConfig(options = {}) {
   const problems = [];
   if (!isGitAvailable()) {
@@ -398,6 +406,7 @@ function makeAgentOptions(options = {}) {
     throw new Error("GitHub token is required. Set GH_TOKEN or pass ghToken.");
   }
   const ghToken = ghTokenResult.value;
+  const agentUpstream = resolveAgentUpstream(options.agentUpstream, config).value;
   const sessionId = options.sessionId ?? readSession();
   return {
     ...options,
@@ -410,7 +419,8 @@ function makeAgentOptions(options = {}) {
     maxWidth,
     gitUserName,
     gitUserEmail,
-    ghToken
+    ghToken,
+    agentUpstream
   };
 }
 
@@ -6531,7 +6541,7 @@ ${BOLD2}Commands${RESET2}
   console.log("  objectiveai dryrun          Preview the dashboard with simulated agents");
   console.log("");
 });
-program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).action(async (spec, opts) => {
+program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).action(async (spec, opts) => {
   const partialOpts = {
     spec,
     name: opts.name,
@@ -6542,12 +6552,13 @@ program.command("invent").description("Invent a new ObjectiveAI Function").argum
     apiKey: opts.apiKey,
     gitUserName: opts.gitUserName,
     gitUserEmail: opts.gitUserEmail,
-    ghToken: opts.ghToken
+    ghToken: opts.ghToken,
+    agentUpstream: opts.agentUpstream
   };
   checkConfig(partialOpts);
   await claude_exports.invent(partialOpts);
 });
-program.command("amend").description("Amend an existing ObjectiveAI Function").argument("[spec]", "Amendment spec to append to SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).action(async (spec, opts) => {
+program.command("amend").description("Amend an existing ObjectiveAI Function").argument("[spec]", "Amendment spec to append to SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).action(async (spec, opts) => {
   const partialOpts = {
     spec,
     name: opts.name,
@@ -6558,7 +6569,8 @@ program.command("amend").description("Amend an existing ObjectiveAI Function").a
     apiKey: opts.apiKey,
     gitUserName: opts.gitUserName,
     gitUserEmail: opts.gitUserEmail,
-    ghToken: opts.ghToken
+    ghToken: opts.ghToken,
+    agentUpstream: opts.agentUpstream
   };
   checkConfig(partialOpts);
   await claude_exports.amend(partialOpts);
@@ -6657,6 +6669,13 @@ function validateGhToken(value) {
     return "GitHub token is not valid (authentication failed).";
   }
 }
+function validateAgentUpstream(value) {
+  const validUpstreams = ["claude"];
+  if (!validUpstreams.includes(value)) {
+    return `Invalid agent upstream. Valid values: ${validUpstreams.join(", ")}`;
+  }
+  return null;
+}
 function setAndReport(configKey, value, project, validate) {
   const error = validate(value);
   if (error) {
@@ -6679,6 +6698,7 @@ configCmd.action(() => {
   const gitUserName = resolveGitUserName();
   const gitUserEmail = resolveGitUserEmail();
   const ghToken = resolveGhToken();
+  const agentUpstream = resolveAgentUpstream();
   console.log(`${BOLD2}Current Configuration${RESET2}
 `);
   console.log(formatRow("ObjectiveAI API Base", apiBase));
@@ -6686,6 +6706,7 @@ configCmd.action(() => {
   console.log(formatRow("Git User Name", gitUserName));
   console.log(formatRow("Git User Email", gitUserEmail));
   console.log(formatRow("GitHub Token", ghToken, true));
+  console.log(formatRow("Agent Upstream", agentUpstream));
   console.log(`
 ${BOLD2}Configuration Sources${RESET2} (highest to lowest priority)
 `);
@@ -6702,6 +6723,7 @@ ${BOLD2}Commands${RESET2}
   console.log("  objectiveai config gitUserName  Show git user name");
   console.log("  objectiveai config gitUserEmail Show git user email");
   console.log("  objectiveai config ghToken      Show GitHub token");
+  console.log("  objectiveai config agentUpstream Show agent upstream");
   console.log("");
 });
 configCmd.command("apiBase").description("Show or set ObjectiveAI API base URL").argument("[value]", "URL to set").option("--project", "Write to project config instead of user config").action((value, opts) => {
@@ -6798,6 +6820,25 @@ configCmd.command("ghToken").description("Show or set GitHub token").argument("[
       ],
       "ghToken",
       true
+    );
+  }
+});
+configCmd.command("agentUpstream").description("Show or set agent upstream").argument("[value]", "Agent upstream to set (e.g. claude)").option("--project", "Write to project config instead of user config").action((value, opts) => {
+  if (value) {
+    setAndReport("agentUpstream", value, !!opts.project, validateAgentUpstream);
+  } else {
+    showConfigDetail(
+      "Agent Upstream",
+      resolveAgentUpstream(),
+      "Upstream agent provider for function generation and amendment.",
+      [
+        { label: "CLI flag: --agent-upstream <upstream>", key: "flag" },
+        { label: "Environment variable: OBJECTIVEAI_AGENT_UPSTREAM", key: "env OBJECTIVEAI_AGENT_UPSTREAM" },
+        { label: ".objectiveai/config.json (project)", key: "project" },
+        { label: "~/.objectiveai/config.json (user)", key: "user config" },
+        { label: "Default: claude", key: "default" }
+      ],
+      "agentUpstream"
     );
   }
 });

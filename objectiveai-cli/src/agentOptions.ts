@@ -19,6 +19,7 @@ export interface AgentOptions {
   gitUserName: string;
   gitUserEmail: string;
   ghToken: string;
+  agentUpstream: string;
   onChildEvent?: (evt: AgentEvent) => void;
 }
 
@@ -128,6 +129,15 @@ export function resolveGhToken(override?: string, config?: ConfigJson): Resolved
   return { value: undefined, source: "not set" };
 }
 
+export function resolveAgentUpstream(override?: string, config?: ConfigJson): ResolvedValue {
+  const cfg = config ?? getConfig();
+  if (override) return { value: override, source: "flag" };
+  const env = readEnv("OBJECTIVEAI_AGENT_UPSTREAM");
+  if (env) return { value: env, source: "env OBJECTIVEAI_AGENT_UPSTREAM" };
+  if (cfg.agentUpstream) return { value: cfg.agentUpstream, source: configSource("agentUpstream", config) };
+  return { value: "claude", source: "default" };
+}
+
 export function checkConfig(options: Partial<AgentOptions> = {}): void {
   const problems: string[] = [];
 
@@ -224,6 +234,8 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
   }
   const ghToken = ghTokenResult.value;
 
+  const agentUpstream = resolveAgentUpstream(options.agentUpstream, config).value!;
+
   const sessionId = options.sessionId ?? readSession();
 
   return {
@@ -238,5 +250,6 @@ export function makeAgentOptions(options: Partial<AgentOptions> = {}): AgentOpti
     gitUserName,
     gitUserEmail,
     ghToken,
+    agentUpstream,
   };
 }

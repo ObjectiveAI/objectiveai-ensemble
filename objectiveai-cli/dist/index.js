@@ -309,6 +309,14 @@ function resolveGhToken(override, config) {
   if (cfg.ghToken) return { value: cfg.ghToken, source: configSource("ghToken", config) };
   return { value: void 0, source: "not set" };
 }
+function resolveAgentUpstream(override, config) {
+  const cfg = config ?? getConfig();
+  if (override) return { value: override, source: "flag" };
+  const env = readEnv("OBJECTIVEAI_AGENT_UPSTREAM");
+  if (env) return { value: env, source: "env OBJECTIVEAI_AGENT_UPSTREAM" };
+  if (cfg.agentUpstream) return { value: cfg.agentUpstream, source: configSource("agentUpstream", config) };
+  return { value: "claude", source: "default" };
+}
 function checkConfig(options = {}) {
   const problems = [];
   if (!isGitAvailable()) {
@@ -391,6 +399,7 @@ function makeAgentOptions(options = {}) {
     throw new Error("GitHub token is required. Set GH_TOKEN or pass ghToken.");
   }
   const ghToken = ghTokenResult.value;
+  const agentUpstream = resolveAgentUpstream(options.agentUpstream, config).value;
   const sessionId = options.sessionId ?? readSession();
   return {
     ...options,
@@ -403,7 +412,8 @@ function makeAgentOptions(options = {}) {
     maxWidth,
     gitUserName,
     gitUserEmail,
-    ghToken
+    ghToken,
+    agentUpstream
   };
 }
 
@@ -6699,4 +6709,30 @@ __export(tools_exports, {
   runNetworkTests: () => runNetworkTests
 });
 
-export { claude_exports as Claude, ExampleInputSchema, ExampleInputsSchema, SpawnFunctionAgentsParamsSchema, tools_exports as Tools, checkConfig, consumeStream, createChildLogger, createFileLogger, createRootLogger, formatMessage, getLatestLogPath, init, isGhAvailable, isGitAvailable, makeAgentOptions, resolveApiBase, resolveApiKey, resolveGhToken, resolveGitUserEmail, resolveGitUserName };
+// src/index.ts
+async function invent2(partialOptions = {}) {
+  const { agentUpstream } = partialOptions;
+  const resolvedUpstream = agentUpstream ?? "claude";
+  if (resolvedUpstream === "claude") {
+    return invent(partialOptions);
+  }
+  throw new Error(`Unknown agent upstream: ${resolvedUpstream}`);
+}
+async function amend2(partialOptions = {}) {
+  const { agentUpstream } = partialOptions;
+  const resolvedUpstream = agentUpstream ?? "claude";
+  if (resolvedUpstream === "claude") {
+    return amend(partialOptions);
+  }
+  throw new Error(`Unknown agent upstream: ${resolvedUpstream}`);
+}
+async function dryrun2(partialOptions = {}) {
+  const { agentUpstream } = partialOptions;
+  const resolvedUpstream = agentUpstream ?? "claude";
+  if (resolvedUpstream === "claude") {
+    return dryrun();
+  }
+  throw new Error(`Unknown agent upstream: ${resolvedUpstream}`);
+}
+
+export { claude_exports as Claude, ExampleInputSchema, ExampleInputsSchema, SpawnFunctionAgentsParamsSchema, tools_exports as Tools, amend2 as amend, checkConfig, consumeStream, createChildLogger, createFileLogger, createRootLogger, dryrun2 as dryrun, formatMessage, getLatestLogPath, init, invent2 as invent, isGhAvailable, isGitAvailable, makeAgentOptions, resolveAgentUpstream, resolveApiBase, resolveApiKey, resolveGhToken, resolveGitUserEmail, resolveGitUserName };

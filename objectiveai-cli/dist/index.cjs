@@ -315,6 +315,14 @@ function resolveGhToken(override, config) {
   if (cfg.ghToken) return { value: cfg.ghToken, source: configSource("ghToken", config) };
   return { value: void 0, source: "not set" };
 }
+function resolveAgentUpstream(override, config) {
+  const cfg = config ?? getConfig();
+  if (override) return { value: override, source: "flag" };
+  const env = readEnv("OBJECTIVEAI_AGENT_UPSTREAM");
+  if (env) return { value: env, source: "env OBJECTIVEAI_AGENT_UPSTREAM" };
+  if (cfg.agentUpstream) return { value: cfg.agentUpstream, source: configSource("agentUpstream", config) };
+  return { value: "claude", source: "default" };
+}
 function checkConfig(options = {}) {
   const problems = [];
   if (!isGitAvailable()) {
@@ -397,6 +405,7 @@ function makeAgentOptions(options = {}) {
     throw new Error("GitHub token is required. Set GH_TOKEN or pass ghToken.");
   }
   const ghToken = ghTokenResult.value;
+  const agentUpstream = resolveAgentUpstream(options.agentUpstream, config).value;
   const sessionId = options.sessionId ?? readSession();
   return {
     ...options,
@@ -409,7 +418,8 @@ function makeAgentOptions(options = {}) {
     maxWidth,
     gitUserName,
     gitUserEmail,
-    ghToken
+    ghToken,
+    agentUpstream
   };
 }
 
@@ -6705,22 +6715,52 @@ __export(tools_exports, {
   runNetworkTests: () => runNetworkTests
 });
 
+// src/index.ts
+async function invent2(partialOptions = {}) {
+  const { agentUpstream } = partialOptions;
+  const resolvedUpstream = agentUpstream ?? "claude";
+  if (resolvedUpstream === "claude") {
+    return invent(partialOptions);
+  }
+  throw new Error(`Unknown agent upstream: ${resolvedUpstream}`);
+}
+async function amend2(partialOptions = {}) {
+  const { agentUpstream } = partialOptions;
+  const resolvedUpstream = agentUpstream ?? "claude";
+  if (resolvedUpstream === "claude") {
+    return amend(partialOptions);
+  }
+  throw new Error(`Unknown agent upstream: ${resolvedUpstream}`);
+}
+async function dryrun2(partialOptions = {}) {
+  const { agentUpstream } = partialOptions;
+  const resolvedUpstream = agentUpstream ?? "claude";
+  if (resolvedUpstream === "claude") {
+    return dryrun();
+  }
+  throw new Error(`Unknown agent upstream: ${resolvedUpstream}`);
+}
+
 exports.Claude = claude_exports;
 exports.ExampleInputSchema = ExampleInputSchema;
 exports.ExampleInputsSchema = ExampleInputsSchema;
 exports.SpawnFunctionAgentsParamsSchema = SpawnFunctionAgentsParamsSchema;
 exports.Tools = tools_exports;
+exports.amend = amend2;
 exports.checkConfig = checkConfig;
 exports.consumeStream = consumeStream;
 exports.createChildLogger = createChildLogger;
 exports.createFileLogger = createFileLogger;
 exports.createRootLogger = createRootLogger;
+exports.dryrun = dryrun2;
 exports.formatMessage = formatMessage;
 exports.getLatestLogPath = getLatestLogPath;
 exports.init = init;
+exports.invent = invent2;
 exports.isGhAvailable = isGhAvailable;
 exports.isGitAvailable = isGitAvailable;
 exports.makeAgentOptions = makeAgentOptions;
+exports.resolveAgentUpstream = resolveAgentUpstream;
 exports.resolveApiBase = resolveApiBase;
 exports.resolveApiKey = resolveApiKey;
 exports.resolveGhToken = resolveGhToken;

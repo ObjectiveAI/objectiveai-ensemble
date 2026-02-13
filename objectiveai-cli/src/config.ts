@@ -8,6 +8,7 @@ export interface ConfigJson {
   gitUserName?: string;
   gitUserEmail?: string;
   ghToken?: string;
+  agentUpstream?: string;
 }
 
 function readConfigFile(dir: string): ConfigJson | undefined {
