@@ -177,13 +177,14 @@ import {
 } from "../../tools/claude/agentFunctions";
 
 // Common tools shared by both variants
-function getCommonTools(state: ToolState) {
+function getCommonTools(state: ToolState, useFunctionTasks: boolean) {
   registerSchemaRefs();
 
-  // For scalar functions, hide vector-only tools if the field hasn't been set
+  // Conditionally hide tools that aren't relevant for the current function type
   const fnType = readType();
   const isScalar = fnType.ok && fnType.value === "scalar.function";
-  const includeInputMaps = !isScalar || !isDefaultInputMaps();
+  const isVector = fnType.ok && fnType.value === "vector.function";
+  const includeInputMaps = !isDefaultInputMaps() || (isVector && useFunctionTasks);
   const includeInputSplit = !isScalar || !isDefaultInputSplit();
   const includeInputMerge = !isScalar || !isDefaultInputMerge();
   const includeOutputLength = !isScalar || !isDefaultOutputLength();
@@ -493,7 +494,7 @@ async function inventLoop(
 
     // Build tools list
     const tools = [
-      ...getCommonTools(state),
+      ...getCommonTools(state, useFunctionTasks),
       ...(useFunctionTasks ? getFunctionTasksTools(state) : []),
     ];
     const mcpServer = createSdkMcpServer({ name: "invent", tools });

@@ -5348,11 +5348,12 @@ function makeReadAgentFunction(state) {
 }
 
 // src/claude/invent/inventMcp.ts
-function getCommonTools(state) {
+function getCommonTools(state, useFunctionTasks) {
   registerSchemaRefs();
   const fnType = readType();
   const isScalar = fnType.ok && fnType.value === "scalar.function";
-  const includeInputMaps = !isScalar || !isDefaultInputMaps();
+  const isVector = fnType.ok && fnType.value === "vector.function";
+  const includeInputMaps = !isDefaultInputMaps() || isVector && useFunctionTasks;
   const includeInputSplit = !isScalar || !isDefaultInputSplit();
   const includeInputMerge = !isScalar || !isDefaultInputMerge();
   const includeOutputLength = !isScalar || !isDefaultOutputLength();
@@ -5635,7 +5636,7 @@ async function inventLoop(state, log, useFunctionTasks, sessionId, model) {
     attempt++;
     log(`Invent loop attempt ${attempt}/${maxAttempts}`);
     const tools = [
-      ...getCommonTools(state),
+      ...getCommonTools(state, useFunctionTasks),
       ...useFunctionTasks ? getFunctionTasksTools(state) : []
     ];
     const mcpServer = claudeAgentSdk.createSdkMcpServer({ name: "invent", tools });
@@ -6067,11 +6068,12 @@ function makeAmendFunctionAgents(state) {
 }
 
 // src/claude/amend/amendMcp.ts
-function getCommonTools2(state) {
+function getCommonTools2(state, useFunctionTasks) {
   registerSchemaRefs();
   const fnType = readType();
   const isScalar = fnType.ok && fnType.value === "scalar.function";
-  const includeInputMaps = !isScalar || !isDefaultInputMaps();
+  const isVector = fnType.ok && fnType.value === "vector.function";
+  const includeInputMaps = !isDefaultInputMaps() || isVector && useFunctionTasks;
   const includeInputSplit = !isScalar || !isDefaultInputSplit();
   const includeInputMerge = !isScalar || !isDefaultInputMerge();
   const includeOutputLength = !isScalar || !isDefaultOutputLength();
@@ -6333,7 +6335,7 @@ async function amendLoop(state, log, useFunctionTasks, amendment, sessionId, mod
     attempt++;
     log(`Amend loop attempt ${attempt}/${maxAttempts}`);
     const tools = [
-      ...getCommonTools2(state),
+      ...getCommonTools2(state, useFunctionTasks),
       ...useFunctionTasks ? getFunctionTasksTools2(state) : []
     ];
     const mcpServer = claudeAgentSdk.createSdkMcpServer({ name: "amend", tools });
