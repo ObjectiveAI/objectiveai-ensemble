@@ -792,13 +792,25 @@ impl FromStarlarkValue for crate::chat::completions::request::MessageExpression 
                     .ok()
                     .flatten()
                     .map(super::WithExpression::Value);
+                let name = dict_get(&dict, "name")
+                    .map(|v| Option::<String>::from_starlark_value(&v))
+                    .transpose()
+                    .ok()
+                    .flatten()
+                    .map(super::WithExpression::Value);
+                let refusal = dict_get(&dict, "refusal")
+                    .map(|v| Option::<String>::from_starlark_value(&v))
+                    .transpose()
+                    .ok()
+                    .flatten()
+                    .map(super::WithExpression::Value);
                 Ok(crate::chat::completions::request::MessageExpression::Assistant(
                     crate::chat::completions::request::AssistantMessageExpression {
                         content,
-                        name: None,
+                        name,
                         tool_calls: None,
                         reasoning: None,
-                        refusal: None,
+                        refusal,
                     },
                 ))
             }
