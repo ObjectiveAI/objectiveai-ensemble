@@ -964,6 +964,41 @@ function delInputMap(index) {
   }
   return { ok: true, value: `new length: ${newInputMaps.length}`, error: void 0 };
 }
+function editInputMap(index, value) {
+  const fn = readFunction();
+  if (!fn.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Unable to edit input_map: ${fn.error}`
+    };
+  }
+  if (!Array.isArray(fn.value.input_maps)) {
+    return {
+      ok: false,
+      value: void 0,
+      error: "Unable to edit input_map: input_maps is not an array"
+    };
+  }
+  if (index < 0 || index >= fn.value.input_maps.length) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Unable to edit input_map: index ${index} is out of bounds (length ${fn.value.input_maps.length})`
+    };
+  }
+  const newInputMaps = [...fn.value.input_maps];
+  newInputMaps[index] = value;
+  const result = validateInputMaps({ input_maps: newInputMaps });
+  if (!result.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Invalid input_maps after edit: ${result.error}`
+    };
+  }
+  return editFunction({ input_maps: result.value });
+}
 function isDefaultInputMaps() {
   const result = readInputMaps();
   const v = result.ok ? result.value : void 0;
@@ -1178,6 +1213,21 @@ function validateTasks(fn) {
       };
     }
     seen.add(idx);
+  }
+  if (mapIndices.length > 0) {
+    const fn2 = readFunction();
+    if (fn2.ok && Array.isArray(fn2.value.input_maps)) {
+      const inputMapsLength = fn2.value.input_maps.length;
+      for (const idx of mapIndices) {
+        if (idx >= inputMapsLength) {
+          return {
+            ok: false,
+            value: void 0,
+            error: `Map index ${idx} is out of bounds: input_maps has ${inputMapsLength} entries (indices 0-${inputMapsLength - 1}).`
+          };
+        }
+      }
+    }
   }
   return { ok: true, value: parsed.data, error: void 0 };
 }
@@ -3865,6 +3915,18 @@ function makeReadInputMapsSchema(state) {
     async () => textResult(formatZodSchema(readInputMapsSchema()))
   );
 }
+function makeEditInputMap(state) {
+  return tool(
+    "EditInputMap",
+    "Replace an input map at a specific index in the Function's `input_maps` array",
+    { index: z18.int().nonnegative(), value: z18.unknown() },
+    async ({ index, value }) => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(editInputMap(index, value));
+    }
+  );
+}
 function makeAppendInputMap(state) {
   return tool(
     "AppendInputMap",
@@ -5089,6 +5151,12 @@ function makeReadAgentFunction(state) {
 // src/claude/invent/inventMcp.ts
 function getCommonTools(state) {
   registerSchemaRefs();
+  const fnType = readType();
+  const isScalar = fnType.ok && fnType.value === "scalar.function";
+  const includeInputMaps = !isScalar || !isDefaultInputMaps();
+  const includeInputSplit = !isScalar || !isDefaultInputSplit();
+  const includeInputMerge = !isScalar || !isDefaultInputMerge();
+  const includeOutputLength = !isScalar || !isDefaultOutputLength();
   return [
     // Core Context
     makeReadSpec(state),
@@ -5113,27 +5181,36 @@ function getCommonTools(state) {
     makeReadInputSchemaSchema(),
     makeEditInputSchema(state),
     makeCheckInputSchema(),
-    makeReadInputMaps(state),
-    makeReadInputMapsSchema(),
-    makeAppendInputMap(state),
-    makeDelInputMap(state),
-    makeDelInputMaps(state),
-    makeCheckInputMaps(),
-    makeReadOutputLength(state),
-    makeReadOutputLengthSchema(),
-    makeEditOutputLength(state),
-    makeDelOutputLength(state),
-    makeCheckOutputLength(),
-    makeReadInputSplit(state),
-    makeReadInputSplitSchema(),
-    makeEditInputSplit(state),
-    makeDelInputSplit(state),
-    makeCheckInputSplit(),
-    makeReadInputMerge(state),
-    makeReadInputMergeSchema(),
-    makeEditInputMerge(state),
-    makeDelInputMerge(state),
-    makeCheckInputMerge(),
+    ...includeInputMaps ? [
+      makeReadInputMaps(state),
+      makeReadInputMapsSchema(),
+      makeEditInputMap(state),
+      makeAppendInputMap(state),
+      makeDelInputMap(state),
+      makeDelInputMaps(state),
+      makeCheckInputMaps()
+    ] : [],
+    ...includeOutputLength ? [
+      makeReadOutputLength(state),
+      makeReadOutputLengthSchema(),
+      makeEditOutputLength(state),
+      makeDelOutputLength(state),
+      makeCheckOutputLength()
+    ] : [],
+    ...includeInputSplit ? [
+      makeReadInputSplit(state),
+      makeReadInputSplitSchema(),
+      makeEditInputSplit(state),
+      makeDelInputSplit(state),
+      makeCheckInputSplit()
+    ] : [],
+    ...includeInputMerge ? [
+      makeReadInputMerge(state),
+      makeReadInputMergeSchema(),
+      makeEditInputMerge(state),
+      makeDelInputMerge(state),
+      makeCheckInputMerge()
+    ] : [],
     makeReadTasks(state),
     makeReadTasksSchema(),
     makeAppendTask(state),
@@ -5793,6 +5870,12 @@ function makeAmendFunctionAgents(state) {
 // src/claude/amend/amendMcp.ts
 function getCommonTools2(state) {
   registerSchemaRefs();
+  const fnType = readType();
+  const isScalar = fnType.ok && fnType.value === "scalar.function";
+  const includeInputMaps = !isScalar || !isDefaultInputMaps();
+  const includeInputSplit = !isScalar || !isDefaultInputSplit();
+  const includeInputMerge = !isScalar || !isDefaultInputMerge();
+  const includeOutputLength = !isScalar || !isDefaultOutputLength();
   return [
     // Core Context
     makeReadSpec(state),
@@ -5817,27 +5900,36 @@ function getCommonTools2(state) {
     makeReadInputSchemaSchema(),
     makeEditInputSchema(state),
     makeCheckInputSchema(),
-    makeReadInputMaps(state),
-    makeReadInputMapsSchema(),
-    makeAppendInputMap(state),
-    makeDelInputMap(state),
-    makeDelInputMaps(state),
-    makeCheckInputMaps(),
-    makeReadOutputLength(state),
-    makeReadOutputLengthSchema(),
-    makeEditOutputLength(state),
-    makeDelOutputLength(state),
-    makeCheckOutputLength(),
-    makeReadInputSplit(state),
-    makeReadInputSplitSchema(),
-    makeEditInputSplit(state),
-    makeDelInputSplit(state),
-    makeCheckInputSplit(),
-    makeReadInputMerge(state),
-    makeReadInputMergeSchema(),
-    makeEditInputMerge(state),
-    makeDelInputMerge(state),
-    makeCheckInputMerge(),
+    ...includeInputMaps ? [
+      makeReadInputMaps(state),
+      makeReadInputMapsSchema(),
+      makeEditInputMap(state),
+      makeAppendInputMap(state),
+      makeDelInputMap(state),
+      makeDelInputMaps(state),
+      makeCheckInputMaps()
+    ] : [],
+    ...includeOutputLength ? [
+      makeReadOutputLength(state),
+      makeReadOutputLengthSchema(),
+      makeEditOutputLength(state),
+      makeDelOutputLength(state),
+      makeCheckOutputLength()
+    ] : [],
+    ...includeInputSplit ? [
+      makeReadInputSplit(state),
+      makeReadInputSplitSchema(),
+      makeEditInputSplit(state),
+      makeDelInputSplit(state),
+      makeCheckInputSplit()
+    ] : [],
+    ...includeInputMerge ? [
+      makeReadInputMerge(state),
+      makeReadInputMergeSchema(),
+      makeEditInputMerge(state),
+      makeDelInputMerge(state),
+      makeCheckInputMerge()
+    ] : [],
     makeReadTasks(state),
     makeReadTasksSchema(),
     makeAppendTask(state),

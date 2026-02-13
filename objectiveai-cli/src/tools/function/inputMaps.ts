@@ -117,6 +117,45 @@ export function delInputMap(index: number): Result<string> {
   return { ok: true, value: `new length: ${newInputMaps.length}`, error: undefined };
 }
 
+export function editInputMap(index: number, value: unknown): Result<undefined> {
+  const fn = readFunction();
+  if (!fn.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to edit input_map: ${fn.error}`,
+    };
+  }
+
+  if (!Array.isArray(fn.value.input_maps)) {
+    return {
+      ok: false,
+      value: undefined,
+      error: "Unable to edit input_map: input_maps is not an array",
+    };
+  }
+  if (index < 0 || index >= fn.value.input_maps.length) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Unable to edit input_map: index ${index} is out of bounds (length ${fn.value.input_maps.length})`,
+    };
+  }
+
+  const newInputMaps = [...fn.value.input_maps];
+  newInputMaps[index] = value;
+
+  const result = validateInputMaps({ input_maps: newInputMaps });
+  if (!result.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Invalid input_maps after edit: ${result.error}`,
+    };
+  }
+  return editFunction({ input_maps: result.value });
+}
+
 export function isDefaultInputMaps(): boolean {
   const result = readInputMaps();
   const v = result.ok ? result.value : undefined;

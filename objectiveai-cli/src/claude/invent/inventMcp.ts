@@ -48,6 +48,7 @@ import {
 import {
   makeReadInputMaps,
   makeReadInputMapsSchema,
+  makeEditInputMap,
   makeAppendInputMap,
   makeDelInputMap,
   makeDelInputMaps,
@@ -157,6 +158,13 @@ import { makeReadReadme, makeWriteReadme } from "../../tools/claude/readme";
 // Tools - submit
 import { makeSubmit } from "../../tools/claude/submit";
 
+// Function-layer reads for conditional tool inclusion
+import { readType } from "../../tools/function/type";
+import { isDefaultInputMaps } from "../../tools/function/inputMaps";
+import { isDefaultInputSplit } from "../../tools/function/inputSplit";
+import { isDefaultInputMerge } from "../../tools/function/inputMerge";
+import { isDefaultOutputLength } from "../../tools/function/outputLength";
+
 // Plan
 import { planMcp } from "./planMcp";
 
@@ -171,6 +179,15 @@ import {
 // Common tools shared by both variants
 function getCommonTools(state: ToolState) {
   registerSchemaRefs();
+
+  // For scalar functions, hide vector-only tools if the field hasn't been set
+  const fnType = readType();
+  const isScalar = fnType.ok && fnType.value === "scalar.function";
+  const includeInputMaps = !isScalar || !isDefaultInputMaps();
+  const includeInputSplit = !isScalar || !isDefaultInputSplit();
+  const includeInputMerge = !isScalar || !isDefaultInputMerge();
+  const includeOutputLength = !isScalar || !isDefaultOutputLength();
+
   return [
     // Core Context
     makeReadSpec(state),
@@ -196,27 +213,36 @@ function getCommonTools(state: ToolState) {
     makeReadInputSchemaSchema(state),
     makeEditInputSchema(state),
     makeCheckInputSchema(state),
-    makeReadInputMaps(state),
-    makeReadInputMapsSchema(state),
-    makeAppendInputMap(state),
-    makeDelInputMap(state),
-    makeDelInputMaps(state),
-    makeCheckInputMaps(state),
-    makeReadOutputLength(state),
-    makeReadOutputLengthSchema(state),
-    makeEditOutputLength(state),
-    makeDelOutputLength(state),
-    makeCheckOutputLength(state),
-    makeReadInputSplit(state),
-    makeReadInputSplitSchema(state),
-    makeEditInputSplit(state),
-    makeDelInputSplit(state),
-    makeCheckInputSplit(state),
-    makeReadInputMerge(state),
-    makeReadInputMergeSchema(state),
-    makeEditInputMerge(state),
-    makeDelInputMerge(state),
-    makeCheckInputMerge(state),
+    ...(includeInputMaps ? [
+      makeReadInputMaps(state),
+      makeReadInputMapsSchema(state),
+      makeEditInputMap(state),
+      makeAppendInputMap(state),
+      makeDelInputMap(state),
+      makeDelInputMaps(state),
+      makeCheckInputMaps(state),
+    ] : []),
+    ...(includeOutputLength ? [
+      makeReadOutputLength(state),
+      makeReadOutputLengthSchema(state),
+      makeEditOutputLength(state),
+      makeDelOutputLength(state),
+      makeCheckOutputLength(state),
+    ] : []),
+    ...(includeInputSplit ? [
+      makeReadInputSplit(state),
+      makeReadInputSplitSchema(state),
+      makeEditInputSplit(state),
+      makeDelInputSplit(state),
+      makeCheckInputSplit(state),
+    ] : []),
+    ...(includeInputMerge ? [
+      makeReadInputMerge(state),
+      makeReadInputMergeSchema(state),
+      makeEditInputMerge(state),
+      makeDelInputMerge(state),
+      makeCheckInputMerge(state),
+    ] : []),
     makeReadTasks(state),
     makeReadTasksSchema(state),
     makeAppendTask(state),

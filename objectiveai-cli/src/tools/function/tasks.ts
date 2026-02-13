@@ -225,6 +225,23 @@ export function validateTasks(fn: DeserializedFunction): Result<Tasks> {
     seen.add(idx);
   }
 
+  // Check map indices reference existing input_maps entries
+  if (mapIndices.length > 0) {
+    const fn = readFunction();
+    if (fn.ok && Array.isArray(fn.value.input_maps)) {
+      const inputMapsLength = fn.value.input_maps.length;
+      for (const idx of mapIndices) {
+        if (idx >= inputMapsLength) {
+          return {
+            ok: false,
+            value: undefined,
+            error: `Map index ${idx} is out of bounds: input_maps has ${inputMapsLength} entries (indices 0-${inputMapsLength - 1}).`,
+          };
+        }
+      }
+    }
+  }
+
   return { ok: true, value: parsed.data, error: undefined };
 }
 

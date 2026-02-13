@@ -5,6 +5,7 @@ import {
   checkInputMaps,
   delInputMap,
   delInputMaps,
+  editInputMap,
   editInputMaps,
   readInputMaps,
   readInputMapsSchema,
@@ -43,6 +44,19 @@ export function makeEditInputMaps(state: ToolState) {
       const err = mustRead(state.hasReadInputMaps, "input_maps");
       if (err) return errorResult(err);
       return resultFromResult(editInputMaps(value));
+    },
+  );
+}
+
+export function makeEditInputMap(state: ToolState) {
+  return tool(
+    "EditInputMap",
+    "Replace an input map at a specific index in the Function's `input_maps` array",
+    { index: z.int().nonnegative(), value: z.unknown() },
+    async ({ index, value }) => {
+      const err = mustRead(state.hasReadInputMaps, "input_maps");
+      if (err) return errorResult(err);
+      return resultFromResult(editInputMap(index, value));
     },
   );
 }
