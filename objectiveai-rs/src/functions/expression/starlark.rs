@@ -1,5 +1,4 @@
 //! Starlark expression evaluation engine.
-//! by nityam
 //! Provides a sandboxed Starlark runtime for evaluating expressions.
 //! Variables `input`, `output`, and `map` are injected into the global scope.
 
