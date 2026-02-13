@@ -8,13 +8,13 @@ interface AgentPanel {
 export class Dashboard {
   private panels: Map<string, AgentPanel> = new Map();
   private knownNames: Set<string> = new Set();
-  private lastRenderedHeight = 0;
   private maxLines: number;
   private dirty = false;
   private renderTimer: ReturnType<typeof setTimeout> | null = null;
   private headerLines: string[] = [];
   private inputBuffer = "";
   private inputEnabled = false;
+  private altScreen = false;
 
   /** Called when the user presses Enter with a non-empty line */
   onInputSubmit?: (line: string) => void;
@@ -23,6 +23,11 @@ export class Dashboard {
     this.maxLines = maxLines;
     // Create root panel
     this.panels.set("", { name: "unnamed function", lines: [] });
+    // Enter alternate screen buffer
+    process.stdout.write("\x1b[?1049h");
+    // Hide cursor
+    process.stdout.write("\x1b[?25l");
+    this.altScreen = true;
   }
 
   setHeader(lines: string[]): void {
@@ -209,19 +214,16 @@ export class Dashboard {
       out.push(`\x1b[2m>\x1b[0m ${this.inputBuffer}`);
     }
 
-    // When input is enabled, omit trailing newline so cursor stays at end of input
-    const hasInput = this.inputEnabled;
-    const output = hasInput ? out.join("\n") : out.join("\n") + "\n";
-    // Lines to move up on next render to reach the start of output
-    const newHeight = hasInput ? out.length - 1 : out.length;
+    const output = out.join("\n");
 
-    // Clear previous render
-    if (this.lastRenderedHeight > 0) {
-      process.stdout.write(`\x1b[${this.lastRenderedHeight}A\r\x1b[0J`);
-    }
-
+    // Move cursor to top-left and clear screen
+    process.stdout.write("\x1b[H\x1b[0J");
     process.stdout.write(output);
-    this.lastRenderedHeight = newHeight;
+
+    // Show cursor only on the input line
+    if (this.inputEnabled) {
+      process.stdout.write("\x1b[?25h");
+    }
   }
 
   findPathByName(name: string): string | undefined {
@@ -241,6 +243,13 @@ export class Dashboard {
     if (this.renderTimer) {
       clearTimeout(this.renderTimer);
       this.renderTimer = null;
+    }
+    // Show cursor
+    process.stdout.write("\x1b[?25h");
+    // Leave alternate screen buffer
+    if (this.altScreen) {
+      process.stdout.write("\x1b[?1049l");
+      this.altScreen = false;
     }
   }
 }

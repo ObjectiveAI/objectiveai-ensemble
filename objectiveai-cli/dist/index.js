@@ -6250,18 +6250,21 @@ function getNextPlanIndex() {
 var Dashboard = class {
   panels = /* @__PURE__ */ new Map();
   knownNames = /* @__PURE__ */ new Set();
-  lastRenderedHeight = 0;
   maxLines;
   dirty = false;
   renderTimer = null;
   headerLines = [];
   inputBuffer = "";
   inputEnabled = false;
+  altScreen = false;
   /** Called when the user presses Enter with a non-empty line */
   onInputSubmit;
   constructor(maxLines = 5) {
     this.maxLines = maxLines;
     this.panels.set("", { name: "unnamed function", lines: [] });
+    process.stdout.write("\x1B[?1049h");
+    process.stdout.write("\x1B[?25l");
+    this.altScreen = true;
   }
   setHeader(lines) {
     this.headerLines = lines;
@@ -6406,14 +6409,12 @@ var Dashboard = class {
       out.push("");
       out.push(`\x1B[2m>\x1B[0m ${this.inputBuffer}`);
     }
-    const hasInput = this.inputEnabled;
-    const output = hasInput ? out.join("\n") : out.join("\n") + "\n";
-    const newHeight = hasInput ? out.length - 1 : out.length;
-    if (this.lastRenderedHeight > 0) {
-      process.stdout.write(`\x1B[${this.lastRenderedHeight}A\r\x1B[0J`);
-    }
+    const output = out.join("\n");
+    process.stdout.write("\x1B[H\x1B[0J");
     process.stdout.write(output);
-    this.lastRenderedHeight = newHeight;
+    if (this.inputEnabled) {
+      process.stdout.write("\x1B[?25h");
+    }
   }
   findPathByName(name) {
     for (const [path] of this.panels) {
@@ -6430,6 +6431,11 @@ var Dashboard = class {
     if (this.renderTimer) {
       clearTimeout(this.renderTimer);
       this.renderTimer = null;
+    }
+    process.stdout.write("\x1B[?25h");
+    if (this.altScreen) {
+      process.stdout.write("\x1B[?1049l");
+      this.altScreen = false;
     }
   }
 };

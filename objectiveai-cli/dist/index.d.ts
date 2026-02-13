@@ -58319,13 +58319,13 @@ declare function init(options: AgentOptions): Promise<void>;
 declare class Dashboard {
     private panels;
     private knownNames;
-    private lastRenderedHeight;
     private maxLines;
     private dirty;
     private renderTimer;
     private headerLines;
     private inputBuffer;
     private inputEnabled;
+    private altScreen;
     /** Called when the user presses Enter with a non-empty line */
     onInputSubmit?: (line: string) => void;
     constructor(maxLines?: number);
