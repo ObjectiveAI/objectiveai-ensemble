@@ -63,6 +63,16 @@ export function checkTasks(fn?: DeserializedFunction): Result<undefined> {
     };
   }
 
+  // Width constraints are only checked here (not during mutations)
+  const widthResult = validateTasksWidth(result.value);
+  if (!widthResult.ok) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `tasks is invalid: ${widthResult.error}`,
+    };
+  }
+
   return { ok: true, value: undefined, error: undefined };
 }
 
@@ -193,6 +203,7 @@ export function isDefaultTasks(): boolean {
   return v === undefined || (Array.isArray(v) && v.length === 0);
 }
 
+/** Validate task schema and map indices (used by all mutation tools). */
 export function validateTasks(fn: DeserializedFunction): Result<Tasks> {
   const parsed = TasksSchema.safeParse(fn.tasks);
   if (!parsed.success) {
@@ -214,27 +225,32 @@ export function validateTasks(fn: DeserializedFunction): Result<Tasks> {
     seen.add(idx);
   }
 
-  // Enforce min_width/max_width from parameters.json
-  const paramsRaw = readParameters();
-  if (paramsRaw.ok) {
-    const paramsResult = validateParameters(paramsRaw.value);
-    if (paramsResult.ok) {
-      if (parsed.data.length < paramsResult.value.min_width) {
-        return {
-          ok: false,
-          value: undefined,
-          error: `Too few tasks: ${parsed.data.length} is below min_width of ${paramsResult.value.min_width}`,
-        };
-      }
-      if (parsed.data.length > paramsResult.value.max_width) {
-        return {
-          ok: false,
-          value: undefined,
-          error: `Too many tasks: ${parsed.data.length} exceeds max_width of ${paramsResult.value.max_width}`,
-        };
-      }
-    }
-  }
-
   return { ok: true, value: parsed.data, error: undefined };
+}
+
+/** Validate min_width/max_width from parameters.json (used only by checkTasks). */
+function validateTasksWidth(tasks: Tasks): Result<undefined> {
+  const paramsRaw = readParameters();
+  if (!paramsRaw.ok) {
+    return { ok: true, value: undefined, error: undefined };
+  }
+  const paramsResult = validateParameters(paramsRaw.value);
+  if (!paramsResult.ok) {
+    return { ok: true, value: undefined, error: undefined };
+  }
+  if (tasks.length < paramsResult.value.min_width) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Too few tasks: ${tasks.length} is below min_width of ${paramsResult.value.min_width}`,
+    };
+  }
+  if (tasks.length > paramsResult.value.max_width) {
+    return {
+      ok: false,
+      value: undefined,
+      error: `Too many tasks: ${tasks.length} exceeds max_width of ${paramsResult.value.max_width}`,
+    };
+  }
+  return { ok: true, value: undefined, error: undefined };
 }

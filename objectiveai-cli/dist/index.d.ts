@@ -11665,6 +11665,7 @@ declare function appendTask(value: unknown): Result<string>;
 declare function editTask(index: number, value: unknown): Result<undefined>;
 declare function delTask(index: number): Result<string>;
 declare function isDefaultTasks(): boolean;
+/** Validate task schema and map indices (used by all mutation tools). */
 declare function validateTasks(fn: DeserializedFunction): Result<Tasks>;
 
 declare const FunctionTypeSchema: z.ZodEnum<{

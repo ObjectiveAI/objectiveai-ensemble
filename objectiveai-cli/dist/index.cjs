@@ -1179,6 +1179,14 @@ function checkTasks(fn) {
       error: `tasks is invalid: ${result.error}`
     };
   }
+  const widthResult = validateTasksWidth(result.value);
+  if (!widthResult.ok) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `tasks is invalid: ${widthResult.error}`
+    };
+  }
   return { ok: true, value: void 0, error: void 0 };
 }
 function editTasks(value) {
@@ -1313,27 +1321,32 @@ function validateTasks(fn) {
     }
     seen.add(idx);
   }
-  const paramsRaw = readParameters();
-  if (paramsRaw.ok) {
-    const paramsResult = validateParameters(paramsRaw.value);
-    if (paramsResult.ok) {
-      if (parsed.data.length < paramsResult.value.min_width) {
-        return {
-          ok: false,
-          value: void 0,
-          error: `Too few tasks: ${parsed.data.length} is below min_width of ${paramsResult.value.min_width}`
-        };
-      }
-      if (parsed.data.length > paramsResult.value.max_width) {
-        return {
-          ok: false,
-          value: void 0,
-          error: `Too many tasks: ${parsed.data.length} exceeds max_width of ${paramsResult.value.max_width}`
-        };
-      }
-    }
-  }
   return { ok: true, value: parsed.data, error: void 0 };
+}
+function validateTasksWidth(tasks) {
+  const paramsRaw = readParameters();
+  if (!paramsRaw.ok) {
+    return { ok: true, value: void 0, error: void 0 };
+  }
+  const paramsResult = validateParameters(paramsRaw.value);
+  if (!paramsResult.ok) {
+    return { ok: true, value: void 0, error: void 0 };
+  }
+  if (tasks.length < paramsResult.value.min_width) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Too few tasks: ${tasks.length} is below min_width of ${paramsResult.value.min_width}`
+    };
+  }
+  if (tasks.length > paramsResult.value.max_width) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Too many tasks: ${tasks.length} exceeds max_width of ${paramsResult.value.max_width}`
+    };
+  }
+  return { ok: true, value: void 0, error: void 0 };
 }
 var OutputLengthSchema = objectiveai.Functions.RemoteVectorFunctionSchema.shape.output_length;
 function readOutputLength() {
