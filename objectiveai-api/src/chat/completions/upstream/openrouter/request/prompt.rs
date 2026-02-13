@@ -56,6 +56,7 @@ pub fn new_for_vector(
     let vector_responses_for_prompt = vector::completions::vector_responses::into_parts_for_prompt(
         vector_responses,
         vector_pfx_indices,
+        None,
     );
 
     // merge messages
