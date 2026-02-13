@@ -772,10 +772,16 @@ impl FromStarlarkValue for crate::chat::completions::request::MessageExpression 
             "system" => {
                 let content = dict_get(&dict, "content").ok_or_else(|| ExpressionError::StarlarkConversionError("expected content".to_string()))?;
                 let content = crate::chat::completions::request::SimpleContentExpression::from_starlark_value(&content)?;
+                let name = dict_get(&dict, "name")
+                    .map(|v| Option::<String>::from_starlark_value(&v))
+                    .transpose()
+                    .ok()
+                    .flatten()
+                    .map(super::WithExpression::Value);
                 Ok(crate::chat::completions::request::MessageExpression::System(
                     crate::chat::completions::request::SystemMessageExpression {
                         content: super::WithExpression::Value(content),
-                        name: None,
+                        name,
                     },
                 ))
             }
