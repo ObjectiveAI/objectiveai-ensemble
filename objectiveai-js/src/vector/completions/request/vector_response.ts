@@ -3,7 +3,7 @@ import { ExpressionSchema } from "src/functions/expression/expression";
 import z from "zod";
 
 export const VectorResponseSchema = RichContentSchema.describe(
-  "A possible assistant response. The LLMs in the Ensemble may vote for this option."
+  "A possible assistant response. The LLMs in the Ensemble may vote for this option.",
 ).meta({ title: "VectorResponse" });
 export type VectorResponse = z.infer<typeof VectorResponseSchema>;
 
@@ -11,7 +11,7 @@ export const VectorResponseExpressionSchema = z
   .union([
     VectorResponseSchema,
     ExpressionSchema.describe(
-      "An expression which evaluates to a possible assistant response. Receives: `input`, `map` (if mapped)."
+      "An expression which evaluates to a possible assistant response. Receives: `input`, `map` (if mapped).",
     ),
   ])
   .describe(VectorResponseSchema.description!)
@@ -23,7 +23,7 @@ export type VectorResponseExpression = z.infer<
 export const VectorResponsesSchema = z
   .array(VectorResponseSchema)
   .describe(
-    "A list of possible assistant responses which the LLMs in the Ensemble will vote on. The output scores will be of the same length, each corresponding to one response. The winner is the response with the highest score."
+    "A list of possible assistant responses which the LLMs in the Ensemble will vote on. The output scores will be of the same length, each corresponding to one response. The winner is the response with the highest score.",
   )
   .meta({ title: "VectorResponses" });
 export type VectorResponses = z.infer<typeof VectorResponsesSchema>;
@@ -35,11 +35,16 @@ export const VectorResponsesExpressionSchema = z
       .describe(VectorResponsesSchema.description!)
       .meta({ title: "VectorResponseExpressions" }),
     ExpressionSchema.describe(
-      "An expression which evaluates to an array of possible assistant responses. Receives: `input`, `map` (if mapped)."
+      "An expression which evaluates to an array of possible assistant responses. Receives: `input`, `map` (if mapped).",
     ),
   ])
   .describe(VectorResponsesSchema.description!)
   .meta({ title: "VectorResponsesExpression" });
 export type VectorResponsesExpression = z.infer<
   typeof VectorResponsesExpressionSchema
+>;
+
+export const QualityVectorResponsesExpressionSchema = VectorResponsesSchema;
+export type QualityVectorResponsesExpression = z.infer<
+  typeof QualityVectorResponsesExpressionSchema
 >;

@@ -14,6 +14,7 @@ import {
   ToolsSchema,
 } from "src/chat/completions/request/tool";
 import {
+  QualityVectorResponsesExpressionSchema,
   VectorResponsesExpressionSchema,
   VectorResponsesSchema,
 } from "src/vector/completions/request/vector_response";
@@ -34,15 +35,22 @@ export const TaskExpressionMapSchema = z
   );
 export type TaskExpressionMap = z.infer<typeof TaskExpressionMapSchema>;
 
+export const QualityTaskExpressionMapSchema = z
+  .uint32()
+  .describe(TaskExpressionMapSchema.description! + " Unique across tasks.");
+export type QualityTaskExpressionMap = z.infer<
+  typeof QualityTaskExpressionMapSchema
+>;
+
 export const TaskOutputExpressionSchema = ExpressionSchema.describe(
   "An expression which transforms the task result into a FunctionOutput. " +
-  "Receives `output` as one of 4 variants depending on task type: " +
-  "a single FunctionOutput (for non-mapped function tasks), an array of FunctionOutputs (for mapped function tasks), " +
-  "a VectorCompletionOutput (for non-mapped vector completion tasks), or an array of VectorCompletionOutputs (for mapped vector completion tasks). " +
-  "Must return a FunctionOutput valid for the parent function's type: " +
-  "scalar functions require a number in [0,1], vector functions require an array of numbers summing to ~1. " +
-  "The function's final output is the weighted average of all task outputs using profile weights. " +
-  "Receives: `input`, `output`.",
+    "Receives `output` as one of 4 variants depending on task type: " +
+    "a single FunctionOutput (for non-mapped function tasks), an array of FunctionOutputs (for mapped function tasks), " +
+    "a VectorCompletionOutput (for non-mapped vector completion tasks), or an array of VectorCompletionOutputs (for mapped vector completion tasks). " +
+    "Must return a FunctionOutput valid for the parent function's type: " +
+    "scalar functions require a number in [0,1], vector functions require an array of numbers summing to ~1. " +
+    "The function's final output is the weighted average of all task outputs using profile weights. " +
+    "Receives: `input`, `output`.",
 );
 export type TaskOutputExpression = z.infer<typeof TaskOutputExpressionSchema>;
 
@@ -70,6 +78,22 @@ export type ScalarFunctionTaskExpression = z.infer<
   typeof ScalarFunctionTaskExpressionSchema
 >;
 
+export const QualityScalarFunctionTaskExpressionSchema = z
+  .object({
+    type: ScalarFunctionTaskExpressionSchema.shape.type,
+    owner: ScalarFunctionTaskExpressionSchema.shape.owner,
+    repository: ScalarFunctionTaskExpressionSchema.shape.repository,
+    commit: ScalarFunctionTaskExpressionSchema.shape.commit,
+    skip: ScalarFunctionTaskExpressionSchema.shape.skip,
+    map: QualityTaskExpressionMapSchema.optional().nullable(),
+    input: ScalarFunctionTaskExpressionSchema.shape.input,
+    output: ScalarFunctionTaskExpressionSchema.shape.output,
+  })
+  .describe(ScalarFunctionTaskExpressionSchema.description!);
+export type QualityScalarFunctionTaskExpression = z.infer<
+  typeof QualityScalarFunctionTaskExpressionSchema
+>;
+
 export const VectorFunctionTaskExpressionSchema = z
   .object({
     type: z.literal("vector.function"),
@@ -94,6 +118,22 @@ export type VectorFunctionTaskExpression = z.infer<
   typeof VectorFunctionTaskExpressionSchema
 >;
 
+export const QualityVectorFunctionTaskExpressionSchema = z
+  .object({
+    type: VectorFunctionTaskExpressionSchema.shape.type,
+    owner: VectorFunctionTaskExpressionSchema.shape.owner,
+    repository: VectorFunctionTaskExpressionSchema.shape.repository,
+    commit: VectorFunctionTaskExpressionSchema.shape.commit,
+    skip: VectorFunctionTaskExpressionSchema.shape.skip,
+    map: QualityTaskExpressionMapSchema.optional().nullable(),
+    input: VectorFunctionTaskExpressionSchema.shape.input,
+    output: VectorFunctionTaskExpressionSchema.shape.output,
+  })
+  .describe(VectorFunctionTaskExpressionSchema.description!);
+export type QualityVectorFunctionTaskExpression = z.infer<
+  typeof QualityVectorFunctionTaskExpressionSchema
+>;
+
 export const VectorCompletionTaskExpressionSchema = z
   .object({
     type: z.literal("vector.completion"),
@@ -113,6 +153,21 @@ export type VectorCompletion = z.infer<
   typeof VectorCompletionTaskExpressionSchema
 >;
 
+export const QualityVectorCompletionTaskExpressionSchema = z
+  .object({
+    type: VectorCompletionTaskExpressionSchema.shape.type,
+    skip: VectorCompletionTaskExpressionSchema.shape.skip,
+    map: VectorCompletionTaskExpressionSchema.shape.map,
+    messages: VectorCompletionTaskExpressionSchema.shape.messages,
+    tools: VectorCompletionTaskExpressionSchema.shape.tools,
+    responses: QualityVectorResponsesExpressionSchema,
+    output: VectorCompletionTaskExpressionSchema.shape.output,
+  })
+  .describe(VectorCompletionTaskExpressionSchema.description!);
+export type QualityVectorCompletionTaskExpression = z.infer<
+  typeof QualityVectorCompletionTaskExpressionSchema
+>;
+
 export const PlaceholderScalarFunctionTaskExpressionSchema = z
   .object({
     type: z.literal("placeholder.scalar.function"),
@@ -122,7 +177,9 @@ export const PlaceholderScalarFunctionTaskExpressionSchema = z
     input: InputValueExpressionSchema,
     output: TaskOutputExpressionSchema,
   })
-  .describe("A placeholder scalar function task expression. Always outputs 0.5.");
+  .describe(
+    "A placeholder scalar function task expression. Always outputs 0.5.",
+  );
 export type PlaceholderScalarFunctionTaskExpression = z.infer<
   typeof PlaceholderScalarFunctionTaskExpressionSchema
 >;
@@ -135,22 +192,24 @@ export const PlaceholderVectorFunctionTaskExpressionSchema = z
       .union([
         z.uint32().describe("The fixed length of the output vector."),
         ExpressionSchema.describe(
-          "An expression which evaluates to the length of the output vector. Receives: `input`."
+          "An expression which evaluates to the length of the output vector. Receives: `input`.",
         ),
       ])
       .describe("The length of the output vector."),
     input_split: ExpressionSchema.describe(
-      "Splits the function input into an array of sub-inputs, one per output element. Receives: `input`."
+      "Splits the function input into an array of sub-inputs, one per output element. Receives: `input`.",
     ),
     input_merge: ExpressionSchema.describe(
-      "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs back into one input. Receives: `input` (an array of sub-inputs)."
+      "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs back into one input. Receives: `input` (an array of sub-inputs).",
     ),
     skip: TaskExpressionSkipSchema.optional().nullable(),
     map: TaskExpressionMapSchema.optional().nullable(),
     input: InputValueExpressionSchema,
     output: TaskOutputExpressionSchema,
   })
-  .describe("A placeholder vector function task expression. Always outputs an equalized vector.");
+  .describe(
+    "A placeholder vector function task expression. Always outputs an equalized vector.",
+  );
 export type PlaceholderVectorFunctionTaskExpression = z.infer<
   typeof PlaceholderVectorFunctionTaskExpressionSchema
 >;
@@ -256,22 +315,24 @@ export const PlaceholderVectorFunctionTaskSchema = z
       .union([
         z.uint32().describe("The fixed length of the output vector."),
         ExpressionSchema.describe(
-          "An expression which evaluates to the length of the output vector. Receives: `input`."
+          "An expression which evaluates to the length of the output vector. Receives: `input`.",
         ),
       ])
       .describe("The length of the output vector."),
     input_split: ExpressionSchema.describe(
-      "Splits the function input into an array of sub-inputs, one per output element. Receives: `input`."
+      "Splits the function input into an array of sub-inputs, one per output element. Receives: `input`.",
     ),
     input_merge: ExpressionSchema.describe(
-      "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs back into one input. Receives: `input` (an array of sub-inputs)."
+      "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs back into one input. Receives: `input` (an array of sub-inputs).",
     ),
     input: InputValueSchema,
     output: ExpressionSchema.describe(
       "Expression to transform the equalized vector output. Receives: `input`, `output` (the raw FunctionOutput).",
     ),
   })
-  .describe("A placeholder vector function task. Always outputs an equalized vector.");
+  .describe(
+    "A placeholder vector function task. Always outputs an equalized vector.",
+  );
 export type PlaceholderVectorFunctionTask = z.infer<
   typeof PlaceholderVectorFunctionTaskSchema
 >;
