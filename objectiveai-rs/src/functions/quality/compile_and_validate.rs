@@ -15,9 +15,8 @@ pub(super) fn compile_and_validate_task_inputs(
     let inputs = generate_example_inputs(input_schema);
 
     if inputs.is_empty() {
-        return Err(
-            "Failed to generate any example inputs from input_schema".to_string(),
-        );
+        return Err("Failed to generate any example inputs from input_schema"
+            .to_string());
     }
 
     for (i, input) in inputs.iter().enumerate() {
@@ -63,7 +62,9 @@ fn validate_task_input(
     task: &Task,
 ) -> Result<(), String> {
     let location = match map_index {
-        Some(k) => format!("Input [{}], task [{}][{}]", input_index, task_index, k),
+        Some(k) => {
+            format!("Input [{}], task [{}][{}]", input_index, task_index, k)
+        }
         None => format!("Input [{}], task [{}]", input_index, task_index),
     };
 
@@ -74,7 +75,8 @@ fn validate_task_input(
                     "{}: compiled input does not match placeholder's input_schema\n\nInput: {}\n\nSchema: {}",
                     location,
                     serde_json::to_string_pretty(&t.input).unwrap_or_default(),
-                    serde_json::to_string_pretty(&t.input_schema).unwrap_or_default(),
+                    serde_json::to_string_pretty(&t.input_schema)
+                        .unwrap_or_default(),
                 ));
             }
         }
@@ -84,7 +86,8 @@ fn validate_task_input(
                     "{}: compiled input does not match placeholder's input_schema\n\nInput: {}\n\nSchema: {}",
                     location,
                     serde_json::to_string_pretty(&t.input).unwrap_or_default(),
-                    serde_json::to_string_pretty(&t.input_schema).unwrap_or_default(),
+                    serde_json::to_string_pretty(&t.input_schema)
+                        .unwrap_or_default(),
                 ));
             }
         }

@@ -4,7 +4,7 @@ use crate::functions::expression::InputSchema;
 use crate::functions::{RemoteFunction, TaskExpression};
 
 use super::check_leaf_scalar_function::check_vector_completion_content;
-use super::check_vector_fields::{check_vector_fields, VectorFieldsValidation};
+use super::check_vector_fields::{VectorFieldsValidation, check_vector_fields};
 
 /// Validates quality requirements for a leaf vector function.
 ///
@@ -18,7 +18,9 @@ use super::check_vector_fields::{check_vector_fields, VectorFieldsValidation};
 /// 4. Message content must be content parts arrays, not plain strings
 /// 5. Response content must be content parts arrays, not plain strings
 /// 6. Vector fields (output_length, input_split, input_merge) round-trip correctly
-pub fn check_leaf_vector_function(function: &RemoteFunction) -> Result<(), String> {
+pub fn check_leaf_vector_function(
+    function: &RemoteFunction,
+) -> Result<(), String> {
     let (input_schema, tasks, output_length, input_split, input_merge) =
         match function {
             RemoteFunction::Vector {
@@ -31,7 +33,7 @@ pub fn check_leaf_vector_function(function: &RemoteFunction) -> Result<(), Strin
             } => (input_schema, tasks, output_length, input_split, input_merge),
             RemoteFunction::Scalar { .. } => {
                 return Err(
-                    "Expected vector function, got scalar function".to_string(),
+                    "Expected vector function, got scalar function".to_string()
                 );
             }
         };
@@ -104,9 +106,11 @@ pub(super) fn check_vector_input_schema(
         InputSchema::Array(_) => Ok(()),
         InputSchema::Object(obj) => {
             let required = obj.required.as_deref().unwrap_or(&[]);
-            let has_required_array = obj.properties.iter().any(|(name, schema)| {
-                required.contains(name) && matches!(schema, InputSchema::Array(_))
-            });
+            let has_required_array =
+                obj.properties.iter().any(|(name, schema)| {
+                    required.contains(name)
+                        && matches!(schema, InputSchema::Array(_))
+                });
             if has_required_array {
                 Ok(())
             } else {

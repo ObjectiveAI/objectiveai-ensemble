@@ -237,14 +237,19 @@ fn generate_file_inputs(out: &mut Reservoir<'_, impl Rng>) {
 }
 
 /// Generate a single representative input for a schema variant.
-fn generate_single(schema: &InputSchema, index: usize, rng: &mut impl Rng) -> Option<Input> {
+fn generate_single(
+    schema: &InputSchema,
+    index: usize,
+    rng: &mut impl Rng,
+) -> Option<Input> {
     match schema {
         InputSchema::Object(obj) => {
             let mut map = IndexMap::new();
             let required = obj.required.as_deref().unwrap_or(&[]);
             for (key, prop_schema) in &obj.properties {
                 if required.contains(key) || index == 0 {
-                    if let Some(val) = generate_single(prop_schema, index, rng) {
+                    if let Some(val) = generate_single(prop_schema, index, rng)
+                    {
                         map.insert(key.clone(), val);
                     }
                 }
@@ -284,29 +289,35 @@ fn generate_single(schema: &InputSchema, index: usize, rng: &mut impl Rng) -> Op
             Some(Input::Number(rng.random_range(min..=max)))
         }
         InputSchema::Boolean(_) => Some(Input::Boolean(rng.random_bool(0.5))),
-        InputSchema::Image(_) => Some(Input::RichContentPart(RichContentPart::ImageUrl {
-            image_url: ImageUrl {
-                url: format!(
-                    "https://example.com/img_{}.png",
-                    rng.random_range(1000..9999)
-                ),
-                detail: None,
-            },
-        })),
-        InputSchema::Audio(_) => Some(Input::RichContentPart(RichContentPart::InputAudio {
-            input_audio: InputAudio {
-                data: "dGVzdA==".to_string(),
-                format: "wav".to_string(),
-            },
-        })),
-        InputSchema::Video(_) => Some(Input::RichContentPart(RichContentPart::VideoUrl {
-            video_url: VideoUrl {
-                url: format!(
-                    "https://example.com/vid_{}.mp4",
-                    rng.random_range(1000..9999)
-                ),
-            },
-        })),
+        InputSchema::Image(_) => {
+            Some(Input::RichContentPart(RichContentPart::ImageUrl {
+                image_url: ImageUrl {
+                    url: format!(
+                        "https://example.com/img_{}.png",
+                        rng.random_range(1000..9999)
+                    ),
+                    detail: None,
+                },
+            }))
+        }
+        InputSchema::Audio(_) => {
+            Some(Input::RichContentPart(RichContentPart::InputAudio {
+                input_audio: InputAudio {
+                    data: "dGVzdA==".to_string(),
+                    format: "wav".to_string(),
+                },
+            }))
+        }
+        InputSchema::Video(_) => {
+            Some(Input::RichContentPart(RichContentPart::VideoUrl {
+                video_url: VideoUrl {
+                    url: format!(
+                        "https://example.com/vid_{}.mp4",
+                        rng.random_range(1000..9999)
+                    ),
+                },
+            }))
+        }
         InputSchema::File(_) => {
             let id = rng.random_range(1000..9999);
             Some(Input::RichContentPart(RichContentPart::File {
@@ -314,7 +325,10 @@ fn generate_single(schema: &InputSchema, index: usize, rng: &mut impl Rng) -> Op
                     file_data: None,
                     file_id: None,
                     filename: Some(format!("file_{}.txt", id)),
-                    file_url: Some(format!("https://example.com/file_{}.txt", id)),
+                    file_url: Some(format!(
+                        "https://example.com/file_{}.txt",
+                        id
+                    )),
                 },
             }))
         }
@@ -521,17 +535,19 @@ mod tests {
 
     #[test]
     fn test_generate_example_inputs_array() {
-        let schema = InputSchema::Array(crate::functions::expression::ArrayInputSchema {
-            description: None,
-            min_items: Some(2),
-            max_items: Some(10),
-            items: Box::new(InputSchema::String(
-                crate::functions::expression::StringInputSchema {
-                    description: None,
-                    r#enum: None,
-                },
-            )),
-        });
+        let schema = InputSchema::Array(
+            crate::functions::expression::ArrayInputSchema {
+                description: None,
+                min_items: Some(2),
+                max_items: Some(10),
+                items: Box::new(InputSchema::String(
+                    crate::functions::expression::StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    },
+                )),
+            },
+        );
 
         let inputs = generate_example_inputs(&schema);
         assert!(!inputs.is_empty(), "Should generate at least one input");
@@ -549,8 +565,8 @@ mod tests {
 
     #[test]
     fn test_generate_example_inputs_object_with_array() {
-        let schema =
-            InputSchema::Object(crate::functions::expression::ObjectInputSchema {
+        let schema = InputSchema::Object(
+            crate::functions::expression::ObjectInputSchema {
                 description: None,
                 properties: {
                     let mut props = IndexMap::new();
@@ -571,7 +587,8 @@ mod tests {
                     props
                 },
                 required: Some(vec!["items".to_string()]),
-            });
+            },
+        );
 
         let inputs = generate_example_inputs(&schema);
         assert!(
@@ -582,37 +599,44 @@ mod tests {
 
     #[test]
     fn test_optional_field_permutations() {
-        let schema =
-            InputSchema::Object(crate::functions::expression::ObjectInputSchema {
+        let schema = InputSchema::Object(
+            crate::functions::expression::ObjectInputSchema {
                 description: None,
                 properties: {
                     let mut props = IndexMap::new();
                     props.insert(
                         "name".to_string(),
-                        InputSchema::String(crate::functions::expression::StringInputSchema {
-                            description: None,
-                            r#enum: None,
-                        }),
+                        InputSchema::String(
+                            crate::functions::expression::StringInputSchema {
+                                description: None,
+                                r#enum: None,
+                            },
+                        ),
                     );
                     props.insert(
                         "age".to_string(),
-                        InputSchema::Integer(crate::functions::expression::IntegerInputSchema {
-                            description: None,
-                            minimum: Some(0),
-                            maximum: Some(120),
-                        }),
+                        InputSchema::Integer(
+                            crate::functions::expression::IntegerInputSchema {
+                                description: None,
+                                minimum: Some(0),
+                                maximum: Some(120),
+                            },
+                        ),
                     );
                     props.insert(
                         "bio".to_string(),
-                        InputSchema::String(crate::functions::expression::StringInputSchema {
-                            description: None,
-                            r#enum: None,
-                        }),
+                        InputSchema::String(
+                            crate::functions::expression::StringInputSchema {
+                                description: None,
+                                r#enum: None,
+                            },
+                        ),
                     );
                     props
                 },
                 required: Some(vec!["name".to_string()]),
-            });
+            },
+        );
 
         let inputs = generate_example_inputs(&schema);
 
@@ -642,16 +666,24 @@ mod tests {
             }
         }
 
-        assert!(has_without_age, "Should have example without optional 'age'");
-        assert!(has_without_bio, "Should have example without optional 'bio'");
+        assert!(
+            has_without_age,
+            "Should have example without optional 'age'"
+        );
+        assert!(
+            has_without_bio,
+            "Should have example without optional 'bio'"
+        );
         assert!(has_required_only, "Should have required-only example");
     }
 
     #[test]
     fn test_image_detail_permutations() {
-        let schema = InputSchema::Image(crate::functions::expression::ImageInputSchema {
-            description: None,
-        });
+        let schema = InputSchema::Image(
+            crate::functions::expression::ImageInputSchema {
+                description: None,
+            },
+        );
 
         let inputs = generate_example_inputs(&schema);
 
@@ -664,9 +696,10 @@ mod tests {
 
     #[test]
     fn test_file_optional_field_permutations() {
-        let schema = InputSchema::File(crate::functions::expression::FileInputSchema {
-            description: None,
-        });
+        let schema =
+            InputSchema::File(crate::functions::expression::FileInputSchema {
+                description: None,
+            });
 
         let inputs = generate_example_inputs(&schema);
 
@@ -683,7 +716,9 @@ mod tests {
     fn test_reservoir_cap() {
         // Verify that even with a huge schema, we never exceed MAX_EXAMPLE_INPUTS
         let inputs = generate_example_inputs(&InputSchema::Boolean(
-            crate::functions::expression::BooleanInputSchema { description: None },
+            crate::functions::expression::BooleanInputSchema {
+                description: None,
+            },
         ));
         assert!(inputs.len() <= MAX_EXAMPLE_INPUTS);
     }
