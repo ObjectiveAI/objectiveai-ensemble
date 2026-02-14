@@ -1642,4 +1642,908 @@ mod tests {
         .unwrap();
         assert!((result - 1.0).abs() < 0.0001);
     }
+
+    #[test]
+    fn test_starlark_primitive_bool() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("True", &params, &true);
+        assert_starlark_deep_eq("False", &params, &false);
+    }
+
+    #[test]
+    fn test_starlark_primitive_i64() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("42", &params, &42i64);
+    }
+
+    #[test]
+    fn test_starlark_primitive_u64() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("100", &params, &100u64);
+    }
+
+    #[test]
+    fn test_starlark_primitive_f64() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("2.5", &params, &2.5f64);
+    }
+
+    #[test]
+    fn test_starlark_primitive_string() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("\"world\"", &params, &"world".to_string());
+    }
+
+    #[test]
+    fn test_starlark_option_none() {
+        let params = make_params(empty_input());
+        let expected: Option<i64> = None;
+        assert_starlark_deep_eq("None", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_option_some() {
+        let params = make_params(empty_input());
+        let expected: Option<String> = Some("x".to_string());
+        assert_starlark_deep_eq("\"x\"", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_vec() {
+        let params = make_params(empty_input());
+        let expected: Vec<f64> = vec![1.0, 2.0, 3.0];
+        assert_starlark_deep_eq("[1.0, 2.0, 3.0]", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_input_boolean() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("True", &params, &Input::Boolean(true));
+        assert_starlark_deep_eq("False", &params, &Input::Boolean(false));
+    }
+
+    #[test]
+    fn test_starlark_input_integer() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("42", &params, &Input::Integer(42));
+    }
+
+    #[test]
+    fn test_starlark_input_number() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("3.14", &params, &Input::Number(3.14));
+    }
+
+    #[test]
+    fn test_starlark_input_string() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("\"hello\"", &params, &Input::String("hello".to_string()));
+    }
+
+    #[test]
+    fn test_starlark_input_array() {
+        let params = make_params(empty_input());
+        let expected = Input::Array(vec![
+            Input::Integer(1),
+            Input::Integer(2),
+            Input::String("x".to_string()),
+        ]);
+        assert_starlark_deep_eq("[1, 2, \"x\"]", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_input_object() {
+        let params = make_params(empty_input());
+        let expected = obj(vec![
+            ("a", Input::Integer(1)),
+            ("b", Input::String("two".to_string())),
+        ]);
+        assert_starlark_deep_eq("{\"a\": 1, \"b\": \"two\"}", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_input_expression_boolean() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "True",
+            &params,
+            &InputExpression::Boolean(true),
+        );
+    }
+
+    #[test]
+    fn test_starlark_input_expression_integer() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "0",
+            &params,
+            &InputExpression::Integer(0),
+        );
+    }
+
+    #[test]
+    fn test_starlark_input_expression_number() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "1.5",
+            &params,
+            &InputExpression::Number(1.5),
+        );
+    }
+
+    #[test]
+    fn test_starlark_input_expression_string() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "\"s\"",
+            &params,
+            &InputExpression::String("s".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_starlark_input_expression_array() {
+        let params = make_params(empty_input());
+        let expected = InputExpression::Array(vec![
+            WithExpression::Value(InputExpression::Integer(1)),
+            WithExpression::Value(InputExpression::String("y".to_string())),
+        ]);
+        assert_starlark_deep_eq("[1, \"y\"]", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_input_expression_object() {
+        let params = make_params(empty_input());
+        let mut map = IndexMap::new();
+        map.insert(
+            "k".to_string(),
+            WithExpression::Value(InputExpression::Boolean(true)),
+        );
+        let expected = InputExpression::Object(map);
+        assert_starlark_deep_eq("{\"k\": True}", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_function_output_scalar() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "0.5",
+            &params,
+            &FunctionOutput::Scalar(dec!(0.5)),
+        );
+    }
+
+    #[test]
+    fn test_starlark_function_output_scalar_int() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "1",
+            &params,
+            &FunctionOutput::Scalar(dec!(1)),
+        );
+    }
+
+    #[test]
+    fn test_starlark_function_output_vector() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "[0.25, 0.75]",
+            &params,
+            &FunctionOutput::Vector(vec![dec!(0.25), dec!(0.75)]),
+        );
+    }
+
+    #[test]
+    fn test_starlark_function_output_err() {
+        let params = make_params(empty_input());
+        let err_val = serde_json::json!({"error": "bad"});
+        assert_starlark_deep_eq(
+            "{\"error\": \"bad\"}",
+            &params,
+            &FunctionOutput::Err(err_val),
+        );
+    }
+
+    #[test]
+    fn test_starlark_simple_content_expression_text() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "\"hello\"",
+            &params,
+            &SimpleContentExpression::Text("hello".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_starlark_simple_content_expression_parts() {
+        let params = make_params(empty_input());
+        let expected = SimpleContentExpression::Parts(vec![
+            WithExpression::Value(SimpleContentPartExpression::Text {
+                text: WithExpression::Value("a".to_string()),
+            }),
+            WithExpression::Value(SimpleContentPartExpression::Text {
+                text: WithExpression::Value("b".to_string()),
+            }),
+        ]);
+        assert_starlark_deep_eq(
+            "[{\"type\": \"text\", \"text\": \"a\"}, {\"type\": \"text\", \"text\": \"b\"}]",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_simple_content_part_expression_text() {
+        let params = make_params(empty_input());
+        let expected = SimpleContentPartExpression::Text {
+            text: WithExpression::Value("part".to_string()),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"text\", \"text\": \"part\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_expression_text() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "\"hi\"",
+            &params,
+            &RichContentExpression::Text("hi".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_expression_parts() {
+        let params = make_params(empty_input());
+        let expected = RichContentExpression::Parts(vec![
+            WithExpression::Value(RichContentPartExpression::Text {
+                text: WithExpression::Value("x".to_string()),
+            }),
+        ]);
+        assert_starlark_deep_eq(
+            "[{\"type\": \"text\", \"text\": \"x\"}]",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_image_url_no_detail() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"url\": \"https://x.com/img.png\"}",
+            &params,
+            &ImageUrl {
+                url: "https://x.com/img.png".to_string(),
+                detail: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_image_url_detail_auto() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"url\": \"u\", \"detail\": \"auto\"}",
+            &params,
+            &ImageUrl {
+                url: "u".to_string(),
+                detail: Some(ImageUrlDetail::Auto),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_image_url_detail_low() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"url\": \"u\", \"detail\": \"low\"}",
+            &params,
+            &ImageUrl {
+                url: "u".to_string(),
+                detail: Some(ImageUrlDetail::Low),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_image_url_detail_high() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"url\": \"u\", \"detail\": \"high\"}",
+            &params,
+            &ImageUrl {
+                url: "u".to_string(),
+                detail: Some(ImageUrlDetail::High),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_input_audio() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"data\": \"base64data\", \"format\": \"wav\"}",
+            &params,
+            &InputAudio {
+                data: "base64data".to_string(),
+                format: "wav".to_string(),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_input_audio_defaults() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{}",
+            &params,
+            &InputAudio {
+                data: String::new(),
+                format: String::new(),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_video_url() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"url\": \"https://v.com/x.mp4\"}",
+            &params,
+            &VideoUrl {
+                url: "https://v.com/x.mp4".to_string(),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_file_all_missing() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{}",
+            &params,
+            &File {
+                file_data: None,
+                file_id: None,
+                filename: None,
+                file_url: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_file_with_file_data() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"file_data\": \"abc\"}",
+            &params,
+            &File {
+                file_data: Some("abc".to_string()),
+                file_id: None,
+                filename: None,
+                file_url: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_file_with_file_id() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"file_id\": \"id-1\"}",
+            &params,
+            &File {
+                file_data: None,
+                file_id: Some("id-1".to_string()),
+                filename: None,
+                file_url: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_file_with_filename() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"filename\": \"doc.pdf\"}",
+            &params,
+            &File {
+                file_data: None,
+                file_id: None,
+                filename: Some("doc.pdf".to_string()),
+                file_url: None,
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_file_with_file_url() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"file_url\": \"https://f.com/f\"}",
+            &params,
+            &File {
+                file_data: None,
+                file_id: None,
+                filename: None,
+                file_url: Some("https://f.com/f".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_file_all_present() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "{\"file_data\": \"d\", \"file_id\": \"i\", \"filename\": \"n\", \"file_url\": \"u\"}",
+            &params,
+            &File {
+                file_data: Some("d".to_string()),
+                file_id: Some("i".to_string()),
+                filename: Some("n".to_string()),
+                file_url: Some("u".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_part_text() {
+        let params = make_params(empty_input());
+        let expected = RichContentPartExpression::Text {
+            text: WithExpression::Value("t".to_string()),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"text\", \"text\": \"t\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_part_image_url() {
+        let params = make_params(empty_input());
+        let expected = RichContentPartExpression::ImageUrl {
+            image_url: WithExpression::Value(ImageUrl {
+                url: "u".to_string(),
+                detail: Some(ImageUrlDetail::High),
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"image_url\", \"image_url\": {\"url\": \"u\", \"detail\": \"high\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_part_input_audio() {
+        let params = make_params(empty_input());
+        let expected = RichContentPartExpression::InputAudio {
+            input_audio: WithExpression::Value(InputAudio {
+                data: "d".to_string(),
+                format: "mp3".to_string(),
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"input_audio\", \"input_audio\": {\"data\": \"d\", \"format\": \"mp3\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_part_input_video() {
+        let params = make_params(empty_input());
+        let expected = RichContentPartExpression::InputVideo {
+            video_url: WithExpression::Value(VideoUrl {
+                url: "https://v".to_string(),
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"input_video\", \"video_url\": {\"url\": \"https://v\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_part_video_url() {
+        let params = make_params(empty_input());
+        let expected = RichContentPartExpression::VideoUrl {
+            video_url: WithExpression::Value(VideoUrl {
+                url: "https://v2".to_string(),
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"video_url\", \"video_url\": {\"url\": \"https://v2\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_rich_content_part_file() {
+        let params = make_params(empty_input());
+        let expected = RichContentPartExpression::File {
+            file: WithExpression::Value(File {
+                file_data: None,
+                file_id: Some("fid".to_string()),
+                filename: None,
+                file_url: None,
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"file\", \"file\": {\"file_id\": \"fid\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_value_expression_null() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("None", &params, &ValueExpression::Null);
+    }
+
+    #[test]
+    fn test_starlark_value_expression_bool() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq("True", &params, &ValueExpression::Bool(true));
+        assert_starlark_deep_eq("False", &params, &ValueExpression::Bool(false));
+    }
+
+    #[test]
+    fn test_starlark_value_expression_number() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "42",
+            &params,
+            &ValueExpression::Number(JsonNumber::from(42)),
+        );
+        assert_starlark_deep_eq(
+            "3.14",
+            &params,
+            &ValueExpression::Number(JsonNumber::from_f64(3.14).unwrap()),
+        );
+    }
+
+    #[test]
+    fn test_starlark_value_expression_string() {
+        let params = make_params(empty_input());
+        assert_starlark_deep_eq(
+            "\"s\"",
+            &params,
+            &ValueExpression::String("s".to_string()),
+        );
+    }
+
+    #[test]
+    fn test_starlark_value_expression_array() {
+        let params = make_params(empty_input());
+        let expected = ValueExpression::Array(vec![
+            WithExpression::Value(ValueExpression::Number(JsonNumber::from(1))),
+            WithExpression::Value(ValueExpression::String("a".to_string())),
+        ]);
+        assert_starlark_deep_eq("[1, \"a\"]", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_value_expression_object() {
+        let params = make_params(empty_input());
+        let mut map = IndexMap::new();
+        map.insert(
+            "k".to_string(),
+            WithExpression::Value(ValueExpression::Bool(false)),
+        );
+        let expected = ValueExpression::Object(map);
+        assert_starlark_deep_eq("{\"k\": False}", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_function_tool_expression_name_only() {
+        let params = make_params(empty_input());
+        let expected = FunctionToolExpression {
+            name: WithExpression::Value("f".to_string()),
+            description: None,
+            parameters: None,
+            strict: None,
+        };
+        assert_starlark_deep_eq("{\"name\": \"f\"}", &params, &expected);
+    }
+
+    #[test]
+    fn test_starlark_function_tool_expression_with_description() {
+        let params = make_params(empty_input());
+        let expected = FunctionToolExpression {
+            name: WithExpression::Value("g".to_string()),
+            description: Some(WithExpression::Value(Some("desc".to_string()))),
+            parameters: None,
+            strict: None,
+        };
+        assert_starlark_deep_eq(
+            "{\"name\": \"g\", \"description\": \"desc\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_function_tool_expression_with_parameters() {
+        let params = make_params(empty_input());
+        let mut params_map = IndexMap::new();
+        params_map.insert(
+            "x".to_string(),
+            WithExpression::Value(ValueExpression::String("s".to_string())),
+        );
+        let expected = FunctionToolExpression {
+            name: WithExpression::Value("h".to_string()),
+            description: None,
+            parameters: Some(WithExpression::Value(Some(params_map))),
+            strict: None,
+        };
+        assert_starlark_deep_eq(
+            "{\"name\": \"h\", \"parameters\": {\"x\": \"s\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_function_tool_expression_with_strict() {
+        let params = make_params(empty_input());
+        let expected = FunctionToolExpression {
+            name: WithExpression::Value("s".to_string()),
+            description: None,
+            parameters: None,
+            strict: Some(WithExpression::Value(Some(true))),
+        };
+        assert_starlark_deep_eq(
+            "{\"name\": \"s\", \"strict\": True}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_function_tool_expression_all_fields() {
+        let params = make_params(empty_input());
+        let mut params_map = IndexMap::new();
+        params_map.insert(
+            "a".to_string(),
+            WithExpression::Value(ValueExpression::Number(JsonNumber::from(1))),
+        );
+        let expected = FunctionToolExpression {
+            name: WithExpression::Value("all".to_string()),
+            description: Some(WithExpression::Value(Some("d".to_string()))),
+            parameters: Some(WithExpression::Value(Some(params_map))),
+            strict: Some(WithExpression::Value(Some(false))),
+        };
+        assert_starlark_deep_eq(
+            "{\"name\": \"all\", \"description\": \"d\", \"parameters\": {\"a\": 1}, \"strict\": False}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_assistant_tool_call_function_expression() {
+        let params = make_params(empty_input());
+        let expected = AssistantToolCallFunctionExpression {
+            name: WithExpression::Value("fn".to_string()),
+            arguments: WithExpression::Value("{\"x\": 1}".to_string()),
+        };
+        assert_starlark_deep_eq(
+            "{\"name\": \"fn\", \"arguments\": \"{\\\"x\\\": 1}\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_assistant_tool_call_expression() {
+        let params = make_params(empty_input());
+        let expected = AssistantToolCallExpression::Function {
+            id: WithExpression::Value("call_1".to_string()),
+            function: WithExpression::Value(AssistantToolCallFunctionExpression {
+                name: WithExpression::Value("f".to_string()),
+                arguments: WithExpression::Value("{}".to_string()),
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"function\", \"id\": \"call_1\", \"function\": {\"name\": \"f\", \"arguments\": \"{}\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_assistant_tool_call_expression_id_default() {
+        let params = make_params(empty_input());
+        let expected = AssistantToolCallExpression::Function {
+            id: WithExpression::Value(String::new()),
+            function: WithExpression::Value(AssistantToolCallFunctionExpression {
+                name: WithExpression::Value("g".to_string()),
+                arguments: WithExpression::Value("{}".to_string()),
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"function\", \"function\": {\"name\": \"g\", \"arguments\": \"{}\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_tool_expression() {
+        let params = make_params(empty_input());
+        let expected = ToolExpression::Function {
+            function: WithExpression::Value(FunctionToolExpression {
+                name: WithExpression::Value("do_it".to_string()),
+                description: None,
+                parameters: None,
+                strict: None,
+            }),
+        };
+        assert_starlark_deep_eq(
+            "{\"type\": \"function\", \"function\": {\"name\": \"do_it\"}}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_user_without_name() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::User(UserMessageExpression {
+            content: WithExpression::Value(RichContentExpression::Text("hi".to_string())),
+            name: None,
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"user\", \"content\": \"hi\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_user_with_name() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::User(UserMessageExpression {
+            content: WithExpression::Value(RichContentExpression::Text("hey".to_string())),
+            name: Some(WithExpression::Value(Some("alice".to_string()))),
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"user\", \"content\": \"hey\", \"name\": \"alice\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_system_without_name() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::System(SystemMessageExpression {
+            content: WithExpression::Value(SimpleContentExpression::Text("sys".to_string())),
+            name: None,
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"system\", \"content\": \"sys\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_system_with_name() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::System(SystemMessageExpression {
+            content: WithExpression::Value(SimpleContentExpression::Text("s".to_string())),
+            name: Some(WithExpression::Value(Some("bot".to_string()))),
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"system\", \"content\": \"s\", \"name\": \"bot\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_assistant_content_none() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::Assistant(AssistantMessageExpression {
+            content: Some(WithExpression::Value(None)),
+            name: None,
+            refusal: None,
+            tool_calls: None,
+            reasoning: None,
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"assistant\", \"content\": None}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_assistant_with_content() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::Assistant(AssistantMessageExpression {
+            content: Some(WithExpression::Value(Some(RichContentExpression::Text("ok".to_string())))),
+            name: None,
+            refusal: None,
+            tool_calls: None,
+            reasoning: None,
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"assistant\", \"content\": \"ok\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_assistant_with_refusal() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::Assistant(AssistantMessageExpression {
+            content: Some(WithExpression::Value(None)),
+            name: None,
+            refusal: Some(WithExpression::Value(Some("declined".to_string()))),
+            tool_calls: None,
+            reasoning: None,
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"assistant\", \"content\": None, \"refusal\": \"declined\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_assistant_with_name() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::Assistant(AssistantMessageExpression {
+            content: Some(WithExpression::Value(None)),
+            name: Some(WithExpression::Value(Some("asst".to_string()))),
+            refusal: None,
+            tool_calls: None,
+            reasoning: None,
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"assistant\", \"content\": None, \"name\": \"asst\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_tool() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::Tool(ToolMessageExpression {
+            tool_call_id: WithExpression::Value("tid".to_string()),
+            content: WithExpression::Value(RichContentExpression::Text("result".to_string())),
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"tool\", \"tool_call_id\": \"tid\", \"content\": \"result\"}",
+            &params,
+            &expected,
+        );
+    }
+
+    #[test]
+    fn test_starlark_message_developer() {
+        let params = make_params(empty_input());
+        let expected = MessageExpression::Developer(DeveloperMessageExpression {
+            content: WithExpression::Value(SimpleContentExpression::Text("dev".to_string())),
+            name: None,
+        });
+        assert_starlark_deep_eq(
+            "{\"role\": \"developer\", \"content\": \"dev\"}",
+            &params,
+            &expected,
+        );
+    }
 }
