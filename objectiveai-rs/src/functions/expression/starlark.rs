@@ -1,7 +1,4 @@
-//! Starlark expression evaluation engine.
-//!
-//! Provides a sandboxed Starlark runtime for evaluating expressions.
-//! Variables `input`, `output`, and `map` are injected into the global scope.
+//! Starlark eval for expressions. Sandboxed; `input`, `output`, `map` in scope. by nityam
 
 use serde_json::Value;
 use starlark::environment::{Globals, GlobalsBuilder, Module};
@@ -15,17 +12,15 @@ use std::sync::LazyLock;
 
 use super::ExpressionError;
 
-/// Global Starlark globals with custom functions.
 pub static STARLARK_GLOBALS: LazyLock<Globals> = LazyLock::new(|| {
     let mut builder = GlobalsBuilder::standard();
     register_custom_functions(&mut builder);
     builder.build()
 });
 
-/// Register custom functions that extend Starlark's standard library.
 #[starlark_module]
 fn register_custom_functions(builder: &mut GlobalsBuilder) {
-    /// Sum of a list of numbers. Returns 0 for empty list.
+    /// sum(list) → 0 for empty
     fn sum<'v>(
         #[starlark(require = pos)] xs: &ListRef<'v>,
     ) -> starlark::Result<f64> {
@@ -46,19 +41,16 @@ fn register_custom_functions(builder: &mut GlobalsBuilder) {
         Ok(total)
     }
 
-    /// Absolute value of a number.
     fn abs(#[starlark(require = pos)] x: UnpackFloat) -> starlark::Result<f64> {
         Ok(x.0.abs())
     }
 
-    /// Convert to float.
     fn float(
         #[starlark(require = pos)] x: UnpackFloat,
     ) -> starlark::Result<f64> {
         Ok(x.0)
     }
 
-    /// Round a number to the nearest integer.
     fn round(
         #[starlark(require = pos)] x: UnpackFloat,
     ) -> starlark::Result<i64> {
@@ -66,7 +58,6 @@ fn register_custom_functions(builder: &mut GlobalsBuilder) {
     }
 }
 
-/// Trait for direct conversion to Starlark values (bypassing serde_json).
 trait ToStarlarkValue {
     fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v>;
 }
@@ -110,7 +101,6 @@ impl ToStarlarkValue for super::Input {
                 heap.alloc(items)
             }
             super::Input::RichContentPart(part) => {
-                // Fallback to JSON for complex rich content types
                 let json =
                     serde_json::to_value(part).unwrap_or(Value::Null);
                 json_to_starlark(heap, &json)
@@ -208,12 +198,10 @@ impl<'a> ToStarlarkValue for super::TaskOutput<'a> {
     }
 }
 
-/// Evaluate a Starlark expression with the given parameters.
 pub fn starlark_eval(
     code: &str,
     params: &super::Params,
 ) -> Result<Value, ExpressionError> {
-    // Create module and inject variables directly (no JSON intermediate)
     let module = Module::new();
     {
         let heap = module.heap();
@@ -263,24 +251,20 @@ pub fn starlark_eval(
         }
     }
 
-    // Parse the expression directly
     let ast =
         AstModule::parse("expression", code.to_string(), &Dialect::Extended)
             .map_err(|e| ExpressionError::StarlarkParseError(e.to_string()))?;
 
-    // Evaluate - eval_module returns the value of the last statement
     let mut eval = Evaluator::new(&module);
     let result = eval
         .eval_module(ast, &STARLARK_GLOBALS)
         .map_err(|e| ExpressionError::StarlarkEvalError(e.to_string()))?;
 
-    // Convert result to JSON
     result
         .to_json_value()
         .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))
 }
 
-/// Convert JSON value to Starlark value.
 fn json_to_starlark<'v>(heap: &'v Heap, json: &Value) -> SValue<'v> {
     match json {
         Value::Null => SValue::new_none(),
