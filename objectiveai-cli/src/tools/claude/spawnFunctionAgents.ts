@@ -63,7 +63,13 @@ export function makeSpawnFunctionAgents(state: ToolState) {
 
       state.spawnFunctionAgentsHasSpawned = true;
       state.pendingAgentResults.push(
-        spawnFunctionAgents(params, opts()).then((r) => resultFromResult(r)),
+        spawnFunctionAgents(params, opts()).then((r) => {
+          if (!r.ok) return errorResult(r.error!);
+          const text = JSON.stringify(r.value, null, 2);
+          const hasErrors = r.value!.some((s) => "error" in s);
+          if (hasErrors) return errorResult(text);
+          return textResult(text);
+        }),
       );
 
       return textResult(

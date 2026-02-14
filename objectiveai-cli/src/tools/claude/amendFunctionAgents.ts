@@ -1,6 +1,6 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { ToolState } from "./toolState";
-import { textResult, resultFromResult, errorResult } from "./util";
+import { textResult, errorResult } from "./util";
 import { amendFunctionAgents } from "../amendFunctionAgents";
 import { AmendFunctionAgentsParamsSchema } from "../../amendFunctionAgentsParams";
 import { validateInputSchema } from "../function/inputSchema";
@@ -34,7 +34,13 @@ export function makeAmendFunctionAgents(state: ToolState) {
       }
 
       state.pendingAgentResults.push(
-        amendFunctionAgents(params, opts()).then((r) => resultFromResult(r)),
+        amendFunctionAgents(params, opts()).then((r) => {
+          if (!r.ok) return errorResult(r.error!);
+          const text = JSON.stringify(r.value, null, 2);
+          const hasErrors = r.value!.some((s) => "error" in s);
+          if (hasErrors) return errorResult(text);
+          return textResult(text);
+        }),
       );
 
       return textResult(
