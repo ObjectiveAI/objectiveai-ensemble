@@ -204,6 +204,7 @@ export async function planMcp(
       `\n- **Never use \`str()\` on multimodal content** — pass rich content directly (or via expressions)`;
 
   let prompt =
+    "Do not re-read anything you have already read or written in your conversation history.\n\n" +
     `${readPrefix} your implementation plan using the WritePlan tool. Include:` +
     `\n- The input schema structure and field descriptions` +
     `\n- Whether any input maps are needed for mapped task execution` +

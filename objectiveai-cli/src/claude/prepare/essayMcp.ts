@@ -52,6 +52,7 @@ export async function essayMcp(
     : "";
 
   const prompt =
+    "Do not re-read anything you have already read or written in your conversation history.\n\n" +
     readPrefix +
     "Create ESSAY.md describing the ObjectiveAI Function you are building." +
     " Explore the purpose, inputs, outputs, and use-cases of the function in detail." +

@@ -55,6 +55,7 @@ export async function nameMcp(
   sessionId = await consumeStream(
     query({
       prompt:
+        "Do not re-read anything you have already read or written in your conversation history.\n\n" +
         `${readPrefix} name.txt with the function name.\n` +
         '**Do NOT include "objectiveai" or "function" or "scalar" or "vector" in the name.** Name it like you would name a function:\n' +
         "- Use all lowercase\n" +

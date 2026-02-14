@@ -60,6 +60,7 @@ export async function essayTasksMcp(
     : "Create";
 
   const prompt =
+    "Do not re-read anything you have already read or written in your conversation history.\n\n" +
     `${readPrefix} ESSAY_TASKS.md listing and describing the key tasks the ObjectiveAI Function must perform in order to fulfill the quality, value, and sentiment evaluations defined within ESSAY.md.` +
     " Each task is a plain language description of a task which will go into the function's `tasks` array." +
     ` There must be ${widthDesc} tasks.`;

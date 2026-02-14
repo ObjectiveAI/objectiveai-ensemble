@@ -354,7 +354,9 @@ function buildReadLine(state: ToolState): string {
 
 function buildAmendFunctionTasksPrompt(state: ToolState, amendment: string): string {
   const readLine = buildReadLine(state);
-  return `You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
+  return `Do not re-read anything you have already read or written in your conversation history.
+
+You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
 
 ## Amendment
 
@@ -408,7 +410,9 @@ Once all tests pass and compliance is verified:
 
 function buildAmendVectorTasksPrompt(state: ToolState, amendment: string): string {
   const readLine = buildReadLine(state);
-  return `You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
+  return `Do not re-read anything you have already read or written in your conversation history.
+
+You are amending an existing ObjectiveAI Function. Your goal is to implement the following amendment, ensure all tests pass, and submit the result.
 
 ## Amendment
 

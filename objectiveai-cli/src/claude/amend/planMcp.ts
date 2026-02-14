@@ -189,6 +189,7 @@ export async function planMcp(
       `\n- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\``;
 
   const prompt =
+    "Do not re-read anything you have already read or written in your conversation history.\n\n" +
     `You are amending an existing ObjectiveAI Function. The following amendment describes what needs to change:` +
     `\n\n## Amendment\n\n${amendment}` +
     `\n\n${readPrefix} your amendment plan using the WritePlan tool. Include:` +

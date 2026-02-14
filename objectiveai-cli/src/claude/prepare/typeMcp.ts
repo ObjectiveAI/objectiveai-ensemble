@@ -52,6 +52,7 @@ export async function typeMcp(
   sessionId = await consumeStream(
     query({
       prompt:
+        "Do not re-read anything you have already read or written in your conversation history.\n\n" +
         `${readPrefix} the function type based on the SPEC:\n` +
         "- Use `scalar.function` if the input is a single item and the function **scores** it (output: single number 0-1)\n" +
         "- Use `vector.function` if the input is multiple items and the function **ranks** them (output: array of scores summing to ~1)\n\n" +

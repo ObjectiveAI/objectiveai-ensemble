@@ -354,7 +354,9 @@ function buildReadLine(state: ToolState): string {
 function buildFunctionTasksPrompt(state: ToolState): string {
   const w = widthText(state.minWidth, state.maxWidth);
   const readLine = buildReadLine(state);
-  return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
+  return `Do not re-read anything you have already read or written in your conversation history.
+
+You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
 ${readLine}
 
 ## Phase 1: Implementation
@@ -437,7 +439,9 @@ Once all tests pass and SPEC.md compliance is verified:
 function buildVectorTasksPrompt(state: ToolState): string {
   const w = widthText(state.minWidth, state.maxWidth);
   const readLine = buildReadLine(state);
-  return `You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
+  return `Do not re-read anything you have already read or written in your conversation history.
+
+You are inventing a new ObjectiveAI Function. Your goal is to complete the implementation, add example inputs, ensure all tests pass, and submit the result.
 ${readLine}
 
 ## Phase 1: Implementation
