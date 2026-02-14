@@ -170,6 +170,7 @@ import { planMcp } from "./planMcp";
 
 // Tools - agent functions (for function tasks variant)
 import { makeSpawnFunctionAgents } from "../../tools/claude/spawnFunctionAgents";
+import { makeAmendFunctionAgents } from "../../tools/claude/amendFunctionAgents";
 import { makeWaitFunctionAgents } from "../../tools/claude/waitFunctionAgents";
 import {
   makeListAgentFunctions,
@@ -326,6 +327,7 @@ function getCommonTools(state: ToolState, useFunctionTasks: boolean) {
 function getFunctionTasksTools(state: ToolState) {
   return [
     makeSpawnFunctionAgents(state),
+    makeAmendFunctionAgents(state),
     makeWaitFunctionAgents(state),
     makeListAgentFunctions(state),
     makeReadAgentFunction(state),

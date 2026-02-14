@@ -5438,6 +5438,220 @@ function makeSpawnFunctionAgents(state) {
     }
   );
 }
+function runAmendInSubdir(name, childProcesses, opts) {
+  const subdir = path.join("agent_functions", name);
+  return new Promise((resolve2) => {
+    const args = ["amend"];
+    if (opts?.apiBase) args.push("--api-base", opts.apiBase);
+    if (opts?.apiKey) args.push("--api-key", opts.apiKey);
+    if (opts?.gitUserName) args.push("--git-user-name", opts.gitUserName);
+    if (opts?.gitUserEmail) args.push("--git-user-email", opts.gitUserEmail);
+    if (opts?.ghToken) args.push("--gh-token", opts.ghToken);
+    if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
+    if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
+    const child = child_process.spawn(
+      "objectiveai",
+      args,
+      {
+        cwd: subdir,
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: true,
+        env: {
+          ...process.env,
+          OBJECTIVEAI_PARENT_PID: String(process.pid),
+          OBJECTIVEAI_ROOT_CWD: process.env.OBJECTIVEAI_ROOT_CWD ?? process.cwd(),
+          ...opts?.ghToken && { GH_TOKEN: opts.ghToken }
+        }
+      }
+    );
+    childProcesses.push(child);
+    if (child.stdin && opts?.activeChildren) {
+      opts.activeChildren.set(name, child.stdin);
+    }
+    opts?.onChildEvent?.({ event: "start", path: name });
+    let stdoutBuffer = "";
+    child.stdout?.on("data", (data) => {
+      if (!opts?.onChildEvent) return;
+      stdoutBuffer += data.toString();
+      const lines = stdoutBuffer.split("\n");
+      stdoutBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const evt = parseEvent(line);
+        if (evt) {
+          opts.onChildEvent(prefixEvent(evt, name));
+        }
+      }
+    });
+    child.stderr?.on("data", () => {
+    });
+    child.on("close", (code) => {
+      opts?.activeChildren?.delete(name);
+      if (opts?.onChildEvent && stdoutBuffer.trim()) {
+        const evt = parseEvent(stdoutBuffer);
+        if (evt) {
+          opts.onChildEvent(prefixEvent(evt, name));
+        }
+      }
+      opts?.onChildEvent?.({ event: "done", path: name });
+      if (code !== 0) {
+        resolve2({
+          name,
+          error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.`
+        });
+        return;
+      }
+      try {
+        const remote = child_process.execSync("git remote get-url origin", {
+          cwd: subdir,
+          encoding: "utf-8"
+        }).trim();
+        const match = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
+        const owner = match?.[1] ?? "unknown";
+        const repository = match?.[2] ?? name;
+        const commit = child_process.execSync("git rev-parse HEAD", {
+          cwd: subdir,
+          encoding: "utf-8"
+        }).trim();
+        resolve2({ name, owner, repository, commit });
+      } catch (err) {
+        resolve2({ name, error: `Failed to extract result: ${err}` });
+      }
+    });
+    child.on("error", (err) => {
+      resolve2({ name, error: `Failed to spawn agent: ${err.message}` });
+    });
+  });
+}
+async function amendFunctionAgents(params, opts) {
+  if (params.length === 0) {
+    return { ok: false, value: void 0, error: "params array is empty" };
+  }
+  const names = params.map((p) => p.name);
+  const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
+  if (duplicates.length > 0) {
+    return {
+      ok: false,
+      value: void 0,
+      error: `Duplicate names: ${[...new Set(duplicates)].join(", ")}`
+    };
+  }
+  if (opts?.ghToken) {
+    const owner = getGitHubOwner2(opts.ghToken);
+    if (owner) {
+      const missing = [];
+      for (const param of params) {
+        if (!repoExists2(owner, param.name, opts.ghToken)) {
+          missing.push(param.name);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Cannot amend agents that haven't completed invent: ${missing.join(", ")}. Repository must exist on GitHub first.`
+        };
+      }
+    }
+  }
+  const originalCwd = process.cwd();
+  for (const param of params) {
+    const dir = path.join("agent_functions", param.name);
+    try {
+      process.chdir(dir);
+      appendAmendment(param.spec);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  }
+  const childProcesses = [];
+  const killAll = () => {
+    for (const child of childProcesses) {
+      if (child.killed) continue;
+      try {
+        if (process.platform === "win32" && child.pid) {
+          child_process.execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: "ignore" });
+        } else {
+          child.kill("SIGKILL");
+        }
+      } catch {
+      }
+    }
+  };
+  const onExit = () => killAll();
+  const onSignal = () => {
+    killAll();
+    process.exit(1);
+  };
+  const onError = () => {
+    killAll();
+    process.exit(1);
+  };
+  process.on("exit", onExit);
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  process.on("uncaughtException", onError);
+  process.on("unhandledRejection", onError);
+  const removeListeners = () => {
+    process.removeListener("exit", onExit);
+    process.removeListener("SIGINT", onSignal);
+    process.removeListener("SIGTERM", onSignal);
+    process.removeListener("uncaughtException", onError);
+    process.removeListener("unhandledRejection", onError);
+  };
+  try {
+    const results = await Promise.all(
+      params.map(
+        (param) => runAmendInSubdir(param.name, childProcesses, opts)
+      )
+    );
+    return { ok: true, value: results, error: void 0 };
+  } catch (e) {
+    killAll();
+    return {
+      ok: false,
+      value: void 0,
+      error: `Amend failed: ${e.message}`
+    };
+  } finally {
+    killAll();
+    removeListeners();
+  }
+}
+var AmendFunctionAgentsParamsSchema = z18.z.array(
+  z18.z.object({
+    name: z18.z.string(),
+    spec: z18.z.string()
+  })
+);
+
+// src/tools/claude/amendFunctionAgents.ts
+function makeAmendFunctionAgents(state) {
+  const opts = () => ({
+    apiBase: state.submitApiBase,
+    apiKey: state.submitApiKey,
+    gitUserName: state.gitUserName,
+    gitUserEmail: state.gitUserEmail,
+    ghToken: state.ghToken,
+    minWidth: state.minWidth,
+    maxWidth: state.maxWidth,
+    onChildEvent: state.onChildEvent,
+    activeChildren: state.activeChildren
+  });
+  return claudeAgentSdk.tool(
+    "AmendFunctionAgents",
+    "Amend existing child function agents in parallel",
+    { params: AmendFunctionAgentsParamsSchema },
+    async ({ params }) => {
+      state.pendingAgentResults.push(
+        amendFunctionAgents(params, opts()).then((r) => resultFromResult(r))
+      );
+      return textResult(
+        "Agents spawned. Call WaitFunctionAgents to wait for results."
+      );
+    }
+  );
+}
 function mergeResults(results) {
   const content = results.flatMap((r) => r.content);
   const isError = results.some((r) => r.isError);
@@ -5692,6 +5906,7 @@ function getCommonTools(state, useFunctionTasks) {
 function getFunctionTasksTools(state) {
   return [
     makeSpawnFunctionAgents(state),
+    makeAmendFunctionAgents(state),
     makeWaitFunctionAgents(state),
     makeListAgentFunctions(),
     makeReadAgentFunction()
@@ -6064,220 +6279,6 @@ ${readPrefix} your amendment plan using the WritePlan tool. Include:
   state.anyStepRan = true;
   if (sessionId) writeSession(sessionId);
   return sessionId;
-}
-function runAmendInSubdir(name, childProcesses, opts) {
-  const subdir = path.join("agent_functions", name);
-  return new Promise((resolve2) => {
-    const args = ["amend"];
-    if (opts?.apiBase) args.push("--api-base", opts.apiBase);
-    if (opts?.apiKey) args.push("--api-key", opts.apiKey);
-    if (opts?.gitUserName) args.push("--git-user-name", opts.gitUserName);
-    if (opts?.gitUserEmail) args.push("--git-user-email", opts.gitUserEmail);
-    if (opts?.ghToken) args.push("--gh-token", opts.ghToken);
-    if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
-    if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
-    const child = child_process.spawn(
-      "objectiveai",
-      args,
-      {
-        cwd: subdir,
-        stdio: ["pipe", "pipe", "pipe"],
-        shell: true,
-        env: {
-          ...process.env,
-          OBJECTIVEAI_PARENT_PID: String(process.pid),
-          OBJECTIVEAI_ROOT_CWD: process.env.OBJECTIVEAI_ROOT_CWD ?? process.cwd(),
-          ...opts?.ghToken && { GH_TOKEN: opts.ghToken }
-        }
-      }
-    );
-    childProcesses.push(child);
-    if (child.stdin && opts?.activeChildren) {
-      opts.activeChildren.set(name, child.stdin);
-    }
-    opts?.onChildEvent?.({ event: "start", path: name });
-    let stdoutBuffer = "";
-    child.stdout?.on("data", (data) => {
-      if (!opts?.onChildEvent) return;
-      stdoutBuffer += data.toString();
-      const lines = stdoutBuffer.split("\n");
-      stdoutBuffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const evt = parseEvent(line);
-        if (evt) {
-          opts.onChildEvent(prefixEvent(evt, name));
-        }
-      }
-    });
-    child.stderr?.on("data", () => {
-    });
-    child.on("close", (code) => {
-      opts?.activeChildren?.delete(name);
-      if (opts?.onChildEvent && stdoutBuffer.trim()) {
-        const evt = parseEvent(stdoutBuffer);
-        if (evt) {
-          opts.onChildEvent(prefixEvent(evt, name));
-        }
-      }
-      opts?.onChildEvent?.({ event: "done", path: name });
-      if (code !== 0) {
-        resolve2({
-          name,
-          error: `Agent exited with code ${code}. See ${subdir}/logs/ for details.`
-        });
-        return;
-      }
-      try {
-        const remote = child_process.execSync("git remote get-url origin", {
-          cwd: subdir,
-          encoding: "utf-8"
-        }).trim();
-        const match = remote.match(/github\.com[:/]([^/]+)\/([^/.]+)/);
-        const owner = match?.[1] ?? "unknown";
-        const repository = match?.[2] ?? name;
-        const commit = child_process.execSync("git rev-parse HEAD", {
-          cwd: subdir,
-          encoding: "utf-8"
-        }).trim();
-        resolve2({ name, owner, repository, commit });
-      } catch (err) {
-        resolve2({ name, error: `Failed to extract result: ${err}` });
-      }
-    });
-    child.on("error", (err) => {
-      resolve2({ name, error: `Failed to spawn agent: ${err.message}` });
-    });
-  });
-}
-async function amendFunctionAgents(params, opts) {
-  if (params.length === 0) {
-    return { ok: false, value: void 0, error: "params array is empty" };
-  }
-  const names = params.map((p) => p.name);
-  const duplicates = names.filter((n, i) => names.indexOf(n) !== i);
-  if (duplicates.length > 0) {
-    return {
-      ok: false,
-      value: void 0,
-      error: `Duplicate names: ${[...new Set(duplicates)].join(", ")}`
-    };
-  }
-  if (opts?.ghToken) {
-    const owner = getGitHubOwner2(opts.ghToken);
-    if (owner) {
-      const missing = [];
-      for (const param of params) {
-        if (!repoExists2(owner, param.name, opts.ghToken)) {
-          missing.push(param.name);
-        }
-      }
-      if (missing.length > 0) {
-        return {
-          ok: false,
-          value: void 0,
-          error: `Cannot amend agents that haven't completed invent: ${missing.join(", ")}. Repository must exist on GitHub first.`
-        };
-      }
-    }
-  }
-  const originalCwd = process.cwd();
-  for (const param of params) {
-    const dir = path.join("agent_functions", param.name);
-    try {
-      process.chdir(dir);
-      appendAmendment(param.spec);
-    } finally {
-      process.chdir(originalCwd);
-    }
-  }
-  const childProcesses = [];
-  const killAll = () => {
-    for (const child of childProcesses) {
-      if (child.killed) continue;
-      try {
-        if (process.platform === "win32" && child.pid) {
-          child_process.execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: "ignore" });
-        } else {
-          child.kill("SIGKILL");
-        }
-      } catch {
-      }
-    }
-  };
-  const onExit = () => killAll();
-  const onSignal = () => {
-    killAll();
-    process.exit(1);
-  };
-  const onError = () => {
-    killAll();
-    process.exit(1);
-  };
-  process.on("exit", onExit);
-  process.on("SIGINT", onSignal);
-  process.on("SIGTERM", onSignal);
-  process.on("uncaughtException", onError);
-  process.on("unhandledRejection", onError);
-  const removeListeners = () => {
-    process.removeListener("exit", onExit);
-    process.removeListener("SIGINT", onSignal);
-    process.removeListener("SIGTERM", onSignal);
-    process.removeListener("uncaughtException", onError);
-    process.removeListener("unhandledRejection", onError);
-  };
-  try {
-    const results = await Promise.all(
-      params.map(
-        (param) => runAmendInSubdir(param.name, childProcesses, opts)
-      )
-    );
-    return { ok: true, value: results, error: void 0 };
-  } catch (e) {
-    killAll();
-    return {
-      ok: false,
-      value: void 0,
-      error: `Amend failed: ${e.message}`
-    };
-  } finally {
-    killAll();
-    removeListeners();
-  }
-}
-var AmendFunctionAgentsParamsSchema = z18.z.array(
-  z18.z.object({
-    name: z18.z.string(),
-    spec: z18.z.string()
-  })
-);
-
-// src/tools/claude/amendFunctionAgents.ts
-function makeAmendFunctionAgents(state) {
-  const opts = () => ({
-    apiBase: state.submitApiBase,
-    apiKey: state.submitApiKey,
-    gitUserName: state.gitUserName,
-    gitUserEmail: state.gitUserEmail,
-    ghToken: state.ghToken,
-    minWidth: state.minWidth,
-    maxWidth: state.maxWidth,
-    onChildEvent: state.onChildEvent,
-    activeChildren: state.activeChildren
-  });
-  return claudeAgentSdk.tool(
-    "AmendFunctionAgents",
-    "Amend existing child function agents in parallel",
-    { params: AmendFunctionAgentsParamsSchema },
-    async ({ params }) => {
-      state.pendingAgentResults.push(
-        amendFunctionAgents(params, opts()).then((r) => resultFromResult(r))
-      );
-      return textResult(
-        "Agents spawned. Call WaitFunctionAgents to wait for results."
-      );
-    }
-  );
 }
 
 // src/claude/amend/amendMcp.ts
