@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createPublicClient } from "../../../lib/client";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
+import { loadReasoningModels } from "../../../lib/reasoning-models";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
 import { InputBuilder } from "../../../components/InputBuilder";
@@ -95,16 +96,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
   // Reasoning options
   const [reasoningEnabled, setReasoningEnabled] = useState(false);
-  const [reasoningModel, setReasoningModel] = useState("openai/gpt-4o-mini");
-
-  const REASONING_MODEL_OPTIONS = [
-    { value: "openai/gpt-4o-mini", label: "GPT-4o Mini (cheapest)" },
-    { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
-    { value: "openai/gpt-4o", label: "GPT-4o" },
-    { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-    { value: "google/gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-    { value: "anthropic/claude-opus-4.6", label: "Claude Opus 4.6 (best)" },
-  ];
+  const [reasoningModel, setReasoningModel] = useState(""); // Set after loading from JSON
+  const [reasoningModels, setReasoningModels] = useState<Array<{ value: string; label: string }>>([]);
 
   // Fetch function details
   useEffect(() => {
@@ -167,6 +160,14 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       setIsSaved(library.includes(slug));
     }
   }, [slug]);
+
+  // Load reasoning models from build-time generated JSON
+  useEffect(() => {
+    loadReasoningModels().then(config => {
+      setReasoningModels(config.models.map(m => ({ value: m.value, label: m.label })));
+      setReasoningModel(config.default_model);
+    });
+  }, []);
 
   // Toggle save state
   const toggleSave = () => {
@@ -877,7 +878,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                       fontSize: isMobile ? "14px" : "15px",
                     }}
                   >
-                    {REASONING_MODEL_OPTIONS.map((option) => (
+                    {reasoningModels.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
