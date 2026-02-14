@@ -40,7 +40,7 @@ export function checkInputMaps(fn?: DeserializedFunction): Result<undefined> {
 }
 
 export function delInputMaps(): Result<undefined> {
-  return editFunction({ input_maps: undefined });
+  return editFunction({ input_maps: null });
 }
 
 export function editInputMaps(value: unknown): Result<undefined> {
@@ -110,7 +110,7 @@ export function delInputMap(index: number): Result<string> {
 
   const newInputMaps = [...fn.value.input_maps];
   newInputMaps.splice(index, 1);
-  const editResult = editFunction({ input_maps: newInputMaps.length > 0 ? newInputMaps : undefined });
+  const editResult = editFunction({ input_maps: newInputMaps.length > 0 ? newInputMaps : null });
   if (!editResult.ok) {
     return editResult as Result<string>;
   }
