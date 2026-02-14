@@ -7,6 +7,11 @@
 //! For object schemas, every optional field gets a dedicated example where it
 //! is present and another where it is absent. Multimodal types (Image, File)
 //! similarly produce variants with and without their optional sub-fields.
+//!
+//! A reservoir sampling cap ([`MAX_EXAMPLE_INPUTS`]) bounds memory usage for
+//! pathological schemas. If the schema naturally produces fewer than the cap,
+//! every permutation is checked. If it exceeds the cap, the reservoir
+//! maintains a uniform random sample across all possibilities.
 
 use indexmap::IndexMap;
 use rand::Rng;
@@ -16,16 +21,66 @@ use crate::chat::completions::request::{
 };
 use crate::functions::expression::{Input, InputSchema};
 
+/// Maximum number of example inputs to retain. If the schema produces more
+/// than this, reservoir sampling keeps a uniform random sample. If it
+/// produces fewer, every permutation is checked exhaustively.
+const MAX_EXAMPLE_INPUTS: usize = 1000;
+
+/// Reservoir sampler that holds at most `capacity` items.
+///
+/// Uses Algorithm R (Vitter, 1985): the first `capacity` items are accepted
+/// unconditionally; each subsequent item replaces a random existing item
+/// with probability `capacity / items_seen`, giving every item an equal
+/// chance of appearing in the final sample.
+struct Reservoir<'r, R: Rng> {
+    items: Vec<Input>,
+    capacity: usize,
+    seen: usize,
+    rng: &'r mut R,
+}
+
+impl<'r, R: Rng> Reservoir<'r, R> {
+    fn new(capacity: usize, rng: &'r mut R) -> Self {
+        Self {
+            items: Vec::with_capacity(capacity.min(64)),
+            capacity,
+            seen: 0,
+            rng,
+        }
+    }
+
+    fn push(&mut self, item: Input) {
+        self.seen += 1;
+        if self.items.len() < self.capacity {
+            self.items.push(item);
+        } else {
+            let j = self.rng.random_range(0..self.seen);
+            if j < self.capacity {
+                self.items[j] = item;
+            }
+        }
+    }
+
+    fn into_vec(self) -> Vec<Input> {
+        self.items
+    }
+}
+
 /// Generate diverse, randomized inputs from an `InputSchema`.
 ///
 /// For vector function validation the key diversity axis is varying array
 /// lengths. Generates inputs with different array sizes to test that
 /// output_length, input_split, and input_merge handle varying lengths.
+///
+/// If the schema would produce more than [`MAX_EXAMPLE_INPUTS`] inputs,
+/// reservoir sampling retains a uniform random subset of exactly
+/// `MAX_EXAMPLE_INPUTS` items — no unbounded allocation ever occurs.
+/// If fewer are produced, every permutation is returned.
 pub fn generate_example_inputs(schema: &InputSchema) -> Vec<Input> {
     let mut rng = rand::rng();
-    let mut inputs = Vec::new();
-    generate_inputs_recursive(schema, &mut inputs, 0, &mut rng);
-    inputs
+    let mut reservoir = Reservoir::new(MAX_EXAMPLE_INPUTS, &mut rng);
+    generate_inputs_recursive(schema, &mut reservoir, 0);
+    reservoir.into_vec()
 }
 
 /// Recursively generate diverse inputs for a schema.
@@ -33,28 +88,27 @@ pub fn generate_example_inputs(schema: &InputSchema) -> Vec<Input> {
 /// `depth` prevents infinite recursion in nested schemas.
 fn generate_inputs_recursive(
     schema: &InputSchema,
-    out: &mut Vec<Input>,
+    out: &mut Reservoir<'_, impl Rng>,
     depth: usize,
-    rng: &mut impl Rng,
 ) {
     if depth > 5 {
-        if let Some(input) = generate_single(schema, 0, rng) {
+        if let Some(input) = generate_single(schema, 0, out.rng) {
             out.push(input);
         }
         return;
     }
 
     match schema {
-        InputSchema::Object(obj) => generate_object_inputs(obj, out, depth, rng),
-        InputSchema::Array(arr) => generate_array_inputs(arr, out, depth, rng),
-        InputSchema::String(s) => generate_string_inputs(s, out, rng),
-        InputSchema::Integer(i) => generate_integer_inputs(i, out, rng),
-        InputSchema::Number(n) => generate_number_inputs(n, out, rng),
+        InputSchema::Object(obj) => generate_object_inputs(obj, out, depth),
+        InputSchema::Array(arr) => generate_array_inputs(arr, out, depth),
+        InputSchema::String(s) => generate_string_inputs(s, out),
+        InputSchema::Integer(i) => generate_integer_inputs(i, out),
+        InputSchema::Number(n) => generate_number_inputs(n, out),
         InputSchema::Boolean(_) => {
             out.push(Input::Boolean(true));
             out.push(Input::Boolean(false));
         }
-        InputSchema::Image(_) => generate_image_inputs(out, rng),
+        InputSchema::Image(_) => generate_image_inputs(out),
         InputSchema::Audio(_) => {
             out.push(Input::RichContentPart(RichContentPart::InputAudio {
                 input_audio: InputAudio {
@@ -64,27 +118,25 @@ fn generate_inputs_recursive(
             }));
         }
         InputSchema::Video(_) => {
+            let id = out.rng.random_range(1000..9999);
             out.push(Input::RichContentPart(RichContentPart::VideoUrl {
                 video_url: VideoUrl {
-                    url: format!(
-                        "https://example.com/vid_{}.mp4",
-                        rng.random_range(1000..9999)
-                    ),
+                    url: format!("https://example.com/vid_{}.mp4", id),
                 },
             }));
         }
-        InputSchema::File(_) => generate_file_inputs(out, rng),
+        InputSchema::File(_) => generate_file_inputs(out),
         InputSchema::AnyOf(any_of) => {
             for variant in &any_of.any_of {
-                generate_inputs_recursive(variant, out, depth + 1, rng);
+                generate_inputs_recursive(variant, out, depth + 1);
             }
         }
     }
 }
 
 /// Generate image inputs with permutations of the optional `detail` field.
-fn generate_image_inputs(out: &mut Vec<Input>, rng: &mut impl Rng) {
-    let id = rng.random_range(1000..9999);
+fn generate_image_inputs(out: &mut Reservoir<'_, impl Rng>) {
+    let id = out.rng.random_range(1000..9999);
 
     // With detail = None
     out.push(Input::RichContentPart(RichContentPart::ImageUrl {
@@ -116,8 +168,8 @@ fn generate_image_inputs(out: &mut Vec<Input>, rng: &mut impl Rng) {
 /// `File` has 4 optional fields: `file_data`, `file_id`, `filename`, `file_url`.
 /// We generate a variant with all present, one with only required-like fields,
 /// and one for each optional field being absent while the rest are present.
-fn generate_file_inputs(out: &mut Vec<Input>, rng: &mut impl Rng) {
-    let id = rng.random_range(1000..9999);
+fn generate_file_inputs(out: &mut Reservoir<'_, impl Rng>) {
+    let id = out.rng.random_range(1000..9999);
 
     let all_present = File {
         file_data: Some(format!("data_{}", id)),
@@ -284,9 +336,8 @@ fn generate_single(schema: &InputSchema, index: usize, rng: &mut impl Rng) -> Op
 /// different random values.
 fn generate_object_inputs(
     obj: &crate::functions::expression::ObjectInputSchema,
-    out: &mut Vec<Input>,
+    out: &mut Reservoir<'_, impl Rng>,
     depth: usize,
-    rng: &mut impl Rng,
 ) {
     let required: &[String] = obj.required.as_deref().unwrap_or(&[]);
     let optional_keys: Vec<&String> = obj
@@ -298,7 +349,7 @@ fn generate_object_inputs(
     // Generate base object with all properties present
     let mut base = IndexMap::new();
     for (key, prop_schema) in &obj.properties {
-        if let Some(val) = generate_single(prop_schema, 0, rng) {
+        if let Some(val) = generate_single(prop_schema, 0, out.rng) {
             base.insert(key.clone(), val);
         }
     }
@@ -307,7 +358,7 @@ fn generate_object_inputs(
     // Generate variant with different random values (all fields present)
     let mut variant = IndexMap::new();
     for (key, prop_schema) in &obj.properties {
-        if let Some(val) = generate_single(prop_schema, 1, rng) {
+        if let Some(val) = generate_single(prop_schema, 1, out.rng) {
             variant.insert(key.clone(), val);
         }
     }
@@ -325,7 +376,7 @@ fn generate_object_inputs(
 
         // With this optional field but fresh random value
         let prop_schema = &obj.properties[*opt_key];
-        if let Some(fresh_val) = generate_single(prop_schema, 2, rng) {
+        if let Some(fresh_val) = generate_single(prop_schema, 2, out.rng) {
             let mut with_fresh = base.clone();
             with_fresh.insert((*opt_key).clone(), fresh_val);
             out.push(Input::Object(with_fresh));
@@ -337,7 +388,7 @@ fn generate_object_inputs(
         let mut required_only = IndexMap::new();
         for (key, prop_schema) in &obj.properties {
             if required.contains(key) {
-                if let Some(val) = generate_single(prop_schema, 0, rng) {
+                if let Some(val) = generate_single(prop_schema, 0, out.rng) {
                     required_only.insert(key.clone(), val);
                 }
             }
@@ -348,9 +399,9 @@ fn generate_object_inputs(
     // Recurse into array properties to generate inputs with varying array lengths
     for (key, prop_schema) in &obj.properties {
         if let InputSchema::Array(_) = prop_schema {
-            let mut prop_inputs = Vec::new();
-            generate_inputs_recursive(prop_schema, &mut prop_inputs, depth + 1, rng);
-            for prop_input in prop_inputs {
+            let mut prop_inputs = Reservoir::new(MAX_EXAMPLE_INPUTS, out.rng);
+            generate_inputs_recursive(prop_schema, &mut prop_inputs, depth + 1);
+            for prop_input in prop_inputs.into_vec() {
                 let mut obj_input = base.clone();
                 obj_input.insert(key.clone(), prop_input);
                 out.push(Input::Object(obj_input));
@@ -362,9 +413,8 @@ fn generate_object_inputs(
 /// Generate array inputs with randomized lengths.
 fn generate_array_inputs(
     arr: &crate::functions::expression::ArrayInputSchema,
-    out: &mut Vec<Input>,
+    out: &mut Reservoir<'_, impl Rng>,
     depth: usize,
-    rng: &mut impl Rng,
 ) {
     let min = arr.min_items.unwrap_or(0) as usize;
     let max = arr.max_items.map(|m| m as usize).unwrap_or(20);
@@ -378,12 +428,12 @@ fn generate_array_inputs(
         if seen_lengths.len() >= target_count {
             break;
         }
-        let len = rng.random_range(min..=max);
+        let len = out.rng.random_range(min..=max);
         if !seen_lengths.insert(len) {
             continue;
         }
         let items: Vec<Input> = (0..len)
-            .filter_map(|j| generate_single(&arr.items, j, rng))
+            .filter_map(|j| generate_single(&arr.items, j, out.rng))
             .collect();
         out.push(Input::Array(items));
     }
@@ -392,30 +442,29 @@ fn generate_array_inputs(
     if seen_lengths.is_empty() {
         let len = min.min(max);
         let items: Vec<Input> = (0..len)
-            .filter_map(|j| generate_single(&arr.items, j, rng))
+            .filter_map(|j| generate_single(&arr.items, j, out.rng))
             .collect();
         out.push(Input::Array(items));
     }
 
     // Recurse into item schema for deeper diversity (only at top level)
     if depth == 0 {
-        let mut _item_inputs = Vec::new();
-        generate_inputs_recursive(&arr.items, &mut _item_inputs, depth + 1, rng);
+        let mut _item_reservoir = Reservoir::new(MAX_EXAMPLE_INPUTS, out.rng);
+        generate_inputs_recursive(&arr.items, &mut _item_reservoir, depth + 1);
     }
 }
 
 /// Generate diverse string inputs with random values.
 fn generate_string_inputs(
     s: &crate::functions::expression::StringInputSchema,
-    out: &mut Vec<Input>,
-    rng: &mut impl Rng,
+    out: &mut Reservoir<'_, impl Rng>,
 ) {
     if let Some(ref e) = s.r#enum {
         // Shuffle and pick up to 3 enum values
         let count = e.len().min(3);
         let mut indices: Vec<usize> = (0..e.len()).collect();
         for i in (1..indices.len()).rev() {
-            let j = rng.random_range(0..=i);
+            let j = out.rng.random_range(0..=i);
             indices.swap(i, j);
         }
         for &idx in indices.iter().take(count) {
@@ -423,9 +472,9 @@ fn generate_string_inputs(
         }
     } else {
         for _ in 0..3 {
-            let len = rng.random_range(3..=10);
+            let len = out.rng.random_range(3..=10);
             let s: String = (0..len)
-                .map(|_| rng.random_range(b'a'..=b'z') as char)
+                .map(|_| out.rng.random_range(b'a'..=b'z') as char)
                 .collect();
             out.push(Input::String(s));
         }
@@ -435,8 +484,7 @@ fn generate_string_inputs(
 /// Generate diverse integer inputs with random values within bounds.
 fn generate_integer_inputs(
     i: &crate::functions::expression::IntegerInputSchema,
-    out: &mut Vec<Input>,
-    rng: &mut impl Rng,
+    out: &mut Reservoir<'_, impl Rng>,
 ) {
     let min = i.minimum.unwrap_or(0);
     let max = i.maximum.unwrap_or(100);
@@ -446,7 +494,7 @@ fn generate_integer_inputs(
         if seen.len() >= 4 {
             break;
         }
-        let val = rng.random_range(min..=max);
+        let val = out.rng.random_range(min..=max);
         if seen.insert(val) {
             out.push(Input::Integer(val));
         }
@@ -456,14 +504,14 @@ fn generate_integer_inputs(
 /// Generate diverse number inputs with random values within bounds.
 fn generate_number_inputs(
     n: &crate::functions::expression::NumberInputSchema,
-    out: &mut Vec<Input>,
-    rng: &mut impl Rng,
+    out: &mut Reservoir<'_, impl Rng>,
 ) {
     let min = n.minimum.unwrap_or(0.0);
     let max = n.maximum.unwrap_or(100.0);
 
     for _ in 0..3 {
-        out.push(Input::Number(rng.random_range(min..=max)));
+        let val = out.rng.random_range(min..=max);
+        out.push(Input::Number(val));
     }
 }
 
@@ -629,5 +677,14 @@ mod tests {
             "File should produce at least 7 variants covering optional field permutations, got {}",
             inputs.len()
         );
+    }
+
+    #[test]
+    fn test_reservoir_cap() {
+        // Verify that even with a huge schema, we never exceed MAX_EXAMPLE_INPUTS
+        let inputs = generate_example_inputs(&InputSchema::Boolean(
+            crate::functions::expression::BooleanInputSchema { description: None },
+        ));
+        assert!(inputs.len() <= MAX_EXAMPLE_INPUTS);
     }
 }
