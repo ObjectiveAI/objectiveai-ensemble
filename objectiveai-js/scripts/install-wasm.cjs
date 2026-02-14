@@ -123,6 +123,7 @@ export const compileFunctionOutput = _wasm.compileFunctionOutput;
 export const compileFunctionOutputLength = _wasm.compileFunctionOutputLength;
 export const compileFunctionInputSplit = _wasm.compileFunctionInputSplit;
 export const compileFunctionInputMerge = _wasm.compileFunctionInputMerge;
+export const validateVectorFields = _wasm.validateVectorFields;
 export const promptId = _wasm.promptId;
 export const toolsId = _wasm.toolsId;
 export const vectorResponseId = _wasm.vectorResponseId;

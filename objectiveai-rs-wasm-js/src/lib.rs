@@ -367,6 +367,27 @@ pub fn compileFunctionInputMerge(
     Ok(input_merge)
 }
 
+/// Validates vector function fields (output_length, input_split, input_merge).
+///
+/// Generates diverse example inputs from the input_schema and validates that the
+/// output_length, input_split, and input_merge expressions work correctly together
+/// via round-trip testing.
+///
+/// # Arguments
+///
+/// * `fields` - JavaScript object with `input_schema`, `output_length`, `input_split`, `input_merge`
+///
+/// # Returns
+///
+/// Nothing on success. Throws a descriptive error string on failure.
+#[wasm_bindgen]
+pub fn validateVectorFields(fields: JsValue) -> Result<(), JsValue> {
+    let fields: objectiveai::functions::quality::VectorFieldsValidation =
+        serde_wasm_bindgen::from_value(fields)?;
+    objectiveai::functions::quality::check_vector_fields(fields)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
 /// Computes a content-addressed ID for chat messages.
 ///
 /// Normalizes the messages (consolidates text parts, removes empty content)
