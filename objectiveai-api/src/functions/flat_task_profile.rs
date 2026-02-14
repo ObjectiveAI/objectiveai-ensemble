@@ -625,7 +625,6 @@ where
                         commit,
                         input,
                         output,
-                        invert_output,
                     },
                 ),
             )
@@ -637,12 +636,10 @@ where
                         commit,
                         input,
                         output,
-                        invert_output,
                     },
                 ),
             ) => {
-                let effective_invert_output =
-                    invert_output || profile_invert_flags[i];
+                let effective_invert_output = profile_invert_flags[i];
                 flat_tasks_or_futs.push(TaskFut::FunctionTaskFut(Box::pin(
                     get_flat_task_profile(
                         ctx.clone(),
@@ -695,8 +692,7 @@ where
                         "expected VectorCompletion profile for vector completion task".to_string()
                     )),
                 };
-                let effective_invert_output =
-                    task.invert_output || profile_invert_flags[i];
+                let effective_invert_output = profile_invert_flags[i];
                 flat_tasks_or_futs.push(TaskFut::VectorTaskFut(Box::pin(
                     get_vector_completion_flat_task_profile(
                         ctx.clone(),
@@ -711,30 +707,29 @@ where
             }
             objectiveai::functions::CompiledTask::Many(tasks) => {
                 // Determine task type and extract shared output expression before consuming tasks
-                let (is_vector_completion, map_task_output, map_invert_output) = match tasks
+                let (is_vector_completion, map_task_output) = match tasks
                     .first()
                 {
                     Some(objectiveai::functions::Task::VectorCompletion(
                         vc,
-                    )) => (true, vc.output.clone(), vc.invert_output),
+                    )) => (true, vc.output.clone()),
                     Some(objectiveai::functions::Task::ScalarFunction(sf)) => {
-                        (false, sf.output.clone(), sf.invert_output)
+                        (false, sf.output.clone())
                     }
                     Some(objectiveai::functions::Task::VectorFunction(vf)) => {
-                        (false, vf.output.clone(), vf.invert_output)
+                        (false, vf.output.clone())
                     }
                     None => {
                         // Empty mapped task - need a placeholder expression
                         // This case shouldn't normally happen, but handle gracefully
                         (true, objectiveai::functions::expression::Expression::JMESPath(
                             "output".to_string()
-                        ), false)
+                        ))
                     }
                 };
 
                 if is_vector_completion {
-                    let map_invert_output =
-                        map_invert_output || profile_invert_flags[i];
+                    let map_invert_output = profile_invert_flags[i];
                     let mut futs = Vec::with_capacity(tasks.len());
                     for (j, task) in tasks.into_iter().enumerate() {
                         let mut task_path = task_path.clone();
@@ -770,6 +765,7 @@ where
                         futures::future::try_join_all(futs),
                     )));
                 } else {
+                    let map_invert_output = profile_invert_flags[i];
                     let mut futs = Vec::with_capacity(tasks.len());
                     for (j, task) in tasks.into_iter().enumerate() {
                         let mut task_path = task_path.clone();

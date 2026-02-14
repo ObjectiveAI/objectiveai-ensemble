@@ -377,7 +377,6 @@ fn create_simple_vector_function() -> objectiveai::functions::InlineFunction {
                 output: objectiveai::functions::expression::Expression::Starlark(
                     "output['scores']".to_string(),
                 ),
-                invert_output: None,
             },
         )],
         input_split: None,
@@ -440,7 +439,6 @@ fn create_simple_scalar_function() -> objectiveai::functions::InlineFunction {
                 output: objectiveai::functions::expression::Expression::Starlark(
                     "output['scores'][0]".to_string(),
                 ),
-                invert_output: None,
             },
         )],
     }
@@ -689,8 +687,7 @@ mod tests {
                         output: objectiveai::functions::expression::Expression::Starlark(
                             "output['scores']".to_string(),
                         ),
-                        invert_output: None,
-                    },
+                            },
                 ),
                 objectiveai::functions::TaskExpression::VectorCompletion(
                     objectiveai::functions::VectorCompletionTaskExpression {
@@ -726,8 +723,7 @@ mod tests {
                         output: objectiveai::functions::expression::Expression::Starlark(
                             "output['scores']".to_string(),
                         ),
-                        invert_output: None,
-                    },
+                            },
                 ),
             ],
             input_split: None,
