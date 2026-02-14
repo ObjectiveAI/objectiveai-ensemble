@@ -1,7 +1,7 @@
 import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { existsSync, readFileSync } from "fs";
 import { LogFn } from "../../agentOptions";
-import { consumeStream } from "../../logging";
+import { consumeStream, wrapToolsWithLogging } from "../../logging";
 import { makeWriteEssayTasks } from "../../tools/claude/essayTasks";
 import { makeReadSpec } from "../../tools/claude/spec";
 import { makeReadName } from "../../tools/claude/name";
@@ -42,7 +42,7 @@ export async function essayTasksMcp(
     makeReadExampleFunction(state),
     makeReadFunctionSchema(state),
   ];
-  const mcpServer = createSdkMcpServer({ name: "essayTasks", tools });
+  const mcpServer = createSdkMcpServer({ name: "essayTasks", tools: wrapToolsWithLogging(tools, log) });
 
   const widthDesc =
     state.minWidth === state.maxWidth

@@ -1,7 +1,7 @@
 import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { existsSync, readFileSync } from "fs";
 import { LogFn } from "../../agentOptions";
-import { consumeStream } from "../../logging";
+import { consumeStream, wrapToolsWithLogging } from "../../logging";
 import { writeName } from "../../tools/name";
 import { makeReadName, makeWriteName } from "../../tools/claude/name";
 import { makeReadSpec } from "../../tools/claude/spec";
@@ -42,7 +42,7 @@ export async function nameMcp(
     makeReadExampleFunction(state),
     makeReadFunctionSchema(state),
   ];
-  const mcpServer = createSdkMcpServer({ name: "name", tools });
+  const mcpServer = createSdkMcpServer({ name: "name", tools: wrapToolsWithLogging(tools, log) });
 
   const reads: string[] = [];
   if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");

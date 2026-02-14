@@ -1,6 +1,6 @@
 import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { LogFn } from "../../agentOptions";
-import { consumeStream } from "../../logging";
+import { consumeStream, wrapToolsWithLogging } from "../../logging";
 import {
   editInputSchema,
   isDefaultInputSchema,
@@ -53,7 +53,7 @@ export async function inputSchemaMcp(
     makeListExampleFunctions(state),
     makeReadExampleFunction(state),
   ];
-  const mcpServer = createSdkMcpServer({ name: "input-schema", tools });
+  const mcpServer = createSdkMcpServer({ name: "input-schema", tools: wrapToolsWithLogging(tools, log) });
 
   const reads: string[] = [];
   if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");

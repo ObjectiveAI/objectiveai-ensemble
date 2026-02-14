@@ -1,5 +1,15 @@
-import { existsSync, mkdirSync, readdirSync, writeFileSync, appendFileSync } from "fs";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  writeFileSync,
+  appendFileSync,
+} from "fs";
+import type {
+  AnyZodRawShape,
+  SdkMcpToolDefinition,
+  SDKMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { LogFn } from "./agentOptions";
 import { Dashboard } from "./dashboard";
 import { serializeEvent } from "./events";
@@ -28,7 +38,10 @@ function getNextLogIndex(): number {
  * Creates a file appender: sets up the logs directory and returns
  * the log path and an append function.
  */
-function createFileAppender(): { logPath: string; append: (message: string) => void } {
+function createFileAppender(): {
+  logPath: string;
+  append: (message: string) => void;
+} {
   const logsDir = "logs";
 
   if (!existsSync(logsDir)) {
@@ -70,7 +83,10 @@ export function createFileLogger(): { log: LogFn; logPath: string } {
  * Creates a root logger that writes to a file and sends log events to the dashboard.
  * No console.log — the dashboard handles terminal output.
  */
-export function createRootLogger(dashboard: Dashboard): { log: LogFn; logPath: string } {
+export function createRootLogger(dashboard: Dashboard): {
+  log: LogFn;
+  logPath: string;
+} {
   const { logPath, append } = createFileAppender();
 
   const log: LogFn = (...args: unknown[]) => {
@@ -98,7 +114,9 @@ export function createChildLogger(): { log: LogFn; logPath: string } {
       .join(" ");
 
     append(message);
-    process.stdout.write(serializeEvent({ event: "log", path: "", line: message }) + "\n");
+    process.stdout.write(
+      serializeEvent({ event: "log", path: "", line: message }) + "\n",
+    );
   };
 
   return { log, logPath };
@@ -126,9 +144,8 @@ export function formatMessage(msg: SDKMessage): string | null {
         if (block.type === "text") {
           const text = block.text.trim();
           if (text) parts.push(text);
-        } else if (block.type === "tool_use") {
-          parts.push(`[tool_use] ${block.name}`);
         }
+        // tool_use blocks are logged at the MCP handler level, not here
       }
       return parts.length > 0 ? parts.join("\n") : null;
     }
@@ -144,6 +161,38 @@ export function formatMessage(msg: SDKMessage): string | null {
     default:
       return null;
   }
+}
+
+/** Format a CallToolResult as a compact single-line summary for logging. */
+function formatCallToolResult(result: {
+  content: unknown[];
+  isError?: boolean;
+}): string {
+  if (result.isError) {
+    const texts = result.content
+      .filter((b: any) => b.type === "text")
+      .map((b: any) => b.text as string);
+    const text = texts.join("").replace(/\n/g, " ").trim();
+    return `{ok:false,error:${JSON.stringify(text || "unknown")}}`;
+  }
+  return "{ok:true}";
+}
+
+/**
+ * Wrap an array of MCP tools so each handler logs `[tool_use] <name>: <result>`.
+ */
+export function wrapToolsWithLogging(
+  tools: Array<SdkMcpToolDefinition<any>>,
+  log: LogFn,
+): Array<SdkMcpToolDefinition<any>> {
+  return tools.map((t) => ({
+    ...t,
+    handler: async (args: any, extra: unknown) => {
+      const result = await t.handler(args, extra);
+      log(`[tool_use] ${t.name}: ${formatCallToolResult(result)}`);
+      return result;
+    },
+  }));
 }
 
 /**

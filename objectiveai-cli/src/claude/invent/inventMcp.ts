@@ -1,7 +1,7 @@
 import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { AgentOptions, LogFn } from "../../agentOptions";
 import { submit } from "../../tools/submit";
-import { createFileLogger, consumeStream } from "../../logging";
+import { createFileLogger, consumeStream, wrapToolsWithLogging } from "../../logging";
 import { registerSchemaRefs } from "../../tools/schemaRefs";
 import { ToolState, formatReadList } from "../../tools/claude/toolState";
 
@@ -504,7 +504,7 @@ async function inventLoop(
       ...getCommonTools(state, useFunctionTasks, mutableInputSchema),
       ...(useFunctionTasks ? getFunctionTasksTools(state) : []),
     ];
-    const mcpServer = createSdkMcpServer({ name: "invent", tools });
+    const mcpServer = createSdkMcpServer({ name: "invent", tools: wrapToolsWithLogging(tools, log) });
 
     // Build the prompt - full on first attempt, short on retry
     let prompt: string;

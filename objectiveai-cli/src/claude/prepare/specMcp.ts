@@ -1,7 +1,7 @@
 import { createSdkMcpServer, query } from "@anthropic-ai/claude-agent-sdk";
 import { existsSync, readFileSync } from "fs";
 import { LogFn } from "../../agentOptions";
-import { consumeStream } from "../../logging";
+import { consumeStream, wrapToolsWithLogging } from "../../logging";
 import { writeSpec } from "../../tools/markdown";
 import { makeWriteSpec } from "../../tools/claude/spec";
 import {
@@ -38,7 +38,7 @@ export async function specMcp(
     makeReadExampleFunction(state),
     makeReadFunctionSchema(state),
   ];
-  const mcpServer = createSdkMcpServer({ name: "spec", tools });
+  const mcpServer = createSdkMcpServer({ name: "spec", tools: wrapToolsWithLogging(tools, log) });
 
   const prompt =
     "Read example functions to understand what ObjectiveAI Functions look like, then create SPEC.md specifying the ObjectiveAI Function to be built." +
