@@ -1,4 +1,5 @@
 import { execSync } from "child_process";
+import { readFileSync } from "fs";
 import { Command } from "commander";
 import { Claude } from "./index";
 import {
@@ -170,6 +171,8 @@ const inventCmd = program
   .option("--scalar", "Set function type to scalar.function")
   .option("--vector", "Set function type to vector.function")
   .option("--input-schema <json>", "Input schema JSON string")
+  .option("--spec-file <path>", "Read spec from file instead of CLI arg")
+  .option("--input-schema-file <path>", "Read input schema JSON from file instead of CLI arg")
   .option("--mutable-input-schema", "Allow editing input schema in the main loop");
 for (const cfg of claudeModelConfigs) {
   inventCmd.option(`${cfg.flag} <model>`, cfg.desc);
@@ -179,9 +182,15 @@ inventCmd.action(async (spec: string | undefined, opts: Record<string, string | 
       console.error("Cannot use both --scalar and --vector");
       process.exit(1);
     }
+    if (opts.specFile) {
+      spec = readFileSync(opts.specFile as string, "utf-8");
+    }
     let type: "scalar.function" | "vector.function" | undefined =
       opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : undefined;
-    const inputSchemaStr = opts.inputSchema as string | undefined;
+    let inputSchemaStr = opts.inputSchema as string | undefined;
+    if (opts.inputSchemaFile) {
+      inputSchemaStr = readFileSync(opts.inputSchemaFile as string, "utf-8");
+    }
     type = validateCliInputSchema(inputSchemaStr, type);
     const partialOpts: Record<string, unknown> = {
       spec,
@@ -228,6 +237,7 @@ const amendCmd = program
   .option("--scalar", "Set function type to scalar.function")
   .option("--vector", "Set function type to vector.function")
   .option("--input-schema <json>", "Input schema JSON string")
+  .option("--input-schema-file <path>", "Read input schema JSON from file instead of CLI arg")
   .option("--mutable-input-schema", "Allow editing input schema in the main loop")
   .option("--overwrite-input-schema", "Overwrite existing input schema with --input-schema value");
 for (const cfg of claudeModelConfigs) {
@@ -240,7 +250,10 @@ amendCmd.action(async (spec: string | undefined, opts: Record<string, string | n
     }
     let type: "scalar.function" | "vector.function" | undefined =
       opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : undefined;
-    const inputSchemaStr = opts.inputSchema as string | undefined;
+    let inputSchemaStr = opts.inputSchema as string | undefined;
+    if (opts.inputSchemaFile) {
+      inputSchemaStr = readFileSync(opts.inputSchemaFile as string, "utf-8");
+    }
     type = validateCliInputSchema(inputSchemaStr, type);
     const partialOpts: Record<string, unknown> = {
       spec,

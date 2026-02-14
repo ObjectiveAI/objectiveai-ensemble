@@ -576,7 +576,7 @@ async function fetchExamples(apiBase, apiKey) {
 function writeGitignore() {
   fs.writeFileSync(
     ".gitignore",
-    ["examples/", "agent_functions/", "network_tests/", "logs/", ".objectiveai/", ""].join("\n")
+    ["examples/", "agent_functions/", "network_tests/", "logs/", ".objectiveai/", ".tmp.*", ""].join("\n")
   );
 }
 async function init(options) {
@@ -5286,7 +5286,12 @@ function getCurrentDepth() {
 function runAgentInSubdir(name, spec, type, inputSchema, childDepth, childProcesses, opts) {
   const subdir = path.join("agent_functions", name);
   fs.mkdirSync(subdir, { recursive: true });
-  fs.writeFileSync(path.join(subdir, "SPEC.md"), spec, "utf-8");
+  fs.writeFileSync(path.join(subdir, ".tmp.spec.md"), spec, "utf-8");
+  fs.writeFileSync(
+    path.join(subdir, ".tmp.input-schema.json"),
+    JSON.stringify(inputSchema, null, 2),
+    "utf-8"
+  );
   return new Promise((resolve2) => {
     const args = ["invent", "--name", name, "--depth", String(childDepth)];
     if (opts?.apiBase) args.push("--api-base", opts.apiBase);
@@ -5298,7 +5303,8 @@ function runAgentInSubdir(name, spec, type, inputSchema, childDepth, childProces
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (type === "scalar.function") args.push("--scalar");
     if (type === "vector.function") args.push("--vector");
-    args.push("--input-schema", JSON.stringify(inputSchema));
+    args.push("--spec-file", ".tmp.spec.md");
+    args.push("--input-schema-file", ".tmp.input-schema.json");
     const child = child_process.spawn("objectiveai", args, {
       cwd: subdir,
       stdio: ["pipe", "pipe", "pipe"],
@@ -5548,7 +5554,12 @@ function runAmendInSubdir(name, overwriteInputSchema, childProcesses, opts) {
     if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (overwriteInputSchema) {
-      args.push("--input-schema", JSON.stringify(overwriteInputSchema));
+      fs.writeFileSync(
+        path.join(subdir, ".tmp.input-schema.json"),
+        JSON.stringify(overwriteInputSchema, null, 2),
+        "utf-8"
+      );
+      args.push("--input-schema-file", ".tmp.input-schema.json");
       args.push("--overwrite-input-schema");
     }
     const child = child_process.spawn(

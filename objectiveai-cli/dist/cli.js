@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { execSync, spawn } from 'child_process';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, appendFileSync, unlinkSync, statSync } from 'fs';
 import { Command } from 'commander';
 import { createInterface } from 'readline';
-import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, appendFileSync, unlinkSync, statSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { homedir } from 'os';
 import { Functions, Chat, ObjectiveAI, JsonValueSchema, JsonValueExpressionSchema } from 'objectiveai';
@@ -577,7 +577,7 @@ async function fetchExamples(apiBase, apiKey) {
 function writeGitignore() {
   writeFileSync(
     ".gitignore",
-    ["examples/", "agent_functions/", "network_tests/", "logs/", ".objectiveai/", ""].join("\n")
+    ["examples/", "agent_functions/", "network_tests/", "logs/", ".objectiveai/", ".tmp.*", ""].join("\n")
   );
 }
 async function init(options) {
@@ -5098,7 +5098,12 @@ function getCurrentDepth() {
 function runAgentInSubdir(name, spec, type, inputSchema, childDepth, childProcesses, opts) {
   const subdir = join("agent_functions", name);
   mkdirSync(subdir, { recursive: true });
-  writeFileSync(join(subdir, "SPEC.md"), spec, "utf-8");
+  writeFileSync(join(subdir, ".tmp.spec.md"), spec, "utf-8");
+  writeFileSync(
+    join(subdir, ".tmp.input-schema.json"),
+    JSON.stringify(inputSchema, null, 2),
+    "utf-8"
+  );
   return new Promise((resolve2) => {
     const args = ["invent", "--name", name, "--depth", String(childDepth)];
     if (opts?.apiBase) args.push("--api-base", opts.apiBase);
@@ -5110,7 +5115,8 @@ function runAgentInSubdir(name, spec, type, inputSchema, childDepth, childProces
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (type === "scalar.function") args.push("--scalar");
     if (type === "vector.function") args.push("--vector");
-    args.push("--input-schema", JSON.stringify(inputSchema));
+    args.push("--spec-file", ".tmp.spec.md");
+    args.push("--input-schema-file", ".tmp.input-schema.json");
     const child = spawn("objectiveai", args, {
       cwd: subdir,
       stdio: ["pipe", "pipe", "pipe"],
@@ -5360,7 +5366,12 @@ function runAmendInSubdir(name, overwriteInputSchema, childProcesses, opts) {
     if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (overwriteInputSchema) {
-      args.push("--input-schema", JSON.stringify(overwriteInputSchema));
+      writeFileSync(
+        join(subdir, ".tmp.input-schema.json"),
+        JSON.stringify(overwriteInputSchema, null, 2),
+        "utf-8"
+      );
+      args.push("--input-schema-file", ".tmp.input-schema.json");
       args.push("--overwrite-input-schema");
     }
     const child = spawn(
@@ -7266,7 +7277,7 @@ ${BOLD2}Commands${RESET2}
   console.log("  objectiveai dryrun          Preview the dashboard with simulated agents");
   console.log("");
 });
-var inventCmd = program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function").option("--input-schema <json>", "Input schema JSON string").option("--mutable-input-schema", "Allow editing input schema in the main loop");
+var inventCmd = program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function").option("--input-schema <json>", "Input schema JSON string").option("--spec-file <path>", "Read spec from file instead of CLI arg").option("--input-schema-file <path>", "Read input schema JSON from file instead of CLI arg").option("--mutable-input-schema", "Allow editing input schema in the main loop");
 for (const cfg of claudeModelConfigs) {
   inventCmd.option(`${cfg.flag} <model>`, cfg.desc);
 }
@@ -7275,8 +7286,14 @@ inventCmd.action(async (spec, opts) => {
     console.error("Cannot use both --scalar and --vector");
     process.exit(1);
   }
+  if (opts.specFile) {
+    spec = readFileSync(opts.specFile, "utf-8");
+  }
   let type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : void 0;
-  const inputSchemaStr = opts.inputSchema;
+  let inputSchemaStr = opts.inputSchema;
+  if (opts.inputSchemaFile) {
+    inputSchemaStr = readFileSync(opts.inputSchemaFile, "utf-8");
+  }
   type = validateCliInputSchema(inputSchemaStr, type);
   const partialOpts = {
     spec,
@@ -7304,7 +7321,7 @@ inventCmd.action(async (spec, opts) => {
   }
   await claude_exports.invent(partialOpts);
 });
-var amendCmd = program.command("amend").description("Amend an existing ObjectiveAI Function").argument("[spec]", "Amendment spec to append to SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function").option("--input-schema <json>", "Input schema JSON string").option("--mutable-input-schema", "Allow editing input schema in the main loop").option("--overwrite-input-schema", "Overwrite existing input schema with --input-schema value");
+var amendCmd = program.command("amend").description("Amend an existing ObjectiveAI Function").argument("[spec]", "Amendment spec to append to SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function").option("--input-schema <json>", "Input schema JSON string").option("--input-schema-file <path>", "Read input schema JSON from file instead of CLI arg").option("--mutable-input-schema", "Allow editing input schema in the main loop").option("--overwrite-input-schema", "Overwrite existing input schema with --input-schema value");
 for (const cfg of claudeModelConfigs) {
   amendCmd.option(`${cfg.flag} <model>`, cfg.desc);
 }
@@ -7314,7 +7331,10 @@ amendCmd.action(async (spec, opts) => {
     process.exit(1);
   }
   let type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : void 0;
-  const inputSchemaStr = opts.inputSchema;
+  let inputSchemaStr = opts.inputSchema;
+  if (opts.inputSchemaFile) {
+    inputSchemaStr = readFileSync(opts.inputSchemaFile, "utf-8");
+  }
   type = validateCliInputSchema(inputSchemaStr, type);
   const partialOpts = {
     spec,

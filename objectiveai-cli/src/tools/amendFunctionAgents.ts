@@ -1,4 +1,5 @@
 import { ChildProcess, execSync, spawn } from "child_process";
+import { writeFileSync } from "fs";
 import { join } from "path";
 import { Result } from "./result";
 import { AmendFunctionAgentsParams } from "../amendFunctionAgentsParams";
@@ -38,7 +39,12 @@ function runAmendInSubdir(
     if (opts?.minWidth) args.push("--min-width", String(opts.minWidth));
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (overwriteInputSchema) {
-      args.push("--input-schema", JSON.stringify(overwriteInputSchema));
+      writeFileSync(
+        join(subdir, ".tmp.input-schema.json"),
+        JSON.stringify(overwriteInputSchema, null, 2),
+        "utf-8",
+      );
+      args.push("--input-schema-file", ".tmp.input-schema.json");
       args.push("--overwrite-input-schema");
     }
 

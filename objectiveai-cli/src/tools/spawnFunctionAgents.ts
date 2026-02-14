@@ -86,9 +86,15 @@ function runAgentInSubdir(
 
   mkdirSync(subdir, { recursive: true });
 
-  // Write spec to SPEC.md before spawning so it doesn't need to be a CLI arg.
-  // Long spec strings with special characters get mangled by shell escaping on Windows.
-  writeFileSync(join(subdir, "SPEC.md"), spec, "utf-8");
+  // Write spec and input schema to temp files before spawning so they don't
+  // need to be CLI args. JSON with special characters gets mangled by shell
+  // escaping on Windows. These .tmp.* files are gitignored.
+  writeFileSync(join(subdir, ".tmp.spec.md"), spec, "utf-8");
+  writeFileSync(
+    join(subdir, ".tmp.input-schema.json"),
+    JSON.stringify(inputSchema, null, 2),
+    "utf-8",
+  );
 
   return new Promise<SpawnResult>((resolve) => {
     const args = ["invent", "--name", name, "--depth", String(childDepth)];
@@ -101,7 +107,8 @@ function runAgentInSubdir(
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (type === "scalar.function") args.push("--scalar");
     if (type === "vector.function") args.push("--vector");
-    args.push("--input-schema", JSON.stringify(inputSchema));
+    args.push("--spec-file", ".tmp.spec.md");
+    args.push("--input-schema-file", ".tmp.input-schema.json");
 
     const child = spawn("objectiveai", args, {
       cwd: subdir,
