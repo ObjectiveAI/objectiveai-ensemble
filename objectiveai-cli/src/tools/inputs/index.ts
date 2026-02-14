@@ -46,6 +46,12 @@ export function validateExampleInput(
     };
   }
 
+  // Strict validation: reject extra properties not in the schema
+  const extraResult = checkNoExtraProperties(inputSchemaResult.value, exampleInput.value, "value");
+  if (!extraResult.ok) {
+    return extraResult;
+  }
+
   // Validate outputLength presence matches function
   const hasOutputLength = fn.output_length != null;
   if (hasOutputLength && exampleInput.outputLength === null) {
@@ -707,6 +713,71 @@ function deepEqual(a: unknown, b: unknown): boolean {
   const bKeys = Object.keys(bObj);
   if (aKeys.length !== bKeys.length) return false;
   return aKeys.every((key) => key in bObj && deepEqual(aObj[key], bObj[key]));
+}
+
+// TODO: Replace with a strict Zod schema (e.g. toZodSchema with .strict() on objects)
+// instead of this manual recursive check.
+function checkNoExtraProperties(
+  schema: Functions.Expression.InputSchema,
+  value: unknown,
+  path: string,
+): Result<undefined> {
+  if ("anyOf" in schema) {
+    // Find which option(s) match and check each; accept if any passes
+    const zodSchemas = schema.anyOf.map((s) =>
+      Functions.Expression.InputSchemaExt.toZodSchema(s),
+    );
+    const matchingIndices: number[] = [];
+    for (let i = 0; i < zodSchemas.length; i++) {
+      if (zodSchemas[i].safeParse(value).success) {
+        matchingIndices.push(i);
+      }
+    }
+    if (matchingIndices.length === 0) {
+      return { ok: true, value: undefined, error: undefined };
+    }
+    for (const i of matchingIndices) {
+      const result = checkNoExtraProperties(schema.anyOf[i], value, path);
+      if (result.ok) return result;
+    }
+    return checkNoExtraProperties(schema.anyOf[matchingIndices[0]], value, path);
+  }
+
+  if (schema.type === "object") {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return { ok: true, value: undefined, error: undefined };
+    }
+    const obj = value as Record<string, unknown>;
+    const allowedKeys = new Set(Object.keys(schema.properties));
+    for (const key of Object.keys(obj)) {
+      if (!allowedKeys.has(key)) {
+        return {
+          ok: false,
+          value: undefined,
+          error: `${path} has extra property "${key}" not defined in input_schema. Allowed properties: ${[...allowedKeys].join(", ")}`,
+        };
+      }
+    }
+    // Recurse into each property
+    for (const [key, propSchema] of Object.entries(schema.properties)) {
+      if (key in obj) {
+        const result = checkNoExtraProperties(propSchema, obj[key], `${path}.${key}`);
+        if (!result.ok) return result;
+      }
+    }
+  }
+
+  if (schema.type === "array") {
+    if (!Array.isArray(value)) {
+      return { ok: true, value: undefined, error: undefined };
+    }
+    for (let i = 0; i < value.length; i++) {
+      const result = checkNoExtraProperties(schema.items, value[i], `${path}[${i}]`);
+      if (!result.ok) return result;
+    }
+  }
+
+  return { ok: true, value: undefined, error: undefined };
 }
 
 export type Modality = "image" | "audio" | "video" | "file";

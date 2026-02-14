@@ -2424,6 +2424,10 @@ function validateExampleInput(value, fn) {
       error: `value does not conform to input_schema: ${valueParsed.error.message}`
     };
   }
+  const extraResult = checkNoExtraProperties(inputSchemaResult.value, exampleInput.value, "value");
+  if (!extraResult.ok) {
+    return extraResult;
+  }
   const hasOutputLength = fn.output_length != null;
   if (hasOutputLength && exampleInput.outputLength === null) {
     return {
@@ -2991,6 +2995,59 @@ function deepEqual(a, b) {
   const bKeys = Object.keys(bObj);
   if (aKeys.length !== bKeys.length) return false;
   return aKeys.every((key) => key in bObj && deepEqual(aObj[key], bObj[key]));
+}
+function checkNoExtraProperties(schema, value, path) {
+  if ("anyOf" in schema) {
+    const zodSchemas = schema.anyOf.map(
+      (s) => objectiveai.Functions.Expression.InputSchemaExt.toZodSchema(s)
+    );
+    const matchingIndices = [];
+    for (let i = 0; i < zodSchemas.length; i++) {
+      if (zodSchemas[i].safeParse(value).success) {
+        matchingIndices.push(i);
+      }
+    }
+    if (matchingIndices.length === 0) {
+      return { ok: true, value: void 0, error: void 0 };
+    }
+    for (const i of matchingIndices) {
+      const result = checkNoExtraProperties(schema.anyOf[i], value, path);
+      if (result.ok) return result;
+    }
+    return checkNoExtraProperties(schema.anyOf[matchingIndices[0]], value, path);
+  }
+  if (schema.type === "object") {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return { ok: true, value: void 0, error: void 0 };
+    }
+    const obj = value;
+    const allowedKeys = new Set(Object.keys(schema.properties));
+    for (const key of Object.keys(obj)) {
+      if (!allowedKeys.has(key)) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `${path} has extra property "${key}" not defined in input_schema. Allowed properties: ${[...allowedKeys].join(", ")}`
+        };
+      }
+    }
+    for (const [key, propSchema] of Object.entries(schema.properties)) {
+      if (key in obj) {
+        const result = checkNoExtraProperties(propSchema, obj[key], `${path}.${key}`);
+        if (!result.ok) return result;
+      }
+    }
+  }
+  if (schema.type === "array") {
+    if (!Array.isArray(value)) {
+      return { ok: true, value: void 0, error: void 0 };
+    }
+    for (let i = 0; i < value.length; i++) {
+      const result = checkNoExtraProperties(schema.items, value[i], `${path}[${i}]`);
+      if (!result.ok) return result;
+    }
+  }
+  return { ok: true, value: void 0, error: void 0 };
 }
 var MODALITY_PART_TYPES = {
   image: ["image_url"],
