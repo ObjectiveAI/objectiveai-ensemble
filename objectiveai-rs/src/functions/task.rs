@@ -164,13 +164,6 @@ pub struct ScalarFunctionTaskExpression {
     /// output directly.
     pub output: super::expression::Expression,
 
-    /// If true, invert this task's compiled `FunctionOutput` after applying
-    /// the `output` expression.
-    ///
-    /// - Scalar: \(x \mapsto 1 - x\)
-    /// - Vector: elementwise \(x \mapsto 1 - x\), then L1-normalize
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invert_output: Option<bool>,
 }
 
 impl ScalarFunctionTaskExpression {
@@ -186,7 +179,6 @@ impl ScalarFunctionTaskExpression {
             commit: self.commit,
             input,
             output: self.output,
-            invert_output: self.invert_output.unwrap_or(false),
         })
     }
 }
@@ -208,10 +200,6 @@ pub struct ScalarFunctionTask {
     /// Must return a `FunctionOutput` valid for the parent function's type (scalar or vector).
     /// See [`ScalarFunctionTaskExpression::output`] for full documentation.
     pub output: super::expression::Expression,
-
-    /// Whether to invert the compiled output after applying `output`.
-    #[serde(default)]
-    pub invert_output: bool,
 }
 
 impl ScalarFunctionTask {
@@ -275,13 +263,6 @@ pub struct VectorFunctionTaskExpression {
     /// output directly.
     pub output: super::expression::Expression,
 
-    /// If true, invert this task's compiled `FunctionOutput` after applying
-    /// the `output` expression.
-    ///
-    /// - Scalar: \(x \mapsto 1 - x\)
-    /// - Vector: elementwise \(x \mapsto 1 - x\), then L1-normalize
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invert_output: Option<bool>,
 }
 
 impl VectorFunctionTaskExpression {
@@ -297,7 +278,6 @@ impl VectorFunctionTaskExpression {
             commit: self.commit,
             input,
             output: self.output,
-            invert_output: self.invert_output.unwrap_or(false),
         })
     }
 }
@@ -319,10 +299,6 @@ pub struct VectorFunctionTask {
     /// Must return a `FunctionOutput` valid for the parent function's type (scalar or vector).
     /// See [`VectorFunctionTaskExpression::output`] for full documentation.
     pub output: super::expression::Expression,
-
-    /// Whether to invert the compiled output after applying `output`.
-    #[serde(default)]
-    pub invert_output: bool,
 }
 
 impl VectorFunctionTask {
@@ -404,13 +380,6 @@ pub struct VectorCompletionTaskExpression {
     /// output directly.
     pub output: super::expression::Expression,
 
-    /// If true, invert this task's compiled `FunctionOutput` after applying
-    /// the `output` expression.
-    ///
-    /// - Scalar: \(x \mapsto 1 - x\)
-    /// - Vector: elementwise \(x \mapsto 1 - x\), then L1-normalize
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invert_output: Option<bool>,
 }
 
 impl VectorCompletionTaskExpression {
@@ -480,7 +449,6 @@ impl VectorCompletionTaskExpression {
             tools,
             responses: compiled_responses,
             output: self.output,
-            invert_output: self.invert_output.unwrap_or(false),
         })
     }
 }
@@ -502,10 +470,6 @@ pub struct VectorCompletionTask {
     /// Must return a `FunctionOutput` valid for the parent function's type (scalar or vector).
     /// See [`VectorCompletionTaskExpression::output`] for full documentation.
     pub output: super::expression::Expression,
-
-    /// Whether to invert the compiled output after applying `output`.
-    #[serde(default)]
-    pub invert_output: bool,
 }
 
 impl VectorCompletionTask {
