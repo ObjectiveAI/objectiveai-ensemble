@@ -24,6 +24,14 @@ pub enum FlatTaskProfile {
     VectorCompletion(VectorCompletionFlatTaskProfile),
     /// Multiple vector completion tasks from a mapped expression.
     MapVectorCompletion(MapVectorCompletionFlatTaskProfile),
+    /// A placeholder scalar function task (always outputs 0.5).
+    PlaceholderScalarFunction(PlaceholderScalarFunctionFlatTaskProfile),
+    /// Multiple placeholder scalar function tasks from a mapped expression.
+    MapPlaceholderScalarFunction(MapPlaceholderScalarFunctionFlatTaskProfile),
+    /// A placeholder vector function task (always outputs equalized vector).
+    PlaceholderVectorFunction(PlaceholderVectorFunctionFlatTaskProfile),
+    /// Multiple placeholder vector function tasks from a mapped expression.
+    MapPlaceholderVectorFunction(MapPlaceholderVectorFunctionFlatTaskProfile),
 }
 
 impl FlatTaskProfile {
@@ -50,6 +58,7 @@ impl FlatTaskProfile {
             MapVectorCompletion(
                 std::slice::Iter<'a, VectorCompletionFlatTaskProfile>,
             ),
+            Empty,
         }
         impl<'a> Iterator for Iter<'a> {
             type Item = &'a VectorCompletionFlatTaskProfile;
@@ -59,6 +68,7 @@ impl FlatTaskProfile {
                     Iter::MapFunction(iter) => iter.next(),
                     Iter::VectorCompletion(opt) => opt.take(),
                     Iter::MapVectorCompletion(iter) => iter.next(),
+                    Iter::Empty => None,
                 }
             }
         }
@@ -86,6 +96,10 @@ impl FlatTaskProfile {
             FlatTaskProfile::MapVectorCompletion(vectors) => {
                 Iter::MapVectorCompletion(vectors.vector_completions.iter())
             }
+            FlatTaskProfile::PlaceholderScalarFunction(_)
+            | FlatTaskProfile::MapPlaceholderScalarFunction(_)
+            | FlatTaskProfile::PlaceholderVectorFunction(_)
+            | FlatTaskProfile::MapPlaceholderVectorFunction(_) => Iter::Empty,
         }
     }
     /// Returns the total number of leaf tasks (vector completions).
@@ -95,6 +109,10 @@ impl FlatTaskProfile {
             FlatTaskProfile::MapFunction(functions) => functions.len(),
             FlatTaskProfile::VectorCompletion(vector) => vector.len(),
             FlatTaskProfile::MapVectorCompletion(vectors) => vectors.len(),
+            FlatTaskProfile::PlaceholderScalarFunction(p) => p.len(),
+            FlatTaskProfile::MapPlaceholderScalarFunction(p) => p.len(),
+            FlatTaskProfile::PlaceholderVectorFunction(p) => p.len(),
+            FlatTaskProfile::MapPlaceholderVectorFunction(p) => p.len(),
         }
     }
 
@@ -110,6 +128,18 @@ impl FlatTaskProfile {
             }
             FlatTaskProfile::MapVectorCompletion(vectors) => {
                 vectors.task_index_len()
+            }
+            FlatTaskProfile::PlaceholderScalarFunction(p) => {
+                p.task_index_len()
+            }
+            FlatTaskProfile::MapPlaceholderScalarFunction(p) => {
+                p.task_index_len()
+            }
+            FlatTaskProfile::PlaceholderVectorFunction(p) => {
+                p.task_index_len()
+            }
+            FlatTaskProfile::MapPlaceholderVectorFunction(p) => {
+                p.task_index_len()
             }
         }
     }
@@ -300,6 +330,89 @@ impl VectorCompletionFlatTaskProfile {
 
     pub fn task_index_len(&self) -> usize {
         1
+    }
+}
+
+/// A flattened placeholder scalar function task.
+///
+/// Leaf task that always produces `FunctionOutput::Scalar(0.5)`.
+#[derive(Debug, Clone)]
+pub struct PlaceholderScalarFunctionFlatTaskProfile {
+    pub path: Vec<u64>,
+    pub input: objectiveai::functions::expression::Input,
+    pub output: objectiveai::functions::expression::Expression,
+    pub invert_output: bool,
+}
+
+impl PlaceholderScalarFunctionFlatTaskProfile {
+    pub fn len(&self) -> usize {
+        1
+    }
+    pub fn task_index_len(&self) -> usize {
+        1
+    }
+}
+
+/// Multiple placeholder scalar function tasks from a mapped expression.
+#[derive(Debug, Clone)]
+pub struct MapPlaceholderScalarFunctionFlatTaskProfile {
+    pub path: Vec<u64>,
+    pub placeholders: Vec<PlaceholderScalarFunctionFlatTaskProfile>,
+    pub task_output: objectiveai::functions::expression::Expression,
+    pub invert_output: bool,
+}
+
+impl MapPlaceholderScalarFunctionFlatTaskProfile {
+    pub fn len(&self) -> usize {
+        self.placeholders.len()
+    }
+    pub fn task_index_len(&self) -> usize {
+        self.placeholders.len().max(1)
+    }
+}
+
+/// A flattened placeholder vector function task.
+///
+/// Leaf task that always produces an equalized vector of length `output_length`.
+#[derive(Debug, Clone)]
+pub struct PlaceholderVectorFunctionFlatTaskProfile {
+    pub path: Vec<u64>,
+    pub input: objectiveai::functions::expression::Input,
+    pub output_length: u64,
+    pub input_split: objectiveai::functions::expression::WithExpression<
+        Vec<objectiveai::functions::expression::Input>,
+    >,
+    pub input_merge: objectiveai::functions::expression::WithExpression<
+        objectiveai::functions::expression::Input,
+    >,
+    pub output: objectiveai::functions::expression::Expression,
+    pub invert_output: bool,
+}
+
+impl PlaceholderVectorFunctionFlatTaskProfile {
+    pub fn len(&self) -> usize {
+        1
+    }
+    pub fn task_index_len(&self) -> usize {
+        1
+    }
+}
+
+/// Multiple placeholder vector function tasks from a mapped expression.
+#[derive(Debug, Clone)]
+pub struct MapPlaceholderVectorFunctionFlatTaskProfile {
+    pub path: Vec<u64>,
+    pub placeholders: Vec<PlaceholderVectorFunctionFlatTaskProfile>,
+    pub task_output: objectiveai::functions::expression::Expression,
+    pub invert_output: bool,
+}
+
+impl MapPlaceholderVectorFunctionFlatTaskProfile {
+    pub fn len(&self) -> usize {
+        self.placeholders.len()
+    }
+    pub fn task_index_len(&self) -> usize {
+        self.placeholders.len().max(1)
     }
 }
 
@@ -705,148 +818,294 @@ where
                     ),
                 )));
             }
+            objectiveai::functions::CompiledTask::One(
+                objectiveai::functions::Task::PlaceholderScalarFunction(task),
+            ) => {
+                match profile {
+                    objectiveai::functions::TaskProfile::Placeholder {} => {}
+                    _ => return Err(super::executions::Error::InvalidProfile(
+                        "expected Placeholder profile for placeholder scalar function task".to_string()
+                    )),
+                };
+                let effective_invert_output = profile_invert_flags[i];
+                flat_tasks_or_futs.push(TaskFut::Task(Some(
+                    FlatTaskProfile::PlaceholderScalarFunction(
+                        PlaceholderScalarFunctionFlatTaskProfile {
+                            path: task_path,
+                            input: task.input,
+                            output: task.output,
+                            invert_output: effective_invert_output,
+                        },
+                    ),
+                )));
+            }
+            objectiveai::functions::CompiledTask::One(
+                objectiveai::functions::Task::PlaceholderVectorFunction(task),
+            ) => {
+                match profile {
+                    objectiveai::functions::TaskProfile::Placeholder {} => {}
+                    _ => return Err(super::executions::Error::InvalidProfile(
+                        "expected Placeholder profile for placeholder vector function task".to_string()
+                    )),
+                };
+                let effective_invert_output = profile_invert_flags[i];
+                // compile output_length using the task's input as params context
+                let params = objectiveai::functions::expression::Params::Ref(
+                    objectiveai::functions::expression::ParamsRef {
+                        input: &task.input,
+                        output: None,
+                        map: None,
+                    },
+                );
+                let output_length = task.output_length.clone().compile_one(&params)?;
+                flat_tasks_or_futs.push(TaskFut::Task(Some(
+                    FlatTaskProfile::PlaceholderVectorFunction(
+                        PlaceholderVectorFunctionFlatTaskProfile {
+                            path: task_path,
+                            input: task.input,
+                            output_length,
+                            input_split: task.input_split,
+                            input_merge: task.input_merge,
+                            output: task.output,
+                            invert_output: effective_invert_output,
+                        },
+                    ),
+                )));
+            }
             objectiveai::functions::CompiledTask::Many(tasks) => {
+                enum MapTaskType {
+                    VectorCompletion,
+                    Function,
+                    PlaceholderScalar,
+                    PlaceholderVector,
+                }
+
                 // Determine task type and extract shared output expression before consuming tasks
-                let (is_vector_completion, map_task_output) = match tasks
-                    .first()
-                {
-                    Some(objectiveai::functions::Task::VectorCompletion(
-                        vc,
-                    )) => (true, vc.output.clone()),
+                let (map_type, map_task_output) = match tasks.first() {
+                    Some(objectiveai::functions::Task::VectorCompletion(vc)) => {
+                        (MapTaskType::VectorCompletion, vc.output.clone())
+                    }
                     Some(objectiveai::functions::Task::ScalarFunction(sf)) => {
-                        (false, sf.output.clone())
+                        (MapTaskType::Function, sf.output.clone())
                     }
                     Some(objectiveai::functions::Task::VectorFunction(vf)) => {
-                        (false, vf.output.clone())
+                        (MapTaskType::Function, vf.output.clone())
+                    }
+                    Some(objectiveai::functions::Task::PlaceholderScalarFunction(p)) => {
+                        (MapTaskType::PlaceholderScalar, p.output.clone())
+                    }
+                    Some(objectiveai::functions::Task::PlaceholderVectorFunction(p)) => {
+                        (MapTaskType::PlaceholderVector, p.output.clone())
                     }
                     None => {
                         // Empty mapped task - need a placeholder expression
                         // This case shouldn't normally happen, but handle gracefully
-                        (true, objectiveai::functions::expression::Expression::JMESPath(
+                        (MapTaskType::VectorCompletion, objectiveai::functions::expression::Expression::JMESPath(
                             "output".to_string()
                         ))
                     }
                 };
 
-                if is_vector_completion {
-                    let map_invert_output = profile_invert_flags[i];
-                    let mut futs = Vec::with_capacity(tasks.len());
-                    for (j, task) in tasks.into_iter().enumerate() {
-                        let mut task_path = task_path.clone();
-                        task_path.push(j as u64);
-                        let (ensemble, profile) = match &profile {
-                            objectiveai::functions::TaskProfile::VectorCompletion {
+                let map_invert_output = profile_invert_flags[i];
+
+                match map_type {
+                    MapTaskType::VectorCompletion => {
+                        let mut futs = Vec::with_capacity(tasks.len());
+                        for (j, task) in tasks.into_iter().enumerate() {
+                            let mut task_path = task_path.clone();
+                            task_path.push(j as u64);
+                            let (ensemble, profile) = match &profile {
+                                objectiveai::functions::TaskProfile::VectorCompletion {
+                                    ensemble,
+                                    profile,
+                                } => (ensemble.clone(), profile.clone()),
+                                _ => return Err(super::executions::Error::InvalidProfile(
+                                    "expected VectorCompletion profile for mapped vector completion task".to_string()
+                                )),
+                            };
+                            futs.push(get_vector_completion_flat_task_profile(
+                                ctx.clone(),
+                                task_path,
+                                match task {
+                                    objectiveai::functions::Task::VectorCompletion(
+                                        vc_task,
+                                    ) => vc_task,
+                                    _ => unreachable!(),
+                                },
                                 ensemble,
                                 profile,
-                            } => (ensemble.clone(), profile.clone()),
+                                map_invert_output,
+                                ensemble_fetcher.clone(),
+                            ));
+                        }
+                        flat_tasks_or_futs.push(TaskFut::MapVectorTaskFut((
+                            task_path,
+                            map_task_output,
+                            map_invert_output,
+                            futures::future::try_join_all(futs),
+                        )));
+                    }
+                    MapTaskType::Function => {
+                        let mut futs = Vec::with_capacity(tasks.len());
+                        for (j, task) in tasks.into_iter().enumerate() {
+                            let mut task_path = task_path.clone();
+                            task_path.push(j as u64);
+                            futs.push(get_flat_task_profile(
+                                ctx.clone(),
+                                task_path,
+                                FunctionParam::Remote {
+                                    owner: match &task {
+                                        objectiveai::functions::Task::ScalarFunction(
+                                            sf_task,
+                                        ) => sf_task.owner.clone(),
+                                        objectiveai::functions::Task::VectorFunction(
+                                            vf_task,
+                                        ) => vf_task.owner.clone(),
+                                        _ => unreachable!(),
+                                    },
+                                    repository: match &task {
+                                        objectiveai::functions::Task::ScalarFunction(
+                                            sf_task,
+                                        ) => sf_task.repository.clone(),
+                                        objectiveai::functions::Task::VectorFunction(
+                                            vf_task,
+                                        ) => vf_task.repository.clone(),
+                                        _ => unreachable!(),
+                                    },
+                                    commit: Some(match &task {
+                                        objectiveai::functions::Task::ScalarFunction(
+                                            sf_task,
+                                        ) => sf_task.commit.clone(),
+                                        objectiveai::functions::Task::VectorFunction(
+                                            vf_task,
+                                        ) => vf_task.commit.clone(),
+                                        _ => unreachable!(),
+                                    }),
+                                },
+                                match &profile {
+                                    objectiveai::functions::TaskProfile::RemoteFunction {
+                                        owner,
+                                        repository,
+                                        commit,
+                                    } => ProfileParam::Remote {
+                                        owner: owner.clone(),
+                                        repository: repository.clone(),
+                                        commit: commit.clone(),
+                                    },
+                                    objectiveai::functions::TaskProfile::InlineFunction(
+                                        profile,
+                                    ) => ProfileParam::FetchedOrInline {
+                                        full_id: None,
+                                        profile: objectiveai::functions::Profile::Inline(
+                                            profile.clone(),
+                                        ),
+                                    },
+                                    _ => return Err(super::executions::Error::InvalidProfile(
+                                        "expected function profile (RemoteFunction or InlineFunction) for mapped function task".to_string()
+                                    )),
+                                },
+                                match &task {
+                                    objectiveai::functions::Task::ScalarFunction(
+                                        sf_task,
+                                    ) => sf_task.input.clone(),
+                                    objectiveai::functions::Task::VectorFunction(
+                                        vf_task,
+                                    ) => vf_task.input.clone(),
+                                    _ => unreachable!(),
+                                },
+                                // Pass None for individual mapped functions - the task_output is stored on MapFunctionFlatTaskProfile
+                                None,
+                                false,
+                                function_fetcher.clone(),
+                                profile_fetcher.clone(),
+                                ensemble_fetcher.clone(),
+                            ));
+                        }
+                        flat_tasks_or_futs.push(TaskFut::MapFunctionTaskFut((
+                            task_path,
+                            map_task_output,
+                            map_invert_output,
+                            futures::future::try_join_all(futs),
+                        )));
+                    }
+                    MapTaskType::PlaceholderScalar => {
+                        match profile {
+                            objectiveai::functions::TaskProfile::Placeholder {} => {}
                             _ => return Err(super::executions::Error::InvalidProfile(
-                                "expected VectorCompletion profile for mapped vector completion task".to_string()
+                                "expected Placeholder profile for mapped placeholder scalar function task".to_string()
                             )),
                         };
-                        futs.push(get_vector_completion_flat_task_profile(
-                            ctx.clone(),
-                            task_path,
-                            match task {
-                                objectiveai::functions::Task::VectorCompletion(
-                                    vc_task,
-                                ) => vc_task,
+                        let mut placeholders = Vec::with_capacity(tasks.len());
+                        for (j, task) in tasks.into_iter().enumerate() {
+                            let mut tp = task_path.clone();
+                            tp.push(j as u64);
+                            let task = match task {
+                                objectiveai::functions::Task::PlaceholderScalarFunction(t) => t,
                                 _ => unreachable!(),
-                            },
-                            ensemble,
-                            profile,
-                            map_invert_output,
-                            ensemble_fetcher.clone(),
-                        ));
+                            };
+                            placeholders.push(PlaceholderScalarFunctionFlatTaskProfile {
+                                path: tp,
+                                input: task.input,
+                                output: task.output,
+                                invert_output: map_invert_output,
+                            });
+                        }
+                        flat_tasks_or_futs.push(TaskFut::Task(Some(
+                            FlatTaskProfile::MapPlaceholderScalarFunction(
+                                MapPlaceholderScalarFunctionFlatTaskProfile {
+                                    path: task_path,
+                                    placeholders,
+                                    task_output: map_task_output,
+                                    invert_output: map_invert_output,
+                                },
+                            ),
+                        )));
                     }
-                    flat_tasks_or_futs.push(TaskFut::MapVectorTaskFut((
-                        task_path,
-                        map_task_output,
-                        map_invert_output,
-                        futures::future::try_join_all(futs),
-                    )));
-                } else {
-                    let map_invert_output = profile_invert_flags[i];
-                    let mut futs = Vec::with_capacity(tasks.len());
-                    for (j, task) in tasks.into_iter().enumerate() {
-                        let mut task_path = task_path.clone();
-                        task_path.push(j as u64);
-                        futs.push(get_flat_task_profile(
-                            ctx.clone(),
-                            task_path,
-                            FunctionParam::Remote {
-                                owner: match &task {
-                                    objectiveai::functions::Task::ScalarFunction(
-                                        sf_task,
-                                    ) => sf_task.owner.clone(),
-                                    objectiveai::functions::Task::VectorFunction(
-                                        vf_task,
-                                    ) => vf_task.owner.clone(),
-                                    _ => unreachable!(),
-                                },
-                                repository: match &task {
-                                    objectiveai::functions::Task::ScalarFunction(
-                                        sf_task,
-                                    ) => sf_task.repository.clone(),
-                                    objectiveai::functions::Task::VectorFunction(
-                                        vf_task,
-                                    ) => vf_task.repository.clone(),
-                                    _ => unreachable!(),
-                                },
-                                commit: Some(match &task {
-                                    objectiveai::functions::Task::ScalarFunction(
-                                        sf_task,
-                                    ) => sf_task.commit.clone(),
-                                    objectiveai::functions::Task::VectorFunction(
-                                        vf_task,
-                                    ) => vf_task.commit.clone(),
-                                    _ => unreachable!(),
-                                }),
-                            },
-                            match &profile {
-                                objectiveai::functions::TaskProfile::RemoteFunction {
-                                    owner,
-                                    repository,
-                                    commit,
-                                } => ProfileParam::Remote {
-                                    owner: owner.clone(),
-                                    repository: repository.clone(),
-                                    commit: commit.clone(),
-                                },
-                                objectiveai::functions::TaskProfile::InlineFunction(
-                                    profile,
-                                ) => ProfileParam::FetchedOrInline {
-                                    full_id: None,
-                                    profile: objectiveai::functions::Profile::Inline(
-                                        profile.clone(),
-                                    ),
-                                },
-                                _ => return Err(super::executions::Error::InvalidProfile(
-                                    "expected function profile (RemoteFunction or InlineFunction) for mapped function task".to_string()
-                                )),
-                            },
-                            match &task {
-                                objectiveai::functions::Task::ScalarFunction(
-                                    sf_task,
-                                ) => sf_task.input.clone(),
-                                objectiveai::functions::Task::VectorFunction(
-                                    vf_task,
-                                ) => vf_task.input.clone(),
+                    MapTaskType::PlaceholderVector => {
+                        match profile {
+                            objectiveai::functions::TaskProfile::Placeholder {} => {}
+                            _ => return Err(super::executions::Error::InvalidProfile(
+                                "expected Placeholder profile for mapped placeholder vector function task".to_string()
+                            )),
+                        };
+                        let mut placeholders = Vec::with_capacity(tasks.len());
+                        for (j, task) in tasks.into_iter().enumerate() {
+                            let mut tp = task_path.clone();
+                            tp.push(j as u64);
+                            let task = match task {
+                                objectiveai::functions::Task::PlaceholderVectorFunction(t) => t,
                                 _ => unreachable!(),
-                            },
-                            // Pass None for individual mapped functions - the task_output is stored on MapFunctionFlatTaskProfile
-                            None,
-                            false,
-                            function_fetcher.clone(),
-                            profile_fetcher.clone(),
-                            ensemble_fetcher.clone(),
-                        ));
+                            };
+                            // compile output_length using the task's input
+                            let params = objectiveai::functions::expression::Params::Ref(
+                                objectiveai::functions::expression::ParamsRef {
+                                    input: &task.input,
+                                    output: None,
+                                    map: None,
+                                },
+                            );
+                            let output_length = task.output_length.clone().compile_one(&params)?;
+                            placeholders.push(PlaceholderVectorFunctionFlatTaskProfile {
+                                path: tp,
+                                input: task.input,
+                                output_length,
+                                input_split: task.input_split,
+                                input_merge: task.input_merge,
+                                output: task.output,
+                                invert_output: map_invert_output,
+                            });
+                        }
+                        flat_tasks_or_futs.push(TaskFut::Task(Some(
+                            FlatTaskProfile::MapPlaceholderVectorFunction(
+                                MapPlaceholderVectorFunctionFlatTaskProfile {
+                                    path: task_path,
+                                    placeholders,
+                                    task_output: map_task_output,
+                                    invert_output: map_invert_output,
+                                },
+                            ),
+                        )));
                     }
-                    flat_tasks_or_futs.push(TaskFut::MapFunctionTaskFut((
-                        task_path,
-                        map_task_output,
-                        map_invert_output,
-                        futures::future::try_join_all(futs),
-                    )));
                 }
             }
         }

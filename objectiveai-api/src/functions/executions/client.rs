@@ -1682,6 +1682,94 @@ where
                 .flatten()
                 .boxed()
             }
+            functions::FlatTaskProfile::PlaceholderScalarFunction(_ftp) => {
+                let output = objectiveai::functions::expression::TaskOutputOwned::Function(
+                    objectiveai::functions::expression::FunctionOutput::Scalar(
+                        rust_decimal::Decimal::new(5, 1), // 0.5
+                    ),
+                );
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(vec![None]),
+                    }
+                })
+                .boxed()
+            }
+            functions::FlatTaskProfile::MapPlaceholderScalarFunction(ftp) => {
+                let outputs: Vec<objectiveai::functions::expression::FunctionOutput> = ftp
+                    .placeholders
+                    .iter()
+                    .map(|_| {
+                        objectiveai::functions::expression::FunctionOutput::Scalar(
+                            rust_decimal::Decimal::new(5, 1),
+                        )
+                    })
+                    .collect();
+                let output = objectiveai::functions::expression::TaskOutputOwned::MapFunction(outputs);
+                let retry_len = ftp.task_index_len();
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(
+                            vec![None; retry_len],
+                        ),
+                    }
+                })
+                .boxed()
+            }
+            functions::FlatTaskProfile::PlaceholderVectorFunction(ftp) => {
+                let n = ftp.output_length;
+                let score = if n > 0 {
+                    rust_decimal::Decimal::ONE / rust_decimal::Decimal::from(n)
+                } else {
+                    rust_decimal::Decimal::ZERO
+                };
+                let output = objectiveai::functions::expression::TaskOutputOwned::Function(
+                    objectiveai::functions::expression::FunctionOutput::Vector(
+                        vec![score; n as usize],
+                    ),
+                );
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(vec![None]),
+                    }
+                })
+                .boxed()
+            }
+            functions::FlatTaskProfile::MapPlaceholderVectorFunction(ftp) => {
+                let outputs: Vec<objectiveai::functions::expression::FunctionOutput> = ftp
+                    .placeholders
+                    .iter()
+                    .map(|p| {
+                        let n = p.output_length;
+                        let score = if n > 0 {
+                            rust_decimal::Decimal::ONE / rust_decimal::Decimal::from(n)
+                        } else {
+                            rust_decimal::Decimal::ZERO
+                        };
+                        objectiveai::functions::expression::FunctionOutput::Vector(
+                            vec![score; n as usize],
+                        )
+                    })
+                    .collect();
+                let output = objectiveai::functions::expression::TaskOutputOwned::MapFunction(outputs);
+                let retry_len = ftp.task_index_len();
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(
+                            vec![None; retry_len],
+                        ),
+                    }
+                })
+                .boxed()
+            }
         }
     }
 
@@ -1827,6 +1915,10 @@ where
                         functions::FlatTaskProfile::MapFunction(mf) => Some((mf.task_output.clone(), mf.invert_output)),
                         functions::FlatTaskProfile::VectorCompletion(vc) => Some((vc.output.clone(), vc.invert_output)),
                         functions::FlatTaskProfile::MapVectorCompletion(mvc) => Some((mvc.task_output.clone(), mvc.invert_output)),
+                        functions::FlatTaskProfile::PlaceholderScalarFunction(p) => Some((p.output.clone(), p.invert_output)),
+                        functions::FlatTaskProfile::MapPlaceholderScalarFunction(p) => Some((p.task_output.clone(), p.invert_output)),
+                        functions::FlatTaskProfile::PlaceholderVectorFunction(p) => Some((p.output.clone(), p.invert_output)),
+                        functions::FlatTaskProfile::MapPlaceholderVectorFunction(p) => Some((p.task_output.clone(), p.invert_output)),
                     })
                 })
                 .collect();
@@ -1853,6 +1945,10 @@ where
                         objectiveai::functions::expression::TaskOutputOwned::MapVectorCompletion(
                             Vec::new(),
                         )
+                    }
+                    Some(functions::FlatTaskProfile::MapPlaceholderScalarFunction(_))
+                    | Some(functions::FlatTaskProfile::MapPlaceholderVectorFunction(_)) => {
+                        objectiveai::functions::expression::TaskOutputOwned::MapFunction(Vec::new())
                     }
                     _ => panic!("encountered non-map FlatTaskProfile with length of 0"),
                 };

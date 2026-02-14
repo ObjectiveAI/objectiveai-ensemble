@@ -84,6 +84,8 @@ pub enum TaskProfile {
         /// - A vector of objects with `weight` and optional `invert` fields.
         profile: vector::completions::request::Profile,
     },
+    /// Placeholder task — no configuration needed, output is fixed.
+    Placeholder {},
 }
 
 impl TaskProfile {
@@ -100,6 +102,7 @@ impl TaskProfile {
                 .iter()
                 .all(TaskProfile::validate_commit_required),
             TaskProfile::VectorCompletion { .. } => true,
+            TaskProfile::Placeholder {} => true,
         }
     }
 }

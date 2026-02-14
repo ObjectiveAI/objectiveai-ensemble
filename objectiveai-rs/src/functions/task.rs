@@ -42,6 +42,10 @@ pub enum TaskExpression {
     VectorFunction(VectorFunctionTaskExpression),
     #[serde(rename = "vector.completion")]
     VectorCompletion(VectorCompletionTaskExpression),
+    #[serde(rename = "placeholder.scalar.function")]
+    PlaceholderScalarFunction(PlaceholderScalarFunctionTaskExpression),
+    #[serde(rename = "placeholder.vector.function")]
+    PlaceholderVectorFunction(PlaceholderVectorFunctionTaskExpression),
 }
 
 impl TaskExpression {
@@ -51,6 +55,8 @@ impl TaskExpression {
             TaskExpression::ScalarFunction(task) => task.skip.take(),
             TaskExpression::VectorFunction(task) => task.skip.take(),
             TaskExpression::VectorCompletion(task) => task.skip.take(),
+            TaskExpression::PlaceholderScalarFunction(task) => task.skip.take(),
+            TaskExpression::PlaceholderVectorFunction(task) => task.skip.take(),
         }
     }
 
@@ -60,6 +66,8 @@ impl TaskExpression {
             TaskExpression::ScalarFunction(task) => task.map,
             TaskExpression::VectorFunction(task) => task.map,
             TaskExpression::VectorCompletion(task) => task.map,
+            TaskExpression::PlaceholderScalarFunction(task) => task.map,
+            TaskExpression::PlaceholderVectorFunction(task) => task.map,
         }
     }
 
@@ -77,6 +85,12 @@ impl TaskExpression {
             }
             TaskExpression::VectorCompletion(task) => {
                 task.compile(params).map(Task::VectorCompletion)
+            }
+            TaskExpression::PlaceholderScalarFunction(task) => {
+                task.compile(params).map(Task::PlaceholderScalarFunction)
+            }
+            TaskExpression::PlaceholderVectorFunction(task) => {
+                task.compile(params).map(Task::PlaceholderVectorFunction)
             }
         }
     }
@@ -98,6 +112,12 @@ pub enum Task {
     /// Runs a vector completion.
     #[serde(rename = "vector.completion")]
     VectorCompletion(VectorCompletionTask),
+    /// Placeholder scalar function (always outputs 0.5).
+    #[serde(rename = "placeholder.scalar.function")]
+    PlaceholderScalarFunction(PlaceholderScalarFunctionTask),
+    /// Placeholder vector function (always outputs equalized vector).
+    #[serde(rename = "placeholder.vector.function")]
+    PlaceholderVectorFunction(PlaceholderVectorFunctionTask),
 }
 
 impl Task {
@@ -117,6 +137,12 @@ impl Task {
                 task.compile_output(input, raw_output)
             }
             Task::VectorCompletion(task) => {
+                task.compile_output(input, raw_output)
+            }
+            Task::PlaceholderScalarFunction(task) => {
+                task.compile_output(input, raw_output)
+            }
+            Task::PlaceholderVectorFunction(task) => {
                 task.compile_output(input, raw_output)
             }
         }
@@ -473,6 +499,183 @@ pub struct VectorCompletionTask {
 }
 
 impl VectorCompletionTask {
+    pub fn compile_output(
+        &self,
+        input: &super::expression::Input,
+        raw_output: super::expression::TaskOutput,
+    ) -> Result<
+        super::expression::FunctionOutput,
+        super::expression::ExpressionError,
+    > {
+        let params =
+            super::expression::Params::Ref(super::expression::ParamsRef {
+                input,
+                output: Some(raw_output),
+                map: None,
+            });
+        let compiled_output = self.output.compile_one(&params)?;
+        Ok(compiled_output)
+    }
+}
+
+/// Expression for a placeholder scalar function task (pre-compilation).
+///
+/// Like [`ScalarFunctionTaskExpression`] but without owner/repository/commit.
+/// Always produces a fixed output of 0.5.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaceholderScalarFunctionTaskExpression {
+    /// JSON Schema defining the expected input structure.
+    pub input_schema: super::expression::InputSchema,
+
+    /// If this expression evaluates to true, skip the task. Receives: `input`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip: Option<super::expression::Expression>,
+
+    /// Index into `input_maps` for mapped execution.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub map: Option<u64>,
+
+    /// Expression for the input to pass to the placeholder function.
+    /// Receives: `input`, `map` (if mapped).
+    pub input:
+        super::expression::WithExpression<super::expression::InputExpression>,
+
+    /// Expression to transform the fixed 0.5 output.
+    /// Receives: `input`, `output` as `Function(FunctionOutput::Scalar(0.5))`.
+    pub output: super::expression::Expression,
+}
+
+impl PlaceholderScalarFunctionTaskExpression {
+    pub fn compile(
+        self,
+        params: &super::expression::Params,
+    ) -> Result<PlaceholderScalarFunctionTask, super::expression::ExpressionError>
+    {
+        let input = self.input.compile_one(params)?.compile(params)?;
+        Ok(PlaceholderScalarFunctionTask {
+            input_schema: self.input_schema,
+            input,
+            output: self.output,
+        })
+    }
+}
+
+/// A compiled placeholder scalar function task.
+///
+/// Always produces `FunctionOutput::Scalar(0.5)` before the output expression
+/// is applied.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaceholderScalarFunctionTask {
+    /// JSON Schema defining the expected input structure.
+    pub input_schema: super::expression::InputSchema,
+    /// The resolved input.
+    pub input: super::expression::Input,
+    /// Expression to transform the fixed 0.5 output.
+    pub output: super::expression::Expression,
+}
+
+impl PlaceholderScalarFunctionTask {
+    pub fn compile_output(
+        &self,
+        input: &super::expression::Input,
+        raw_output: super::expression::TaskOutput,
+    ) -> Result<
+        super::expression::FunctionOutput,
+        super::expression::ExpressionError,
+    > {
+        let params =
+            super::expression::Params::Ref(super::expression::ParamsRef {
+                input,
+                output: Some(raw_output),
+                map: None,
+            });
+        let compiled_output = self.output.compile_one(&params)?;
+        Ok(compiled_output)
+    }
+}
+
+/// Expression for a placeholder vector function task (pre-compilation).
+///
+/// Like [`VectorFunctionTaskExpression`] but without owner/repository/commit.
+/// Always produces an equalized vector of length `output_length`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaceholderVectorFunctionTaskExpression {
+    /// JSON Schema defining the expected input structure.
+    pub input_schema: super::expression::InputSchema,
+
+    /// Expression computing the expected output vector length.
+    /// Receives: `input`.
+    pub output_length: super::expression::WithExpression<u64>,
+
+    /// Expression transforming input into sub-inputs for swiss system.
+    /// Receives: `input`.
+    pub input_split:
+        super::expression::WithExpression<Vec<super::expression::Input>>,
+
+    /// Expression merging sub-inputs back into one input.
+    /// Receives: `input` (as an array).
+    pub input_merge:
+        super::expression::WithExpression<super::expression::Input>,
+
+    /// If this expression evaluates to true, skip the task. Receives: `input`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip: Option<super::expression::Expression>,
+
+    /// Index into `input_maps` for mapped execution.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub map: Option<u64>,
+
+    /// Expression for the input to pass to the placeholder function.
+    /// Receives: `input`, `map` (if mapped).
+    pub input:
+        super::expression::WithExpression<super::expression::InputExpression>,
+
+    /// Expression to transform the equalized vector output.
+    /// Receives: `input`, `output` as `Function(FunctionOutput::Vector(equalized))`.
+    pub output: super::expression::Expression,
+}
+
+impl PlaceholderVectorFunctionTaskExpression {
+    pub fn compile(
+        self,
+        params: &super::expression::Params,
+    ) -> Result<PlaceholderVectorFunctionTask, super::expression::ExpressionError>
+    {
+        let input = self.input.compile_one(params)?.compile(params)?;
+        Ok(PlaceholderVectorFunctionTask {
+            input_schema: self.input_schema,
+            output_length: self.output_length,
+            input_split: self.input_split,
+            input_merge: self.input_merge,
+            input,
+            output: self.output,
+        })
+    }
+}
+
+/// A compiled placeholder vector function task.
+///
+/// Always produces `FunctionOutput::Vector(vec![1/N; output_length])` before
+/// the output expression is applied.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaceholderVectorFunctionTask {
+    /// JSON Schema defining the expected input structure.
+    pub input_schema: super::expression::InputSchema,
+    /// Expression computing the expected output vector length.
+    pub output_length: super::expression::WithExpression<u64>,
+    /// Expression transforming input into sub-inputs for swiss system.
+    pub input_split:
+        super::expression::WithExpression<Vec<super::expression::Input>>,
+    /// Expression merging sub-inputs back into one input.
+    pub input_merge:
+        super::expression::WithExpression<super::expression::Input>,
+    /// The resolved input.
+    pub input: super::expression::Input,
+    /// Expression to transform the equalized vector output.
+    pub output: super::expression::Expression,
+}
+
+impl PlaceholderVectorFunctionTask {
     pub fn compile_output(
         &self,
         input: &super::expression::Input,

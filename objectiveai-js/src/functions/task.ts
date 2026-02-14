@@ -1,6 +1,7 @@
 import z from "zod";
 import { ExpressionSchema } from "./expression/expression";
 import {
+  InputSchemaSchema,
   InputValueExpressionSchema,
   InputValueSchema,
 } from "./expression/input";
@@ -112,11 +113,55 @@ export type VectorCompletion = z.infer<
   typeof VectorCompletionTaskExpressionSchema
 >;
 
+export const PlaceholderScalarFunctionTaskExpressionSchema = z
+  .object({
+    type: z.literal("placeholder.scalar.function"),
+    input_schema: InputSchemaSchema,
+    skip: TaskExpressionSkipSchema.optional().nullable(),
+    map: TaskExpressionMapSchema.optional().nullable(),
+    input: InputValueExpressionSchema,
+    output: TaskOutputExpressionSchema,
+  })
+  .describe("A placeholder scalar function task expression. Always outputs 0.5.");
+export type PlaceholderScalarFunctionTaskExpression = z.infer<
+  typeof PlaceholderScalarFunctionTaskExpressionSchema
+>;
+
+export const PlaceholderVectorFunctionTaskExpressionSchema = z
+  .object({
+    type: z.literal("placeholder.vector.function"),
+    input_schema: InputSchemaSchema,
+    output_length: z
+      .union([
+        z.uint32().describe("The fixed length of the output vector."),
+        ExpressionSchema.describe(
+          "An expression which evaluates to the length of the output vector. Receives: `input`."
+        ),
+      ])
+      .describe("The length of the output vector."),
+    input_split: ExpressionSchema.describe(
+      "Splits the function input into an array of sub-inputs, one per output element. Receives: `input`."
+    ),
+    input_merge: ExpressionSchema.describe(
+      "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs back into one input. Receives: `input` (an array of sub-inputs)."
+    ),
+    skip: TaskExpressionSkipSchema.optional().nullable(),
+    map: TaskExpressionMapSchema.optional().nullable(),
+    input: InputValueExpressionSchema,
+    output: TaskOutputExpressionSchema,
+  })
+  .describe("A placeholder vector function task expression. Always outputs an equalized vector.");
+export type PlaceholderVectorFunctionTaskExpression = z.infer<
+  typeof PlaceholderVectorFunctionTaskExpressionSchema
+>;
+
 export const TaskExpressionSchema = z
   .discriminatedUnion("type", [
     ScalarFunctionTaskExpressionSchema,
     VectorFunctionTaskExpressionSchema,
     VectorCompletionTaskExpressionSchema,
+    PlaceholderScalarFunctionTaskExpressionSchema,
+    PlaceholderVectorFunctionTaskExpressionSchema,
   ])
   .describe(
     "A task to be executed as part of the function. Will first be compiled using the parent function's input. May be skipped or mapped.",
@@ -189,11 +234,55 @@ export const VectorCompletionTaskSchema = z
   .describe("A vector completion task.");
 export type VectorCompletionTask = z.infer<typeof VectorCompletionTaskSchema>;
 
+export const PlaceholderScalarFunctionTaskSchema = z
+  .object({
+    type: z.literal("placeholder.scalar.function"),
+    input_schema: InputSchemaSchema,
+    input: InputValueSchema,
+    output: ExpressionSchema.describe(
+      "Expression to transform the fixed 0.5 output. Receives: `input`, `output` (the raw FunctionOutput).",
+    ),
+  })
+  .describe("A placeholder scalar function task. Always outputs 0.5.");
+export type PlaceholderScalarFunctionTask = z.infer<
+  typeof PlaceholderScalarFunctionTaskSchema
+>;
+
+export const PlaceholderVectorFunctionTaskSchema = z
+  .object({
+    type: z.literal("placeholder.vector.function"),
+    input_schema: InputSchemaSchema,
+    output_length: z
+      .union([
+        z.uint32().describe("The fixed length of the output vector."),
+        ExpressionSchema.describe(
+          "An expression which evaluates to the length of the output vector. Receives: `input`."
+        ),
+      ])
+      .describe("The length of the output vector."),
+    input_split: ExpressionSchema.describe(
+      "Splits the function input into an array of sub-inputs, one per output element. Receives: `input`."
+    ),
+    input_merge: ExpressionSchema.describe(
+      "Recombines a variable-size, arbitrarily-ordered subset of sub-inputs back into one input. Receives: `input` (an array of sub-inputs)."
+    ),
+    input: InputValueSchema,
+    output: ExpressionSchema.describe(
+      "Expression to transform the equalized vector output. Receives: `input`, `output` (the raw FunctionOutput).",
+    ),
+  })
+  .describe("A placeholder vector function task. Always outputs an equalized vector.");
+export type PlaceholderVectorFunctionTask = z.infer<
+  typeof PlaceholderVectorFunctionTaskSchema
+>;
+
 export const TaskSchema = z
   .discriminatedUnion("type", [
     ScalarFunctionTaskSchema,
     VectorFunctionTaskSchema,
     VectorCompletionTaskSchema,
+    PlaceholderScalarFunctionTaskSchema,
+    PlaceholderVectorFunctionTaskSchema,
   ])
   .describe("A task to be executed as part of the function.");
 export type Task = z.infer<typeof TaskSchema>;

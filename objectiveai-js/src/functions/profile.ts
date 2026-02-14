@@ -59,11 +59,21 @@ export type VectorCompletionTaskProfile = z.infer<
   typeof VectorCompletionTaskProfileSchema
 >;
 
+export const PlaceholderTaskProfileSchema = z
+  .object({})
+  .strict()
+  .describe("A placeholder profile for placeholder function tasks.")
+  .meta({ title: "PlaceholderTaskProfile" });
+export type PlaceholderTaskProfile = z.infer<
+  typeof PlaceholderTaskProfileSchema
+>;
+
 export const TaskProfileSchema = z
   .union([
     RemoteFunctionTaskProfileSchema,
     InlineFunctionTaskProfileSchema,
     VectorCompletionTaskProfileSchema,
+    PlaceholderTaskProfileSchema,
   ])
   .describe("The profile for a task.");
 export type TaskProfile = z.infer<typeof TaskProfileSchema>;
