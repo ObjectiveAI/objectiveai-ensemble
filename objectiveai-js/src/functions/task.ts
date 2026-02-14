@@ -8,6 +8,8 @@ import {
 import {
   MessagesExpressionSchema,
   MessagesSchema,
+  QualityMessagesExpressionSchema,
+  QualityMessagesSchema,
 } from "src/chat/completions/request/message";
 import {
   ToolsExpressionSchema,
@@ -15,6 +17,7 @@ import {
 } from "src/chat/completions/request/tool";
 import {
   QualityVectorResponsesExpressionSchema,
+  QualityVectorResponsesSchema,
   VectorResponsesExpressionSchema,
   VectorResponsesSchema,
 } from "src/vector/completions/request/vector_response";
@@ -157,13 +160,16 @@ export const QualityVectorCompletionTaskExpressionSchema = z
   .object({
     type: VectorCompletionTaskExpressionSchema.shape.type,
     skip: VectorCompletionTaskExpressionSchema.shape.skip,
-    map: VectorCompletionTaskExpressionSchema.shape.map,
-    messages: VectorCompletionTaskExpressionSchema.shape.messages,
+    map: z.undefined(),
+    messages: QualityMessagesExpressionSchema,
     tools: VectorCompletionTaskExpressionSchema.shape.tools,
     responses: QualityVectorResponsesExpressionSchema,
     output: VectorCompletionTaskExpressionSchema.shape.output,
   })
-  .describe(VectorCompletionTaskExpressionSchema.description!);
+  .describe(
+    VectorCompletionTaskExpressionSchema.description! +
+      " Message content and responses must be arrays of content parts, not plain strings.",
+  );
 export type QualityVectorCompletionTaskExpression = z.infer<
   typeof QualityVectorCompletionTaskExpressionSchema
 >;
@@ -233,6 +239,102 @@ export const TaskExpressionsSchema = z
     "The list of tasks to be executed as part of the function. Each will first be compiled using the parent function's input.",
   );
 export type TaskExpressions = z.infer<typeof TaskExpressionsSchema>;
+
+// Quality task variants: unmapped (no map field) and mapped (map required)
+
+const QualityUnmappedScalarFunctionTaskExpressionSchema =
+  QualityScalarFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+
+const QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema =
+  PlaceholderScalarFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+
+const QualityMappedScalarFunctionTaskExpressionSchema =
+  QualityScalarFunctionTaskExpressionSchema.extend({
+    map: QualityTaskExpressionMapSchema,
+  });
+
+const QualityMappedPlaceholderScalarFunctionTaskExpressionSchema =
+  PlaceholderScalarFunctionTaskExpressionSchema.extend({
+    map: QualityTaskExpressionMapSchema,
+  });
+
+const QualityUnmappedVectorFunctionTaskExpressionSchema =
+  QualityVectorFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+
+const QualityUnmappedPlaceholderVectorFunctionTaskExpressionSchema =
+  PlaceholderVectorFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+
+// Quality Branch Scalar Function Tasks: all unmapped scalar-like
+
+export const QualityBranchScalarFunctionTasksExpressionSchema = z
+  .discriminatedUnion("type", [
+    QualityUnmappedScalarFunctionTaskExpressionSchema,
+    QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema,
+  ])
+  .describe(
+    "A task in a scalar function. Must be an unmapped scalar.function or placeholder.scalar.function task. " +
+      "At depth 0, only vector.completion tasks are allowed instead.",
+  );
+export type QualityBranchScalarFunctionTasksExpression = z.infer<
+  typeof QualityBranchScalarFunctionTasksExpressionSchema
+>;
+
+export const QualityBranchScalarFunctionTasksExpressionsSchema = z
+  .array(QualityBranchScalarFunctionTasksExpressionSchema)
+  .min(1)
+  .describe(
+    "Tasks for a scalar function. All tasks must be unmapped scalar-like (scalar.function or placeholder.scalar.function). " +
+      "Must contain at least 1 task. Task count must be within min_width and max_width from parameters. " +
+      "At depth 0, only vector.completion tasks are allowed instead.",
+  );
+export type QualityBranchScalarFunctionTasksExpressions = z.infer<
+  typeof QualityBranchScalarFunctionTasksExpressionsSchema
+>;
+
+// Quality Branch Vector Function Tasks: mapped scalar-like or unmapped vector-like
+
+export const QualityBranchVectorFunctionTasksExpressionSchema = z
+  .discriminatedUnion("type", [
+    QualityMappedScalarFunctionTaskExpressionSchema,
+    QualityMappedPlaceholderScalarFunctionTaskExpressionSchema,
+    QualityUnmappedVectorFunctionTaskExpressionSchema,
+    QualityUnmappedPlaceholderVectorFunctionTaskExpressionSchema,
+  ])
+  .describe(
+    "A task in a vector function. Must be either a mapped scalar-like task (scalar.function or placeholder.scalar.function with map required) " +
+      "or an unmapped vector-like task (vector.function or placeholder.vector.function). " +
+      "At depth 0, only vector.completion tasks are allowed instead.",
+  );
+export type QualityBranchVectorFunctionTasksExpression = z.infer<
+  typeof QualityBranchVectorFunctionTasksExpressionSchema
+>;
+
+export const QualityBranchVectorFunctionTasksExpressionsSchema = z
+  .array(QualityBranchVectorFunctionTasksExpressionSchema)
+  .min(1)
+  .describe(
+    "Tasks for a vector function. Each task must be either a mapped scalar-like task or an unmapped vector-like task. " +
+      "Must contain at least 1 task. At most 50% of tasks may have a map index (unless there is only 1 task). " +
+      "Map indices must be unique across tasks and reference valid input_maps entries. " +
+      "Task count must be within min_width and max_width from parameters. " +
+      "At depth 0, only vector.completion tasks are allowed instead.",
+  );
+export type QualityBranchVectorFunctionTasksExpressions = z.infer<
+  typeof QualityBranchVectorFunctionTasksExpressionsSchema
+>;
+
+// Quality Depth-0 Tasks: only vector.completion
+
+export const QualityLeafTasksExpressionsSchema = z
+  .array(QualityVectorCompletionTaskExpressionSchema)
+  .min(1)
+  .describe(
+    "Tasks at depth 0. Only vector.completion tasks are allowed. " +
+      "Must contain at least 1 task. Task count must be within min_width and max_width from parameters.",
+  );
+export type QualityLeafTasksExpressions = z.infer<
+  typeof QualityLeafTasksExpressionsSchema
+>;
 
 // Task
 
@@ -365,3 +467,51 @@ export const CompiledTasksSchema = z
     "The compiled list of tasks to be executed as part of the function.",
   );
 export type CompiledTasks = z.infer<typeof CompiledTasksSchema>;
+
+// Quality Compiled Tasks (message content and responses must be arrays of content parts, not plain strings)
+
+export const QualityVectorCompletionTaskSchema = z
+  .object({
+    type: z.literal("vector.completion"),
+    messages: QualityMessagesSchema,
+    tools: ToolsSchema.optional(),
+    responses: QualityVectorResponsesSchema,
+    output: VectorCompletionTaskSchema.shape.output,
+  })
+  .describe(
+    VectorCompletionTaskSchema.description! +
+      " Message content and responses must be arrays of content parts, not plain strings.",
+  );
+export type QualityVectorCompletionTask = z.infer<
+  typeof QualityVectorCompletionTaskSchema
+>;
+
+export const QualityTaskSchema = z
+  .discriminatedUnion("type", [
+    ScalarFunctionTaskSchema,
+    VectorFunctionTaskSchema,
+    QualityVectorCompletionTaskSchema,
+    PlaceholderScalarFunctionTaskSchema,
+    PlaceholderVectorFunctionTaskSchema,
+  ])
+  .describe(
+    TaskSchema.description! +
+      " Vector completion tasks require content parts arrays, not plain strings.",
+  );
+export type QualityTask = z.infer<typeof QualityTaskSchema>;
+
+export const QualityCompiledTaskSchema = z
+  .union([
+    QualityTaskSchema.describe("An un-mapped, un-skipped task."),
+    z
+      .array(QualityTaskSchema)
+      .describe("A task which was mapped over an input array."),
+    z.null().describe("A task which was skipped."),
+  ])
+  .describe(CompiledTaskSchema.description!);
+export type QualityCompiledTask = z.infer<typeof QualityCompiledTaskSchema>;
+
+export const QualityCompiledTasksSchema = z
+  .array(QualityCompiledTaskSchema)
+  .describe(CompiledTasksSchema.description!);
+export type QualityCompiledTasks = z.infer<typeof QualityCompiledTasksSchema>;

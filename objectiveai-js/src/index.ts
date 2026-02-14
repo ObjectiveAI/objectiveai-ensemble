@@ -3,6 +3,11 @@ export * as Chat from "./chat";
 export * as Ensemble from "./ensemble";
 export * as EnsembleLlm from "./ensemble_llm";
 export * as Functions from "./functions";
+export type {
+  ObjectInputSchema,
+  ArrayInputSchema,
+  AnyOfInputSchema,
+} from "./functions/expression/input";
 export * as Vector from "./vector";
 export * from "./error";
 export * from "./client";

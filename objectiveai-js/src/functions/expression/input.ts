@@ -50,12 +50,6 @@ export type ObjectInputSchemaToZodSchema = z.ZodObject<
   Record<string, z.ZodOptional<z.ZodType<InputValue>> | z.ZodType<InputValue>>
 >;
 
-export const QualityVectorFunctionObjectInputSchemaSchema =
-  ObjectInputSchemaSchema.describe(
-    ObjectInputSchemaSchema.description! +
-      " At least one property must be a required array.",
-  );
-
 export namespace ObjectInputSchemaExt {
   export function toZodSchema(
     self: ObjectInputSchema,
@@ -428,6 +422,22 @@ export const InputSchemaSchema = z
   .describe("An input schema defining the structure of function inputs.")
   .meta({ title: "InputSchema" });
 export type InputSchema = z.infer<typeof InputSchemaSchema>;
+
+export const QualityVectorFunctionObjectInputSchemaSchema =
+  ObjectInputSchemaSchema.describe(
+    ObjectInputSchemaSchema.description! +
+      " At least one property must be a required array.",
+  );
+
+export const QualityVectorFunctionInputSchemaSchema = z
+  .union([
+    ArrayInputSchemaSchema,
+    QualityVectorFunctionObjectInputSchemaSchema,
+  ])
+  .describe(
+    "Input schema for a vector function. Must be an array or an object with at least one required array property.",
+  );
+
 export type InputSchemaToZodSchema =
   | ObjectInputSchemaToZodSchema
   | ArrayInputSchemaToZodSchema
