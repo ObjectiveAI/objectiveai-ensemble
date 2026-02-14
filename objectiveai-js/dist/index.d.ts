@@ -13624,6 +13624,17 @@ declare const FunctionExecutionSchema$1: z.ZodObject<{
 }, z.core.$strip>;
 type FunctionExecution$1 = z.infer<typeof FunctionExecutionSchema$1>;
 
+declare const ProfileEntrySchema: z.ZodObject<{
+    weight: z.ZodNumber;
+    invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+}, z.core.$strip>;
+type ProfileEntry = z.infer<typeof ProfileEntrySchema>;
+declare const ProfileSchema$1: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+    weight: z.ZodNumber;
+    invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+}, z.core.$strip>>]>;
+type Profile$1 = z.infer<typeof ProfileSchema$1>;
+
 declare const RemoteFunctionTaskProfileSchema: z.ZodObject<{
     owner: z.ZodString;
     repository: z.ZodString;
@@ -13632,7 +13643,7 @@ declare const RemoteFunctionTaskProfileSchema: z.ZodObject<{
 type RemoteFunctionTaskProfile = z.infer<typeof RemoteFunctionTaskProfileSchema>;
 interface InlineFunctionTaskProfile {
     tasks: TaskProfile[];
-    profile: number[];
+    profile: z.infer<typeof ProfileSchema$1>;
 }
 declare const InlineFunctionTaskProfileSchema: z.ZodType<InlineFunctionTaskProfile>;
 declare const VectorCompletionTaskProfileSchema: z.ZodObject<{
@@ -14367,7 +14378,10 @@ declare const VectorCompletionTaskProfileSchema: z.ZodObject<{
             }, z.core.$strip>>>>;
         }, z.core.$strip>>;
     }, z.core.$strip>]>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
 }, z.core.$strip>;
 type VectorCompletionTaskProfile = z.infer<typeof VectorCompletionTaskProfileSchema>;
 declare const TaskProfileSchema: z.ZodUnion<readonly [z.ZodObject<{
@@ -15106,7 +15120,10 @@ declare const TaskProfileSchema: z.ZodUnion<readonly [z.ZodObject<{
             }, z.core.$strip>>>>;
         }, z.core.$strip>>;
     }, z.core.$strip>]>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
 }, z.core.$strip>]>;
 type TaskProfile = z.infer<typeof TaskProfileSchema>;
 declare const TaskProfilesSchema: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
@@ -15845,7 +15862,10 @@ declare const TaskProfilesSchema: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
             }, z.core.$strip>>>>;
         }, z.core.$strip>>;
     }, z.core.$strip>]>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
 }, z.core.$strip>]>>;
 type TaskProfiles = z.infer<typeof TaskProfilesSchema>;
 declare const InlineProfileSchema: z.ZodObject<{
@@ -16585,9 +16605,15 @@ declare const InlineProfileSchema: z.ZodObject<{
                 }, z.core.$strip>>>>;
             }, z.core.$strip>>;
         }, z.core.$strip>]>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>]>>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
 }, z.core.$strip>;
 type InlineProfile = z.infer<typeof InlineProfileSchema>;
 declare const RemoteProfileSchema: z.ZodObject<{
@@ -17327,14 +17353,20 @@ declare const RemoteProfileSchema: z.ZodObject<{
                 }, z.core.$strip>>>>;
             }, z.core.$strip>>;
         }, z.core.$strip>]>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>]>>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
     description: z.ZodString;
     changelog: z.ZodNullable<z.ZodOptional<z.ZodString>>;
 }, z.core.$strip>;
 type RemoteProfile = z.infer<typeof RemoteProfileSchema>;
-declare const ProfileSchema$1: z.ZodUnion<readonly [z.ZodObject<{
+declare const ProfileSchema: z.ZodUnion<readonly [z.ZodObject<{
     tasks: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
         owner: z.ZodString;
         repository: z.ZodString;
@@ -18071,9 +18103,15 @@ declare const ProfileSchema$1: z.ZodUnion<readonly [z.ZodObject<{
                 }, z.core.$strip>>>>;
             }, z.core.$strip>>;
         }, z.core.$strip>]>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>]>>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
 }, z.core.$strip>, z.ZodObject<{
     tasks: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
         owner: z.ZodString;
@@ -18811,13 +18849,19 @@ declare const ProfileSchema$1: z.ZodUnion<readonly [z.ZodObject<{
                 }, z.core.$strip>>>>;
             }, z.core.$strip>>;
         }, z.core.$strip>]>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>]>>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
     description: z.ZodString;
     changelog: z.ZodNullable<z.ZodOptional<z.ZodString>>;
 }, z.core.$strip>]>;
-type Profile$1 = z.infer<typeof ProfileSchema$1>;
+type Profile = z.infer<typeof ProfileSchema>;
 
 interface ObjectInputSchema {
     type: "object";
@@ -23576,9 +23620,15 @@ declare const FunctionExecutionCreateParamsRemoteFunctionInlineProfileBaseSchema
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
 }, z.core.$strip>;
 type FunctionExecutionCreateParamsRemoteFunctionInlineProfileBase = z.infer<typeof FunctionExecutionCreateParamsRemoteFunctionInlineProfileBaseSchema>;
@@ -25088,9 +25138,15 @@ declare const FunctionExecutionCreateParamsRemoteFunctionInlineProfileStreamingS
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
     stream: z.ZodLiteral<true>;
 }, z.core.$strip>;
@@ -26601,9 +26657,15 @@ declare const FunctionExecutionCreateParamsRemoteFunctionInlineProfileNonStreami
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
     stream: z.ZodNullable<z.ZodOptional<z.ZodLiteral<false>>>;
 }, z.core.$strip>;
@@ -28114,9 +28176,15 @@ declare const FunctionExecutionCreateParamsRemoteFunctionInlineProfileSchema: z.
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
     stream: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
 }, z.core.$strip>;
@@ -37309,9 +37377,15 @@ declare const FunctionExecutionCreateParamsInlineFunctionInlineProfileBaseSchema
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
 }, z.core.$strip>;
 type FunctionExecutionCreateParamsInlineFunctionInlineProfileBase = z.infer<typeof FunctionExecutionCreateParamsInlineFunctionInlineProfileBaseSchema>;
@@ -39740,9 +39814,15 @@ declare const FunctionExecutionCreateParamsInlineFunctionInlineProfileStreamingS
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
     stream: z.ZodLiteral<true>;
 }, z.core.$strip>;
@@ -42172,9 +42252,15 @@ declare const FunctionExecutionCreateParamsInlineFunctionInlineProfileNonStreami
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
     stream: z.ZodNullable<z.ZodOptional<z.ZodLiteral<false>>>;
 }, z.core.$strip>;
@@ -44604,9 +44690,15 @@ declare const FunctionExecutionCreateParamsInlineFunctionInlineProfileSchema: z.
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
     stream: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
 }, z.core.$strip>;
@@ -55470,9 +55562,15 @@ declare const RetrievePairSchema: z.ZodObject<{
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
         description: z.ZodString;
         changelog: z.ZodNullable<z.ZodOptional<z.ZodString>>;
     }, z.core.$strip>;
@@ -56504,9 +56602,15 @@ declare const FunctionProfileComputationChunkSchema: z.ZodObject<{
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>>;
     fitting_stats: z.ZodOptional<z.ZodObject<{
         loss: z.ZodNumber;
@@ -57569,9 +57673,15 @@ declare const FunctionProfileComputationSchema: z.ZodObject<{
                     }, z.core.$strip>>>>;
                 }, z.core.$strip>>;
             }, z.core.$strip>]>;
-            profile: z.ZodArray<z.ZodNumber>;
+            profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+                weight: z.ZodNumber;
+                invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+            }, z.core.$strip>>]>;
         }, z.core.$strip>]>>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>;
     fitting_stats: z.ZodObject<{
         loss: z.ZodNumber;
@@ -69007,9 +69117,15 @@ declare const RetrieveSchema$1: z.ZodObject<{
                 }, z.core.$strip>>>>;
             }, z.core.$strip>>;
         }, z.core.$strip>]>;
-        profile: z.ZodArray<z.ZodNumber>;
+        profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+            weight: z.ZodNumber;
+            invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+        }, z.core.$strip>>]>;
     }, z.core.$strip>]>>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
     description: z.ZodString;
     changelog: z.ZodNullable<z.ZodOptional<z.ZodString>>;
 }, z.core.$strip>;
@@ -71786,6 +71902,8 @@ type index$5_ListPairItem = ListPairItem;
 declare const index$5_ListPairItemSchema: typeof ListPairItemSchema;
 type index$5_ListPairs = ListPairs;
 declare const index$5_ListPairsSchema: typeof ListPairsSchema;
+type index$5_Profile = Profile;
+declare const index$5_ProfileSchema: typeof ProfileSchema;
 type index$5_RemoteFunction = RemoteFunction;
 declare const index$5_RemoteFunctionSchema: typeof RemoteFunctionSchema;
 type index$5_RemoteFunctionTaskProfile = RemoteFunctionTaskProfile;
@@ -71838,7 +71956,7 @@ declare const index$5_retrievePair: typeof retrievePair;
 declare const index$5_retrievePairUsage: typeof retrievePairUsage;
 declare const index$5_validateFunctionInput: typeof validateFunctionInput;
 declare namespace index$5 {
-  export { type index$5_CompiledTask as CompiledTask, index$5_CompiledTaskSchema as CompiledTaskSchema, type index$5_CompiledTasks as CompiledTasks, index$5_CompiledTasksSchema as CompiledTasksSchema, index$f as Executions, index$c as Expression, type index$5_Function as Function, index$5_FunctionSchema as FunctionSchema, type HistoricalUsage$1 as HistoricalUsage, HistoricalUsageSchema$1 as HistoricalUsageSchema, type index$5_InlineFunction as InlineFunction, index$5_InlineFunctionSchema as InlineFunctionSchema, type index$5_InlineFunctionTaskProfile as InlineFunctionTaskProfile, index$5_InlineFunctionTaskProfileSchema as InlineFunctionTaskProfileSchema, type index$5_InlineProfile as InlineProfile, index$5_InlineProfileSchema as InlineProfileSchema, type index$5_InlineScalarFunction as InlineScalarFunction, index$5_InlineScalarFunctionSchema as InlineScalarFunctionSchema, type index$5_InlineVectorFunction as InlineVectorFunction, index$5_InlineVectorFunctionSchema as InlineVectorFunctionSchema, type List$1 as List, type ListItem$1 as ListItem, ListItemSchema$1 as ListItemSchema, type index$5_ListPairItem as ListPairItem, index$5_ListPairItemSchema as ListPairItemSchema, type index$5_ListPairs as ListPairs, index$5_ListPairsSchema as ListPairsSchema, ListSchema$1 as ListSchema, type Profile$1 as Profile, ProfileSchema$1 as ProfileSchema, index$6 as Profiles, type index$5_RemoteFunction as RemoteFunction, index$5_RemoteFunctionSchema as RemoteFunctionSchema, type index$5_RemoteFunctionTaskProfile as RemoteFunctionTaskProfile, index$5_RemoteFunctionTaskProfileSchema as RemoteFunctionTaskProfileSchema, type index$5_RemoteProfile as RemoteProfile, index$5_RemoteProfileSchema as RemoteProfileSchema, type index$5_RemoteScalarFunction as RemoteScalarFunction, index$5_RemoteScalarFunctionSchema as RemoteScalarFunctionSchema, type index$5_RemoteVectorFunction as RemoteVectorFunction, index$5_RemoteVectorFunctionSchema as RemoteVectorFunctionSchema, type Retrieve$2 as Retrieve, type index$5_RetrievePair as RetrievePair, index$5_RetrievePairSchema as RetrievePairSchema, RetrieveSchema$2 as RetrieveSchema, type index$5_ScalarFunctionTask as ScalarFunctionTask, type index$5_ScalarFunctionTaskExpression as ScalarFunctionTaskExpression, index$5_ScalarFunctionTaskExpressionSchema as ScalarFunctionTaskExpressionSchema, index$5_ScalarFunctionTaskSchema as ScalarFunctionTaskSchema, type index$5_Task as Task, type index$5_TaskExpression as TaskExpression, type index$5_TaskExpressionMap as TaskExpressionMap, index$5_TaskExpressionMapSchema as TaskExpressionMapSchema, index$5_TaskExpressionSchema as TaskExpressionSchema, type index$5_TaskExpressionSkip as TaskExpressionSkip, index$5_TaskExpressionSkipSchema as TaskExpressionSkipSchema, type index$5_TaskExpressions as TaskExpressions, index$5_TaskExpressionsSchema as TaskExpressionsSchema, type index$5_TaskOutputExpression as TaskOutputExpression, index$5_TaskOutputExpressionSchema as TaskOutputExpressionSchema, type index$5_TaskProfile as TaskProfile, index$5_TaskProfileSchema as TaskProfileSchema, type index$5_TaskProfiles as TaskProfiles, index$5_TaskProfilesSchema as TaskProfilesSchema, index$5_TaskSchema as TaskSchema, type index$5_VectorCompletion as VectorCompletion, type index$5_VectorCompletionTask as VectorCompletionTask, index$5_VectorCompletionTaskExpressionSchema as VectorCompletionTaskExpressionSchema, type index$5_VectorCompletionTaskProfile as VectorCompletionTaskProfile, index$5_VectorCompletionTaskProfileSchema as VectorCompletionTaskProfileSchema, index$5_VectorCompletionTaskSchema as VectorCompletionTaskSchema, type index$5_VectorFunctionTask as VectorFunctionTask, type index$5_VectorFunctionTaskExpression as VectorFunctionTaskExpression, index$5_VectorFunctionTaskExpressionSchema as VectorFunctionTaskExpressionSchema, index$5_VectorFunctionTaskSchema as VectorFunctionTaskSchema, index$5_compileFunctionInputMaps as compileFunctionInputMaps, index$5_compileFunctionInputMerge as compileFunctionInputMerge, index$5_compileFunctionInputSplit as compileFunctionInputSplit, index$5_compileFunctionOutputLength as compileFunctionOutputLength, index$5_compileFunctionTasks as compileFunctionTasks, list$1 as list, index$5_listPairs as listPairs, retrieve$3 as retrieve, index$5_retrievePair as retrievePair, index$5_retrievePairUsage as retrievePairUsage, retrieveUsage$1 as retrieveUsage, index$5_validateFunctionInput as validateFunctionInput };
+  export { type index$5_CompiledTask as CompiledTask, index$5_CompiledTaskSchema as CompiledTaskSchema, type index$5_CompiledTasks as CompiledTasks, index$5_CompiledTasksSchema as CompiledTasksSchema, index$f as Executions, index$c as Expression, type index$5_Function as Function, index$5_FunctionSchema as FunctionSchema, type HistoricalUsage$1 as HistoricalUsage, HistoricalUsageSchema$1 as HistoricalUsageSchema, type index$5_InlineFunction as InlineFunction, index$5_InlineFunctionSchema as InlineFunctionSchema, type index$5_InlineFunctionTaskProfile as InlineFunctionTaskProfile, index$5_InlineFunctionTaskProfileSchema as InlineFunctionTaskProfileSchema, type index$5_InlineProfile as InlineProfile, index$5_InlineProfileSchema as InlineProfileSchema, type index$5_InlineScalarFunction as InlineScalarFunction, index$5_InlineScalarFunctionSchema as InlineScalarFunctionSchema, type index$5_InlineVectorFunction as InlineVectorFunction, index$5_InlineVectorFunctionSchema as InlineVectorFunctionSchema, type List$1 as List, type ListItem$1 as ListItem, ListItemSchema$1 as ListItemSchema, type index$5_ListPairItem as ListPairItem, index$5_ListPairItemSchema as ListPairItemSchema, type index$5_ListPairs as ListPairs, index$5_ListPairsSchema as ListPairsSchema, ListSchema$1 as ListSchema, type index$5_Profile as Profile, index$5_ProfileSchema as ProfileSchema, index$6 as Profiles, type index$5_RemoteFunction as RemoteFunction, index$5_RemoteFunctionSchema as RemoteFunctionSchema, type index$5_RemoteFunctionTaskProfile as RemoteFunctionTaskProfile, index$5_RemoteFunctionTaskProfileSchema as RemoteFunctionTaskProfileSchema, type index$5_RemoteProfile as RemoteProfile, index$5_RemoteProfileSchema as RemoteProfileSchema, type index$5_RemoteScalarFunction as RemoteScalarFunction, index$5_RemoteScalarFunctionSchema as RemoteScalarFunctionSchema, type index$5_RemoteVectorFunction as RemoteVectorFunction, index$5_RemoteVectorFunctionSchema as RemoteVectorFunctionSchema, type Retrieve$2 as Retrieve, type index$5_RetrievePair as RetrievePair, index$5_RetrievePairSchema as RetrievePairSchema, RetrieveSchema$2 as RetrieveSchema, type index$5_ScalarFunctionTask as ScalarFunctionTask, type index$5_ScalarFunctionTaskExpression as ScalarFunctionTaskExpression, index$5_ScalarFunctionTaskExpressionSchema as ScalarFunctionTaskExpressionSchema, index$5_ScalarFunctionTaskSchema as ScalarFunctionTaskSchema, type index$5_Task as Task, type index$5_TaskExpression as TaskExpression, type index$5_TaskExpressionMap as TaskExpressionMap, index$5_TaskExpressionMapSchema as TaskExpressionMapSchema, index$5_TaskExpressionSchema as TaskExpressionSchema, type index$5_TaskExpressionSkip as TaskExpressionSkip, index$5_TaskExpressionSkipSchema as TaskExpressionSkipSchema, type index$5_TaskExpressions as TaskExpressions, index$5_TaskExpressionsSchema as TaskExpressionsSchema, type index$5_TaskOutputExpression as TaskOutputExpression, index$5_TaskOutputExpressionSchema as TaskOutputExpressionSchema, type index$5_TaskProfile as TaskProfile, index$5_TaskProfileSchema as TaskProfileSchema, type index$5_TaskProfiles as TaskProfiles, index$5_TaskProfilesSchema as TaskProfilesSchema, index$5_TaskSchema as TaskSchema, type index$5_VectorCompletion as VectorCompletion, type index$5_VectorCompletionTask as VectorCompletionTask, index$5_VectorCompletionTaskExpressionSchema as VectorCompletionTaskExpressionSchema, type index$5_VectorCompletionTaskProfile as VectorCompletionTaskProfile, index$5_VectorCompletionTaskProfileSchema as VectorCompletionTaskProfileSchema, index$5_VectorCompletionTaskSchema as VectorCompletionTaskSchema, type index$5_VectorFunctionTask as VectorFunctionTask, type index$5_VectorFunctionTaskExpression as VectorFunctionTaskExpression, index$5_VectorFunctionTaskExpressionSchema as VectorFunctionTaskExpressionSchema, index$5_VectorFunctionTaskSchema as VectorFunctionTaskSchema, index$5_compileFunctionInputMaps as compileFunctionInputMaps, index$5_compileFunctionInputMerge as compileFunctionInputMerge, index$5_compileFunctionInputSplit as compileFunctionInputSplit, index$5_compileFunctionOutputLength as compileFunctionOutputLength, index$5_compileFunctionTasks as compileFunctionTasks, list$1 as list, index$5_listPairs as listPairs, retrieve$3 as retrieve, index$5_retrievePair as retrievePair, index$5_retrievePairUsage as retrievePairUsage, retrieveUsage$1 as retrieveUsage, index$5_validateFunctionInput as validateFunctionInput };
 }
 
 declare const VectorCompletionCreateParamsBaseSchema: z.ZodObject<{
@@ -72750,7 +72868,10 @@ declare const VectorCompletionCreateParamsBaseSchema: z.ZodObject<{
             }, z.core.$strip>>>>;
         }, z.core.$strip>>;
     }, z.core.$strip>]>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
     seed: z.ZodNullable<z.ZodOptional<z.ZodBigInt>>;
     tools: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
         type: z.ZodLiteral<"function">;
@@ -73714,7 +73835,10 @@ declare const VectorCompletionCreateParamsStreamingSchema: z.ZodObject<{
             }, z.core.$strip>>>>;
         }, z.core.$strip>>;
     }, z.core.$strip>]>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
     seed: z.ZodNullable<z.ZodOptional<z.ZodBigInt>>;
     tools: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
         type: z.ZodLiteral<"function">;
@@ -74679,7 +74803,10 @@ declare const VectorCompletionCreateParamsNonStreamingSchema: z.ZodObject<{
             }, z.core.$strip>>>>;
         }, z.core.$strip>>;
     }, z.core.$strip>]>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
     seed: z.ZodNullable<z.ZodOptional<z.ZodBigInt>>;
     tools: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
         type: z.ZodLiteral<"function">;
@@ -75644,7 +75771,10 @@ declare const VectorCompletionCreateParamsSchema: z.ZodObject<{
             }, z.core.$strip>>>>;
         }, z.core.$strip>>;
     }, z.core.$strip>]>;
-    profile: z.ZodArray<z.ZodNumber>;
+    profile: z.ZodUnion<readonly [z.ZodArray<z.ZodNumber>, z.ZodArray<z.ZodObject<{
+        weight: z.ZodNumber;
+        invert: z.ZodNullable<z.ZodOptional<z.ZodBoolean>>;
+    }, z.core.$strip>>]>;
     seed: z.ZodNullable<z.ZodOptional<z.ZodBigInt>>;
     tools: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
         type: z.ZodLiteral<"function">;
@@ -76451,9 +76581,6 @@ declare const EnsembleSchema$1: z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
 }, z.core.$strip>]>;
 type Ensemble$1 = z.infer<typeof EnsembleSchema$1>;
 
-declare const ProfileSchema: z.ZodArray<z.ZodNumber>;
-type Profile = z.infer<typeof ProfileSchema>;
-
 declare const VectorResponseSchema: z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodDiscriminatedUnion<[z.ZodObject<{
     type: z.ZodLiteral<"text">;
     text: z.ZodString;
@@ -76627,8 +76754,8 @@ declare const VectorResponsesExpressionSchema: z.ZodUnion<readonly [z.ZodArray<z
 }, z.core.$strict>]>]>;
 type VectorResponsesExpression = z.infer<typeof VectorResponsesExpressionSchema>;
 
-type index$4_Profile = Profile;
-declare const index$4_ProfileSchema: typeof ProfileSchema;
+type index$4_ProfileEntry = ProfileEntry;
+declare const index$4_ProfileEntrySchema: typeof ProfileEntrySchema;
 type index$4_VectorCompletionCreateParams = VectorCompletionCreateParams;
 type index$4_VectorCompletionCreateParamsBase = VectorCompletionCreateParamsBase;
 declare const index$4_VectorCompletionCreateParamsBaseSchema: typeof VectorCompletionCreateParamsBaseSchema;
@@ -76646,7 +76773,7 @@ type index$4_VectorResponsesExpression = VectorResponsesExpression;
 declare const index$4_VectorResponsesExpressionSchema: typeof VectorResponsesExpressionSchema;
 declare const index$4_VectorResponsesSchema: typeof VectorResponsesSchema;
 declare namespace index$4 {
-  export { type Ensemble$1 as Ensemble, EnsembleSchema$1 as EnsembleSchema, type index$4_Profile as Profile, index$4_ProfileSchema as ProfileSchema, type index$4_VectorCompletionCreateParams as VectorCompletionCreateParams, type index$4_VectorCompletionCreateParamsBase as VectorCompletionCreateParamsBase, index$4_VectorCompletionCreateParamsBaseSchema as VectorCompletionCreateParamsBaseSchema, type index$4_VectorCompletionCreateParamsNonStreaming as VectorCompletionCreateParamsNonStreaming, index$4_VectorCompletionCreateParamsNonStreamingSchema as VectorCompletionCreateParamsNonStreamingSchema, index$4_VectorCompletionCreateParamsSchema as VectorCompletionCreateParamsSchema, type index$4_VectorCompletionCreateParamsStreaming as VectorCompletionCreateParamsStreaming, index$4_VectorCompletionCreateParamsStreamingSchema as VectorCompletionCreateParamsStreamingSchema, type index$4_VectorResponse as VectorResponse, type index$4_VectorResponseExpression as VectorResponseExpression, index$4_VectorResponseExpressionSchema as VectorResponseExpressionSchema, index$4_VectorResponseSchema as VectorResponseSchema, type index$4_VectorResponses as VectorResponses, type index$4_VectorResponsesExpression as VectorResponsesExpression, index$4_VectorResponsesExpressionSchema as VectorResponsesExpressionSchema, index$4_VectorResponsesSchema as VectorResponsesSchema };
+  export { type Ensemble$1 as Ensemble, EnsembleSchema$1 as EnsembleSchema, type Profile$1 as Profile, type index$4_ProfileEntry as ProfileEntry, index$4_ProfileEntrySchema as ProfileEntrySchema, ProfileSchema$1 as ProfileSchema, type index$4_VectorCompletionCreateParams as VectorCompletionCreateParams, type index$4_VectorCompletionCreateParamsBase as VectorCompletionCreateParamsBase, index$4_VectorCompletionCreateParamsBaseSchema as VectorCompletionCreateParamsBaseSchema, type index$4_VectorCompletionCreateParamsNonStreaming as VectorCompletionCreateParamsNonStreaming, index$4_VectorCompletionCreateParamsNonStreamingSchema as VectorCompletionCreateParamsNonStreamingSchema, index$4_VectorCompletionCreateParamsSchema as VectorCompletionCreateParamsSchema, type index$4_VectorCompletionCreateParamsStreaming as VectorCompletionCreateParamsStreaming, index$4_VectorCompletionCreateParamsStreamingSchema as VectorCompletionCreateParamsStreamingSchema, type index$4_VectorResponse as VectorResponse, type index$4_VectorResponseExpression as VectorResponseExpression, index$4_VectorResponseExpressionSchema as VectorResponseExpressionSchema, index$4_VectorResponseSchema as VectorResponseSchema, type index$4_VectorResponses as VectorResponses, type index$4_VectorResponsesExpression as VectorResponsesExpression, index$4_VectorResponsesExpressionSchema as VectorResponsesExpressionSchema, index$4_VectorResponsesSchema as VectorResponsesSchema };
 }
 
 declare const EnsembleSchema: z.ZodString;
