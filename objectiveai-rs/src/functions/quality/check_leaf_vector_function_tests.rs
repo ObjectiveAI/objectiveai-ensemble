@@ -87,13 +87,11 @@ fn vc_task_has_map() {
 // Content checks are shared with leaf_scalar — just verify one triggers
 #[test]
 fn response_plain_string() {
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
-            messages: WithExpression::Value(vec![
-                quality_user_message(),
-            ]),
+            messages: WithExpression::Value(vec![quality_user_message()]),
             tools: None,
             responses: WithExpression::Value(vec![
                 WithExpression::Value(RichContentExpression::Text(
@@ -102,8 +100,7 @@ fn response_plain_string() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_vector(array_of_strings_schema(), vec![task]);
     let err = check_leaf_vector_function(&f).unwrap_err();
     assert!(err.contains("response must be an array of content parts"));

@@ -68,7 +68,9 @@ fn vector_function_with_map() {
         vec![valid_vector_function_task(Some(0))],
     );
     let err = check_branch_vector_function(&f).unwrap_err();
-    assert!(err.contains("vector.function in a vector function must not have map"));
+    assert!(
+        err.contains("vector.function in a vector function must not have map")
+    );
 }
 
 #[test]
@@ -182,9 +184,6 @@ fn valid_all_unmapped_vector() {
 
 #[test]
 fn valid_no_tasks() {
-    let f = branch_vector(
-        object_with_required_array_schema(),
-        vec![],
-    );
+    let f = branch_vector(object_with_required_array_schema(), vec![]);
     check_branch_vector_function(&f).unwrap();
 }

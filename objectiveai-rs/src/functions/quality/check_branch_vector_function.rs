@@ -3,7 +3,7 @@
 use crate::functions::{RemoteFunction, TaskExpression};
 
 use super::check_leaf_vector_function::check_vector_input_schema;
-use super::check_vector_fields::{check_vector_fields, VectorFieldsValidation};
+use super::check_vector_fields::{VectorFieldsValidation, check_vector_fields};
 use super::compile_and_validate::compile_and_validate_task_inputs;
 
 /// Validates quality requirements for a branch vector function.
@@ -38,7 +38,7 @@ pub fn check_branch_vector_function(
             } => (input_schema, tasks, output_length, input_split, input_merge),
             RemoteFunction::Scalar { .. } => {
                 return Err(
-                    "Expected vector function, got scalar function".to_string(),
+                    "Expected vector function, got scalar function".to_string()
                 );
             }
         };

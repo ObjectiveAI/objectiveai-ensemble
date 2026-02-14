@@ -25,7 +25,9 @@ pub fn check_branch_scalar_function(
             input_maps, tasks, ..
         } => (input_maps, tasks),
         RemoteFunction::Vector { .. } => {
-            return Err("Expected scalar function, got vector function".to_string());
+            return Err(
+                "Expected scalar function, got vector function".to_string()
+            );
         }
     };
 

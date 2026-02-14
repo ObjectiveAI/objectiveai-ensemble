@@ -44,13 +44,14 @@ impl VectorFieldsValidation {
 /// 3. Each split element must produce output_length = 1
 /// 4. Merging all splits must reconstruct the original input
 /// 5. Merging random subsets must produce output_length = subset size
-pub fn check_vector_fields(fields: VectorFieldsValidation) -> Result<(), String> {
+pub fn check_vector_fields(
+    fields: VectorFieldsValidation,
+) -> Result<(), String> {
     let inputs = generate_example_inputs(&fields.input_schema);
 
     if inputs.is_empty() {
-        return Err(
-            "Failed to generate any example inputs from input_schema".to_string(),
-        );
+        return Err("Failed to generate any example inputs from input_schema"
+            .to_string());
     }
 
     for (i, input) in inputs.iter().enumerate() {
@@ -268,7 +269,8 @@ fn random_subsets(length: usize, count: usize) -> Vec<Vec<usize>> {
             all_indices.swap(i, j);
         }
 
-        let mut subset: Vec<usize> = all_indices.into_iter().take(size).collect();
+        let mut subset: Vec<usize> =
+            all_indices.into_iter().take(size).collect();
         subset.sort();
         subset.dedup();
 

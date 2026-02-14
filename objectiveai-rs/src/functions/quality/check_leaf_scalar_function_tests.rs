@@ -46,30 +46,21 @@ fn vc_task_has_map() {
 
 #[test]
 fn contains_scalar_function_task() {
-    let f = leaf_scalar(
-        None,
-        vec![valid_scalar_function_task(None)],
-    );
+    let f = leaf_scalar(None, vec![valid_scalar_function_task(None)]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("found scalar.function"));
 }
 
 #[test]
 fn contains_vector_function_task() {
-    let f = leaf_scalar(
-        None,
-        vec![valid_vector_function_task(None)],
-    );
+    let f = leaf_scalar(None, vec![valid_vector_function_task(None)]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("found vector.function"));
 }
 
 #[test]
 fn contains_placeholder_scalar_task() {
-    let f = leaf_scalar(
-        None,
-        vec![valid_placeholder_scalar_task(None)],
-    );
+    let f = leaf_scalar(None, vec![valid_placeholder_scalar_task(None)]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("found placeholder.scalar.function"));
 }
@@ -89,8 +80,8 @@ fn contains_placeholder_vector_task() {
 
 #[test]
 fn empty_messages() {
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Value(vec![]),
@@ -100,8 +91,7 @@ fn empty_messages() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("at least 1 message"));
@@ -109,18 +99,15 @@ fn empty_messages() {
 
 #[test]
 fn one_response() {
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
-            messages: WithExpression::Value(vec![
-                quality_user_message(),
-            ]),
+            messages: WithExpression::Value(vec![quality_user_message()]),
             tools: None,
             responses: WithExpression::Value(vec![quality_response()]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("at least 2 responses"));
@@ -128,13 +115,11 @@ fn one_response() {
 
 #[test]
 fn response_plain_string() {
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
-            messages: WithExpression::Value(vec![
-                quality_user_message(),
-            ]),
+            messages: WithExpression::Value(vec![quality_user_message()]),
             tools: None,
             responses: WithExpression::Value(vec![
                 WithExpression::Value(RichContentExpression::Text(
@@ -143,8 +128,7 @@ fn response_plain_string() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("response must be an array of content parts"));
@@ -155,15 +139,15 @@ fn developer_message_plain_string() {
     let msg = WithExpression::Value(
         crate::chat::completions::request::MessageExpression::Developer(
             DeveloperMessageExpression {
-                content: WithExpression::Value(
-                    SimpleContentExpression::Text("bad".to_string()),
-                ),
+                content: WithExpression::Value(SimpleContentExpression::Text(
+                    "bad".to_string(),
+                )),
                 name: None,
             },
         ),
     );
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Value(vec![msg]),
@@ -173,8 +157,7 @@ fn developer_message_plain_string() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("(developer): content must be an array"));
@@ -185,15 +168,15 @@ fn system_message_plain_string() {
     let msg = WithExpression::Value(
         crate::chat::completions::request::MessageExpression::System(
             SystemMessageExpression {
-                content: WithExpression::Value(
-                    SimpleContentExpression::Text("bad".to_string()),
-                ),
+                content: WithExpression::Value(SimpleContentExpression::Text(
+                    "bad".to_string(),
+                )),
                 name: None,
             },
         ),
     );
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Value(vec![msg]),
@@ -203,8 +186,7 @@ fn system_message_plain_string() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("(system): content must be an array"));
@@ -215,15 +197,15 @@ fn user_message_plain_string() {
     let msg = WithExpression::Value(
         crate::chat::completions::request::MessageExpression::User(
             UserMessageExpression {
-                content: WithExpression::Value(
-                    RichContentExpression::Text("bad".to_string()),
-                ),
+                content: WithExpression::Value(RichContentExpression::Text(
+                    "bad".to_string(),
+                )),
                 name: None,
             },
         ),
     );
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Value(vec![msg]),
@@ -233,8 +215,7 @@ fn user_message_plain_string() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("(user): content must be an array"));
@@ -255,8 +236,8 @@ fn assistant_message_plain_string() {
             },
         ),
     );
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Value(vec![msg]),
@@ -266,8 +247,7 @@ fn assistant_message_plain_string() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("(assistant): content must be an array"));
@@ -278,17 +258,15 @@ fn tool_message_plain_string() {
     let msg = WithExpression::Value(
         crate::chat::completions::request::MessageExpression::Tool(
             ToolMessageExpression {
-                content: WithExpression::Value(
-                    RichContentExpression::Text("bad".to_string()),
-                ),
-                tool_call_id: WithExpression::Value(
-                    "call_123".to_string(),
-                ),
+                content: WithExpression::Value(RichContentExpression::Text(
+                    "bad".to_string(),
+                )),
+                tool_call_id: WithExpression::Value("call_123".to_string()),
             },
         ),
     );
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Value(vec![msg]),
@@ -298,8 +276,7 @@ fn tool_message_plain_string() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     let err = check_leaf_scalar_function(&f).unwrap_err();
     assert!(err.contains("(tool): content must be an array"));
@@ -330,20 +307,19 @@ fn valid_no_tasks() {
 
 #[test]
 fn valid_expression_messages_skip_check() {
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
-            messages: WithExpression::Expression(
-                Expression::Starlark("input['messages']".to_string()),
-            ),
+            messages: WithExpression::Expression(Expression::Starlark(
+                "input['messages']".to_string(),
+            )),
             tools: None,
-            responses: WithExpression::Expression(
-                Expression::Starlark("input['responses']".to_string()),
-            ),
+            responses: WithExpression::Expression(Expression::Starlark(
+                "input['responses']".to_string(),
+            )),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     check_leaf_scalar_function(&f).unwrap();
 }
@@ -353,23 +329,19 @@ fn valid_developer_message_parts() {
     let msg = WithExpression::Value(
         crate::chat::completions::request::MessageExpression::Developer(
             DeveloperMessageExpression {
-                content: WithExpression::Value(
-                    SimpleContentExpression::Parts(vec![
-                        WithExpression::Value(
-                            SimpleContentPartExpression::Text {
-                                text: WithExpression::Value(
-                                    "good".to_string(),
-                                ),
-                            },
-                        ),
-                    ]),
-                ),
+                content: WithExpression::Value(SimpleContentExpression::Parts(
+                    vec![WithExpression::Value(
+                        SimpleContentPartExpression::Text {
+                            text: WithExpression::Value("good".to_string()),
+                        },
+                    )],
+                )),
                 name: None,
             },
         ),
     );
-    let task = TaskExpression::VectorCompletion(
-        VectorCompletionTaskExpression {
+    let task =
+        TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Value(vec![msg]),
@@ -379,8 +351,7 @@ fn valid_developer_message_parts() {
                 quality_response(),
             ]),
             output: dummy_output_expr(),
-        },
-    );
+        });
     let f = leaf_scalar(None, vec![task]);
     check_leaf_scalar_function(&f).unwrap();
 }

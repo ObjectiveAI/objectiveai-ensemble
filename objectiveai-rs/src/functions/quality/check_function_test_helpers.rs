@@ -22,7 +22,8 @@ pub fn dummy_output_expr() -> Expression {
     Expression::Starlark("output['scores'][0]".to_string())
 }
 
-pub fn dummy_input_expr() -> WithExpression<crate::functions::expression::InputExpression> {
+pub fn dummy_input_expr()
+-> WithExpression<crate::functions::expression::InputExpression> {
     WithExpression::Expression(Expression::Starlark("input".to_string()))
 }
 
@@ -76,23 +77,18 @@ pub fn object_without_required_array_schema() -> InputSchema {
 }
 
 /// A valid quality message: user with content parts, not string.
-pub fn quality_user_message() -> WithExpression<
-    crate::chat::completions::request::MessageExpression,
-> {
+pub fn quality_user_message()
+-> WithExpression<crate::chat::completions::request::MessageExpression> {
     WithExpression::Value(
         crate::chat::completions::request::MessageExpression::User(
             UserMessageExpression {
-                content: WithExpression::Value(
-                    RichContentExpression::Parts(vec![
-                        WithExpression::Value(
-                            RichContentPartExpression::Text {
-                                text: WithExpression::Value(
-                                    "Hello".to_string(),
-                                ),
-                            },
-                        ),
-                    ]),
-                ),
+                content: WithExpression::Value(RichContentExpression::Parts(
+                    vec![WithExpression::Value(
+                        RichContentPartExpression::Text {
+                            text: WithExpression::Value("Hello".to_string()),
+                        },
+                    )],
+                )),
                 name: None,
             },
         ),
@@ -147,9 +143,7 @@ pub fn valid_vector_function_task(with_map: Option<u64>) -> TaskExpression {
     })
 }
 
-pub fn valid_placeholder_scalar_task(
-    with_map: Option<u64>,
-) -> TaskExpression {
+pub fn valid_placeholder_scalar_task(with_map: Option<u64>) -> TaskExpression {
     TaskExpression::PlaceholderScalarFunction(
         PlaceholderScalarFunctionTaskExpression {
             input_schema: simple_integer_schema(),
@@ -168,19 +162,15 @@ pub fn valid_placeholder_vector_task(
     TaskExpression::PlaceholderVectorFunction(
         PlaceholderVectorFunctionTaskExpression {
             input_schema,
-            output_length: WithExpression::Expression(
-                Expression::Starlark("len(input['items'])".to_string()),
-            ),
-            input_split: WithExpression::Expression(
-                Expression::Starlark(
-                    "[{'items': [x]} for x in input['items']]".to_string(),
-                ),
-            ),
-            input_merge: WithExpression::Expression(
-                Expression::Starlark(
-                    "{'items': [x['items'][0] for x in input]}".to_string(),
-                ),
-            ),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input['items'])".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[{'items': [x]} for x in input['items']]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "{'items': [x['items'][0] for x in input]}".to_string(),
+            )),
             skip: None,
             map: with_map,
             input: dummy_input_expr(),
@@ -215,17 +205,15 @@ pub fn leaf_vector(
         input_schema: input_schema.clone(),
         input_maps: None,
         tasks,
-        output_length: WithExpression::Expression(
-            Expression::Starlark("len(input)".to_string()),
-        ),
-        input_split: WithExpression::Expression(
-            Expression::Starlark("[[x] for x in input]".to_string()),
-        ),
-        input_merge: WithExpression::Expression(
-            Expression::Starlark(
-                "[x[0] for x in input]".to_string(),
-            ),
-        ),
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
     }
 }
 

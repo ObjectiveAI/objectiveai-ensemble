@@ -4,7 +4,9 @@ use crate::chat::completions::request::{
     MessageExpression, RichContentExpression, SimpleContentExpression,
 };
 use crate::functions::expression::WithExpression;
-use crate::functions::{RemoteFunction, TaskExpression, VectorCompletionTaskExpression};
+use crate::functions::{
+    RemoteFunction, TaskExpression, VectorCompletionTaskExpression,
+};
 
 /// Validates quality requirements for a leaf scalar function.
 ///
@@ -17,13 +19,17 @@ use crate::functions::{RemoteFunction, TaskExpression, VectorCompletionTaskExpre
 /// 3. No `map` on any task — scalar leaf tasks are never mapped
 /// 4. Message content must be content parts arrays, not plain strings
 /// 5. Response content must be content parts arrays, not plain strings
-pub fn check_leaf_scalar_function(function: &RemoteFunction) -> Result<(), String> {
+pub fn check_leaf_scalar_function(
+    function: &RemoteFunction,
+) -> Result<(), String> {
     let (input_maps, tasks) = match function {
         RemoteFunction::Scalar {
             input_maps, tasks, ..
         } => (input_maps, tasks),
         RemoteFunction::Vector { .. } => {
-            return Err("Expected scalar function, got vector function".to_string());
+            return Err(
+                "Expected scalar function, got vector function".to_string()
+            );
         }
     };
 
