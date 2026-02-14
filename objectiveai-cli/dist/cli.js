@@ -23,6 +23,7 @@ __export(claude_exports, {
   dryrun: () => dryrun,
   essayMcp: () => essayMcp,
   essayTasksMcp: () => essayTasksMcp,
+  inputSchemaMcp: () => inputSchemaMcp,
   invent: () => invent,
   inventMcp: () => inventMcp,
   nameMcp: () => nameMcp,
@@ -338,6 +339,7 @@ var CLAUDE_MODEL_KEYS = [
   "claudeSpecModel",
   "claudeNameModel",
   "claudeTypeModel",
+  "claudeInputSchemaModel",
   "claudeEssayModel",
   "claudeEssayTasksModel",
   "claudePlanModel",
@@ -851,14 +853,17 @@ function checkInputSchema(fn) {
   return { ok: true, value: void 0, error: void 0 };
 }
 function hasArrayProperty(schema) {
-  const props = schema.properties;
-  if (typeof props !== "object" || props === null) return false;
-  for (const val of Object.values(props)) {
+  if (!("properties" in schema) || typeof schema.properties !== "object" || schema.properties === null) return false;
+  for (const val of Object.values(schema.properties)) {
     if (typeof val === "object" && val !== null && val.type === "array") {
       return true;
     }
   }
   return false;
+}
+function isValidVectorInputSchema(schema) {
+  if (!("type" in schema)) return false;
+  return schema.type === "array" || schema.type === "object" && hasArrayProperty(schema);
 }
 function editInputSchema(value) {
   const result = validateInputSchema({ input_schema: value });
@@ -871,8 +876,7 @@ function editInputSchema(value) {
   }
   const fn = readFunction();
   if (fn.ok && fn.value.type === "vector.function") {
-    const schema = result.value;
-    if (schema.type !== "array" && !(schema.type === "object" && hasArrayProperty(schema))) {
+    if (!isValidVectorInputSchema(result.value)) {
       return {
         ok: false,
         value: void 0,
@@ -3152,6 +3156,159 @@ Use EditType to set the type.`,
   if (sessionId) writeSession(sessionId);
   return sessionId;
 }
+function makeReadInputSchema(state) {
+  return tool(
+    "ReadInputSchema",
+    "Read the Function's `input_schema` field",
+    {},
+    async () => {
+      state.hasReadInputSchema = true;
+      return resultFromResult(readInputSchema());
+    }
+  );
+}
+function makeReadInputSchemaSchema(state) {
+  return tool(
+    "ReadInputSchemaSchema",
+    "Read the schema for Function `input_schema` field",
+    {},
+    async () => textResult(formatZodSchema(readInputSchemaSchema()))
+  );
+}
+function makeEditInputSchema(state) {
+  return tool(
+    "EditInputSchema",
+    "Edit the Function's `input_schema` field. If the new schema removes multimodal types present in the current schema, you must pass `dangerouslyRemoveModalities: true` \u2014 but only after re-reading SPEC.md to confirm this does not contradict it.",
+    {
+      value: z18.record(z18.string(), z18.unknown()),
+      dangerouslyRemoveModalities: z18.boolean().optional()
+    },
+    async ({ value, dangerouslyRemoveModalities }) => {
+      const readErr = mustRead(state.hasReadInputSchema, "input_schema");
+      if (readErr) return errorResult(readErr);
+      if (dangerouslyRemoveModalities) {
+        if (!state.editInputSchemaModalityRemovalRejected) {
+          return resultFromResult({
+            ok: false,
+            value: void 0,
+            error: "dangerouslyRemoveModalities can only be used after a previous EditInputSchema call was rejected for removing modalities."
+          });
+        }
+        state.editInputSchemaModalityRemovalRejected = false;
+        return resultFromResult(editInputSchema(value));
+      }
+      const current = readInputSchema();
+      if (current.ok && current.value) {
+        const currentParsed = validateInputSchema({ input_schema: current.value });
+        const newParsed = validateInputSchema({ input_schema: value });
+        if (currentParsed.ok && newParsed.ok) {
+          const oldModalities = collectModalities(currentParsed.value);
+          const newModalities = collectModalities(newParsed.value);
+          const removed = [];
+          for (const m of oldModalities) {
+            if (!newModalities.has(m)) {
+              removed.push(m);
+            }
+          }
+          if (removed.length > 0) {
+            state.editInputSchemaModalityRemovalRejected = true;
+            return resultFromResult({
+              ok: false,
+              value: void 0,
+              error: `This edit would remove multimodal types: ${removed.join(", ")}. Re-read SPEC.md and confirm this does not contradict it. If SPEC.md allows removing these modalities, call EditInputSchema again with dangerouslyRemoveModalities: true.`
+            });
+          }
+        }
+      }
+      state.editInputSchemaModalityRemovalRejected = false;
+      return resultFromResult(editInputSchema(value));
+    }
+  );
+}
+function makeCheckInputSchema(state) {
+  return tool(
+    "CheckInputSchema",
+    "Validate the Function's `input_schema` field",
+    {},
+    async () => resultFromResult(checkInputSchema())
+  );
+}
+
+// src/claude/prepare/inputSchemaMcp.ts
+async function inputSchemaMcp(state, log, sessionId, inputSchema, model) {
+  if (!isDefaultInputSchema()) return sessionId;
+  if (inputSchema) {
+    const parsed = JSON.parse(inputSchema);
+    const result = editInputSchema(parsed);
+    if (!result.ok) {
+      throw new Error(`Failed to set input_schema: ${result.error}`);
+    }
+    return sessionId;
+  }
+  const tools = [
+    makeReadSpec(state),
+    makeReadType(state),
+    makeReadTypeSchema(),
+    makeReadInputSchema(state),
+    makeReadInputSchemaSchema(),
+    makeEditInputSchema(state),
+    makeCheckInputSchema(),
+    makeListExampleFunctions(state),
+    makeReadExampleFunction(state)
+  ];
+  const mcpServer = createSdkMcpServer({ name: "input-schema", tools });
+  const reads = [];
+  if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
+  if (!state.hasReadExampleFunctions) reads.push("example functions");
+  const readPrefix = reads.length > 0 ? `Read ${formatReadList(reads)} to understand the context, then define` : "Define";
+  sessionId = await consumeStream(
+    query({
+      prompt: `${readPrefix} the input_schema for this function.
+
+The input_schema is a JSON Schema object that describes the shape of the function's input.
+- For **scalar** functions: the input describes a single item to score
+- For **vector** functions: the input must be an array or an object with at least one array property (the items to rank)
+
+Read the type first, then use EditInputSchema to set the input_schema.`,
+      options: {
+        tools: [],
+        mcpServers: { "input-schema": mcpServer },
+        allowedTools: ["mcp__input-schema__*"],
+        disallowedTools: ["AskUserQuestion"],
+        permissionMode: "dontAsk",
+        resume: sessionId,
+        model
+      }
+    }),
+    log,
+    sessionId
+  );
+  let retry = 1;
+  while (isDefaultInputSchema()) {
+    if (retry > 10) {
+      throw new Error("input_schema is not set after input schema phase");
+    }
+    sessionId = await consumeStream(
+      query({
+        prompt: "input_schema is not set after your input schema phase.\nUse EditInputSchema to set the input_schema.",
+        options: {
+          tools: [],
+          mcpServers: { "input-schema": mcpServer },
+          allowedTools: ["mcp__input-schema__*"],
+          disallowedTools: ["AskUserQuestion"],
+          permissionMode: "dontAsk",
+          resume: sessionId
+        }
+      }),
+      log,
+      sessionId
+    );
+    retry += 1;
+  }
+  state.anyStepRan = true;
+  if (sessionId) writeSession(sessionId);
+  return sessionId;
+}
 function makeReadEssay(state) {
   return tool("ReadEssay", "Read ESSAY.md", {}, async () => {
     state.hasReadOrWrittenEssay = true;
@@ -3360,14 +3517,21 @@ async function prepare(state, options) {
     sessionId,
     (sid) => typeMcp(state, log, sid, options.type, options.claudeTypeModel)
   );
-  log("=== Step 4: ESSAY.md ===");
+  log("=== Step 4: input_schema ===");
+  sessionId = await runStep(
+    state,
+    log,
+    sessionId,
+    (sid) => inputSchemaMcp(state, log, sid, options.inputSchema, options.claudeInputSchemaModel)
+  );
+  log("=== Step 5: ESSAY.md ===");
   sessionId = await runStep(
     state,
     log,
     sessionId,
     (sid) => essayMcp(state, log, sid, options.claudeEssayModel)
   );
-  log("=== Step 5: ESSAY_TASKS.md ===");
+  log("=== Step 6: ESSAY_TASKS.md ===");
   sessionId = await runStep(
     state,
     log,
@@ -3867,83 +4031,6 @@ function makeCheckDescription(state) {
     "Validate the Function's `description` field",
     {},
     async () => resultFromResult(checkDescription())
-  );
-}
-function makeReadInputSchema(state) {
-  return tool(
-    "ReadInputSchema",
-    "Read the Function's `input_schema` field",
-    {},
-    async () => {
-      state.hasReadInputSchema = true;
-      return resultFromResult(readInputSchema());
-    }
-  );
-}
-function makeReadInputSchemaSchema(state) {
-  return tool(
-    "ReadInputSchemaSchema",
-    "Read the schema for Function `input_schema` field",
-    {},
-    async () => textResult(formatZodSchema(readInputSchemaSchema()))
-  );
-}
-function makeEditInputSchema(state) {
-  return tool(
-    "EditInputSchema",
-    "Edit the Function's `input_schema` field. If the new schema removes multimodal types present in the current schema, you must pass `dangerouslyRemoveModalities: true` \u2014 but only after re-reading SPEC.md to confirm this does not contradict it.",
-    {
-      value: z18.record(z18.string(), z18.unknown()),
-      dangerouslyRemoveModalities: z18.boolean().optional()
-    },
-    async ({ value, dangerouslyRemoveModalities }) => {
-      const readErr = mustRead(state.hasReadInputSchema, "input_schema");
-      if (readErr) return errorResult(readErr);
-      if (dangerouslyRemoveModalities) {
-        if (!state.editInputSchemaModalityRemovalRejected) {
-          return resultFromResult({
-            ok: false,
-            value: void 0,
-            error: "dangerouslyRemoveModalities can only be used after a previous EditInputSchema call was rejected for removing modalities."
-          });
-        }
-        state.editInputSchemaModalityRemovalRejected = false;
-        return resultFromResult(editInputSchema(value));
-      }
-      const current = readInputSchema();
-      if (current.ok && current.value) {
-        const currentParsed = validateInputSchema({ input_schema: current.value });
-        const newParsed = validateInputSchema({ input_schema: value });
-        if (currentParsed.ok && newParsed.ok) {
-          const oldModalities = collectModalities(currentParsed.value);
-          const newModalities = collectModalities(newParsed.value);
-          const removed = [];
-          for (const m of oldModalities) {
-            if (!newModalities.has(m)) {
-              removed.push(m);
-            }
-          }
-          if (removed.length > 0) {
-            state.editInputSchemaModalityRemovalRejected = true;
-            return resultFromResult({
-              ok: false,
-              value: void 0,
-              error: `This edit would remove multimodal types: ${removed.join(", ")}. Re-read SPEC.md and confirm this does not contradict it. If SPEC.md allows removing these modalities, call EditInputSchema again with dangerouslyRemoveModalities: true.`
-            });
-          }
-        }
-      }
-      state.editInputSchemaModalityRemovalRejected = false;
-      return resultFromResult(editInputSchema(value));
-    }
-  );
-}
-function makeCheckInputSchema(state) {
-  return tool(
-    "CheckInputSchema",
-    "Validate the Function's `input_schema` field",
-    {},
-    async () => resultFromResult(checkInputSchema())
   );
 }
 function makeReadInputMaps(state) {
@@ -4847,7 +4934,7 @@ function getCurrentDepth() {
   const params = JSON.parse(content);
   return params.depth ?? 0;
 }
-function runAgentInSubdir(name, spec, type, childDepth, childProcesses, opts) {
+function runAgentInSubdir(name, spec, type, inputSchema, childDepth, childProcesses, opts) {
   const subdir = join("agent_functions", name);
   mkdirSync(subdir, { recursive: true });
   writeFileSync(join(subdir, "SPEC.md"), spec, "utf-8");
@@ -4862,6 +4949,7 @@ function runAgentInSubdir(name, spec, type, childDepth, childProcesses, opts) {
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (type === "scalar.function") args.push("--scalar");
     if (type === "vector.function") args.push("--vector");
+    args.push("--input-schema", JSON.stringify(inputSchema));
     const child = spawn("objectiveai", args, {
       cwd: subdir,
       stdio: ["pipe", "pipe", "pipe"],
@@ -5003,6 +5091,7 @@ async function spawnFunctionAgents(params, opts) {
           param.name,
           param.spec,
           param.type,
+          param.inputSchema,
           childDepth,
           childProcesses,
           opts
@@ -5026,7 +5115,8 @@ var SpawnFunctionAgentsParamsSchema = z.array(
   z.object({
     name: z.string(),
     spec: z.string(),
-    type: z.enum(["scalar.function", "vector.function"])
+    type: z.enum(["scalar.function", "vector.function"]),
+    inputSchema: z.record(z.string(), z.unknown())
   })
 );
 
@@ -5048,6 +5138,17 @@ function makeSpawnFunctionAgents(state) {
     "Spawn child function agents in parallel",
     { params: SpawnFunctionAgentsParamsSchema },
     async ({ params }) => {
+      for (const param of params) {
+        const schemaResult = validateInputSchema({ input_schema: param.inputSchema });
+        if (!schemaResult.ok) {
+          return errorResult(`Invalid inputSchema for "${param.name}": ${schemaResult.error}`);
+        }
+        if (param.type === "vector.function" && !isValidVectorInputSchema(schemaResult.value)) {
+          return errorResult(
+            `Invalid inputSchema for "${param.name}": vector functions require an input schema that is an array or an object with at least one array property.`
+          );
+        }
+      }
       if (state.spawnFunctionAgentsHasSpawned) {
         const owner = getGitHubOwner2(state.ghToken);
         const alreadyOnGitHub = [];
@@ -6876,6 +6977,7 @@ var claudeModelConfigs = [
   { key: "claudeSpecModel", flag: "--claude-spec-model", label: "Claude Spec Model", desc: "Model for SPEC.md generation" },
   { key: "claudeNameModel", flag: "--claude-name-model", label: "Claude Name Model", desc: "Model for name generation" },
   { key: "claudeTypeModel", flag: "--claude-type-model", label: "Claude Type Model", desc: "Model for type selection" },
+  { key: "claudeInputSchemaModel", flag: "--claude-input-schema-model", label: "Claude Input Schema Model", desc: "Model for input schema generation" },
   { key: "claudeEssayModel", flag: "--claude-essay-model", label: "Claude Essay Model", desc: "Model for ESSAY.md generation" },
   { key: "claudeEssayTasksModel", flag: "--claude-essay-tasks-model", label: "Claude Essay Tasks Model", desc: "Model for ESSAY_TASKS.md generation" },
   { key: "claudePlanModel", flag: "--claude-plan-model", label: "Claude Plan Model", desc: "Model for plan step" },
@@ -6900,6 +7002,39 @@ var BOLD2 = "\x1B[1m";
 var DIM = "\x1B[2m";
 var UNDERLINE = "\x1B[4m";
 var RESET2 = "\x1B[0m";
+function validateCliInputSchema(inputSchemaStr, cliType) {
+  if (!inputSchemaStr) return cliType;
+  let parsed;
+  try {
+    parsed = JSON.parse(inputSchemaStr);
+  } catch {
+    console.error("--input-schema must be valid JSON");
+    process.exit(1);
+  }
+  const result = validateInputSchema({ input_schema: parsed });
+  if (!result.ok) {
+    console.error(`--input-schema is not a valid input schema: ${result.error}`);
+    process.exit(1);
+  }
+  const validForVector = isValidVectorInputSchema(result.value);
+  let effectiveType = cliType;
+  if (!effectiveType) {
+    const fnType = readType();
+    if (fnType.ok && typeof fnType.value === "string") {
+      effectiveType = fnType.value;
+    }
+  }
+  if (effectiveType === "vector.function" && !validForVector) {
+    console.error(
+      "--input-schema is not valid for vector.function: must be an array or an object with at least one array property"
+    );
+    process.exit(1);
+  }
+  if (!effectiveType && !validForVector) {
+    return "scalar.function";
+  }
+  return cliType;
+}
 var program = new Command();
 program.name("objectiveai").description("ObjectiveAI").action(() => {
   printBanner();
@@ -6924,7 +7059,7 @@ ${BOLD2}Commands${RESET2}
   console.log("  objectiveai dryrun          Preview the dashboard with simulated agents");
   console.log("");
 });
-var inventCmd = program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function");
+var inventCmd = program.command("invent").description("Invent a new ObjectiveAI Function").argument("[spec]", "Optional spec string for SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function").option("--input-schema <json>", "Input schema JSON string");
 for (const cfg of claudeModelConfigs) {
   inventCmd.option(`${cfg.flag} <model>`, cfg.desc);
 }
@@ -6933,11 +7068,14 @@ inventCmd.action(async (spec, opts) => {
     console.error("Cannot use both --scalar and --vector");
     process.exit(1);
   }
-  const type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : void 0;
+  let type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : void 0;
+  const inputSchemaStr = opts.inputSchema;
+  type = validateCliInputSchema(inputSchemaStr, type);
   const partialOpts = {
     spec,
     name: opts.name,
     type,
+    inputSchema: inputSchemaStr,
     depth: opts.depth,
     minWidth: opts.width ?? opts.minWidth,
     maxWidth: opts.width ?? opts.maxWidth,
@@ -6958,7 +7096,7 @@ inventCmd.action(async (spec, opts) => {
   }
   await claude_exports.invent(partialOpts);
 });
-var amendCmd = program.command("amend").description("Amend an existing ObjectiveAI Function").argument("[spec]", "Amendment spec to append to SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function");
+var amendCmd = program.command("amend").description("Amend an existing ObjectiveAI Function").argument("[spec]", "Amendment spec to append to SPEC.md").option("--name <name>", "Function name for name.txt").option("--depth <n>", "Depth level (0=vector, >0=function tasks)", parseInt).option("--api-base <url>", "API base URL").option("--api-key <key>", "ObjectiveAI API key").option("--git-user-name <name>", "Git author/committer name").option("--git-user-email <email>", "Git author/committer email").option("--gh-token <token>", "GitHub token for gh CLI").option("--agent-upstream <upstream>", "Agent upstream (default: claude)").option("--width <n>", "Exact number of tasks (sets both min and max)", parseInt).option("--min-width <n>", "Minimum number of tasks", parseInt).option("--max-width <n>", "Maximum number of tasks", parseInt).option("--scalar", "Set function type to scalar.function").option("--vector", "Set function type to vector.function").option("--input-schema <json>", "Input schema JSON string");
 for (const cfg of claudeModelConfigs) {
   amendCmd.option(`${cfg.flag} <model>`, cfg.desc);
 }
@@ -6967,11 +7105,14 @@ amendCmd.action(async (spec, opts) => {
     console.error("Cannot use both --scalar and --vector");
     process.exit(1);
   }
-  const type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : void 0;
+  let type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : void 0;
+  const inputSchemaStr = opts.inputSchema;
+  type = validateCliInputSchema(inputSchemaStr, type);
   const partialOpts = {
     spec,
     name: opts.name,
     type,
+    inputSchema: inputSchemaStr,
     depth: opts.depth,
     minWidth: opts.width ?? opts.minWidth,
     maxWidth: opts.width ?? opts.maxWidth,

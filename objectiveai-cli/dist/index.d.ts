@@ -15,6 +15,7 @@ interface ConfigJson {
     claudeSpecModel?: string;
     claudeNameModel?: string;
     claudeTypeModel?: string;
+    claudeInputSchemaModel?: string;
     claudeEssayModel?: string;
     claudeEssayTasksModel?: string;
     claudePlanModel?: string;
@@ -43,6 +44,7 @@ interface AgentOptions {
     name?: string;
     spec?: string;
     type?: "scalar.function" | "vector.function";
+    inputSchema?: string;
     apiBase: string;
     apiKey: string;
     sessionId?: string;
@@ -57,6 +59,7 @@ interface AgentOptions {
     claudeSpecModel?: string;
     claudeNameModel?: string;
     claudeTypeModel?: string;
+    claudeInputSchemaModel?: string;
     claudeEssayModel?: string;
     claudeEssayTasksModel?: string;
     claudePlanModel?: string;
@@ -75,7 +78,7 @@ declare function resolveApiKey(override?: string, config?: ConfigJson): Resolved
 declare function resolveGitUserName(override?: string, config?: ConfigJson): ResolvedValue;
 declare function resolveGitUserEmail(override?: string, config?: ConfigJson): ResolvedValue;
 declare function resolveGhToken(override?: string, config?: ConfigJson): ResolvedValue;
-type ClaudeModelKey = "claudeSpecModel" | "claudeNameModel" | "claudeTypeModel" | "claudeEssayModel" | "claudeEssayTasksModel" | "claudePlanModel" | "claudeInventModel" | "claudeAmendModel";
+type ClaudeModelKey = "claudeSpecModel" | "claudeNameModel" | "claudeTypeModel" | "claudeInputSchemaModel" | "claudeEssayModel" | "claudeEssayTasksModel" | "claudePlanModel" | "claudeInventModel" | "claudeAmendModel";
 declare const CLAUDE_MODEL_KEYS: ClaudeModelKey[];
 declare function resolveClaudeModel(configKey: ClaudeModelKey, override?: string, config?: ConfigJson): ResolvedValue;
 declare function resolveAgentUpstream(override?: string, config?: ConfigJson): ResolvedValue;
@@ -134,6 +137,8 @@ declare function nameMcp(state: ToolState, log: LogFn, sessionId?: string, name?
 
 declare function typeMcp(state: ToolState, log: LogFn, sessionId?: string, type?: "scalar.function" | "vector.function", model?: string): Promise<string | undefined>;
 
+declare function inputSchemaMcp(state: ToolState, log: LogFn, sessionId?: string, inputSchema?: string, model?: string): Promise<string | undefined>;
+
 declare function essayMcp(state: ToolState, log: LogFn, sessionId?: string, model?: string): Promise<string | undefined>;
 
 declare function essayTasksMcp(state: ToolState, log: LogFn, sessionId?: string, model?: string): Promise<string | undefined>;
@@ -153,13 +158,14 @@ declare const index$7_amendMcp: typeof amendMcp;
 declare const index$7_dryrun: typeof dryrun;
 declare const index$7_essayMcp: typeof essayMcp;
 declare const index$7_essayTasksMcp: typeof essayTasksMcp;
+declare const index$7_inputSchemaMcp: typeof inputSchemaMcp;
 declare const index$7_inventMcp: typeof inventMcp;
 declare const index$7_nameMcp: typeof nameMcp;
 declare const index$7_prepare: typeof prepare;
 declare const index$7_specMcp: typeof specMcp;
 declare const index$7_typeMcp: typeof typeMcp;
 declare namespace index$7 {
-  export { amend$1 as amend, index$7_amendMcp as amendMcp, index$7_dryrun as dryrun, index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, invent$1 as invent, index$7_inventMcp as inventMcp, index$7_nameMcp as nameMcp, index$7_prepare as prepare, index$7_specMcp as specMcp, index$7_typeMcp as typeMcp };
+  export { amend$1 as amend, index$7_amendMcp as amendMcp, index$7_dryrun as dryrun, index$7_essayMcp as essayMcp, index$7_essayTasksMcp as essayTasksMcp, index$7_inputSchemaMcp as inputSchemaMcp, invent$1 as invent, index$7_inventMcp as inventMcp, index$7_nameMcp as nameMcp, index$7_prepare as prepare, index$7_specMcp as specMcp, index$7_typeMcp as typeMcp };
 }
 
 type Result<T> = {
@@ -253,6 +259,8 @@ declare function validateInputMerge(fn: DeserializedFunction): Result<InputMerge
 declare function readInputSchema(dir?: string): Result<unknown>;
 declare function readInputSchemaSchema(): typeof Functions.Expression.InputSchemaSchema;
 declare function checkInputSchema(fn?: DeserializedFunction): Result<undefined>;
+/** Check if a schema is valid for a vector function (array or object with array property). */
+declare function isValidVectorInputSchema(schema: Functions.Expression.InputSchema): boolean;
 declare function editInputSchema(value: unknown): Result<undefined>;
 declare function isDefaultInputSchema(): boolean;
 declare function validateInputSchema(fn: DeserializedFunction): Result<Functions.Expression.InputSchema>;
@@ -11724,6 +11732,7 @@ declare const index$5_isDefaultInputSplit: typeof isDefaultInputSplit;
 declare const index$5_isDefaultOutputLength: typeof isDefaultOutputLength;
 declare const index$5_isDefaultTasks: typeof isDefaultTasks;
 declare const index$5_isDefaultType: typeof isDefaultType;
+declare const index$5_isValidVectorInputSchema: typeof isValidVectorInputSchema;
 declare const index$5_readDescription: typeof readDescription;
 declare const index$5_readDescriptionSchema: typeof readDescriptionSchema;
 declare const index$5_readFunction: typeof readFunction;
@@ -11755,7 +11764,7 @@ declare const index$5_validateOutputLength: typeof validateOutputLength;
 declare const index$5_validateTasks: typeof validateTasks;
 declare const index$5_validateType: typeof validateType;
 declare namespace index$5 {
-  export { type index$5_DeserializedFunction as DeserializedFunction, index$5_appendInputMap as appendInputMap, index$5_appendTask as appendTask, index$5_checkDescription as checkDescription, index$5_checkFunction as checkFunction, index$5_checkInputMaps as checkInputMaps, index$5_checkInputMerge as checkInputMerge, index$5_checkInputSchema as checkInputSchema, index$5_checkInputSplit as checkInputSplit, index$5_checkOutputLength as checkOutputLength, index$5_checkTasks as checkTasks, index$5_checkType as checkType, index$5_delInputMap as delInputMap, index$5_delInputMaps as delInputMaps, index$5_delInputMerge as delInputMerge, index$5_delInputSplit as delInputSplit, index$5_delOutputLength as delOutputLength, index$5_delTask as delTask, index$5_delTasks as delTasks, index$5_editDescription as editDescription, index$5_editFunction as editFunction, index$5_editInputMap as editInputMap, index$5_editInputMaps as editInputMaps, index$5_editInputMerge as editInputMerge, index$5_editInputSchema as editInputSchema, index$5_editInputSplit as editInputSplit, index$5_editOutputLength as editOutputLength, index$5_editTask as editTask, index$5_editTasks as editTasks, index$5_editType as editType, index$5_isDefaultDescription as isDefaultDescription, index$5_isDefaultInputMaps as isDefaultInputMaps, index$5_isDefaultInputMerge as isDefaultInputMerge, index$5_isDefaultInputSchema as isDefaultInputSchema, index$5_isDefaultInputSplit as isDefaultInputSplit, index$5_isDefaultOutputLength as isDefaultOutputLength, index$5_isDefaultTasks as isDefaultTasks, index$5_isDefaultType as isDefaultType, index$5_readDescription as readDescription, index$5_readDescriptionSchema as readDescriptionSchema, index$5_readFunction as readFunction, index$5_readFunctionSchema as readFunctionSchema, index$5_readInputMaps as readInputMaps, index$5_readInputMapsSchema as readInputMapsSchema, index$5_readInputMerge as readInputMerge, index$5_readInputMergeSchema as readInputMergeSchema, index$5_readInputSchema as readInputSchema, index$5_readInputSchemaSchema as readInputSchemaSchema, index$5_readInputSplit as readInputSplit, index$5_readInputSplitSchema as readInputSplitSchema, index$5_readMessagesSchema as readMessagesSchema, index$5_readOutputLength as readOutputLength, index$5_readOutputLengthSchema as readOutputLengthSchema, index$5_readResponsesSchema as readResponsesSchema, index$5_readTasks as readTasks, index$5_readTasksSchema as readTasksSchema, index$5_readToolsSchema as readToolsSchema, index$5_readType as readType, index$5_readTypeSchema as readTypeSchema, index$5_validateDescription as validateDescription, index$5_validateFunction as validateFunction, index$5_validateInputMaps as validateInputMaps, index$5_validateInputMerge as validateInputMerge, index$5_validateInputSchema as validateInputSchema, index$5_validateInputSplit as validateInputSplit, index$5_validateOutputLength as validateOutputLength, index$5_validateTasks as validateTasks, index$5_validateType as validateType };
+  export { type index$5_DeserializedFunction as DeserializedFunction, index$5_appendInputMap as appendInputMap, index$5_appendTask as appendTask, index$5_checkDescription as checkDescription, index$5_checkFunction as checkFunction, index$5_checkInputMaps as checkInputMaps, index$5_checkInputMerge as checkInputMerge, index$5_checkInputSchema as checkInputSchema, index$5_checkInputSplit as checkInputSplit, index$5_checkOutputLength as checkOutputLength, index$5_checkTasks as checkTasks, index$5_checkType as checkType, index$5_delInputMap as delInputMap, index$5_delInputMaps as delInputMaps, index$5_delInputMerge as delInputMerge, index$5_delInputSplit as delInputSplit, index$5_delOutputLength as delOutputLength, index$5_delTask as delTask, index$5_delTasks as delTasks, index$5_editDescription as editDescription, index$5_editFunction as editFunction, index$5_editInputMap as editInputMap, index$5_editInputMaps as editInputMaps, index$5_editInputMerge as editInputMerge, index$5_editInputSchema as editInputSchema, index$5_editInputSplit as editInputSplit, index$5_editOutputLength as editOutputLength, index$5_editTask as editTask, index$5_editTasks as editTasks, index$5_editType as editType, index$5_isDefaultDescription as isDefaultDescription, index$5_isDefaultInputMaps as isDefaultInputMaps, index$5_isDefaultInputMerge as isDefaultInputMerge, index$5_isDefaultInputSchema as isDefaultInputSchema, index$5_isDefaultInputSplit as isDefaultInputSplit, index$5_isDefaultOutputLength as isDefaultOutputLength, index$5_isDefaultTasks as isDefaultTasks, index$5_isDefaultType as isDefaultType, index$5_isValidVectorInputSchema as isValidVectorInputSchema, index$5_readDescription as readDescription, index$5_readDescriptionSchema as readDescriptionSchema, index$5_readFunction as readFunction, index$5_readFunctionSchema as readFunctionSchema, index$5_readInputMaps as readInputMaps, index$5_readInputMapsSchema as readInputMapsSchema, index$5_readInputMerge as readInputMerge, index$5_readInputMergeSchema as readInputMergeSchema, index$5_readInputSchema as readInputSchema, index$5_readInputSchemaSchema as readInputSchemaSchema, index$5_readInputSplit as readInputSplit, index$5_readInputSplitSchema as readInputSplitSchema, index$5_readMessagesSchema as readMessagesSchema, index$5_readOutputLength as readOutputLength, index$5_readOutputLengthSchema as readOutputLengthSchema, index$5_readResponsesSchema as readResponsesSchema, index$5_readTasks as readTasks, index$5_readTasksSchema as readTasksSchema, index$5_readToolsSchema as readToolsSchema, index$5_readType as readType, index$5_readTypeSchema as readTypeSchema, index$5_validateDescription as validateDescription, index$5_validateFunction as validateFunction, index$5_validateInputMaps as validateInputMaps, index$5_validateInputMerge as validateInputMerge, index$5_validateInputSchema as validateInputSchema, index$5_validateInputSplit as validateInputSplit, index$5_validateOutputLength as validateOutputLength, index$5_validateTasks as validateTasks, index$5_validateType as validateType };
 }
 
 declare const ExampleInputSchema: z.ZodObject<{
@@ -58400,6 +58409,7 @@ declare const SpawnFunctionAgentsParamsSchema: z$1.ZodArray<z$1.ZodObject<{
         "scalar.function": "scalar.function";
         "vector.function": "vector.function";
     }>;
+    inputSchema: z$1.ZodRecord<z$1.ZodString, z$1.ZodUnknown>;
 }, z$1.core.$strip>>;
 type SpawnFunctionAgentsParams = z$1.infer<typeof SpawnFunctionAgentsParamsSchema>;
 

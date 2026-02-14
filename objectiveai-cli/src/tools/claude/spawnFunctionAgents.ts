@@ -1,8 +1,9 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { ToolState } from "./toolState";
-import { textResult, resultFromResult } from "./util";
+import { textResult, resultFromResult, errorResult } from "./util";
 import { spawnFunctionAgents, getGitHubOwner, repoExists } from "../spawnFunctionAgents";
 import { SpawnFunctionAgentsParamsSchema } from "../../spawnFunctionAgentsParams";
+import { validateInputSchema, isValidVectorInputSchema } from "../function/inputSchema";
 
 export function makeSpawnFunctionAgents(state: ToolState) {
   const opts = () => ({
@@ -22,6 +23,19 @@ export function makeSpawnFunctionAgents(state: ToolState) {
     "Spawn child function agents in parallel",
     { params: SpawnFunctionAgentsParamsSchema },
     async ({ params }) => {
+      // Validate each param's inputSchema
+      for (const param of params) {
+        const schemaResult = validateInputSchema({ input_schema: param.inputSchema });
+        if (!schemaResult.ok) {
+          return errorResult(`Invalid inputSchema for "${param.name}": ${schemaResult.error}`);
+        }
+        if (param.type === "vector.function" && !isValidVectorInputSchema(schemaResult.value)) {
+          return errorResult(
+            `Invalid inputSchema for "${param.name}": vector functions require an input schema that is an array or an object with at least one array property.`,
+          );
+        }
+      }
+
       if (state.spawnFunctionAgentsHasSpawned) {
         // Only allow respawning agents whose repos don't exist on GitHub (i.e. they failed)
         const owner = getGitHubOwner(state.ghToken);

@@ -12,6 +12,7 @@ export interface ConfigJson {
   claudeSpecModel?: string;
   claudeNameModel?: string;
   claudeTypeModel?: string;
+  claudeInputSchemaModel?: string;
   claudeEssayModel?: string;
   claudeEssayTasksModel?: string;
   claudePlanModel?: string;

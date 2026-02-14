@@ -5,6 +5,7 @@ export const SpawnFunctionAgentsParamsSchema = z.array(
     name: z.string(),
     spec: z.string(),
     type: z.enum(["scalar.function", "vector.function"]),
+    inputSchema: z.record(z.string(), z.unknown()),
   }),
 );
 

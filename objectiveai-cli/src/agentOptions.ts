@@ -10,6 +10,7 @@ export interface AgentOptions {
   name?: string;
   spec?: string;
   type?: "scalar.function" | "vector.function";
+  inputSchema?: string;
   apiBase: string;
   apiKey: string;
   sessionId?: string;
@@ -24,6 +25,7 @@ export interface AgentOptions {
   claudeSpecModel?: string;
   claudeNameModel?: string;
   claudeTypeModel?: string;
+  claudeInputSchemaModel?: string;
   claudeEssayModel?: string;
   claudeEssayTasksModel?: string;
   claudePlanModel?: string;
@@ -178,6 +180,7 @@ export type ClaudeModelKey =
   | "claudeSpecModel"
   | "claudeNameModel"
   | "claudeTypeModel"
+  | "claudeInputSchemaModel"
   | "claudeEssayModel"
   | "claudeEssayTasksModel"
   | "claudePlanModel"
@@ -188,6 +191,7 @@ export const CLAUDE_MODEL_KEYS: ClaudeModelKey[] = [
   "claudeSpecModel",
   "claudeNameModel",
   "claudeTypeModel",
+  "claudeInputSchemaModel",
   "claudeEssayModel",
   "claudeEssayTasksModel",
   "claudePlanModel",

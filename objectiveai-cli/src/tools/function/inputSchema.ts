@@ -35,15 +35,20 @@ export function checkInputSchema(fn?: DeserializedFunction): Result<undefined> {
   return { ok: true, value: undefined, error: undefined };
 }
 
-function hasArrayProperty(schema: Record<string, unknown>): boolean {
-  const props = schema.properties;
-  if (typeof props !== "object" || props === null) return false;
-  for (const val of Object.values(props as Record<string, unknown>)) {
+function hasArrayProperty(schema: Functions.Expression.InputSchema): boolean {
+  if (!("properties" in schema) || typeof schema.properties !== "object" || schema.properties === null) return false;
+  for (const val of Object.values(schema.properties as Record<string, unknown>)) {
     if (typeof val === "object" && val !== null && (val as Record<string, unknown>).type === "array") {
       return true;
     }
   }
   return false;
+}
+
+/** Check if a schema is valid for a vector function (array or object with array property). */
+export function isValidVectorInputSchema(schema: Functions.Expression.InputSchema): boolean {
+  if (!("type" in schema)) return false;
+  return schema.type === "array" || (schema.type === "object" && hasArrayProperty(schema));
 }
 
 export function editInputSchema(value: unknown): Result<undefined> {
@@ -59,8 +64,7 @@ export function editInputSchema(value: unknown): Result<undefined> {
   // Vector functions need an array input (either top-level array or object with array property)
   const fn = readFunction();
   if (fn.ok && fn.value.type === "vector.function") {
-    const schema = result.value as Record<string, unknown>;
-    if (schema.type !== "array" && !(schema.type === "object" && hasArrayProperty(schema))) {
+    if (!isValidVectorInputSchema(result.value)) {
       return {
         ok: false,
         value: undefined,

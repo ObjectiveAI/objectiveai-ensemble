@@ -19,11 +19,17 @@ import {
 import { setConfigValue, ConfigJson } from "./config";
 import { printBanner } from "./banner";
 import { getClaudeSupportedModels, validateClaudeModel, validateClaudeModels } from "./claude/supportedModels";
+import {
+  validateInputSchema,
+  isValidVectorInputSchema,
+} from "./tools/function/inputSchema";
+import { readType } from "./tools/function/type";
 
 const claudeModelConfigs = [
   { key: "claudeSpecModel" as ClaudeModelKey, flag: "--claude-spec-model", label: "Claude Spec Model", desc: "Model for SPEC.md generation" },
   { key: "claudeNameModel" as ClaudeModelKey, flag: "--claude-name-model", label: "Claude Name Model", desc: "Model for name generation" },
   { key: "claudeTypeModel" as ClaudeModelKey, flag: "--claude-type-model", label: "Claude Type Model", desc: "Model for type selection" },
+  { key: "claudeInputSchemaModel" as ClaudeModelKey, flag: "--claude-input-schema-model", label: "Claude Input Schema Model", desc: "Model for input schema generation" },
   { key: "claudeEssayModel" as ClaudeModelKey, flag: "--claude-essay-model", label: "Claude Essay Model", desc: "Model for ESSAY.md generation" },
   { key: "claudeEssayTasksModel" as ClaudeModelKey, flag: "--claude-essay-tasks-model", label: "Claude Essay Tasks Model", desc: "Model for ESSAY_TASKS.md generation" },
   { key: "claudePlanModel" as ClaudeModelKey, flag: "--claude-plan-model", label: "Claude Plan Model", desc: "Model for plan step" },
@@ -56,6 +62,58 @@ const RESET = "\x1b[0m";
 
 function statusLabel(ok: boolean, label: string): string {
   return ok ? `${GREEN}${label}${RESET}` : `${RED}${label}${RESET}`;
+}
+
+/**
+ * Validate --input-schema CLI arg. Returns the (possibly updated) type.
+ * - Parses JSON and validates against InputSchemaSchema
+ * - Cross-validates against the effective type (from function.json or CLI flag)
+ * - If type is unknown and schema is only valid for scalar, returns "scalar.function"
+ */
+function validateCliInputSchema(
+  inputSchemaStr: string | undefined,
+  cliType: "scalar.function" | "vector.function" | undefined,
+): "scalar.function" | "vector.function" | undefined {
+  if (!inputSchemaStr) return cliType;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(inputSchemaStr);
+  } catch {
+    console.error("--input-schema must be valid JSON");
+    process.exit(1);
+  }
+
+  const result = validateInputSchema({ input_schema: parsed });
+  if (!result.ok) {
+    console.error(`--input-schema is not a valid input schema: ${result.error}`);
+    process.exit(1);
+  }
+
+  const validForVector = isValidVectorInputSchema(result.value);
+
+  // Determine effective type: CLI flag > function.json
+  let effectiveType = cliType;
+  if (!effectiveType) {
+    const fnType = readType();
+    if (fnType.ok && typeof fnType.value === "string") {
+      effectiveType = fnType.value as "scalar.function" | "vector.function";
+    }
+  }
+
+  if (effectiveType === "vector.function" && !validForVector) {
+    console.error(
+      "--input-schema is not valid for vector.function: must be an array or an object with at least one array property",
+    );
+    process.exit(1);
+  }
+
+  // If type is unknown and schema is only valid for scalar, pre-set type
+  if (!effectiveType && !validForVector) {
+    return "scalar.function";
+  }
+
+  return cliType;
 }
 
 const program = new Command();
@@ -110,7 +168,8 @@ const inventCmd = program
   .option("--min-width <n>", "Minimum number of tasks", parseInt)
   .option("--max-width <n>", "Maximum number of tasks", parseInt)
   .option("--scalar", "Set function type to scalar.function")
-  .option("--vector", "Set function type to vector.function");
+  .option("--vector", "Set function type to vector.function")
+  .option("--input-schema <json>", "Input schema JSON string");
 for (const cfg of claudeModelConfigs) {
   inventCmd.option(`${cfg.flag} <model>`, cfg.desc);
 }
@@ -119,11 +178,15 @@ inventCmd.action(async (spec: string | undefined, opts: Record<string, string | 
       console.error("Cannot use both --scalar and --vector");
       process.exit(1);
     }
-    const type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : undefined;
+    let type: "scalar.function" | "vector.function" | undefined =
+      opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : undefined;
+    const inputSchemaStr = opts.inputSchema as string | undefined;
+    type = validateCliInputSchema(inputSchemaStr, type);
     const partialOpts: Record<string, unknown> = {
       spec,
       name: opts.name as string | undefined,
       type,
+      inputSchema: inputSchemaStr,
       depth: opts.depth as number | undefined,
       minWidth: (opts.width as number | undefined) ?? (opts.minWidth as number | undefined),
       maxWidth: (opts.width as number | undefined) ?? (opts.maxWidth as number | undefined),
@@ -161,7 +224,8 @@ const amendCmd = program
   .option("--min-width <n>", "Minimum number of tasks", parseInt)
   .option("--max-width <n>", "Maximum number of tasks", parseInt)
   .option("--scalar", "Set function type to scalar.function")
-  .option("--vector", "Set function type to vector.function");
+  .option("--vector", "Set function type to vector.function")
+  .option("--input-schema <json>", "Input schema JSON string");
 for (const cfg of claudeModelConfigs) {
   amendCmd.option(`${cfg.flag} <model>`, cfg.desc);
 }
@@ -170,11 +234,15 @@ amendCmd.action(async (spec: string | undefined, opts: Record<string, string | n
       console.error("Cannot use both --scalar and --vector");
       process.exit(1);
     }
-    const type = opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : undefined;
+    let type: "scalar.function" | "vector.function" | undefined =
+      opts.scalar ? "scalar.function" : opts.vector ? "vector.function" : undefined;
+    const inputSchemaStr = opts.inputSchema as string | undefined;
+    type = validateCliInputSchema(inputSchemaStr, type);
     const partialOpts: Record<string, unknown> = {
       spec,
       name: opts.name as string | undefined,
       type,
+      inputSchema: inputSchemaStr,
       depth: opts.depth as number | undefined,
       minWidth: (opts.width as number | undefined) ?? (opts.minWidth as number | undefined),
       maxWidth: (opts.width as number | undefined) ?? (opts.maxWidth as number | undefined),

@@ -77,6 +77,7 @@ function runAgentInSubdir(
   name: string,
   spec: string,
   type: "scalar.function" | "vector.function",
+  inputSchema: Record<string, unknown>,
   childDepth: number,
   childProcesses: ChildProcess[],
   opts?: RunAgentOptions,
@@ -100,6 +101,7 @@ function runAgentInSubdir(
     if (opts?.maxWidth) args.push("--max-width", String(opts.maxWidth));
     if (type === "scalar.function") args.push("--scalar");
     if (type === "vector.function") args.push("--vector");
+    args.push("--input-schema", JSON.stringify(inputSchema));
 
     const child = spawn("objectiveai", args, {
       cwd: subdir,
@@ -277,6 +279,7 @@ export async function spawnFunctionAgents(
           param.name,
           param.spec,
           param.type,
+          param.inputSchema,
           childDepth,
           childProcesses,
           opts,

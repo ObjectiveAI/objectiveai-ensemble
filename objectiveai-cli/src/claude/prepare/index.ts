@@ -1,6 +1,7 @@
 export * from "./specMcp";
 export * from "./nameMcp";
 export * from "./typeMcp";
+export * from "./inputSchemaMcp";
 export * from "./essayMcp";
 export * from "./essayTasksMcp";
 
@@ -9,6 +10,7 @@ import { ToolState } from "../../tools/claude/toolState";
 import { specMcp } from "./specMcp";
 import { nameMcp } from "./nameMcp";
 import { typeMcp } from "./typeMcp";
+import { inputSchemaMcp } from "./inputSchemaMcp";
 import { essayMcp } from "./essayMcp";
 import { essayTasksMcp } from "./essayTasksMcp";
 
@@ -30,7 +32,7 @@ async function runStep(
   }
 }
 
-// Runs init and steps 1-5
+// Runs init and steps 1-6
 export async function prepare(
   state: ToolState,
   options: AgentOptions,
@@ -55,12 +57,17 @@ export async function prepare(
     typeMcp(state, log, sid, options.type, options.claudeTypeModel),
   );
 
-  log("=== Step 4: ESSAY.md ===");
+  log("=== Step 4: input_schema ===");
+  sessionId = await runStep(state, log, sessionId, (sid) =>
+    inputSchemaMcp(state, log, sid, options.inputSchema, options.claudeInputSchemaModel),
+  );
+
+  log("=== Step 5: ESSAY.md ===");
   sessionId = await runStep(state, log, sessionId, (sid) =>
     essayMcp(state, log, sid, options.claudeEssayModel),
   );
 
-  log("=== Step 5: ESSAY_TASKS.md ===");
+  log("=== Step 6: ESSAY_TASKS.md ===");
   sessionId = await runStep(state, log, sessionId, (sid) =>
     essayTasksMcp(state, log, sid, options.claudeEssayTasksModel),
   );
