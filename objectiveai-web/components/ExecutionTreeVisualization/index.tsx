@@ -6,74 +6,14 @@
  * Does NOT execute functions, modify data, or change backend logic
  */
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef } from 'react';
 import { useTreeLayout } from '@/lib/tree-layout';
 import { useDeviceCapabilities } from '@/lib/device-detection';
 import { useResponsiveScale } from '@/lib/responsive-scale';
+import { useTreeData } from './useTreeData';
 import { TreeScene } from './TreeScene';
-import { ExecutionTreeVisualizationProps, TreeNode } from './types';
+import { ExecutionTreeVisualizationProps } from './types';
 import './index.css';
-
-/**
- * Create a test tree with static data (Phase 1)
- * In later phases, this will be replaced with actual execution data
- */
-function createTestTree(): TreeNode[] {
-  return [
-    {
-      id: 'root-function',
-      type: 'function',
-      label: 'Score Function',
-      level: 0,
-      children: [
-        {
-          id: 'task-1',
-          type: 'task',
-          label: 'Task 1',
-          level: 1,
-          children: [
-            {
-              id: 'llm-1',
-              type: 'llm',
-              label: 'GPT-4o',
-              level: 2,
-              metadata: { color: '#22C55E' },
-            },
-            {
-              id: 'llm-2',
-              type: 'llm',
-              label: 'Claude',
-              level: 2,
-              metadata: { color: '#22C55E' },
-            },
-          ],
-        },
-        {
-          id: 'task-2',
-          type: 'task',
-          label: 'Task 2',
-          level: 1,
-          children: [
-            {
-              id: 'llm-3',
-              type: 'llm',
-              label: 'Gemini',
-              level: 2,
-              metadata: { color: '#22C55E' },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'output-node',
-      type: 'output',
-      label: 'Output',
-      level: 3,
-      metadata: { value: 0.87 },
-    },
-  ];
-}
 
 /**
  * Main ExecutionTreeVisualization Component
@@ -89,8 +29,8 @@ export function ExecutionTreeVisualization({
   const { prefersReducedMotion, shouldUseSimplifiedLayout } =
     useDeviceCapabilities();
 
-  // Use test tree for Phase 1 (no execution data yet)
-  const nodes = useMemo(() => createTestTree(), []);
+  // Build tree from real execution data (or empty if no execution)
+  const nodes = useTreeData(execution);
 
   // Calculate responsive layout
   const layout = useTreeLayout(nodes, containerRef as React.RefObject<HTMLDivElement>);
