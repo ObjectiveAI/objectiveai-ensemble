@@ -278,8 +278,8 @@ pub struct VectorCompletionFlatTaskProfile {
     pub path: Vec<u64>,
     /// The Ensemble configuration with LLMs and their settings.
     pub ensemble: objectiveai::ensemble::EnsembleBase,
-    /// The weights for each LLM in the Ensemble (from the Profile).
-    pub profile: Vec<rust_decimal::Decimal>,
+    /// The profile for the vector completion (weights and optional per-LLM invert flags).
+    pub profile: objectiveai::vector::completions::request::Profile,
     /// The compiled messages for the vector completion.
     pub messages: Vec<objectiveai::chat::completions::request::Message>,
     /// Optional tools for the vector completion (read-only context).
@@ -911,18 +911,14 @@ where
         }
     };
 
-    // normalize profile into (weight, invert) pairs and validate length
-    let profile_pairs = profile.to_weights_and_invert();
-    if profile_pairs.len() != ensemble.llms.len() {
+    // validate profile length matches ensemble LLMs length
+    if profile.len() != ensemble.llms.len() {
         return Err(super::executions::Error::InvalidProfile(format!(
-            "vector completion profile weights length ({}) does not match ensemble LLMs length ({})",
-            profile_pairs.len(),
+            "vector completion profile length ({}) does not match ensemble LLMs length ({})",
+            profile.len(),
             ensemble.llms.len()
         )));
     }
-
-    let profile: Vec<rust_decimal::Decimal> =
-        profile_pairs.into_iter().map(|(w, _)| w).collect();
 
     // construct flat task profile
     Ok(super::VectorCompletionFlatTaskProfile {
@@ -1018,34 +1014,38 @@ where
                 .poll(cx)
                 .map_ok(FlatTaskProfile::VectorCompletion)
                 .map_ok(Some),
-            TaskFut::MapVectorTaskFut((path, task_output, invert_output, futs)) => {
-                Pin::new(futs).poll(cx).map_ok(|results| {
-                    Some(FlatTaskProfile::MapVectorCompletion(
-                        MapVectorCompletionFlatTaskProfile {
-                            path: path.clone(),
-                            vector_completions: results,
-                            task_output: task_output.clone(),
-                            invert_output: *invert_output,
-                        },
-                    ))
-                })
-            }
+            TaskFut::MapVectorTaskFut((
+                path,
+                task_output,
+                invert_output,
+                futs,
+            )) => Pin::new(futs).poll(cx).map_ok(|results| {
+                Some(FlatTaskProfile::MapVectorCompletion(
+                    MapVectorCompletionFlatTaskProfile {
+                        path: path.clone(),
+                        vector_completions: results,
+                        task_output: task_output.clone(),
+                        invert_output: *invert_output,
+                    },
+                ))
+            }),
             TaskFut::FunctionTaskFut(fut) => Pin::new(fut)
                 .poll(cx)
                 .map_ok(FlatTaskProfile::Function)
                 .map_ok(Some),
-            TaskFut::MapFunctionTaskFut((path, task_output, invert_output, futs)) => {
-                Pin::new(futs).poll(cx).map_ok(|results| {
-                    Some(FlatTaskProfile::MapFunction(
-                        MapFunctionFlatTaskProfile {
-                            path: path.clone(),
-                            functions: results,
-                            task_output: task_output.clone(),
-                            invert_output: *invert_output,
-                        },
-                    ))
-                })
-            }
+            TaskFut::MapFunctionTaskFut((
+                path,
+                task_output,
+                invert_output,
+                futs,
+            )) => Pin::new(futs).poll(cx).map_ok(|results| {
+                Some(FlatTaskProfile::MapFunction(MapFunctionFlatTaskProfile {
+                    path: path.clone(),
+                    functions: results,
+                    task_output: task_output.clone(),
+                    invert_output: *invert_output,
+                }))
+            }),
         }
     }
 }
