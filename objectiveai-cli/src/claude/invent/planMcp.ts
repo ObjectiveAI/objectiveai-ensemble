@@ -23,8 +23,6 @@ import {
   makeReadOutputParamSchema,
 } from "../../tools/claude/expressionParams";
 import {
-  makeReadTasks,
-  makeReadTasksSchema,
   makeReadMessagesExpressionSchema,
   makeReadToolsExpressionSchema,
   makeReadResponsesExpressionSchema,
@@ -155,7 +153,10 @@ export async function planMcp(
     makeReadDefaultNetworkTest(state),
     makeReadSwissSystemNetworkTest(state),
   ];
-  const mcpServer = createSdkMcpServer({ name: "plan", tools: wrapToolsWithLogging(tools, log) });
+  const mcpServer = createSdkMcpServer({
+    name: "plan",
+    tools: wrapToolsWithLogging(tools, log),
+  });
 
   const reads: string[] = [];
   if (!state.hasReadOrWrittenSpec) reads.push("SPEC.md");
@@ -190,7 +191,9 @@ export async function planMcp(
       `\n- Each task's prompt and responses define what gets evaluated` +
       `\n- Responses should be phrased as potential assistant messages (e.g. if ranking dating profiles, ask "what is a good dating profile" and make each response a dating profile)` +
       `\n- If a task ranks items from an input array, the array items go into \`responses\`, not \`messages\`` +
-      (state.maxWidth > 1 ? `\n- For tasks with a fixed number of responses, vary the number of responses across tasks to make the function diverse and creative` : "");
+      (state.maxWidth > 1
+        ? `\n- For tasks with a fixed number of responses, vary the number of responses across tasks to make the function diverse and creative`
+        : "");
 
   const contentFormat = useFunctionTasks
     ? ""
