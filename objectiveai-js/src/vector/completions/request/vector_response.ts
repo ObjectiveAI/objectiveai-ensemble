@@ -25,7 +25,6 @@ export type VectorResponseExpression = z.infer<
 
 export const VectorResponsesSchema = z
   .array(VectorResponseSchema)
-  .min(2)
   .describe(
     "A list of possible assistant responses which the LLMs in the Ensemble will vote on. The output scores will be of the same length, each corresponding to one response. The winner is the response with the highest score.",
   )
@@ -36,7 +35,6 @@ export const VectorResponsesExpressionSchema = z
   .union([
     z
       .array(VectorResponseExpressionSchema)
-      .min(1)
       .describe(VectorResponsesSchema.description!)
       .meta({ title: "VectorResponseExpressions" }),
     ExpressionSchema.describe(
@@ -71,7 +69,6 @@ export type QualityScalarVectorResponseExpression = z.infer<
 
 export const QualityScalarVectorResponsesSchema = z
   .array(QualityScalarVectorResponseSchema)
-  .min(2)
   .describe(VectorResponsesSchema.description!);
 export type QualityScalarVectorResponses = z.infer<
   typeof QualityScalarVectorResponsesSchema
@@ -79,7 +76,6 @@ export type QualityScalarVectorResponses = z.infer<
 
 export const QualityScalarVectorResponsesExpressionSchema = z
   .array(QualityScalarVectorResponseExpressionSchema)
-  .min(2)
   .describe(VectorResponsesSchema.description!);
 export type QualityScalarVectorResponsesExpression = z.infer<
   typeof QualityScalarVectorResponsesExpressionSchema

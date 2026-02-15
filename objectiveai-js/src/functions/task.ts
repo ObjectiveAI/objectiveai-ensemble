@@ -300,7 +300,6 @@ export type QualityBranchScalarFunctionTasksExpression = z.infer<
 
 export const QualityBranchScalarFunctionTasksExpressionsSchema = z
   .array(QualityBranchScalarFunctionTasksExpressionSchema)
-  .min(1)
   .describe(
     "Tasks for a scalar function. All tasks must be unmapped scalar-like (scalar.function or placeholder.scalar.function). " +
       "Must contain at least 1 task. Task count must be within min_width and max_width from parameters. " +
@@ -330,7 +329,6 @@ export type QualityBranchVectorFunctionTasksExpression = z.infer<
 
 export const QualityBranchVectorFunctionTasksExpressionsSchema = z
   .array(QualityBranchVectorFunctionTasksExpressionSchema)
-  .min(1)
   .describe(
     "Tasks for a vector function. Each task must be either a mapped scalar-like task or an unmapped vector-like task. " +
       "Must contain at least 1 task. At most 50% of tasks may have a map index (unless there is only 1 task). " +
@@ -346,7 +344,6 @@ export type QualityBranchVectorFunctionTasksExpressions = z.infer<
 
 export const QualityLeafScalarTasksExpressionsSchema = z
   .array(QualityScalarVectorCompletionTaskExpressionSchema)
-  .min(1)
   .describe(
     "Tasks at depth 0 of a scalar function. Only vector.completion tasks are allowed. " +
       "Responses must be arrays of content parts. " +
@@ -358,7 +355,6 @@ export type QualityLeafScalarTasksExpressions = z.infer<
 
 export const QualityLeafVectorTasksExpressionsSchema = z
   .array(QualityVectorVectorCompletionTaskExpressionSchema)
-  .min(1)
   .describe(
     "Tasks at depth 0 of a vector function. Only vector.completion tasks are allowed. " +
       "Responses must be a single expression. " +
