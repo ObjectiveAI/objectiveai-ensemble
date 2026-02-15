@@ -8,6 +8,8 @@ use crate::functions::{
     RemoteFunction, TaskExpression, VectorCompletionTaskExpression,
 };
 
+use super::compile_and_validate::compile_and_validate_task_inputs;
+
 /// Validates quality requirements for a leaf scalar function.
 ///
 /// Leaf scalar functions are at depth 0 and contain only vector.completion tasks.
@@ -38,7 +40,12 @@ pub fn check_leaf_scalar_function(
         return Err("Scalar functions must not have input_maps".to_string());
     }
 
-    // 2. All tasks must be vector.completion, no map, content parts only
+    // 2. Must have at least one task
+    if tasks.is_empty() {
+        return Err("Functions must have at least one task".to_string());
+    }
+
+    // 3. All tasks must be vector.completion, no map, content parts only
     for (i, task) in tasks.iter().enumerate() {
         match task {
             TaskExpression::VectorCompletion(vc) => {
@@ -82,6 +89,9 @@ pub fn check_leaf_scalar_function(
             }
         }
     }
+
+    // Compile tasks against example inputs and validate compiled output
+    compile_and_validate_task_inputs(function, None)?;
 
     Ok(())
 }

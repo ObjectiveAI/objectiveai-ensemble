@@ -5,6 +5,7 @@ use crate::functions::{RemoteFunction, TaskExpression};
 
 use super::check_leaf_scalar_function::check_vector_completion_content;
 use super::check_vector_fields::{VectorFieldsValidation, check_vector_fields};
+use super::compile_and_validate::compile_and_validate_task_inputs;
 
 /// Validates quality requirements for a leaf vector function.
 ///
@@ -41,7 +42,12 @@ pub fn check_leaf_vector_function(
     // 1. Input schema must be array or object with ≥1 required array property
     check_vector_input_schema(input_schema)?;
 
-    // 2. All tasks must be vector.completion, no map, content parts only
+    // 2. Must have at least one task
+    if tasks.is_empty() {
+        return Err("Functions must have at least one task".to_string());
+    }
+
+    // 3. All tasks must be vector.completion, no map, content parts only
     for (i, task) in tasks.iter().enumerate() {
         match task {
             TaskExpression::VectorCompletion(vc) => {
@@ -86,7 +92,10 @@ pub fn check_leaf_vector_function(
         }
     }
 
-    // 6. Vector fields round-trip validation
+    // Compile tasks against example inputs and validate compiled output
+    compile_and_validate_task_inputs(function, None)?;
+
+    // 7. Vector fields round-trip validation
     check_vector_fields(VectorFieldsValidation {
         input_schema: input_schema.clone(),
         output_length: output_length.clone(),

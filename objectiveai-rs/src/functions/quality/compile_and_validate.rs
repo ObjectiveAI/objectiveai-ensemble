@@ -1,15 +1,25 @@
 //! Shared logic for compiling tasks with example inputs and validating
-//! that placeholder task inputs match their embedded schemas.
+//! compiled task constraints.
 
-use crate::functions::{CompiledTask, Function, RemoteFunction, Task};
+use std::collections::HashMap;
+
+use crate::chat::completions::request::{Message, RichContent, SimpleContent};
+use crate::functions::{
+    CompiledTask, Function, RemoteFunction, Task, VectorCompletionTask,
+};
 
 use super::example_inputs::generate_example_inputs;
 
 /// Generates example inputs from the function's input schema, compiles tasks
-/// for each input, and validates that every placeholder task's compiled input
-/// matches its embedded `input_schema`.
+/// for each input, and validates compiled task constraints:
+/// - Placeholder task inputs match their embedded `input_schema`
+/// - Vector completion tasks have content parts (not plain strings),
+///   at least 2 responses, at least 1 message, etc.
+/// - If `children` is provided, scalar/vector function task inputs are validated
+///   against the referenced child function's `input_schema`
 pub(super) fn compile_and_validate_task_inputs(
     function: &RemoteFunction,
+    children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
     let input_schema = function.input_schema();
     let inputs = generate_example_inputs(input_schema);
@@ -40,11 +50,13 @@ pub(super) fn compile_and_validate_task_inputs(
 
             match compiled_task {
                 CompiledTask::One(task) => {
-                    validate_task_input(i, j, None, task)?;
+                    validate_compiled_task(i, j, None, task, children)?;
                 }
                 CompiledTask::Many(tasks) => {
                     for (k, task) in tasks.iter().enumerate() {
-                        validate_task_input(i, j, Some(k), task)?;
+                        validate_compiled_task(
+                            i, j, Some(k), task, children,
+                        )?;
                     }
                 }
             }
@@ -54,12 +66,13 @@ pub(super) fn compile_and_validate_task_inputs(
     Ok(())
 }
 
-/// Validates that a compiled task's input matches its schema (for placeholder tasks).
-fn validate_task_input(
+/// Validates a single compiled task.
+fn validate_compiled_task(
     input_index: usize,
     task_index: usize,
     map_index: Option<usize>,
     task: &Task,
+    children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
     let location = match map_index {
         Some(k) => {
@@ -91,13 +104,155 @@ fn validate_task_input(
                 ));
             }
         }
-        // scalar.function and vector.function reference remote functions
-        // whose schemas we don't have locally — skip validation
-        Task::ScalarFunction(_) | Task::VectorFunction(_) => {}
-        // vector.completion tasks shouldn't appear in branch functions,
-        // but if they do that's caught by the structural checks above
-        Task::VectorCompletion(_) => {}
+        Task::VectorCompletion(vc) => {
+            check_compiled_vector_completion(&location, vc)?;
+        }
+        Task::ScalarFunction(t) => {
+            if let Some(children) = children {
+                let key = format!("{}/{}", t.owner, t.repository);
+                let child = children.get(&key).ok_or_else(|| {
+                    format!(
+                        "{}: referenced scalar.function '{}' not found in children",
+                        location, key
+                    )
+                })?;
+                if !child.input_schema().validate_input(&t.input) {
+                    return Err(format!(
+                        "{}: compiled input does not match child function's input_schema ({})\n\nInput: {}\n\nSchema: {}",
+                        location,
+                        key,
+                        serde_json::to_string_pretty(&t.input).unwrap_or_default(),
+                        serde_json::to_string_pretty(child.input_schema())
+                            .unwrap_or_default(),
+                    ));
+                }
+            }
+        }
+        Task::VectorFunction(t) => {
+            if let Some(children) = children {
+                let key = format!("{}/{}", t.owner, t.repository);
+                let child = children.get(&key).ok_or_else(|| {
+                    format!(
+                        "{}: referenced vector.function '{}' not found in children",
+                        location, key
+                    )
+                })?;
+                if !child.input_schema().validate_input(&t.input) {
+                    return Err(format!(
+                        "{}: compiled input does not match child function's input_schema ({})\n\nInput: {}\n\nSchema: {}",
+                        location,
+                        key,
+                        serde_json::to_string_pretty(&t.input).unwrap_or_default(),
+                        serde_json::to_string_pretty(child.input_schema())
+                            .unwrap_or_default(),
+                    ));
+                }
+            }
+        }
     }
 
+    Ok(())
+}
+
+/// Validates a compiled vector completion task:
+/// - At least 1 message
+/// - Message content is content parts, not plain strings
+/// - At least 2 responses
+/// - Response content is content parts, not plain strings
+fn check_compiled_vector_completion(
+    location: &str,
+    vc: &VectorCompletionTask,
+) -> Result<(), String> {
+    // At least 1 message
+    if vc.messages.is_empty() {
+        return Err(format!(
+            "{}: compiled task must have at least 1 message",
+            location
+        ));
+    }
+
+    // Message content must be content parts
+    for (j, msg) in vc.messages.iter().enumerate() {
+        check_compiled_message_content(location, j, msg)?;
+    }
+
+    // At least 2 responses
+    if vc.responses.len() < 2 {
+        return Err(format!(
+            "{}: compiled task must have at least 2 responses, found {}",
+            location,
+            vc.responses.len()
+        ));
+    }
+
+    // Response content must be content parts
+    for (j, resp) in vc.responses.iter().enumerate() {
+        if matches!(resp, RichContent::Text(_)) {
+            return Err(format!(
+                "{}, response [{}]: compiled response must be an array of content parts, \
+                 not a plain string",
+                location, j
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Checks that a compiled message's content is parts, not a plain string.
+fn check_compiled_message_content(
+    location: &str,
+    msg_index: usize,
+    msg: &Message,
+) -> Result<(), String> {
+    match msg {
+        Message::Developer(dev) => {
+            if matches!(dev.content, SimpleContent::Text(_)) {
+                return Err(format!(
+                    "{}, message [{}] (developer): compiled content must be an array of \
+                     content parts, not a plain string",
+                    location, msg_index
+                ));
+            }
+        }
+        Message::System(sys) => {
+            if matches!(sys.content, SimpleContent::Text(_)) {
+                return Err(format!(
+                    "{}, message [{}] (system): compiled content must be an array of \
+                     content parts, not a plain string",
+                    location, msg_index
+                ));
+            }
+        }
+        Message::User(user) => {
+            if matches!(user.content, RichContent::Text(_)) {
+                return Err(format!(
+                    "{}, message [{}] (user): compiled content must be an array of \
+                     content parts, not a plain string",
+                    location, msg_index
+                ));
+            }
+        }
+        Message::Assistant(asst) => {
+            if let Some(content) = &asst.content {
+                if matches!(content, RichContent::Text(_)) {
+                    return Err(format!(
+                        "{}, message [{}] (assistant): compiled content must be an array of \
+                         content parts, not a plain string",
+                        location, msg_index
+                    ));
+                }
+            }
+        }
+        Message::Tool(tool) => {
+            if matches!(tool.content, RichContent::Text(_)) {
+                return Err(format!(
+                    "{}, message [{}] (tool): compiled content must be an array of \
+                     content parts, not a plain string",
+                    location, msg_index
+                ));
+            }
+        }
+    }
     Ok(())
 }

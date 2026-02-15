@@ -133,7 +133,8 @@ fn valid_multiple_tasks() {
 }
 
 #[test]
-fn valid_no_tasks() {
+fn rejects_no_tasks() {
     let f = leaf_vector(array_of_strings_schema(), vec![]);
-    check_leaf_vector_function(&f).unwrap();
+    let err = check_leaf_vector_function(&f).unwrap_err();
+    assert!(err.contains("at least one task"));
 }

@@ -1,5 +1,7 @@
 //! Quality checks for branch scalar functions (depth > 0: function/placeholder tasks only).
 
+use std::collections::HashMap;
+
 use crate::functions::{RemoteFunction, TaskExpression};
 
 use super::compile_and_validate::compile_and_validate_task_inputs;
@@ -19,6 +21,7 @@ use super::compile_and_validate::compile_and_validate_task_inputs;
 /// 6. Example inputs compile successfully and placeholder task inputs match their schemas
 pub fn check_branch_scalar_function(
     function: &RemoteFunction,
+    children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
     let (input_maps, tasks) = match function {
         RemoteFunction::Scalar {
@@ -36,7 +39,12 @@ pub fn check_branch_scalar_function(
         return Err("Scalar functions must not have input_maps".to_string());
     }
 
-    // 2-5. Check each task
+    // 2. Must have at least one task
+    if tasks.is_empty() {
+        return Err("Functions must have at least one task".to_string());
+    }
+
+    // 3-6. Check each task
     for (i, task) in tasks.iter().enumerate() {
         match task {
             TaskExpression::ScalarFunction(sf) => {
@@ -81,7 +89,7 @@ pub fn check_branch_scalar_function(
     }
 
     // 6. Compile tasks with example inputs and validate placeholder inputs
-    compile_and_validate_task_inputs(function)?;
+    compile_and_validate_task_inputs(function, children)?;
 
     Ok(())
 }

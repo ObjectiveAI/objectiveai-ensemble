@@ -1,5 +1,7 @@
 //! Quality checks for branch vector functions (depth > 0: function/placeholder tasks only).
 
+use std::collections::HashMap;
+
 use crate::functions::{RemoteFunction, TaskExpression};
 
 use super::check_leaf_vector_function::check_vector_input_schema;
@@ -25,6 +27,7 @@ use super::compile_and_validate::compile_and_validate_task_inputs;
 /// 8. Example inputs compile successfully and placeholder task inputs match their schemas
 pub fn check_branch_vector_function(
     function: &RemoteFunction,
+    children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
     let (input_schema, tasks, output_length, input_split, input_merge) =
         match function {
@@ -46,7 +49,12 @@ pub fn check_branch_vector_function(
     // 1. Input schema check
     check_vector_input_schema(input_schema)?;
 
-    // 2-6. Check each task and count mapped scalar vs unmapped vector
+    // 2. Must have at least one task
+    if tasks.is_empty() {
+        return Err("Functions must have at least one task".to_string());
+    }
+
+    // 3-7. Check each task and count mapped scalar vs unmapped vector
     let mut mapped_scalar_count: usize = 0;
     let mut unmapped_vector_count: usize = 0;
 
@@ -136,7 +144,7 @@ pub fn check_branch_vector_function(
     })?;
 
     // 8. Compile tasks with example inputs and validate placeholder inputs
-    compile_and_validate_task_inputs(function)?;
+    compile_and_validate_task_inputs(function, children)?;
 
     Ok(())
 }

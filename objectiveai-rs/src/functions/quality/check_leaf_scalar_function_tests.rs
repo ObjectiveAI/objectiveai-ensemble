@@ -10,7 +10,9 @@ use crate::chat::completions::request::{
 };
 use crate::functions::expression::{Expression, WithExpression};
 use crate::functions::quality::check_leaf_scalar_function;
-use crate::functions::{TaskExpression, VectorCompletionTaskExpression};
+use crate::functions::{
+    RemoteFunction, TaskExpression, VectorCompletionTaskExpression,
+};
 
 use super::check_function_test_helpers::*;
 
@@ -300,27 +302,50 @@ fn valid_multiple_tasks() {
 }
 
 #[test]
-fn valid_no_tasks() {
+fn rejects_no_tasks() {
     let f = leaf_scalar(None, vec![]);
-    check_leaf_scalar_function(&f).unwrap();
+    let err = check_leaf_scalar_function(&f).unwrap_err();
+    assert!(err.contains("at least one task"));
 }
 
 #[test]
-fn valid_expression_messages_skip_check() {
+fn valid_expression_messages_skip_structural_check() {
+    // Expression-level messages/responses skip the structural content check,
+    // but compilation still validates the compiled output. Use an object
+    // input schema that produces valid messages and responses when compiled.
+    use indexmap::IndexMap;
+    use crate::functions::expression::{ObjectInputSchema, InputSchema};
+
+    let input_schema = InputSchema::Object(ObjectInputSchema {
+        description: None,
+        properties: {
+            let mut m = IndexMap::new();
+            m.insert("text".to_string(), simple_string_schema());
+            m
+        },
+        required: Some(vec!["text".to_string()]),
+    });
+
     let task =
         TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
             skip: None,
             map: None,
             messages: WithExpression::Expression(Expression::Starlark(
-                "input['messages']".to_string(),
+                "[{'role': 'user', 'content': [{'type': 'text', 'text': input['text']}]}]".to_string(),
             )),
             tools: None,
             responses: WithExpression::Expression(Expression::Starlark(
-                "input['responses']".to_string(),
+                "[[{'type': 'text', 'text': 'option A'}], [{'type': 'text', 'text': 'option B'}]]".to_string(),
             )),
             output: dummy_output_expr(),
         });
-    let f = leaf_scalar(None, vec![task]);
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema,
+        input_maps: None,
+        tasks: vec![task],
+    };
     check_leaf_scalar_function(&f).unwrap();
 }
 
