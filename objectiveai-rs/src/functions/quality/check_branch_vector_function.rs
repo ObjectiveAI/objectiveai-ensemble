@@ -4,9 +4,13 @@ use std::collections::HashMap;
 
 use crate::functions::{RemoteFunction, TaskExpression};
 
-use super::check_leaf_vector_function::check_vector_input_schema;
+use super::check_leaf_vector_function::{
+    check_vector_input_schema, validate_tasks_for_merged_inputs,
+};
 use super::check_vector_fields::{VectorFieldsValidation, check_vector_fields};
-use super::compile_and_validate::compile_and_validate_task_inputs;
+use super::compile_and_validate::{
+    compile_and_validate_task_inputs, validate_function_input_diversity,
+};
 
 /// Validates quality requirements for a branch vector function.
 ///
@@ -145,6 +149,12 @@ pub fn check_branch_vector_function(
 
     // 8. Compile tasks with example inputs and validate placeholder inputs
     compile_and_validate_task_inputs(function, children)?;
+
+    // 9. Function input diversity — compiled inputs must vary with parent input
+    validate_function_input_diversity(function)?;
+
+    // 10. Compile and validate tasks for merged sub-inputs
+    validate_tasks_for_merged_inputs(function, children)?;
 
     Ok(())
 }

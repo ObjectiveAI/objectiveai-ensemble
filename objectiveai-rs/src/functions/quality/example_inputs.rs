@@ -258,7 +258,8 @@ fn generate_single(
         }
         InputSchema::Array(arr) => {
             let min = arr.min_items.unwrap_or(0) as usize;
-            let len = (min + index).max(2);
+            let max = arr.max_items.map(|m| m as usize).unwrap_or(20);
+            let len = (min + index).max(2).min(max);
             let mut items = Vec::with_capacity(len);
             for j in 0..len {
                 if let Some(item) = generate_single(&arr.items, j, rng) {

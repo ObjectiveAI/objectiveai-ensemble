@@ -174,7 +174,13 @@ pub fn check_vector_fields(
         }
 
         // 6. Random subsets — merge and verify output_length = subset size
-        let subsets = random_subsets(splits.len(), 5);
+        //    and merged input satisfies input_schema constraints.
+        let mut subsets = random_subsets(splits.len(), 5);
+        // Always test a 2-element subset deterministically so that
+        // min_items violations are caught reliably.
+        if splits.len() >= 3 {
+            subsets.insert(0, vec![0, 1]);
+        }
         for subset in &subsets {
             let sub_splits: Vec<Input> =
                 subset.iter().map(|&idx| splits[idx].clone()).collect();
@@ -220,10 +226,79 @@ pub fn check_vector_fields(
                     subset.len()
                 ));
             }
+
+            // Merged subset must satisfy the input_schema constraints
+            // (e.g., min_items). This ensures the function can execute
+            // correctly with merged sub-inputs (used by swiss_system).
+            validate_input_against_schema(
+                &sub_merged,
+                &fields.input_schema,
+                "root",
+            )
+            .map_err(|e| {
+                format!(
+                    "Input [{}]: merged subset {:?} violates input_schema: {}",
+                    i, subset, e
+                )
+            })?;
         }
     }
 
     Ok(())
+}
+
+/// Validate that an input satisfies the schema's structural constraints.
+/// Checks array min_items/max_items recursively through objects.
+fn validate_input_against_schema(
+    input: &Input,
+    schema: &InputSchema,
+    path: &str,
+) -> Result<(), String> {
+    match (input, schema) {
+        (Input::Array(arr), InputSchema::Array(arr_schema)) => {
+            if let Some(min) = arr_schema.min_items {
+                if (arr.len() as u64) < min {
+                    return Err(format!(
+                        "{}: array has {} items but min_items is {}",
+                        path,
+                        arr.len(),
+                        min
+                    ));
+                }
+            }
+            if let Some(max) = arr_schema.max_items {
+                if (arr.len() as u64) > max {
+                    return Err(format!(
+                        "{}: array has {} items but max_items is {}",
+                        path,
+                        arr.len(),
+                        max
+                    ));
+                }
+            }
+            for (i, item) in arr.iter().enumerate() {
+                validate_input_against_schema(
+                    item,
+                    &arr_schema.items,
+                    &format!("{}[{}]", path, i),
+                )?;
+            }
+            Ok(())
+        }
+        (Input::Object(obj), InputSchema::Object(obj_schema)) => {
+            for (key, prop_schema) in &obj_schema.properties {
+                if let Some(value) = obj.get(key) {
+                    validate_input_against_schema(
+                        value,
+                        prop_schema,
+                        &format!("{}.{}", path, key),
+                    )?;
+                }
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Deep equality check for Input values.

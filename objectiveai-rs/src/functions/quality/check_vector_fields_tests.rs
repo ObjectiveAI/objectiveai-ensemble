@@ -404,6 +404,60 @@ fn test_valid_with_integer_array_schema() {
 }
 
 #[test]
+fn test_merged_subset_violates_min_items() {
+    // Object with "entries" array requiring exactly 3 items.
+    // Split produces 3 sub-inputs (1 entry each). Merging a subset of 2
+    // produces 2 entries, violating min_items=3.
+    let schema = InputSchema::Object(ObjectInputSchema {
+        description: None,
+        properties: {
+            let mut m = IndexMap::new();
+            m.insert(
+                "entries".to_string(),
+                InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(3),
+                    max_items: Some(3),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+            );
+            m.insert(
+                "tag".to_string(),
+                InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+            );
+            m
+        },
+        required: Some(vec!["entries".to_string(), "tag".to_string()]),
+    });
+    let fields = VectorFieldsValidation {
+        input_schema: schema,
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input['entries'])".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[{'entries': [e], 'tag': input['tag']} for e in input['entries']]"
+                .to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "{'entries': [x['entries'][0] for x in input], 'tag': input[0]['tag']}"
+                .to_string(),
+        )),
+    };
+    let err = check_vector_fields(fields).unwrap_err();
+    assert!(
+        err.contains("violates input_schema") && err.contains("min_items"),
+        "Expected min_items violation, got: {}",
+        err,
+    );
+}
+
+#[test]
 fn test_output_length_wrong_type_returns_error() {
     // output_length expression returns a string instead of u64.
     let fields = VectorFieldsValidation {

@@ -8,7 +8,9 @@ use crate::functions::{
     RemoteFunction, TaskExpression, VectorCompletionTaskExpression,
 };
 
-use super::compile_and_validate::compile_and_validate_task_inputs;
+use super::compile_and_validate::{
+    compile_and_validate_task_inputs, validate_vc_task_diversity,
+};
 
 /// Validates quality requirements for a leaf scalar function.
 ///
@@ -57,7 +59,8 @@ pub fn check_leaf_scalar_function(
                     ));
                 }
                 // 4 & 5. Check content parts
-                check_vector_completion_content(i, vc)?;
+                check_vector_completion_messages(i, vc)?;
+                check_scalar_vector_completion_responses(i, vc)?;
             }
             TaskExpression::ScalarFunction(_) => {
                 return Err(format!(
@@ -93,19 +96,20 @@ pub fn check_leaf_scalar_function(
     // Compile tasks against example inputs and validate compiled output
     compile_and_validate_task_inputs(function, None)?;
 
+    // 6. VC task diversity — compiled tasks must vary with parent input
+    validate_vc_task_diversity(function)?;
+
     Ok(())
 }
 
-/// Checks that a vector completion task's messages and responses use content parts,
+/// Checks that a vector completion task's messages use content parts,
 /// not plain strings, and enforces length constraints. Skips checks where expressions
 /// are used (can't verify at compile time).
-pub(super) fn check_vector_completion_content(
+pub(super) fn check_vector_completion_messages(
     task_index: usize,
     vc: &VectorCompletionTaskExpression,
 ) -> Result<(), String> {
-    // Check messages
     if let WithExpression::Value(messages) = &vc.messages {
-        // Messages must have at least 1 element
         if messages.is_empty() {
             return Err(format!(
                 "Task [{}]: messages must have at least 1 message",
@@ -119,9 +123,17 @@ pub(super) fn check_vector_completion_content(
         }
     }
 
-    // Check responses
+    Ok(())
+}
+
+/// Checks that a scalar function's vector completion task responses are an array
+/// of content parts with at least 2 elements. Skips checks where expressions
+/// are used (can't verify at compile time).
+pub(super) fn check_scalar_vector_completion_responses(
+    task_index: usize,
+    vc: &VectorCompletionTaskExpression,
+) -> Result<(), String> {
     if let WithExpression::Value(responses) = &vc.responses {
-        // Responses must have at least 2 elements
         if responses.len() < 2 {
             return Err(format!(
                 "Task [{}]: responses must have at least 2 responses, found {}",
@@ -140,6 +152,23 @@ pub(super) fn check_vector_completion_content(
                 }
             }
         }
+    }
+
+    Ok(())
+}
+
+/// Checks that a vector function's vector completion task responses are a single
+/// expression (not a fixed array of responses or an array of expressions).
+pub(super) fn check_vector_vector_completion_responses(
+    task_index: usize,
+    vc: &VectorCompletionTaskExpression,
+) -> Result<(), String> {
+    if !matches!(vc.responses, WithExpression::Expression(_)) {
+        return Err(format!(
+            "Task [{}]: vector function responses must be a single expression, \
+             not a fixed array of responses",
+            task_index
+        ));
     }
 
     Ok(())
