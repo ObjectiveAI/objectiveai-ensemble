@@ -1,0 +1,303 @@
+/**
+ * WebGL Execution Tree – Responsive Design System
+ *
+ * Single source of truth for all responsive values.
+ * All measurements scale continuously from 300px – 2560px viewport.
+ *
+ * Formula: clamp(minPx, preferredPercent, maxPx)
+ * - minPx: Absolute minimum (readability/usability)
+ * - preferredPercent: vw/vh relative to viewport
+ * - maxPx: Absolute maximum (prevents oversizing)
+ *
+ * NO BREAKPOINTS. NO MEDIA QUERIES FOR SIZING.
+ * All values scale smoothly with viewport width.
+ */
+
+:root {
+  /* ============================================
+     COLORS (Theme-Agnostic)
+     ============================================ */
+
+  --color-accent: #6B5CFF;
+  --color-success: rgb(34, 197, 94);
+  --color-warning: rgb(234, 179, 8);
+  --color-danger: rgb(249, 115, 22);
+  --color-error: rgb(239, 68, 68);
+
+  /* Light Theme (Default) */
+  --color-bg-page: #EDEDF2;
+  --color-text: #1B1B1B;
+  --color-text-muted: #6B7280;
+  --color-bg-card: #FFFFFF;
+  --color-border: rgba(0, 0, 0, 0.1);
+
+  /* Dark Theme */
+  --color-bg-page-dark: #1B1B1B;
+  --color-text-dark: #EDEDF2;
+  --color-text-muted-dark: #9CA3AF;
+  --color-bg-card-dark: #2A2A2A;
+  --color-border-dark: rgba(255, 255, 255, 0.1);
+
+  /* ============================================
+     RESPONSIVE SPACING SCALE
+
+     Continuous scaling from 300px – 2560px
+     ============================================ */
+
+  /* Core spacing unit (proportional to viewport width) */
+  --spacing-xs: clamp(4px, 1vw, 8px);
+  --spacing-sm: clamp(8px, 2vw, 16px);
+  --spacing-md: clamp(12px, 3vw, 24px);
+  --spacing-lg: clamp(16px, 4vw, 32px);
+  --spacing-xl: clamp(20px, 5vw, 40px);
+  --spacing-2xl: clamp(24px, 6vw, 48px);
+
+  /* Tree element gaps */
+  --gap-horizontal: clamp(20px, 5vw, 80px);
+  --gap-vertical: clamp(10px, 2.5vw, 24px);
+
+  /* Padding inside nodes */
+  --node-padding: clamp(8px, 1.5vw, 16px);
+
+  /* ============================================
+     RESPONSIVE TYPOGRAPHY SCALE
+
+     Font sizes scale with viewport width
+     300px – 12px, 800px – 16px, 2560px – 20px
+     ============================================ */
+
+  /* Scale levels (relative to viewport width) */
+  --font-size-xs: clamp(10px, 1.4vw, 12px);
+  --font-size-sm: clamp(11px, 1.6vw, 13px);
+  --font-size-md: clamp(12px, 1.8vw, 14px);
+  --font-size-lg: clamp(13px, 2vw, 16px);
+  --font-size-xl: clamp(14px, 2.2vw, 18px);
+  --font-size-2xl: clamp(16px, 2.5vw, 20px);
+
+  /* Specific to tree nodes */
+  --font-function-label: clamp(12px, 2vw, 16px);
+  --font-task-label: clamp(11px, 1.8vw, 14px);
+  --font-llm-name: clamp(10px, 1.6vw, 13px);
+  --font-metric: clamp(10px, 1.6vw, 12px);
+  --font-caption: clamp(9px, 1.4vw, 11px);
+
+  /* ============================================
+     RESPONSIVE NODE DIMENSIONS
+
+     Scale with viewport, maintain aspect ratios
+     All nodes scale proportionally with viewport width
+     ============================================ */
+
+  /* Function node (root) - largest */
+  --node-function-width: clamp(110px, 13vw, 180px);
+  --node-function-height: clamp(40px, 5vw, 65px);
+
+  /* Task node */
+  --node-task-width: clamp(85px, 10vw, 140px);
+  --node-task-height: clamp(38px, 4.5vw, 55px);
+
+  /* LLM node - base size (most nodes) */
+  --node-llm-width: clamp(75px, 9vw, 120px);
+  --node-llm-height: clamp(38px, 4.5vw, 55px);
+
+  /* Vote/Score node - metric display */
+  --node-metric-width: clamp(70px, 8.5vw, 110px);
+  --node-metric-height: clamp(38px, 4.5vw, 55px);
+
+  /* Output node - final result, slightly larger */
+  --node-output-width: clamp(90px, 11vw, 150px);
+  --node-output-height: clamp(42px, 5vw, 65px);
+
+  /* Generic fallback (LLM node size) */
+  --node-width: var(--node-llm-width);
+  --node-height: var(--node-llm-height);
+
+  /* Badge/indicator size (scales with node) */
+  --badge-size: clamp(12px, 1.2vw, 20px);
+
+  /* Border radius (proportional to node size) */
+  --node-border-radius: clamp(6px, 1vw, 12px);
+
+  /* ============================================
+     RESPONSIVE CANVAS & LAYOUT
+
+     Container adapts to viewport and content
+     ============================================ */
+
+  /* Canvas/tree container height
+     - 300px viewport: 250px height (not full screen)
+     - 600px viewport: 300px height
+     - 768px viewport: 350px height
+     - 1440px viewport: 600px height (50% of typical viewport)
+     - 2560px viewport: 600px height (capped)
+  */
+  --canvas-height: clamp(250px, min(50vh, 600px), 600px);
+
+  /* Canvas width: Always 100% of container (no overflow/scroll) */
+  --canvas-width: 100%;
+
+  /* ============================================
+     RESPONSIVE INTERACTIVE ELEMENTS
+     ============================================ */
+
+  /* Tooltip dimensions */
+  --tooltip-max-width: clamp(160px, 70vw, 380px);
+  --tooltip-padding: var(--spacing-md);
+  --tooltip-offset: clamp(8px, 1.5vw, 16px);
+
+  /* Button/control sizing */
+  --button-padding-y: clamp(8px, 1.2vw, 12px);
+  --button-padding-x: clamp(12px, 2vw, 20px);
+  --button-font-size: clamp(11px, 1.6vw, 14px);
+
+  /* ============================================
+     RESPONSIVE ANIMATION TIMING
+
+     Base values for animations
+     Adjusted by JavaScript based on device FPS
+     ============================================ */
+
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+  --duration-pulse: 2000ms;
+
+  /* Easing functions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ============================================
+     RESPONSIVE VISUAL EFFECTS
+     ============================================ */
+
+  /* Glow effect (scales with node size) */
+  --glow-size: clamp(12px, 2vw, 24px);
+  --glow-color: rgba(107, 92, 255, 0.3);
+
+  /* Border widths */
+  --border-width-thin: 1px;
+  --border-width-medium: clamp(1px, 0.15vw, 2px);
+  --border-width-thick: 2px;
+
+  /* Opacity values */
+  --opacity-disabled: 0.5;
+  --opacity-hover: 0.8;
+  --opacity-active: 1;
+
+  /* Transitions */
+  --transition-fast: all var(--duration-fast) var(--ease-out);
+  --transition-base: all var(--duration-base) var(--ease-out);
+}
+
+/* ============================================
+   DARK MODE
+   Automatic via system preference
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-page: var(--color-bg-page-dark);
+    --color-text: var(--color-text-dark);
+    --color-text-muted: var(--color-text-muted-dark);
+    --color-bg-card: var(--color-bg-card-dark);
+    --color-border: var(--color-border-dark);
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY: REDUCED MOTION
+   Respect user preference for animations
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 10ms;
+    --duration-base: 10ms;
+    --duration-slow: 10ms;
+    --duration-pulse: 10ms;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY: HIGH CONTRAST
+   Enhanced contrast for visibility
+   ============================================ */
+
+@media (prefers-contrast: more) {
+  :root {
+    --color-border: rgba(0, 0, 0, 0.25);
+    --border-width-thin: 1.5px;
+    --border-width-thick: 2.5px;
+  }
+}
+
+/* ============================================
+   RETINA / HIGH DPI DISPLAYS
+   Adjust for 2x+ pixel ratio devices
+   ============================================ */
+
+@media (min-device-pixel-ratio: 2) {
+  :root {
+    --border-width-thin: 0.5px;
+    --border-width-medium: clamp(0.5px, 0.15vw, 1.5px);
+  }
+}
+
+/* ============================================
+   LANDSCAPE ORIENTATION (Phones)
+   Compact vertical space in landscape mode
+   ============================================ */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    /* Reduce canvas height in landscape (limited vertical space) */
+    --canvas-height: clamp(200px, min(70vh, 400px), 400px);
+
+    /* Tighter vertical spacing */
+    --gap-vertical: clamp(6px, 1vw, 12px);
+    --spacing-sm: clamp(6px, 1.5vw, 12px);
+  }
+}
+
+/* ============================================
+   TOUCH DEVICES (Tablets, Phones)
+   Slightly larger interactive targets
+   ============================================ */
+
+@media (hover: none) and (pointer: coarse) {
+  :root {
+    /* Slightly larger padding for touch targets */
+    --node-padding: clamp(10px, 2vw, 18px);
+
+    /* Slightly larger buttons for touch */
+    --button-padding-y: clamp(10px, 1.5vw, 14px);
+    --button-padding-x: clamp(14px, 2.5vw, 24px);
+  }
+}
+
+/* ============================================
+   PRINT MEDIA
+   Disable animations for printing
+   ============================================ */
+
+@media print {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+    --duration-pulse: 0ms;
+  }
+}
+
+/* ============================================
+   ULTRA-HIGH RESOLUTION DISPLAYS
+   Support for 1440p+ and high refresh rates
+   ============================================ */
+
+@media (min-width: 1920px) and (min-height: 1080px) {
+  :root {
+    /* Slightly more generous spacing on large screens */
+    --gap-horizontal: clamp(30px, 5vw, 100px);
+    --gap-vertical: clamp(15px, 2.5vw, 30px);
+  }
+}

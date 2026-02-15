@@ -1,0 +1,204 @@
+/**
+ * ExecutionTreeVisualization Styling
+ * Uses CSS variables from design-tokens.css - NO breakpoints
+ */
+
+.execution-tree-visualization {
+  width: 100%;
+  height: var(--canvas-height);
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--node-border-radius);
+  background-color: var(--color-bg-card);
+  padding: var(--spacing-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.execution-tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--spacing-md);
+  border-bottom: var(--border-width-thin) solid var(--color-border);
+}
+
+.execution-tree-title {
+  font-size: var(--font-function-label);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.execution-tree-status {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-metric);
+  color: var(--color-text-muted);
+}
+
+.execution-tree-status.streaming {
+  color: var(--color-success);
+}
+
+.execution-tree-container {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  background: var(--color-bg-page);
+  border-radius: var(--node-border-radius);
+  overflow: hidden;
+  border: var(--border-width-thin) solid var(--color-border);
+}
+
+.tree-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.tree-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width-thin) solid var(--color-border);
+  border-radius: var(--node-border-radius);
+  font-size: var(--font-task-label);
+  font-weight: 500;
+  color: var(--color-text);
+  transition: var(--transition-base);
+  cursor: pointer;
+  user-select: none;
+}
+
+.tree-node:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 var(--glow-size) var(--glow-color);
+}
+
+.tree-node.function {
+  width: var(--node-function-width);
+  height: var(--node-function-height);
+  background-color: var(--accent-light);
+  border-color: var(--color-accent);
+}
+
+.tree-node.task {
+  width: var(--node-task-width);
+  height: var(--node-task-height);
+  background-color: rgba(107, 92, 255, 0.15);
+  border-color: var(--color-accent);
+}
+
+.tree-node.llm {
+  width: var(--node-llm-width);
+  height: var(--node-llm-height);
+  background-color: rgba(34, 197, 94, 0.1);
+  border-color: var(--color-success);
+}
+
+.tree-node.output {
+  width: var(--node-output-width);
+  height: var(--node-output-height);
+  background-color: rgba(249, 115, 22, 0.1);
+  border-color: var(--color-danger);
+}
+
+.tree-node.vote,
+.tree-node.score {
+  width: var(--node-metric-width);
+  height: var(--node-metric-height);
+  background-color: rgba(234, 179, 8, 0.1);
+  border-color: var(--color-warning);
+  font-size: var(--font-metric);
+}
+
+.tree-node-label {
+  padding: var(--node-padding);
+  text-align: center;
+  word-wrap: break-word;
+  line-height: 1.2;
+}
+
+.tree-node-badge {
+  position: absolute;
+  top: calc(var(--node-padding) * -1);
+  right: calc(var(--node-padding) * -1);
+  width: var(--badge-size);
+  height: var(--badge-size);
+  border-radius: 50%;
+  background-color: var(--color-success);
+  color: white;
+  font-size: var(--font-caption);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width-thin) solid white;
+}
+
+.execution-tree-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.execution-tree-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  gap: var(--spacing-lg);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--spacing-2xl);
+}
+
+.execution-tree-empty-icon {
+  font-size: 3em;
+  opacity: 0.5;
+}
+
+.execution-tree-empty-text {
+  font-size: var(--font-size-lg);
+  max-width: 400px;
+}
+
+/* Responsive adjustments via CSS variables (no @media needed) */
+/* All sizing adapts through clamp() in design-tokens.css */
+
+/* Dark mode support (automatic via CSS variables) */
+@media (prefers-color-scheme: dark) {
+  .execution-tree-visualization {
+    background-color: var(--color-bg-card-dark);
+  }
+
+  .execution-tree-container {
+    background: var(--color-bg-page-dark);
+  }
+
+  .tree-node {
+    color: var(--color-text-dark);
+  }
+}
+
+/* Accessibility: reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .tree-node {
+    transition: none;
+  }
+
+  .tree-node:hover {
+    transform: none;
+  }
+}

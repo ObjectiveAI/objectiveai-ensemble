@@ -26,11 +26,11 @@ export async function createClient(
 
 /**
  * Create an unauthenticated client for public endpoints.
- * Used for browsing functions, ensembles, etc.
+ * Used for browsing functions, ensembles, and anonymous execution with free credit.
  */
 export function createPublicClient(): ObjectiveAI {
   return new ObjectiveAI({
-    apiKey: "none",
+    apiKey: process.env.NEXT_PUBLIC_OBJECTIVEAI_API_KEY || "none",
     apiBase: process.env.NEXT_PUBLIC_API_URL,
   });
 }
