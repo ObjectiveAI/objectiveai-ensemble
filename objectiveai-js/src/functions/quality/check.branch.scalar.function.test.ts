@@ -171,8 +171,10 @@ describe("checkBranchScalarFunction", () => {
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).not.toThrow();
   });
 
-  it("accepts empty tasks", () => {
+  it("rejects empty tasks", () => {
     const f = branchScalar([]);
-    expect(() => Functions.Quality.checkBranchScalarFunction(f)).not.toThrow();
+    expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
+      /at least one task/,
+    );
   });
 });

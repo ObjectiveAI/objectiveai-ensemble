@@ -250,10 +250,10 @@ describe("checkBranchVectorFunction", () => {
     ).not.toThrow();
   });
 
-  it("accepts empty tasks", () => {
+  it("rejects empty tasks", () => {
     const f = branchVector(objectWithRequiredArraySchema, []);
     expect(() =>
       Functions.Quality.checkBranchVectorFunction(f),
-    ).not.toThrow();
+    ).toThrow(/at least one task/);
   });
 });

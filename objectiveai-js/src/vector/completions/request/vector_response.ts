@@ -49,37 +49,50 @@ export type VectorResponsesExpression = z.infer<
   typeof VectorResponsesExpressionSchema
 >;
 
-// Quality Vector Responses (content parts only, no plain strings)
+// Quality Scalar Vector Responses (content parts only, no plain strings; for scalar parent functions)
 
-export const QualityVectorResponseSchema = RichContentPartsSchema.describe(
-  VectorResponseSchema.description!,
-);
-export type QualityVectorResponse = z.infer<typeof QualityVectorResponseSchema>;
+export const QualityScalarVectorResponseSchema =
+  RichContentPartsSchema.describe(VectorResponseSchema.description!);
+export type QualityScalarVectorResponse = z.infer<
+  typeof QualityScalarVectorResponseSchema
+>;
 
-export const QualityVectorResponseExpressionSchema = z
+export const QualityScalarVectorResponseExpressionSchema = z
   .union([
-    QualityVectorResponseSchema,
+    QualityScalarVectorResponseSchema,
     ExpressionSchema.describe(
       "An expression which evaluates to an array of content parts. Receives: `input`, `map` (if mapped).",
     ),
   ])
   .describe(VectorResponseSchema.description!);
-export type QualityVectorResponseExpression = z.infer<
-  typeof QualityVectorResponseExpressionSchema
+export type QualityScalarVectorResponseExpression = z.infer<
+  typeof QualityScalarVectorResponseExpressionSchema
 >;
 
-export const QualityVectorResponsesSchema = z
-  .array(QualityVectorResponseSchema)
+export const QualityScalarVectorResponsesSchema = z
+  .array(QualityScalarVectorResponseSchema)
   .min(2)
   .describe(VectorResponsesSchema.description!);
-export type QualityVectorResponses = z.infer<
-  typeof QualityVectorResponsesSchema
+export type QualityScalarVectorResponses = z.infer<
+  typeof QualityScalarVectorResponsesSchema
 >;
 
-export const QualityVectorResponsesExpressionSchema = z
-  .array(QualityVectorResponseExpressionSchema)
+export const QualityScalarVectorResponsesExpressionSchema = z
+  .array(QualityScalarVectorResponseExpressionSchema)
   .min(2)
   .describe(VectorResponsesSchema.description!);
-export type QualityVectorResponsesExpression = z.infer<
-  typeof QualityVectorResponsesExpressionSchema
+export type QualityScalarVectorResponsesExpression = z.infer<
+  typeof QualityScalarVectorResponsesExpressionSchema
+>;
+
+// Quality Vector Vector Responses (must be a single expression; for vector parent functions)
+
+export const QualityVectorVectorResponsesExpressionSchema =
+  ExpressionSchema.describe(
+    "An expression which evaluates to an array of possible assistant responses. " +
+      "Vector function responses must be a single expression, not a fixed array. " +
+      "Receives: `input`, `map` (if mapped).",
+  );
+export type QualityVectorVectorResponsesExpression = z.infer<
+  typeof QualityVectorVectorResponsesExpressionSchema
 >;

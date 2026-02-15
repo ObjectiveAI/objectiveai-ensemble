@@ -207,8 +207,10 @@ describe("checkLeafVectorFunction", () => {
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).not.toThrow();
   });
 
-  it("accepts empty tasks", () => {
+  it("rejects empty tasks", () => {
     const f = leafVector(arrayOfStringsSchema, []);
-    expect(() => Functions.Quality.checkLeafVectorFunction(f)).not.toThrow();
+    expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
+      /at least one task/,
+    );
   });
 });

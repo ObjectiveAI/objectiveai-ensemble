@@ -219,9 +219,11 @@ describe("checkLeafScalarFunction", () => {
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).not.toThrow();
   });
 
-  it("accepts empty tasks", () => {
+  it("rejects empty tasks", () => {
     const f = leafScalar([]);
-    expect(() => Functions.Quality.checkLeafScalarFunction(f)).not.toThrow();
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /at least one task/,
+    );
   });
 
   it("accepts expression messages (skips content check)", () => {

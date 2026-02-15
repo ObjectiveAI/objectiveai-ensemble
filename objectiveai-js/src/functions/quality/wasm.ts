@@ -8,6 +8,7 @@ import {
   qualityCheckBranchVectorFunction as wasmQualityCheckBranchVectorFunction,
 } from "../../wasm/loader.js";
 import { VectorFieldsValidation } from "./vectorFields.js";
+import type { RemoteFunction } from "../function.js";
 
 /**
  * Validates that a vector function's output_length, input_split, and
@@ -28,7 +29,7 @@ export function checkVectorFields(fields: VectorFieldsValidation): void {
  * Leaf functions contain only vector.completion tasks.
  * Throws a descriptive error string on failure.
  */
-export function checkLeafFunction(func: unknown): void {
+export function checkLeafFunction(func: RemoteFunction): void {
   wasmQualityCheckLeafFunction(func);
 }
 
@@ -37,10 +38,16 @@ export function checkLeafFunction(func: unknown): void {
  *
  * Routes to branch scalar or branch vector checks based on the function type.
  * Branch functions contain only function/placeholder tasks.
+ *
+ * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */
-export function checkBranchFunction(func: unknown): void {
-  wasmQualityCheckBranchFunction(func);
+export function checkBranchFunction(
+  func: RemoteFunction,
+  children?: Record<string, RemoteFunction>,
+): void {
+  wasmQualityCheckBranchFunction(func, children);
 }
 
 /**
@@ -50,7 +57,7 @@ export function checkBranchFunction(func: unknown): void {
  * content parts (not plain strings), messages >= 1, responses >= 2.
  * Throws a descriptive error string on failure.
  */
-export function checkLeafScalarFunction(func: unknown): void {
+export function checkLeafScalarFunction(func: RemoteFunction): void {
   wasmQualityCheckLeafScalarFunction(func);
 }
 
@@ -61,7 +68,7 @@ export function checkLeafScalarFunction(func: unknown): void {
  * content parts, vector field round-trip (output_length/input_split/input_merge).
  * Throws a descriptive error string on failure.
  */
-export function checkLeafVectorFunction(func: unknown): void {
+export function checkLeafVectorFunction(func: RemoteFunction): void {
   wasmQualityCheckLeafVectorFunction(func);
 }
 
@@ -70,10 +77,16 @@ export function checkLeafVectorFunction(func: unknown): void {
  *
  * Validates: no input_maps, only scalar-like tasks, no map, no vector.completion,
  * example inputs compile and placeholder inputs match schemas.
+ *
+ * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */
-export function checkBranchScalarFunction(func: unknown): void {
-  wasmQualityCheckBranchScalarFunction(func);
+export function checkBranchScalarFunction(
+  func: RemoteFunction,
+  children?: Record<string, RemoteFunction>,
+): void {
+  wasmQualityCheckBranchScalarFunction(func, children);
 }
 
 /**
@@ -81,8 +94,14 @@ export function checkBranchScalarFunction(func: unknown): void {
  *
  * Validates: vector input schema, task type/map constraints, single-task-must-be-vector,
  * <= 50% mapped scalar, vector field round-trip, example input compilation.
+ *
+ * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */
-export function checkBranchVectorFunction(func: unknown): void {
-  wasmQualityCheckBranchVectorFunction(func);
+export function checkBranchVectorFunction(
+  func: RemoteFunction,
+  children?: Record<string, RemoteFunction>,
+): void {
+  wasmQualityCheckBranchVectorFunction(func, children);
 }

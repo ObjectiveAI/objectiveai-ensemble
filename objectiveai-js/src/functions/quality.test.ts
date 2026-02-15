@@ -20,12 +20,14 @@ import {
   QualityTaskExpressionMapSchema,
   QualityScalarFunctionTaskExpressionSchema,
   QualityVectorFunctionTaskExpressionSchema,
-  QualityVectorCompletionTaskExpressionSchema,
+  QualityScalarVectorCompletionTaskExpressionSchema,
+  QualityVectorVectorCompletionTaskExpressionSchema,
   QualityBranchScalarFunctionTasksExpressionSchema,
   QualityBranchScalarFunctionTasksExpressionsSchema,
   QualityBranchVectorFunctionTasksExpressionSchema,
   QualityBranchVectorFunctionTasksExpressionsSchema,
-  QualityLeafTasksExpressionsSchema,
+  QualityLeafScalarTasksExpressionsSchema,
+  QualityLeafVectorTasksExpressionsSchema,
   QualityVectorCompletionTaskSchema,
   QualityTaskSchema,
   QualityCompiledTaskSchema,
@@ -98,9 +100,10 @@ import {
   VectorResponsesSchema,
   VectorResponsesExpressionSchema,
   // Quality
-  QualityVectorResponseSchema,
-  QualityVectorResponsesSchema,
-  QualityVectorResponsesExpressionSchema,
+  QualityScalarVectorResponseSchema,
+  QualityScalarVectorResponsesSchema,
+  QualityScalarVectorResponsesExpressionSchema,
+  QualityVectorVectorResponsesExpressionSchema,
 } from "src/vector/completions/request/vector_response";
 
 // === Test helpers ===
@@ -218,6 +221,15 @@ const baseLeafScalarFunction = {
   tasks: [qualityVectorCompletionTaskExpression],
 };
 
+const qualityVectorVectorCompletionTaskExpression = {
+  type: "vector.completion",
+  messages: [
+    { role: "user", content: richContentParts },
+  ],
+  responses: { $starlark: "[[{'type': 'text', 'text': x}] for x in input['items']]" },
+  output: { $starlark: "output['scores']" },
+};
+
 const baseLeafVectorFunction = {
   type: "vector.function",
   description: "A test vector function",
@@ -226,7 +238,7 @@ const baseLeafVectorFunction = {
   input_split: { $starlark: "[{'items': [x]} for x in input['items']]" },
   input_merge: { $starlark: "{'items': [x['items'][0] for x in input]}" },
   input_maps: [{ $starlark: "input['items']" }],
-  tasks: [qualityVectorCompletionTaskExpression],
+  tasks: [qualityVectorVectorCompletionTaskExpression],
 };
 
 const baseBranchScalarFunction = {
@@ -297,10 +309,10 @@ describe("Quality schemas are subtypes of base schemas", () => {
 
   // -- vector_response.ts --
 
-  describe("QualityVectorResponseSchema", () => {
+  describe("QualityScalarVectorResponseSchema", () => {
     it("accepts content parts array and passes VectorResponseSchema", () => {
       assertSubtype(
-        QualityVectorResponseSchema,
+        QualityScalarVectorResponseSchema,
         VectorResponseSchema,
         richContentParts,
         "response-parts",
@@ -308,11 +320,11 @@ describe("Quality schemas are subtypes of base schemas", () => {
     });
   });
 
-  describe("QualityVectorResponsesSchema", () => {
+  describe("QualityScalarVectorResponsesSchema", () => {
     it("accepts array of content parts arrays and passes VectorResponsesSchema", () => {
       const value = [richContentParts, richContentParts];
       assertSubtype(
-        QualityVectorResponsesSchema,
+        QualityScalarVectorResponsesSchema,
         VectorResponsesSchema,
         value,
         "responses-parts",
@@ -320,14 +332,26 @@ describe("Quality schemas are subtypes of base schemas", () => {
     });
   });
 
-  describe("QualityVectorResponsesExpressionSchema", () => {
+  describe("QualityScalarVectorResponsesExpressionSchema", () => {
     it("accepts array of content parts arrays and passes VectorResponsesExpressionSchema", () => {
       const value = [richContentParts, richContentParts];
       assertSubtype(
-        QualityVectorResponsesExpressionSchema,
+        QualityScalarVectorResponsesExpressionSchema,
         VectorResponsesExpressionSchema,
         value,
         "responses-expr-parts",
+      );
+    });
+  });
+
+  describe("QualityVectorVectorResponsesExpressionSchema", () => {
+    it("accepts expression and passes VectorResponsesExpressionSchema", () => {
+      const value = { $starlark: "[[{'type': 'text', 'text': x}] for x in input]" };
+      assertSubtype(
+        QualityVectorVectorResponsesExpressionSchema,
+        VectorResponsesExpressionSchema,
+        value,
+        "vector-responses-expr",
       );
     });
   });
@@ -550,13 +574,24 @@ describe("Quality schemas are subtypes of base schemas", () => {
     });
   });
 
-  describe("QualityVectorCompletionTaskExpressionSchema", () => {
+  describe("QualityScalarVectorCompletionTaskExpressionSchema", () => {
     it("passes VectorCompletionTaskExpressionSchema", () => {
       assertSubtype(
-        QualityVectorCompletionTaskExpressionSchema,
+        QualityScalarVectorCompletionTaskExpressionSchema,
         VectorCompletionTaskExpressionSchema,
         qualityVectorCompletionTaskExpression,
-        "vc-task-expr",
+        "scalar-vc-task-expr",
+      );
+    });
+  });
+
+  describe("QualityVectorVectorCompletionTaskExpressionSchema", () => {
+    it("passes VectorCompletionTaskExpressionSchema", () => {
+      assertSubtype(
+        QualityVectorVectorCompletionTaskExpressionSchema,
+        VectorCompletionTaskExpressionSchema,
+        qualityVectorVectorCompletionTaskExpression,
+        "vector-vc-task-expr",
       );
     });
   });
@@ -649,14 +684,26 @@ describe("Quality schemas are subtypes of base schemas", () => {
     });
   });
 
-  describe("QualityLeafTasksExpressionsSchema", () => {
+  describe("QualityLeafScalarTasksExpressionsSchema", () => {
     it("passes TaskExpressionsSchema", () => {
       const value = [qualityVectorCompletionTaskExpression];
       assertSubtype(
-        QualityLeafTasksExpressionsSchema,
+        QualityLeafScalarTasksExpressionsSchema,
         TaskExpressionsSchema,
         value,
-        "leaf-tasks",
+        "leaf-scalar-tasks",
+      );
+    });
+  });
+
+  describe("QualityLeafVectorTasksExpressionsSchema", () => {
+    it("passes TaskExpressionsSchema", () => {
+      const value = [qualityVectorVectorCompletionTaskExpression];
+      assertSubtype(
+        QualityLeafVectorTasksExpressionsSchema,
+        TaskExpressionsSchema,
+        value,
+        "leaf-vector-tasks",
       );
     });
   });
@@ -867,13 +914,13 @@ describe("Quality schemas are subtypes of base schemas", () => {
 // === Negative tests: Quality schemas REJECT what they're meant to reject ===
 
 describe("Quality schemas reject invalid values", () => {
-  it("QualityVectorResponseSchema rejects plain string", () => {
-    const result = QualityVectorResponseSchema.safeParse("hello");
+  it("QualityScalarVectorResponseSchema rejects plain string", () => {
+    const result = QualityScalarVectorResponseSchema.safeParse("hello");
     expect(result.success).toBe(false);
   });
 
-  it("QualityVectorResponsesSchema rejects array with string responses", () => {
-    const result = QualityVectorResponsesSchema.safeParse(["hello", "world"]);
+  it("QualityScalarVectorResponsesSchema rejects array with string responses", () => {
+    const result = QualityScalarVectorResponsesSchema.safeParse(["hello", "world"]);
     expect(result.success).toBe(false);
   });
 
@@ -909,8 +956,8 @@ describe("Quality schemas reject invalid values", () => {
     expect(result.success).toBe(false);
   });
 
-  it("QualityVectorCompletionTaskExpressionSchema rejects map field", () => {
-    const result = QualityVectorCompletionTaskExpressionSchema.safeParse({
+  it("QualityScalarVectorCompletionTaskExpressionSchema rejects map field", () => {
+    const result = QualityScalarVectorCompletionTaskExpressionSchema.safeParse({
       ...qualityVectorCompletionTaskExpression,
       map: 0,
     });
@@ -992,15 +1039,23 @@ describe("Quality schemas reject invalid values", () => {
     expect(result.success).toBe(false);
   });
 
-  it("QualityLeafTasksExpressionsSchema rejects non-vector-completion tasks", () => {
-    const result = QualityLeafTasksExpressionsSchema.safeParse([
+  it("QualityLeafScalarTasksExpressionsSchema rejects non-vector-completion tasks", () => {
+    const result = QualityLeafScalarTasksExpressionsSchema.safeParse([
       unmappedScalarFunctionTaskExpression,
     ]);
     expect(result.success).toBe(false);
   });
 
-  it("QualityVectorCompletionTaskExpressionSchema rejects responses as overall expression", () => {
-    const result = QualityVectorCompletionTaskExpressionSchema.safeParse({
+  it("QualityLeafVectorTasksExpressionsSchema rejects non-vector-completion tasks", () => {
+    const result = QualityLeafVectorTasksExpressionsSchema.safeParse([
+      unmappedScalarFunctionTaskExpression,
+    ]);
+    expect(result.success).toBe(false);
+  });
+
+  // Scalar function VC task: rejects responses as overall expression
+  it("QualityScalarVectorCompletionTaskExpressionSchema rejects responses as overall expression", () => {
+    const result = QualityScalarVectorCompletionTaskExpressionSchema.safeParse({
       type: "vector.completion",
       messages: [{ role: "user", content: richContentParts }],
       responses: { $starlark: "['a', 'b']" },
@@ -1009,8 +1064,9 @@ describe("Quality schemas reject invalid values", () => {
     expect(result.success).toBe(false);
   });
 
-  it("QualityVectorCompletionTaskExpressionSchema accepts responses with expression elements", () => {
-    const result = QualityVectorCompletionTaskExpressionSchema.safeParse({
+  // Scalar function VC task: accepts responses with expression elements
+  it("QualityScalarVectorCompletionTaskExpressionSchema accepts responses with expression elements", () => {
+    const result = QualityScalarVectorCompletionTaskExpressionSchema.safeParse({
       type: "vector.completion",
       messages: [{ role: "user", content: richContentParts }],
       responses: [
@@ -1022,11 +1078,34 @@ describe("Quality schemas reject invalid values", () => {
     expect(result.success).toBe(true);
   });
 
-  it("QualityVectorCompletionTaskExpressionSchema accepts array of content parts arrays", () => {
-    const result = QualityVectorCompletionTaskExpressionSchema.safeParse({
+  // Scalar function VC task: accepts array of content parts arrays
+  it("QualityScalarVectorCompletionTaskExpressionSchema accepts array of content parts arrays", () => {
+    const result = QualityScalarVectorCompletionTaskExpressionSchema.safeParse({
       type: "vector.completion",
       messages: [{ role: "user", content: richContentParts }],
       responses: [richContentParts, [{ type: "text", text: "world" }]],
+      output: qualityOutputExpr,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  // Vector function VC task: rejects responses as array
+  it("QualityVectorVectorCompletionTaskExpressionSchema rejects responses as array", () => {
+    const result = QualityVectorVectorCompletionTaskExpressionSchema.safeParse({
+      type: "vector.completion",
+      messages: [{ role: "user", content: richContentParts }],
+      responses: [richContentParts, richContentParts],
+      output: qualityOutputExpr,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  // Vector function VC task: accepts responses as expression
+  it("QualityVectorVectorCompletionTaskExpressionSchema accepts responses as expression", () => {
+    const result = QualityVectorVectorCompletionTaskExpressionSchema.safeParse({
+      type: "vector.completion",
+      messages: [{ role: "user", content: richContentParts }],
+      responses: { $starlark: "[[{'type': 'text', 'text': x}] for x in input]" },
       output: qualityOutputExpr,
     });
     expect(result.success).toBe(true);

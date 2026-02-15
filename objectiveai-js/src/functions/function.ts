@@ -8,7 +8,8 @@ import {
 import {
   QualityBranchScalarFunctionTasksExpressionsSchema,
   QualityBranchVectorFunctionTasksExpressionsSchema,
-  QualityLeafTasksExpressionsSchema,
+  QualityLeafScalarTasksExpressionsSchema,
+  QualityLeafVectorTasksExpressionsSchema,
   TaskExpressionsSchema,
 } from "./task";
 import { ExpressionSchema } from "./expression/expression";
@@ -134,7 +135,7 @@ export type Function = z.infer<typeof FunctionSchema>;
 export const QualityLeafRemoteScalarFunctionSchema =
   RemoteScalarFunctionSchema.extend({
     input_maps: z.undefined(),
-    tasks: QualityLeafTasksExpressionsSchema,
+    tasks: QualityLeafScalarTasksExpressionsSchema,
   }).describe(RemoteScalarFunctionSchema.description!);
 export type QualityLeafRemoteScalarFunction = z.infer<
   typeof QualityLeafRemoteScalarFunctionSchema
@@ -144,7 +145,7 @@ export const QualityLeafRemoteVectorFunctionSchema =
   RemoteVectorFunctionSchema.extend({
     input_schema: QualityVectorFunctionInputSchemaSchema,
     input_maps: QualityInputMapsExpressionSchema.optional().nullable(),
-    tasks: QualityLeafTasksExpressionsSchema,
+    tasks: QualityLeafVectorTasksExpressionsSchema,
   }).describe(RemoteVectorFunctionSchema.description!);
 export type QualityLeafRemoteVectorFunction = z.infer<
   typeof QualityLeafRemoteVectorFunctionSchema

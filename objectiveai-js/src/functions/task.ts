@@ -16,8 +16,9 @@ import {
   ToolsSchema,
 } from "src/chat/completions/request/tool";
 import {
-  QualityVectorResponsesExpressionSchema,
-  QualityVectorResponsesSchema,
+  QualityScalarVectorResponsesExpressionSchema,
+  QualityScalarVectorResponsesSchema,
+  QualityVectorVectorResponsesExpressionSchema,
   VectorResponsesExpressionSchema,
   VectorResponsesSchema,
 } from "src/vector/completions/request/vector_response";
@@ -156,22 +157,40 @@ export type VectorCompletion = z.infer<
   typeof VectorCompletionTaskExpressionSchema
 >;
 
-export const QualityVectorCompletionTaskExpressionSchema = z
+export const QualityScalarVectorCompletionTaskExpressionSchema = z
   .object({
     type: VectorCompletionTaskExpressionSchema.shape.type,
     skip: VectorCompletionTaskExpressionSchema.shape.skip,
     map: z.undefined(),
     messages: QualityMessagesExpressionSchema,
     tools: VectorCompletionTaskExpressionSchema.shape.tools,
-    responses: QualityVectorResponsesExpressionSchema,
+    responses: QualityScalarVectorResponsesExpressionSchema,
     output: VectorCompletionTaskExpressionSchema.shape.output,
   })
   .describe(
     VectorCompletionTaskExpressionSchema.description! +
       " Message content and responses must be arrays of content parts, not plain strings.",
   );
-export type QualityVectorCompletionTaskExpression = z.infer<
-  typeof QualityVectorCompletionTaskExpressionSchema
+export type QualityScalarVectorCompletionTaskExpression = z.infer<
+  typeof QualityScalarVectorCompletionTaskExpressionSchema
+>;
+
+export const QualityVectorVectorCompletionTaskExpressionSchema = z
+  .object({
+    type: VectorCompletionTaskExpressionSchema.shape.type,
+    skip: VectorCompletionTaskExpressionSchema.shape.skip,
+    map: z.undefined(),
+    messages: QualityMessagesExpressionSchema,
+    tools: VectorCompletionTaskExpressionSchema.shape.tools,
+    responses: QualityVectorVectorResponsesExpressionSchema,
+    output: VectorCompletionTaskExpressionSchema.shape.output,
+  })
+  .describe(
+    VectorCompletionTaskExpressionSchema.description! +
+      " Responses must be a single expression for vector parent functions.",
+  );
+export type QualityVectorVectorCompletionTaskExpression = z.infer<
+  typeof QualityVectorVectorCompletionTaskExpressionSchema
 >;
 
 export const PlaceholderScalarFunctionTaskExpressionSchema = z
@@ -325,15 +344,28 @@ export type QualityBranchVectorFunctionTasksExpressions = z.infer<
 
 // Quality Depth-0 Tasks: only vector.completion
 
-export const QualityLeafTasksExpressionsSchema = z
-  .array(QualityVectorCompletionTaskExpressionSchema)
+export const QualityLeafScalarTasksExpressionsSchema = z
+  .array(QualityScalarVectorCompletionTaskExpressionSchema)
   .min(1)
   .describe(
-    "Tasks at depth 0. Only vector.completion tasks are allowed. " +
+    "Tasks at depth 0 of a scalar function. Only vector.completion tasks are allowed. " +
+      "Responses must be arrays of content parts. " +
       "Must contain at least 1 task. Task count must be within min_width and max_width from parameters.",
   );
-export type QualityLeafTasksExpressions = z.infer<
-  typeof QualityLeafTasksExpressionsSchema
+export type QualityLeafScalarTasksExpressions = z.infer<
+  typeof QualityLeafScalarTasksExpressionsSchema
+>;
+
+export const QualityLeafVectorTasksExpressionsSchema = z
+  .array(QualityVectorVectorCompletionTaskExpressionSchema)
+  .min(1)
+  .describe(
+    "Tasks at depth 0 of a vector function. Only vector.completion tasks are allowed. " +
+      "Responses must be a single expression. " +
+      "Must contain at least 1 task. Task count must be within min_width and max_width from parameters.",
+  );
+export type QualityLeafVectorTasksExpressions = z.infer<
+  typeof QualityLeafVectorTasksExpressionsSchema
 >;
 
 // Task
@@ -475,7 +507,7 @@ export const QualityVectorCompletionTaskSchema = z
     type: z.literal("vector.completion"),
     messages: QualityMessagesSchema,
     tools: ToolsSchema.optional(),
-    responses: QualityVectorResponsesSchema,
+    responses: QualityScalarVectorResponsesSchema,
     output: VectorCompletionTaskSchema.shape.output,
   })
   .describe(
