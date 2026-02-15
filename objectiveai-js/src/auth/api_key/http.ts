@@ -1,6 +1,7 @@
 import z from "zod";
 import { ApiKeyWithMetadata, ApiKeyWithMetadataSchema } from "./api_key";
 import { ObjectiveAI, RequestOptions } from "../../client";
+import { convert, type JSONSchema } from "../../json_schema";
 
 export const ListItemSchema = ApiKeyWithMetadataSchema.extend({
   cost: z
@@ -8,11 +9,13 @@ export const ListItemSchema = ApiKeyWithMetadataSchema.extend({
     .describe("The total cost incurred while using this API key."),
 });
 export type ListItem = z.infer<typeof ListItemSchema>;
+export const ListItemJsonSchema: JSONSchema = convert(ListItemSchema);
 
 export const ListSchema = z.object({
   data: z.array(ListItemSchema).describe("A list of API keys."),
 });
 export type List = z.infer<typeof ListSchema>;
+export const ListJsonSchema: JSONSchema = convert(ListSchema);
 
 export function list(
   client: ObjectiveAI,

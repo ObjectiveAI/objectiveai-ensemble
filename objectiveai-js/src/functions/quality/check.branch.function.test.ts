@@ -3,7 +3,6 @@ import { Functions } from "../../index.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-const outputExpr = { $starlark: "output['scores'][0]" };
 const inputExpr = { $starlark: "input" };
 
 function scalarFunctionTask() {
@@ -13,7 +12,7 @@ function scalarFunctionTask() {
     repository: "test",
     commit: "abc123",
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
   };
 }
 
@@ -24,7 +23,7 @@ function vectorFunctionTask() {
     repository: "test",
     commit: "abc123",
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
   };
 }
 

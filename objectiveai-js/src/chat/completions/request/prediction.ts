@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const PredictionContentPartSchema = z
   .object({
@@ -8,6 +9,9 @@ export const PredictionContentPartSchema = z
   .describe("A part of the predicted content.")
   .meta({ title: "PredictionContentPart" });
 export type PredictionContentPart = z.infer<typeof PredictionContentPartSchema>;
+export const PredictionContentPartJsonSchema: JSONSchema = convert(
+  PredictionContentPartSchema,
+);
 
 export const PredictionContentSchema = z.union([
   z.string().meta({ title: "PredictionContentText" }),
@@ -16,6 +20,9 @@ export const PredictionContentSchema = z.union([
     .meta({ title: "PredictionContentParts" }),
 ]);
 export type PredictionContent = z.infer<typeof PredictionContentSchema>;
+export const PredictionContentJsonSchema: JSONSchema = convert(
+  PredictionContentSchema,
+);
 
 export const PredictionSchema = z
   .object({
@@ -26,3 +33,4 @@ export const PredictionSchema = z
     "Configuration for a Predicted Output, which can greatly improve response times when large parts of the model response are known ahead of time. This is most common when you are regenerating a file with only minor changes to most of the content."
   );
 export type Prediction = z.infer<typeof PredictionSchema>;
+export const PredictionJsonSchema: JSONSchema = convert(PredictionSchema);

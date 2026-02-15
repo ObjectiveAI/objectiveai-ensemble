@@ -3,7 +3,6 @@ import { Functions } from "../../index.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-const outputExpr = { $starlark: "output['scores'][0]" };
 const inputExpr = { $starlark: "input" };
 const contentParts = [{ type: "text" as const, text: "Hello" }];
 
@@ -12,7 +11,7 @@ function qualityVcTask() {
     type: "vector.completion" as const,
     messages: [{ role: "user" as const, content: contentParts }],
     responses: [contentParts, contentParts],
-    output: outputExpr,
+    output: { $starlark: "output['scores'][0]" },
   };
 }
 
@@ -33,7 +32,7 @@ function scalarFunctionTask(map?: number) {
     repository: "test",
     commit: "abc123",
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -45,7 +44,7 @@ function vectorFunctionTask(map?: number) {
     repository: "test",
     commit: "abc123",
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -55,7 +54,7 @@ function placeholderScalarTask(map?: number) {
     type: "placeholder.scalar.function",
     input_schema: { type: "integer", minimum: 1, maximum: 10 },
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -73,7 +72,7 @@ function placeholderVectorTask(map?: number) {
     input_split: { $starlark: "[[x] for x in input]" },
     input_merge: { $starlark: "[x[0] for x in input]" },
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }

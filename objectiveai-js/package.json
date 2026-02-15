@@ -10,8 +10,8 @@
   },
   "type": "module",
   "scripts": {
-    "build": "shx rm -rf dist && node ./scripts/install-wasm.cjs && tsup && shx rm -f dist/*.d.mts && shx rm -f dist/*.d.cts",
-    "test": "node test/test-cjs.cjs && node test/test-esm.mjs",
+    "build": "shx rm -f .schema-cache.json && shx rm -rf dist && node ./scripts/install-wasm.cjs && npx tsx scripts/precompute-schemas.ts && tsup && shx rm -f dist/*.d.mts && shx rm -f dist/*.d.cts && shx rm -f .schema-cache.json",
+    "test": "node test/test-cjs.cjs && node test/test-esm.mjs && vitest run",
     "start": "node dist/index.js"
   },
   "author": {

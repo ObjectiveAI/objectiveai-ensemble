@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const ProviderDataCollectionSchema = z
   .enum(["allow", "deny"])
@@ -6,11 +7,15 @@ export const ProviderDataCollectionSchema = z
 export type ProviderDataCollection = z.infer<
   typeof ProviderDataCollectionSchema
 >;
+export const ProviderDataCollectionJsonSchema: JSONSchema = convert(
+  ProviderDataCollectionSchema,
+);
 
 export const ProviderSortSchema = z
   .enum(["price", "throughput", "latency"])
   .describe("Specifies the sorting strategy for provider selection.");
 export type ProviderSort = z.infer<typeof ProviderSortSchema>;
+export const ProviderSortJsonSchema: JSONSchema = convert(ProviderSortSchema);
 
 export const ProviderMaxPriceSchema = z.object({
   prompt: z
@@ -40,6 +45,9 @@ export const ProviderMaxPriceSchema = z.object({
     .describe("Maximum price per request."),
 });
 export type ProviderMaxPrice = z.infer<typeof ProviderMaxPriceSchema>;
+export const ProviderMaxPriceJsonSchema: JSONSchema = convert(
+  ProviderMaxPriceSchema,
+);
 
 export const ProviderSchema = z
   .object({
@@ -49,7 +57,7 @@ export const ProviderSchema = z
       .optional()
       .nullable()
       .describe(
-        "Whether to enforce Zero Data Retention (ZDR) policies when selecting providers."
+        "Whether to enforce Zero Data Retention (ZDR) policies when selecting providers.",
       ),
     sort: ProviderSortSchema.optional().nullable(),
     max_price: ProviderMaxPriceSchema.optional().nullable(),
@@ -74,5 +82,7 @@ export const ProviderSchema = z
       .nullable()
       .describe("Maximum latency for the provider."),
   })
-  .describe("Options for selecting the upstream provider of this completion.");
+  .describe("Options for selecting the upstream provider of this completion.")
+  .meta({ title: "CompletionProvider" });
 export type Provider = z.infer<typeof ProviderSchema>;
+export const ProviderJsonSchema: JSONSchema = convert(ProviderSchema);

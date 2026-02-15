@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const VoteSchema = z
   .object({
@@ -40,6 +41,7 @@ export const VoteSchema = z
   })
   .describe("A vote from an Ensemble LLM within a Vector Completion.");
 export type Vote = z.infer<typeof VoteSchema>;
+export const VoteJsonSchema: JSONSchema = convert(VoteSchema);
 
 export namespace Vote {
   export function mergedList(a: Vote[], b: Vote[]): [Vote[], boolean] {
@@ -67,3 +69,4 @@ export const VotesSchema = z
     "The list of votes for responses in the request from the Ensemble LLMs within the provided Ensemble."
   );
 export type Votes = z.infer<typeof VotesSchema>;
+export const VotesJsonSchema: JSONSchema = convert(VotesSchema);

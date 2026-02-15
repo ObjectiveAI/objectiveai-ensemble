@@ -10,6 +10,7 @@ import {
 import { UsageSchema } from "../usage";
 import { ResponseObjectSchema } from "./response_object";
 import { merge } from "src/merge";
+import { convert, type JSONSchema } from "../../../../json_schema";
 
 export const VectorCompletionChunkSchema = z
   .object({
@@ -33,6 +34,7 @@ export const VectorCompletionChunkSchema = z
   })
   .describe("A chunk in a streaming vector completion response.");
 export type VectorCompletionChunk = z.infer<typeof VectorCompletionChunkSchema>;
+export const VectorCompletionChunkJsonSchema: JSONSchema = convert(VectorCompletionChunkSchema);
 
 export namespace VectorCompletionChunk {
   export function merged(

@@ -3,7 +3,6 @@ import { Functions } from "../../index.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-const outputExpr = { $starlark: "output['scores'][0]" };
 const inputExpr = { $starlark: "input" };
 const contentParts = [{ type: "text" as const, text: "Hello" }];
 
@@ -21,11 +20,11 @@ function qualityVcTask() {
     type: "vector.completion" as const,
     messages: [{ role: "user" as const, content: contentParts }],
     responses: [contentParts, contentParts],
-    output: outputExpr,
+    output: { $starlark: "output['scores'][0]" },
   };
 }
 
-function branchVector(inputSchema: unknown, tasks: unknown[]) {
+function branchVector(inputSchema: unknown, tasks: unknown[], inputMaps?: unknown[]) {
   return {
     type: "vector.function",
     description: "test",
@@ -40,6 +39,7 @@ function branchVector(inputSchema: unknown, tasks: unknown[]) {
         "{'items': [x['items'][0] for x in input], 'label': input[0]['label']}",
     },
     tasks,
+    ...(inputMaps !== undefined ? { input_maps: inputMaps } : {}),
   };
 }
 
@@ -49,8 +49,9 @@ function scalarFunctionTask(map?: number) {
     owner: "test",
     repository: "test",
     commit: "abc123",
-    input: inputExpr,
-    output: outputExpr,
+    input: { $starlark: "map" },
+    // Mapped scalar output is [s1, s2, ...]; normalize to sum ≈ 1 for vector parent
+    output: { $starlark: "[x / sum(output) for x in output]" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -62,7 +63,7 @@ function vectorFunctionTask(map?: number) {
     repository: "test",
     commit: "abc123",
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -70,9 +71,9 @@ function vectorFunctionTask(map?: number) {
 function placeholderScalarTask(map?: number) {
   return {
     type: "placeholder.scalar.function",
-    input_schema: { type: "integer", minimum: 1, maximum: 10 },
-    input: inputExpr,
-    output: outputExpr,
+    input_schema: { type: "string" },
+    input: { $starlark: "map" },
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -91,7 +92,7 @@ function placeholderVectorTask(map?: number) {
         "{'items': [x['items'][0] for x in input], 'label': input[0]['label']}",
     },
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -180,9 +181,11 @@ describe("checkBranchVectorFunction", () => {
 
   // single task must be vector-like
   it("rejects single mapped scalar task", () => {
-    const f = branchVector(objectWithRequiredArraySchema, [
-      scalarFunctionTask(0),
-    ]);
+    const f = branchVector(
+      objectWithRequiredArraySchema,
+      [scalarFunctionTask(0)],
+      [{ $starlark: "input['items']" }],
+    );
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
       /single task must use an unmapped vector-like task/,
     );
@@ -190,11 +193,15 @@ describe("checkBranchVectorFunction", () => {
 
   // >50% mapped scalar
   it("rejects over 50% mapped scalar tasks", () => {
-    const f = branchVector(objectWithRequiredArraySchema, [
-      scalarFunctionTask(0),
-      scalarFunctionTask(0),
-      vectorFunctionTask(),
-    ]);
+    const f = branchVector(
+      objectWithRequiredArraySchema,
+      [
+        scalarFunctionTask(0),
+        scalarFunctionTask(0),
+        vectorFunctionTask(),
+      ],
+      [{ $starlark: "input['items']" }],
+    );
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
       /At most 50%/,
     );
@@ -220,21 +227,29 @@ describe("checkBranchVectorFunction", () => {
   });
 
   it("accepts valid 50/50 split", () => {
-    const f = branchVector(objectWithRequiredArraySchema, [
-      scalarFunctionTask(0),
-      vectorFunctionTask(),
-    ]);
+    const f = branchVector(
+      objectWithRequiredArraySchema,
+      [
+        scalarFunctionTask(0),
+        vectorFunctionTask(),
+      ],
+      [{ $starlark: "input['items']" }],
+    );
     expect(() =>
       Functions.Quality.checkBranchVectorFunction(f),
     ).not.toThrow();
   });
 
   it("accepts valid mixed tasks", () => {
-    const f = branchVector(objectWithRequiredArraySchema, [
-      scalarFunctionTask(0),
-      vectorFunctionTask(),
-      vectorFunctionTask(),
-    ]);
+    const f = branchVector(
+      objectWithRequiredArraySchema,
+      [
+        scalarFunctionTask(0),
+        vectorFunctionTask(),
+        vectorFunctionTask(),
+      ],
+      [{ $starlark: "input['items']" }],
+    );
     expect(() =>
       Functions.Quality.checkBranchVectorFunction(f),
     ).not.toThrow();

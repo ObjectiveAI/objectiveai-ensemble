@@ -2,6 +2,7 @@ import z from "zod";
 import { MessageSchema } from "./message";
 import { FinishReasonSchema } from "../finish_reason";
 import { LogprobsSchema } from "../logprobs";
+import { convert, type JSONSchema } from "../../../../json_schema";
 
 export const ChoiceSchema = z
   .object({
@@ -14,3 +15,4 @@ export const ChoiceSchema = z
   })
   .describe("A choice in a unary chat completion response.");
 export type Choice = z.infer<typeof ChoiceSchema>;
+export const ChoiceJsonSchema: JSONSchema = convert(ChoiceSchema);

@@ -14,6 +14,7 @@ import {
 } from "src/chat/completions/request/chat_completion_create_params";
 import { ToolsSchema } from "src/chat/completions/request/tool";
 import { VectorResponsesSchema } from "./vector_response";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const VectorCompletionCreateParamsBaseSchema = z
   .object({
@@ -57,6 +58,7 @@ export const VectorCompletionCreateParamsBaseSchema = z
 export type VectorCompletionCreateParamsBase = z.infer<
   typeof VectorCompletionCreateParamsBaseSchema
 >;
+export const VectorCompletionCreateParamsBaseJsonSchema: JSONSchema = convert(VectorCompletionCreateParamsBaseSchema);
 
 export const VectorCompletionCreateParamsStreamingSchema =
   VectorCompletionCreateParamsBaseSchema.extend({
@@ -67,6 +69,7 @@ export const VectorCompletionCreateParamsStreamingSchema =
 export type VectorCompletionCreateParamsStreaming = z.infer<
   typeof VectorCompletionCreateParamsStreamingSchema
 >;
+export const VectorCompletionCreateParamsStreamingJsonSchema: JSONSchema = convert(VectorCompletionCreateParamsStreamingSchema);
 
 export const VectorCompletionCreateParamsNonStreamingSchema =
   VectorCompletionCreateParamsBaseSchema.extend({
@@ -77,6 +80,7 @@ export const VectorCompletionCreateParamsNonStreamingSchema =
 export type VectorCompletionCreateParamsNonStreaming = z.infer<
   typeof VectorCompletionCreateParamsNonStreamingSchema
 >;
+export const VectorCompletionCreateParamsNonStreamingJsonSchema: JSONSchema = convert(VectorCompletionCreateParamsNonStreamingSchema);
 
 export const VectorCompletionCreateParamsSchema =
   VectorCompletionCreateParamsBaseSchema.extend({
@@ -87,3 +91,4 @@ export const VectorCompletionCreateParamsSchema =
 export type VectorCompletionCreateParams = z.infer<
   typeof VectorCompletionCreateParamsSchema
 >;
+export const VectorCompletionCreateParamsJsonSchema: JSONSchema = convert(VectorCompletionCreateParamsSchema);
