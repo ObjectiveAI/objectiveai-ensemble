@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { ResponsiveScale } from './responsive-scale';
+import { ResponsiveScale } from '../responsive-scale';
 
 /**
  * Base tree node interface
