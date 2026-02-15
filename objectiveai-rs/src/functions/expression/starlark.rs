@@ -66,36 +66,201 @@ fn register_custom_functions(builder: &mut GlobalsBuilder) {
     }
 }
 
+/// Trait for direct conversion to Starlark values (bypassing serde_json).
+trait ToStarlarkValue {
+    fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v>;
+}
+
+fn decimal_to_starlark<'v>(
+    heap: &'v Heap,
+    d: &rust_decimal::Decimal,
+) -> SValue<'v> {
+    use rust_decimal::prelude::ToPrimitive;
+    heap.alloc(d.to_f64().unwrap_or(0.0))
+}
+
+fn decimals_to_starlark<'v>(
+    heap: &'v Heap,
+    ds: &[rust_decimal::Decimal],
+) -> SValue<'v> {
+    let items: Vec<SValue> =
+        ds.iter().map(|d| decimal_to_starlark(heap, d)).collect();
+    heap.alloc(items)
+}
+
+impl ToStarlarkValue for super::Input {
+    fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v> {
+        match self {
+            super::Input::String(s) => heap.alloc_str(s).to_value(),
+            super::Input::Integer(i) => heap.alloc(*i),
+            super::Input::Number(f) => heap.alloc(*f),
+            super::Input::Boolean(b) => SValue::new_bool(*b),
+            super::Input::Object(map) => {
+                let pairs: Vec<(&str, SValue)> = map
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.to_starlark_value(heap)))
+                    .collect();
+                heap.alloc(starlark::values::dict::AllocDict(pairs))
+            }
+            super::Input::Array(arr) => {
+                let items: Vec<SValue> = arr
+                    .iter()
+                    .map(|v| v.to_starlark_value(heap))
+                    .collect();
+                heap.alloc(items)
+            }
+            super::Input::RichContentPart(part) => {
+                // Fallback to JSON for complex rich content types
+                let json =
+                    serde_json::to_value(part).unwrap_or(Value::Null);
+                json_to_starlark(heap, &json)
+            }
+        }
+    }
+}
+
+impl ToStarlarkValue for super::FunctionOutput {
+    fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v> {
+        match self {
+            super::FunctionOutput::Scalar(d) => decimal_to_starlark(heap, d),
+            super::FunctionOutput::Vector(ds) => {
+                decimals_to_starlark(heap, ds)
+            }
+            super::FunctionOutput::Err(json) => json_to_starlark(heap, json),
+        }
+    }
+}
+
+impl ToStarlarkValue for super::VectorCompletionOutput {
+    fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v> {
+        // Votes: fallback to JSON (complex struct, rarely accessed)
+        let votes_json =
+            serde_json::to_value(&self.votes).unwrap_or(Value::Null);
+        let votes = json_to_starlark(heap, &votes_json);
+        let scores = decimals_to_starlark(heap, &self.scores);
+        let weights = decimals_to_starlark(heap, &self.weights);
+        heap.alloc(starlark::values::dict::AllocDict(vec![
+            ("votes", votes),
+            ("scores", scores),
+            ("weights", weights),
+        ]))
+    }
+}
+
+impl ToStarlarkValue for super::TaskOutputOwned {
+    fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v> {
+        match self {
+            super::TaskOutputOwned::Function(f) => {
+                f.to_starlark_value(heap)
+            }
+            super::TaskOutputOwned::MapFunction(fs) => {
+                let items: Vec<SValue> = fs
+                    .iter()
+                    .map(|f| f.to_starlark_value(heap))
+                    .collect();
+                heap.alloc(items)
+            }
+            super::TaskOutputOwned::VectorCompletion(vc) => {
+                vc.to_starlark_value(heap)
+            }
+            super::TaskOutputOwned::MapVectorCompletion(vcs) => {
+                let items: Vec<SValue> = vcs
+                    .iter()
+                    .map(|vc| vc.to_starlark_value(heap))
+                    .collect();
+                heap.alloc(items)
+            }
+        }
+    }
+}
+
+impl<'a> ToStarlarkValue for super::TaskOutputRef<'a> {
+    fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v> {
+        match self {
+            super::TaskOutputRef::Function(f) => f.to_starlark_value(heap),
+            super::TaskOutputRef::MapFunction(fs) => {
+                let items: Vec<SValue> = fs
+                    .iter()
+                    .map(|f| f.to_starlark_value(heap))
+                    .collect();
+                heap.alloc(items)
+            }
+            super::TaskOutputRef::VectorCompletion(vc) => {
+                vc.to_starlark_value(heap)
+            }
+            super::TaskOutputRef::MapVectorCompletion(vcs) => {
+                let items: Vec<SValue> = vcs
+                    .iter()
+                    .map(|vc| vc.to_starlark_value(heap))
+                    .collect();
+                heap.alloc(items)
+            }
+        }
+    }
+}
+
+impl<'a> ToStarlarkValue for super::TaskOutput<'a> {
+    fn to_starlark_value<'v>(&self, heap: &'v Heap) -> SValue<'v> {
+        match self {
+            super::TaskOutput::Owned(o) => o.to_starlark_value(heap),
+            super::TaskOutput::Ref(r) => r.to_starlark_value(heap),
+        }
+    }
+}
+
 /// Evaluate a Starlark expression with the given parameters.
 pub fn starlark_eval(
     code: &str,
     params: &super::Params,
 ) -> Result<Value, ExpressionError> {
-    // Serialize params to JSON for injection
-    let params_json = serde_json::to_value(params)
-        .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?;
-
-    // Create module and inject variables
+    // Create module and inject variables directly (no JSON intermediate)
     let module = Module::new();
     {
         let heap = module.heap();
-
-        // Inject `input`
-        if let Some(input) = params_json.get("input") {
-            let input_value = json_to_starlark(heap, input);
-            module.set("input", input_value);
+        match params {
+            super::Params::Owned(owned) => {
+                module.set(
+                    "input",
+                    owned.input.to_starlark_value(heap),
+                );
+                module.set(
+                    "output",
+                    owned
+                        .output
+                        .as_ref()
+                        .map_or(SValue::new_none(), |o| {
+                            o.to_starlark_value(heap)
+                        }),
+                );
+                module.set(
+                    "map",
+                    owned
+                        .map
+                        .as_ref()
+                        .map_or(SValue::new_none(), |m| {
+                            m.to_starlark_value(heap)
+                        }),
+                );
+            }
+            super::Params::Ref(r) => {
+                module
+                    .set("input", r.input.to_starlark_value(heap));
+                module.set(
+                    "output",
+                    r.output
+                        .as_ref()
+                        .map_or(SValue::new_none(), |o| {
+                            o.to_starlark_value(heap)
+                        }),
+                );
+                module.set(
+                    "map",
+                    r.map.map_or(SValue::new_none(), |m| {
+                        m.to_starlark_value(heap)
+                    }),
+                );
+            }
         }
-
-        // Inject `output` unconditionally, using None when null or missing
-        let output_json =
-            params_json.get("output").cloned().unwrap_or(Value::Null);
-        let output_value = json_to_starlark(heap, &output_json);
-        module.set("output", output_value);
-
-        // Inject `map` unconditionally, using None when null or missing
-        let map_json = params_json.get("map").cloned().unwrap_or(Value::Null);
-        let map_value = json_to_starlark(heap, &map_json);
-        module.set("map", map_value);
     }
 
     // Parse the expression directly

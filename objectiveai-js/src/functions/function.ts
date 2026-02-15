@@ -2,8 +2,15 @@ import z from "zod";
 import {
   InputMapsExpressionSchema,
   InputSchemaSchema,
+  QualityInputMapsExpressionSchema,
+  QualityVectorFunctionInputSchemaSchema,
 } from "./expression/input";
-import { TaskExpressionsSchema } from "./task";
+import {
+  QualityBranchScalarFunctionTasksExpressionsSchema,
+  QualityBranchVectorFunctionTasksExpressionsSchema,
+  QualityLeafTasksExpressionsSchema,
+  TaskExpressionsSchema,
+} from "./task";
 import { ExpressionSchema } from "./expression/expression";
 
 // Inline Function
@@ -121,3 +128,65 @@ export const FunctionSchema = z
   .describe("A function.")
   .meta({ title: "Function" });
 export type Function = z.infer<typeof FunctionSchema>;
+
+// Quality Leaf Remote Function (depth 0: vector.completion tasks only)
+
+export const QualityLeafRemoteScalarFunctionSchema =
+  RemoteScalarFunctionSchema.extend({
+    input_maps: z.undefined(),
+    tasks: QualityLeafTasksExpressionsSchema,
+  }).describe(RemoteScalarFunctionSchema.description!);
+export type QualityLeafRemoteScalarFunction = z.infer<
+  typeof QualityLeafRemoteScalarFunctionSchema
+>;
+
+export const QualityLeafRemoteVectorFunctionSchema =
+  RemoteVectorFunctionSchema.extend({
+    input_schema: QualityVectorFunctionInputSchemaSchema,
+    input_maps: QualityInputMapsExpressionSchema.optional().nullable(),
+    tasks: QualityLeafTasksExpressionsSchema,
+  }).describe(RemoteVectorFunctionSchema.description!);
+export type QualityLeafRemoteVectorFunction = z.infer<
+  typeof QualityLeafRemoteVectorFunctionSchema
+>;
+
+export const QualityLeafRemoteFunctionSchema = z
+  .discriminatedUnion("type", [
+    QualityLeafRemoteScalarFunctionSchema,
+    QualityLeafRemoteVectorFunctionSchema,
+  ])
+  .describe(RemoteFunctionSchema.description!);
+export type QualityLeafRemoteFunction = z.infer<
+  typeof QualityLeafRemoteFunctionSchema
+>;
+
+// Quality Branch Remote Function (depth > 0: function/placeholder tasks)
+
+export const QualityBranchRemoteScalarFunctionSchema =
+  RemoteScalarFunctionSchema.extend({
+    input_maps: z.undefined(),
+    tasks: QualityBranchScalarFunctionTasksExpressionsSchema,
+  }).describe(RemoteScalarFunctionSchema.description!);
+export type QualityBranchRemoteScalarFunction = z.infer<
+  typeof QualityBranchRemoteScalarFunctionSchema
+>;
+
+export const QualityBranchRemoteVectorFunctionSchema =
+  RemoteVectorFunctionSchema.extend({
+    input_schema: QualityVectorFunctionInputSchemaSchema,
+    input_maps: QualityInputMapsExpressionSchema.optional().nullable(),
+    tasks: QualityBranchVectorFunctionTasksExpressionsSchema,
+  }).describe(RemoteVectorFunctionSchema.description!);
+export type QualityBranchRemoteVectorFunction = z.infer<
+  typeof QualityBranchRemoteVectorFunctionSchema
+>;
+
+export const QualityBranchRemoteFunctionSchema = z
+  .discriminatedUnion("type", [
+    QualityBranchRemoteScalarFunctionSchema,
+    QualityBranchRemoteVectorFunctionSchema,
+  ])
+  .describe(RemoteFunctionSchema.description!);
+export type QualityBranchRemoteFunction = z.infer<
+  typeof QualityBranchRemoteFunctionSchema
+>;

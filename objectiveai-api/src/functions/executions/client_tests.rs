@@ -389,9 +389,14 @@ fn create_simple_profile() -> objectiveai::functions::InlineProfile {
     objectiveai::functions::InlineProfile {
         tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
             ensemble: create_simple_ensemble(),
-            profile: vec![Decimal::ONE],
+            profile:
+                objectiveai::vector::completions::request::Profile::Weights(
+                    vec![Decimal::ONE],
+                ),
         }],
-        profile: vec![Decimal::ONE],
+        profile: objectiveai::vector::completions::request::Profile::Weights(
+            vec![Decimal::ONE],
+        ),
     }
 }
 
@@ -444,9 +449,14 @@ fn create_simple_scalar_profile() -> objectiveai::functions::InlineProfile {
     objectiveai::functions::InlineProfile {
         tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
             ensemble: create_simple_ensemble(),
-            profile: vec![Decimal::ONE],
+            profile:
+                objectiveai::vector::completions::request::Profile::Weights(
+                    vec![Decimal::ONE],
+                ),
         }],
-        profile: vec![Decimal::ONE],
+        profile: objectiveai::vector::completions::request::Profile::Weights(
+            vec![Decimal::ONE],
+        ),
     }
 }
 
@@ -677,7 +687,7 @@ mod tests {
                         output: objectiveai::functions::expression::Expression::Starlark(
                             "output['scores']".to_string(),
                         ),
-                    },
+                            },
                 ),
                 objectiveai::functions::TaskExpression::VectorCompletion(
                     objectiveai::functions::VectorCompletionTaskExpression {
@@ -713,7 +723,7 @@ mod tests {
                         output: objectiveai::functions::expression::Expression::Starlark(
                             "output['scores']".to_string(),
                         ),
-                    },
+                            },
                 ),
             ],
             input_split: None,
@@ -725,14 +735,20 @@ mod tests {
             tasks: vec![
                 objectiveai::functions::TaskProfile::VectorCompletion {
                     ensemble: create_simple_ensemble(),
-                    profile: vec![Decimal::ONE],
+                    profile: objectiveai::vector::completions::request::Profile::Weights(
+                        vec![Decimal::ONE],
+                    ),
                 },
                 objectiveai::functions::TaskProfile::VectorCompletion {
                     ensemble: create_simple_ensemble(),
-                    profile: vec![Decimal::ONE],
+                    profile: objectiveai::vector::completions::request::Profile::Weights(
+                        vec![Decimal::ONE],
+                    ),
                 },
             ],
-            profile: vec![Decimal::new(5, 1), Decimal::new(5, 1)], // 0.5, 0.5
+            profile: objectiveai::vector::completions::request::Profile::Weights(
+                vec![Decimal::new(5, 1), Decimal::new(5, 1)],
+            ), // 0.5, 0.5
         };
 
         let request = Arc::new(objectiveai::functions::executions::request::Request::FunctionInlineProfileInline {
@@ -818,12 +834,16 @@ mod tests {
                 ensemble,
                 // Profile weights are per-LLM-config, not per-instance
                 // We have 2 distinct LLM configs (gpt-4o and claude)
-                profile: vec![
-                    Decimal::new(6, 1), // 0.6 for gpt-4o (covers both instances)
-                    Decimal::new(4, 1), // 0.4 for claude
-                ],
+                profile: objectiveai::vector::completions::request::Profile::Weights(
+                    vec![
+                        Decimal::new(6, 1), // 0.6 for gpt-4o (covers both instances)
+                        Decimal::new(4, 1), // 0.4 for claude
+                    ],
+                ),
             }],
-            profile: vec![Decimal::ONE],
+            profile: objectiveai::vector::completions::request::Profile::Weights(
+                vec![Decimal::ONE],
+            ),
         };
 
         let request = Arc::new(objectiveai::functions::executions::request::Request::FunctionInlineProfileInline {

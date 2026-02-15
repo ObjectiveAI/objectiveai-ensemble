@@ -399,7 +399,9 @@ export namespace AnyOfInputSchemaExt {
   export function toZodSchema(
     self: AnyOfInputSchema,
   ): AnyOfInputSchemaToZodSchema {
-    return z.union(self.anyOf.map((schema) => InputSchemaExt.toZodSchema(schema)));
+    return z.union(
+      self.anyOf.map((schema) => InputSchemaExt.toZodSchema(schema)),
+    );
   }
 }
 
@@ -420,6 +422,22 @@ export const InputSchemaSchema = z
   .describe("An input schema defining the structure of function inputs.")
   .meta({ title: "InputSchema" });
 export type InputSchema = z.infer<typeof InputSchemaSchema>;
+
+export const QualityVectorFunctionObjectInputSchemaSchema =
+  ObjectInputSchemaSchema.describe(
+    ObjectInputSchemaSchema.description! +
+      " At least one property must be a required array.",
+  );
+
+export const QualityVectorFunctionInputSchemaSchema = z
+  .union([
+    ArrayInputSchemaSchema,
+    QualityVectorFunctionObjectInputSchemaSchema,
+  ])
+  .describe(
+    "Input schema for a vector function. Must be an array or an object with at least one required array property.",
+  );
+
 export type InputSchemaToZodSchema =
   | ObjectInputSchemaToZodSchema
   | ArrayInputSchemaToZodSchema
@@ -552,20 +570,23 @@ export const InputValueExpressionSchema: z.ZodType<InputValueExpression> = z
 
 // Input Maps
 
+export const InputMapExpressionsSchema = z
+  .array(
+    ExpressionSchema.describe(
+      "An expression evaluating to a 1D array of Inputs. This becomes one sub-array in the input maps, referenced by its position index. Receives: `input`.",
+    ),
+  )
+  .describe(
+    "A list of expressions, each evaluating to a 1D array of Inputs. The i-th expression produces the i-th sub-array.",
+  );
+export type InputMapExpressions = z.infer<typeof InputMapExpressionsSchema>;
+
 export const InputMapsExpressionSchema = z
   .union([
     ExpressionSchema.describe(
       "A single expression evaluating to a 2D array (array of arrays) of Inputs. Each inner array is a separate sub-array that mapped tasks can reference by index. Receives: `input`.",
     ),
-    z
-      .array(
-        ExpressionSchema.describe(
-          "An expression evaluating to a 1D array of Inputs. This becomes one sub-array in the input maps, referenced by its position index. Receives: `input`.",
-        ),
-      )
-      .describe(
-        "A list of expressions, each evaluating to a 1D array of Inputs. The i-th expression produces the i-th sub-array.",
-      ),
+    InputMapExpressionsSchema,
   ])
   .describe(
     "Defines arrays used by mapped tasks. A task with `map: i` references the i-th sub-array. " +
@@ -575,3 +596,9 @@ export const InputMapsExpressionSchema = z
       "Receives: `input`.",
   );
 export type InputMapsExpression = z.infer<typeof InputMapsExpressionSchema>;
+
+export const QualityInputMapsExpressionSchema =
+  InputMapExpressionsSchema.describe(InputMapsExpressionSchema.description!);
+export type QualityInputMapsExpression = z.infer<
+  typeof QualityInputMapsExpressionSchema
+>;

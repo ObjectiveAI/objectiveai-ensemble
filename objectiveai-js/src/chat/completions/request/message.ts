@@ -838,3 +838,179 @@ export const MessagesExpressionSchema = z
   .describe(MessagesSchema.description!)
   .meta({ title: "MessagesExpression" });
 export type MessagesExpression = z.infer<typeof MessagesExpressionSchema>;
+
+// Quality Message Expressions (content must be array of content parts, never plain strings)
+
+export const QualityDeveloperMessageExpressionSchema = z
+  .object({
+    role: z.literal("developer"),
+    content: SimpleContentPartExpressionsSchema,
+    name: MessageNameExpressionSchema.optional().nullable(),
+  })
+  .describe(DeveloperMessageExpressionSchema.description!);
+export type QualityDeveloperMessageExpression = z.infer<
+  typeof QualityDeveloperMessageExpressionSchema
+>;
+
+export const QualitySystemMessageExpressionSchema = z
+  .object({
+    role: z.literal("system"),
+    content: SimpleContentPartExpressionsSchema,
+    name: MessageNameExpressionSchema.optional().nullable(),
+  })
+  .describe(SystemMessageExpressionSchema.description!);
+export type QualitySystemMessageExpression = z.infer<
+  typeof QualitySystemMessageExpressionSchema
+>;
+
+export const QualityUserMessageExpressionSchema = z
+  .object({
+    role: z.literal("user"),
+    content: RichContentPartExpressionsSchema,
+    name: MessageNameExpressionSchema.optional().nullable(),
+  })
+  .describe(UserMessageExpressionSchema.description!);
+export type QualityUserMessageExpression = z.infer<
+  typeof QualityUserMessageExpressionSchema
+>;
+
+export const QualityToolMessageExpressionSchema = z
+  .object({
+    role: z.literal("tool"),
+    content: RichContentPartExpressionsSchema,
+    tool_call_id: ToolMessageToolCallIdExpressionSchema,
+  })
+  .describe(ToolMessageExpressionSchema.description!);
+export type QualityToolMessageExpression = z.infer<
+  typeof QualityToolMessageExpressionSchema
+>;
+
+export const QualityAssistantMessageExpressionSchema = z
+  .object({
+    role: z.literal("assistant"),
+    content: RichContentPartExpressionsSchema.optional().nullable(),
+    name: MessageNameExpressionSchema.optional().nullable(),
+    refusal: AssistantMessageRefusalExpressionSchema.optional().nullable(),
+    tool_calls: AssistantMessageToolCallsExpressionSchema.optional().nullable(),
+    reasoning: AssistantMessageReasoningExpressionSchema.optional().nullable(),
+  })
+  .describe(AssistantMessageExpressionSchema.description!);
+export type QualityAssistantMessageExpression = z.infer<
+  typeof QualityAssistantMessageExpressionSchema
+>;
+
+export const QualityMessageExpressionSchema = z
+  .union([
+    z
+      .discriminatedUnion("role", [
+        QualityDeveloperMessageExpressionSchema,
+        QualitySystemMessageExpressionSchema,
+        QualityUserMessageExpressionSchema,
+        QualityToolMessageExpressionSchema,
+        QualityAssistantMessageExpressionSchema,
+      ])
+      .describe(MessageSchema.description!),
+    ExpressionSchema.describe(
+      "An expression which evaluates to a message. Content must be an array of content parts, not a plain string. Receives: `input`, `map` (if mapped)."
+    ),
+  ])
+  .describe(
+    MessageSchema.description! +
+      " Content must be an array of content parts, not a plain string.",
+  );
+export type QualityMessageExpression = z.infer<
+  typeof QualityMessageExpressionSchema
+>;
+
+export const QualityMessagesExpressionSchema = z
+  .union([
+    z
+      .array(QualityMessageExpressionSchema)
+      .describe(MessagesSchema.description!),
+    ExpressionSchema.describe(
+      "An expression which evaluates to an array of messages. Content must be arrays of content parts, not plain strings. Receives: `input`, `map` (if mapped)."
+    ),
+  ])
+  .describe(
+    MessagesSchema.description! +
+      " Each message's content must be an array of content parts, not a plain string.",
+  );
+export type QualityMessagesExpression = z.infer<
+  typeof QualityMessagesExpressionSchema
+>;
+
+// Quality Messages (compiled, non-expression: content must be array of content parts, never plain strings)
+
+export const QualityDeveloperMessageSchema = z
+  .object({
+    role: z.literal("developer"),
+    content: SimpleContentPartsSchema,
+    name: MessageNameSchema.optional().nullable(),
+  })
+  .describe(DeveloperMessageSchema.description!);
+export type QualityDeveloperMessage = z.infer<
+  typeof QualityDeveloperMessageSchema
+>;
+
+export const QualitySystemMessageSchema = z
+  .object({
+    role: z.literal("system"),
+    content: SimpleContentPartsSchema,
+    name: MessageNameSchema.optional().nullable(),
+  })
+  .describe(SystemMessageSchema.description!);
+export type QualitySystemMessage = z.infer<typeof QualitySystemMessageSchema>;
+
+export const QualityUserMessageSchema = z
+  .object({
+    role: z.literal("user"),
+    content: RichContentPartsSchema,
+    name: MessageNameSchema.optional().nullable(),
+  })
+  .describe(UserMessageSchema.description!);
+export type QualityUserMessage = z.infer<typeof QualityUserMessageSchema>;
+
+export const QualityToolMessageSchema = z
+  .object({
+    role: z.literal("tool"),
+    content: RichContentPartsSchema,
+    tool_call_id: ToolMessageToolCallIdSchema,
+  })
+  .describe(ToolMessageSchema.description!);
+export type QualityToolMessage = z.infer<typeof QualityToolMessageSchema>;
+
+export const QualityAssistantMessageSchema = z
+  .object({
+    role: z.literal("assistant"),
+    content: RichContentPartsSchema.optional().nullable(),
+    name: MessageNameSchema.optional().nullable(),
+    refusal: AssistantMessageRefusalSchema.optional().nullable(),
+    tool_calls: AssistantMessageToolCallsSchema.optional().nullable(),
+    reasoning: AssistantMessageReasoningSchema.optional().nullable(),
+  })
+  .describe(AssistantMessageSchema.description!);
+export type QualityAssistantMessage = z.infer<
+  typeof QualityAssistantMessageSchema
+>;
+
+export const QualityMessageSchema = z
+  .discriminatedUnion("role", [
+    QualityDeveloperMessageSchema,
+    QualitySystemMessageSchema,
+    QualityUserMessageSchema,
+    QualityToolMessageSchema,
+    QualityAssistantMessageSchema,
+  ])
+  .describe(
+    MessageSchema.description! +
+      " Content must be an array of content parts, not a plain string.",
+  );
+export type QualityMessage = z.infer<typeof QualityMessageSchema>;
+
+export const QualityMessagesSchema = z
+  .array(QualityMessageSchema)
+  .describe(
+    MessagesSchema.description! +
+      " Each message's content must be an array of content parts, not a plain string.",
+  );
+export type QualityMessages = z.infer<typeof QualityMessagesSchema>;

@@ -120,7 +120,7 @@ objectiveai/
 ├── objectiveai-api/                # API server (run locally or import as library)
 ├── objectiveai-rs-wasm-js/         # WASM bindings
 ├── objectiveai-js/                 # TypeScript SDK
-├── objectiveai-function-agent-js/  # Agent SDK for creating Functions
+├── objectiveai-cli/                # ObjectiveAI CLI
 └── objectiveai-web/                # Web interface
 ```
 

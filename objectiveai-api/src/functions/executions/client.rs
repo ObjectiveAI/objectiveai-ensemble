@@ -135,6 +135,7 @@ fn apply_task_output_expression(
     input: &objectiveai::functions::expression::Input,
     task_output: objectiveai::functions::expression::TaskOutputOwned,
     output_expression: &objectiveai::functions::expression::Expression,
+    invert_output: bool,
     function_type: &functions::FunctionType,
 ) -> (
     objectiveai::functions::expression::FunctionOutput,
@@ -142,6 +143,33 @@ fn apply_task_output_expression(
 ) {
     use objectiveai::functions::expression::{FunctionOutput, TaskOutput, Params, ParamsRef};
     use rust_decimal::Decimal;
+
+    fn invert_function_output(output: FunctionOutput) -> FunctionOutput {
+        match output {
+            FunctionOutput::Scalar(s) => FunctionOutput::Scalar(Decimal::ONE - s),
+            FunctionOutput::Vector(mut v) => {
+                if v.is_empty() {
+                    return FunctionOutput::Vector(v);
+                }
+                for x in &mut v {
+                    *x = Decimal::ONE - *x;
+                }
+                let sum: Decimal = v.iter().map(|x| x.abs()).sum();
+                if sum == Decimal::ZERO {
+                    let uniform = Decimal::ONE / Decimal::from(v.len());
+                    for x in &mut v {
+                        *x = uniform;
+                    }
+                } else {
+                    for x in &mut v {
+                        *x /= sum;
+                    }
+                }
+                FunctionOutput::Vector(v)
+            }
+            FunctionOutput::Err(e) => FunctionOutput::Err(e),
+        }
+    }
 
     // Build params with input and the task output (one of 4 variants)
     let params = Params::Ref(ParamsRef {
@@ -164,7 +192,7 @@ fn apply_task_output_expression(
     };
 
     // Validate the output against the function type
-    match (function_type, result) {
+    let (validated, err) = match (function_type, result) {
         // Scalar function must return scalar output (allow -0.01 to 1.01 for floating point tolerance)
         (functions::FunctionType::Scalar, FunctionOutput::Scalar(s)) => {
             if s >= rust_decimal::dec!(-0.01) && s <= rust_decimal::dec!(1.01) {
@@ -220,6 +248,12 @@ fn apply_task_output_expression(
                 }),
             }),
         ),
+    };
+
+    if err.is_none() && invert_output {
+        (invert_function_output(validated), None)
+    } else {
+        (validated, err)
     }
 }
 
@@ -1487,6 +1521,7 @@ where
                     },
                     input.unwrap_or_else(|| body.base.input.clone()),
                     None, // Root-level function has no parent task output expression
+                    false, // Root-level function has no invert flag
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1513,6 +1548,7 @@ where
                     },
                     input.unwrap_or_else(|| body.base.input.clone()),
                     None, // Root-level function has no parent task output expression
+                    false, // Root-level function has no invert flag
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1539,6 +1575,7 @@ where
                     },
                     input.unwrap_or_else(|| body.base.input.clone()),
                     None, // Root-level function has no parent task output expression
+                    false, // Root-level function has no invert flag
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1564,6 +1601,7 @@ where
                     },
                     input.unwrap_or_else(|| body.input.clone()),
                     None, // Root-level function has no parent task output expression
+                    false, // Root-level function has no invert flag
                     self.function_fetcher.clone(),
                     self.profile_fetcher.clone(),
                     self.ensemble_fetcher.clone(),
@@ -1642,6 +1680,94 @@ where
                     ),
                 )
                 .flatten()
+                .boxed()
+            }
+            functions::FlatTaskProfile::PlaceholderScalarFunction(_ftp) => {
+                let output = objectiveai::functions::expression::TaskOutputOwned::Function(
+                    objectiveai::functions::expression::FunctionOutput::Scalar(
+                        rust_decimal::Decimal::new(5, 1), // 0.5
+                    ),
+                );
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(vec![None]),
+                    }
+                })
+                .boxed()
+            }
+            functions::FlatTaskProfile::MapPlaceholderScalarFunction(ftp) => {
+                let outputs: Vec<objectiveai::functions::expression::FunctionOutput> = ftp
+                    .placeholders
+                    .iter()
+                    .map(|_| {
+                        objectiveai::functions::expression::FunctionOutput::Scalar(
+                            rust_decimal::Decimal::new(5, 1),
+                        )
+                    })
+                    .collect();
+                let output = objectiveai::functions::expression::TaskOutputOwned::MapFunction(outputs);
+                let retry_len = ftp.task_index_len();
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(
+                            vec![None; retry_len],
+                        ),
+                    }
+                })
+                .boxed()
+            }
+            functions::FlatTaskProfile::PlaceholderVectorFunction(ftp) => {
+                let n = ftp.output_length;
+                let score = if n > 0 {
+                    rust_decimal::Decimal::ONE / rust_decimal::Decimal::from(n)
+                } else {
+                    rust_decimal::Decimal::ZERO
+                };
+                let output = objectiveai::functions::expression::TaskOutputOwned::Function(
+                    objectiveai::functions::expression::FunctionOutput::Vector(
+                        vec![score; n as usize],
+                    ),
+                );
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(vec![None]),
+                    }
+                })
+                .boxed()
+            }
+            functions::FlatTaskProfile::MapPlaceholderVectorFunction(ftp) => {
+                let outputs: Vec<objectiveai::functions::expression::FunctionOutput> = ftp
+                    .placeholders
+                    .iter()
+                    .map(|p| {
+                        let n = p.output_length;
+                        let score = if n > 0 {
+                            rust_decimal::Decimal::ONE / rust_decimal::Decimal::from(n)
+                        } else {
+                            rust_decimal::Decimal::ZERO
+                        };
+                        objectiveai::functions::expression::FunctionOutput::Vector(
+                            vec![score; n as usize],
+                        )
+                    })
+                    .collect();
+                let output = objectiveai::functions::expression::TaskOutputOwned::MapFunction(outputs);
+                let retry_len = ftp.task_index_len();
+                futures::stream::once(async move {
+                    FtpStreamChunk::OutputChunk {
+                        task_index,
+                        output,
+                        retry_token: objectiveai::functions::executions::RetryToken(
+                            vec![None; retry_len],
+                        ),
+                    }
+                })
                 .boxed()
             }
         }
@@ -1778,15 +1904,21 @@ where
         let task_indices = ftp.task_indices();
 
         // extract output expressions from each task for later transformation
-        let task_output_expressions: Vec<Option<objectiveai::functions::expression::Expression>> =
+        let task_output_expressions: Vec<Option<(objectiveai::functions::expression::Expression, bool)>> =
             ftp.tasks
                 .iter()
                 .map(|task| {
                     task.as_ref().and_then(|t| match t {
-                        functions::FlatTaskProfile::Function(f) => f.task_output.clone(),
-                        functions::FlatTaskProfile::MapFunction(mf) => Some(mf.task_output.clone()),
-                        functions::FlatTaskProfile::VectorCompletion(vc) => Some(vc.output.clone()),
-                        functions::FlatTaskProfile::MapVectorCompletion(mvc) => Some(mvc.task_output.clone()),
+                        functions::FlatTaskProfile::Function(f) => {
+                            f.task_output.clone().map(|expr| (expr, f.invert_output))
+                        }
+                        functions::FlatTaskProfile::MapFunction(mf) => Some((mf.task_output.clone(), mf.invert_output)),
+                        functions::FlatTaskProfile::VectorCompletion(vc) => Some((vc.output.clone(), vc.invert_output)),
+                        functions::FlatTaskProfile::MapVectorCompletion(mvc) => Some((mvc.task_output.clone(), mvc.invert_output)),
+                        functions::FlatTaskProfile::PlaceholderScalarFunction(p) => Some((p.output.clone(), p.invert_output)),
+                        functions::FlatTaskProfile::MapPlaceholderScalarFunction(p) => Some((p.task_output.clone(), p.invert_output)),
+                        functions::FlatTaskProfile::PlaceholderVectorFunction(p) => Some((p.output.clone(), p.invert_output)),
+                        functions::FlatTaskProfile::MapPlaceholderVectorFunction(p) => Some((p.task_output.clone(), p.invert_output)),
                     })
                 })
                 .collect();
@@ -1814,12 +1946,20 @@ where
                             Vec::new(),
                         )
                     }
+                    Some(functions::FlatTaskProfile::MapPlaceholderScalarFunction(_))
+                    | Some(functions::FlatTaskProfile::MapPlaceholderVectorFunction(_)) => {
+                        objectiveai::functions::expression::TaskOutputOwned::MapFunction(Vec::new())
+                    }
                     _ => panic!("encountered non-map FlatTaskProfile with length of 0"),
                 };
+                let (expr, invert_output) = task_output_expressions[i]
+                    .as_ref()
+                    .expect("empty map task must have output expression");
                 let (transformed, error) = apply_task_output_expression(
                     &ftp_input,
                     raw_output,
-                    task_output_expressions[i].as_ref().expect("empty map task must have output expression"),
+                    expr,
+                    *invert_output,
                     &ftp_type,
                 );
                 if let Some(err) = error {
@@ -1999,10 +2139,14 @@ where
                         retry_token.insert(local_index, chunk_retry_token);
                         // apply task output expression to transform raw output into FunctionOutput
                         // All non-skipped tasks have required output expressions
+                        let (expr, invert_output) = task_output_expressions[local_index]
+                            .as_ref()
+                            .expect("non-skipped task must have output expression");
                         let (transformed_output, transform_error) = apply_task_output_expression(
                             &ftp_input,
                             chunk_output,
-                            task_output_expressions[local_index].as_ref().expect("non-skipped task must have output expression"),
+                            expr,
+                            *invert_output,
                             &ftp_type,
                         );
                         // collect error if any
@@ -2627,5 +2771,95 @@ impl ConfidenceResponse {
         )
         .into_iter()
         .flatten()
+    }
+}
+
+#[cfg(test)]
+mod invert_output_tests {
+    use super::*;
+    use objectiveai::functions::expression::{
+        Expression, FunctionOutput, TaskOutputOwned, VectorCompletionOutput,
+    };
+    use rust_decimal::dec;
+
+    fn empty_input() -> objectiveai::functions::expression::Input {
+        objectiveai::functions::expression::Input::Object(indexmap::IndexMap::new())
+    }
+
+    #[test]
+    fn invert_task_output_scalar() {
+        let input = empty_input();
+        let raw = TaskOutputOwned::Function(FunctionOutput::Scalar(dec!(0.75)));
+        let expr = Expression::Starlark("output".to_string());
+        let (out, err) = apply_task_output_expression(
+            &input,
+            raw,
+            &expr,
+            true,
+            &functions::FunctionType::Scalar,
+        );
+        assert!(err.is_none());
+        match out {
+            FunctionOutput::Scalar(v) => assert_eq!(v, dec!(0.25)),
+            other => panic!("expected scalar output, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn invert_task_output_vector() {
+        let input = empty_input();
+        let raw = TaskOutputOwned::Function(FunctionOutput::Vector(vec![
+            dec!(0.75),
+            dec!(0.25),
+            dec!(0.0),
+        ]));
+        let expr = Expression::Starlark("output".to_string());
+        let (out, err) = apply_task_output_expression(
+            &input,
+            raw,
+            &expr,
+            true,
+            &functions::FunctionType::Vector {
+                output_length: None,
+                input_split: None,
+                input_merge: None,
+            },
+        );
+        assert!(err.is_none());
+        match out {
+            FunctionOutput::Vector(v) => {
+                assert_eq!(v, vec![dec!(0.125), dec!(0.375), dec!(0.5)])
+            }
+            other => panic!("expected vector output, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn invert_task_output_vector_completion_scores() {
+        let input = empty_input();
+        let raw = TaskOutputOwned::VectorCompletion(VectorCompletionOutput {
+            votes: Vec::new(),
+            scores: vec![dec!(0.75), dec!(0.25), dec!(0.0)],
+            weights: vec![dec!(1.0), dec!(1.0), dec!(1.0)],
+        });
+        let expr = Expression::Starlark("output['scores']".to_string());
+        let (out, err) = apply_task_output_expression(
+            &input,
+            raw,
+            &expr,
+            true,
+            &functions::FunctionType::Vector {
+                output_length: None,
+                input_split: None,
+                input_merge: None,
+            },
+        );
+        assert!(err.is_none());
+        match out {
+            FunctionOutput::Vector(v) => {
+                assert_eq!(v, vec![dec!(0.125), dec!(0.375), dec!(0.5)])
+            }
+            other => panic!("expected vector output, got {:?}", other),
+        }
     }
 }

@@ -322,4 +322,6 @@ pub struct PfxData {
     pub responses_key_pattern: String,
     /// Regex pattern matching response keys without backticks.
     pub responses_key_pattern_stripped: String,
+    /// Whether to invert this LLM's vote distribution.
+    pub invert_vote: bool,
 }

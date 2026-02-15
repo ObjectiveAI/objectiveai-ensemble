@@ -14,7 +14,7 @@ objectiveai/
 ├── objectiveai-api/                # API server (self-hostable, or import as library)
 ├── objectiveai-rs-wasm-js/         # WASM bindings for browser/Node.js
 ├── objectiveai-js/                 # TypeScript SDK (npm: objectiveai)
-├── objectiveai-function-agent-js/  # Autonomous function creation agent
+├── objectiveai-cli/                # ObjectiveAI CLI
 ├── objectiveai-web/                # Next.js web interface (production)
 └── coding-agent-scratch/           # Scratch folder for testing SDK calls
 ```
@@ -263,7 +263,7 @@ Enables browser-based validation and preview without server round-trips.
 ```bash
 # Good - from workspace root
 npm install
-npm run build --workspace=@objectiveai/function-agent
+npm run build --workspace=@objectiveai/cli
 npm run build --workspace=objectiveai
 
 # Bad - from package directory
@@ -280,7 +280,7 @@ cd objectiveai-js && npm run build
 
 ---
 
-## Function Agent SDK (`objectiveai-function-agent-js`)
+## ObjectiveAI CLI (`objectiveai-cli`)
 
 Autonomous agent for creating, testing, and deploying ObjectiveAI Functions without human intervention.
 
@@ -295,7 +295,7 @@ The Function Agent is an autonomous Claude Code agent (ObjectiveAI-claude-code-1
 
 ### Location
 
-`objectiveai-function-agent-js/` in monorepo workspace.
+`objectiveai-cli/` in monorepo workspace.
 
 ### Test Scripts
 
@@ -308,7 +308,7 @@ See `coding-agent-scratch/` for example invocations:
 
 The agent is invoked programmatically via the Agent SDK:
 ```bash
-npm run build --workspace=@objectiveai/function-agent
+npm run build --workspace=@objectiveai/cli
 # Agent execution via SDK (see test scripts for examples)
 ```
 

@@ -28,7 +28,7 @@ export type RemoteFunctionTaskProfile = z.infer<
 
 export interface InlineFunctionTaskProfile {
   tasks: TaskProfile[];
-  profile: number[];
+  profile: z.infer<typeof VectorProfileSchema>;
 }
 export const InlineFunctionTaskProfileSchema: z.ZodType<InlineFunctionTaskProfile> =
   z
@@ -40,9 +40,9 @@ export const InlineFunctionTaskProfileSchema: z.ZodType<InlineFunctionTaskProfil
             .meta({ title: "TaskProfile", recursive: true })
         )
         .describe("The list of task profiles."),
-      profile: z
-        .array(z.number())
-        .describe("The weights for each task used in weighted averaging of task outputs."),
+      profile: VectorProfileSchema.describe(
+        "The weights for each task used in weighted averaging of task outputs. Can be either a list of weights or a list of objects with `weight` and optional `invert`."
+      ),
     })
     .describe("A function profile defined inline.")
     .meta({ title: "InlineFunctionTaskProfile" });
@@ -59,11 +59,21 @@ export type VectorCompletionTaskProfile = z.infer<
   typeof VectorCompletionTaskProfileSchema
 >;
 
+export const PlaceholderTaskProfileSchema = z
+  .object({})
+  .strict()
+  .describe("A placeholder profile for placeholder function tasks.")
+  .meta({ title: "PlaceholderTaskProfile" });
+export type PlaceholderTaskProfile = z.infer<
+  typeof PlaceholderTaskProfileSchema
+>;
+
 export const TaskProfileSchema = z
   .union([
     RemoteFunctionTaskProfileSchema,
     InlineFunctionTaskProfileSchema,
     VectorCompletionTaskProfileSchema,
+    PlaceholderTaskProfileSchema,
   ])
   .describe("The profile for a task.");
 export type TaskProfile = z.infer<typeof TaskProfileSchema>;
@@ -78,9 +88,9 @@ export type TaskProfiles = z.infer<typeof TaskProfilesSchema>;
 export const InlineProfileSchema = z
   .object({
     tasks: TaskProfilesSchema,
-    profile: z
-      .array(z.number())
-      .describe("The weights for each task used in weighted averaging of task outputs."),
+    profile: VectorProfileSchema.describe(
+      "The weights for each task used in weighted averaging of task outputs. Can be either a list of weights or a list of objects with `weight` and optional `invert`."
+    ),
   })
   .describe("A function profile defined inline.")
   .meta({ title: "InlineProfile" });

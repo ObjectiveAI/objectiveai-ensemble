@@ -45,6 +45,7 @@ mod profile;
 pub mod profiles;
 pub mod response;
 mod task;
+pub mod quality;
 
 pub use function::*;
 pub use profile::*;

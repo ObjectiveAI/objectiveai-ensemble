@@ -50,7 +50,9 @@ impl From<response::streaming::FunctionProfileComputationChunk>
             executions_errors: executions_errors.unwrap_or(false),
             profile: profile.unwrap_or_else(|| functions::InlineProfile {
                 tasks: Vec::new(),
-                profile: Vec::new(),
+                profile: crate::vector::completions::request::Profile::Weights(
+                    Vec::new(),
+                ),
             }),
             fitting_stats: fitting_stats
                 .unwrap_or(response::FittingStats::default()),

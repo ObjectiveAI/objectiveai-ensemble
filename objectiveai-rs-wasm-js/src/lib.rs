@@ -367,6 +367,99 @@ pub fn compileFunctionInputMerge(
     Ok(input_merge)
 }
 
+/// Validates vector function fields (output_length, input_split, input_merge).
+///
+/// Generates diverse example inputs from the input_schema and validates that the
+/// output_length, input_split, and input_merge expressions work correctly together
+/// via round-trip testing.
+///
+/// # Arguments
+///
+/// * `fields` - JavaScript object with `input_schema`, `output_length`, `input_split`, `input_merge`
+///
+/// # Returns
+///
+/// Nothing on success. Throws a descriptive error string on failure.
+#[wasm_bindgen]
+pub fn qualityCheckVectorFields(fields: JsValue) -> Result<(), JsValue> {
+    let fields: objectiveai::functions::quality::VectorFieldsValidation =
+        serde_wasm_bindgen::from_value(fields)?;
+    objectiveai::functions::quality::check_vector_fields(fields)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
+/// Quality check for a leaf function (depth 0).
+///
+/// Routes to leaf scalar or leaf vector checks based on the function type.
+/// Leaf functions contain only vector.completion tasks.
+#[wasm_bindgen]
+pub fn qualityCheckLeafFunction(function: JsValue) -> Result<(), JsValue> {
+    let function: objectiveai::functions::RemoteFunction =
+        serde_wasm_bindgen::from_value(function)?;
+    objectiveai::functions::quality::check_leaf_function(&function)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
+/// Quality check for a branch function (depth > 0).
+///
+/// Routes to branch scalar or branch vector checks based on the function type.
+/// Branch functions contain only function/placeholder tasks.
+#[wasm_bindgen]
+pub fn qualityCheckBranchFunction(function: JsValue) -> Result<(), JsValue> {
+    let function: objectiveai::functions::RemoteFunction =
+        serde_wasm_bindgen::from_value(function)?;
+    objectiveai::functions::quality::check_branch_function(&function)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
+/// Quality check for a leaf scalar function (depth 0, scalar output).
+///
+/// Validates: no input_maps, only vector.completion tasks, no map,
+/// content parts (not plain strings), messages >= 1, responses >= 2.
+#[wasm_bindgen]
+pub fn qualityCheckLeafScalarFunction(function: JsValue) -> Result<(), JsValue> {
+    let function: objectiveai::functions::RemoteFunction =
+        serde_wasm_bindgen::from_value(function)?;
+    objectiveai::functions::quality::check_leaf_scalar_function(&function)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
+/// Quality check for a leaf vector function (depth 0, vector output).
+///
+/// Validates: vector input schema, only vector.completion tasks, no map,
+/// content parts, vector field round-trip (output_length/input_split/input_merge).
+#[wasm_bindgen]
+pub fn qualityCheckLeafVectorFunction(function: JsValue) -> Result<(), JsValue> {
+    let function: objectiveai::functions::RemoteFunction =
+        serde_wasm_bindgen::from_value(function)?;
+    objectiveai::functions::quality::check_leaf_vector_function(&function)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
+/// Quality check for a branch scalar function (depth > 0, scalar output).
+///
+/// Validates: no input_maps, only scalar-like tasks, no map, no vector.completion,
+/// example inputs compile and placeholder inputs match schemas.
+#[wasm_bindgen]
+pub fn qualityCheckBranchScalarFunction(function: JsValue) -> Result<(), JsValue> {
+    let function: objectiveai::functions::RemoteFunction =
+        serde_wasm_bindgen::from_value(function)?;
+    objectiveai::functions::quality::check_branch_scalar_function(&function)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
+/// Quality check for a branch vector function (depth > 0, vector output).
+///
+/// Validates: vector input schema, task type/map constraints, single-task-must-be-vector,
+/// <= 50% mapped scalar, vector field round-trip, example input compilation.
+#[wasm_bindgen]
+pub fn qualityCheckBranchVectorFunction(function: JsValue) -> Result<(), JsValue> {
+    let function: objectiveai::functions::RemoteFunction =
+        serde_wasm_bindgen::from_value(function)?;
+    objectiveai::functions::quality::check_branch_vector_function(&function)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
 /// Computes a content-addressed ID for chat messages.
 ///
 /// Normalizes the messages (consolidates text parts, removes empty content)
