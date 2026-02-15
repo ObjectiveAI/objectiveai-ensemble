@@ -34,3 +34,5 @@ mod check_leaf_vector_function_tests;
 mod check_branch_scalar_function_tests;
 #[cfg(test)]
 mod check_branch_vector_function_tests;
+#[cfg(test)]
+mod check_vector_fields_tests;

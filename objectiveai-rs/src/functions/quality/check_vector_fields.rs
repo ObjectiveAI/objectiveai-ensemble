@@ -227,7 +227,7 @@ pub fn check_vector_fields(
 }
 
 /// Deep equality check for Input values.
-fn inputs_equal(a: &Input, b: &Input) -> bool {
+pub(super) fn inputs_equal(a: &Input, b: &Input) -> bool {
     match (a, b) {
         (Input::String(a), Input::String(b)) => a == b,
         (Input::Integer(a), Input::Integer(b)) => a == b,
@@ -251,7 +251,7 @@ fn inputs_equal(a: &Input, b: &Input) -> bool {
 }
 
 /// Generate random subsets of indices for subset merge testing.
-fn random_subsets(length: usize, count: usize) -> Vec<Vec<usize>> {
+pub(super) fn random_subsets(length: usize, count: usize) -> Vec<Vec<usize>> {
     if length < 2 {
         return vec![];
     }
@@ -280,41 +280,4 @@ fn random_subsets(length: usize, count: usize) -> Vec<Vec<usize>> {
     }
 
     result
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_random_subsets() {
-        let subsets = random_subsets(5, 5);
-        assert!(!subsets.is_empty());
-        for subset in &subsets {
-            assert!(subset.len() >= 2);
-            for (i, &idx) in subset.iter().enumerate() {
-                assert!(idx < 5);
-                if i > 0 {
-                    assert!(idx > subset[i - 1], "Subsets should be sorted");
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_inputs_equal() {
-        use indexmap::IndexMap;
-
-        let a = Input::Object({
-            let mut m = IndexMap::new();
-            m.insert("x".to_string(), Input::Integer(1));
-            m
-        });
-        let b = Input::Object({
-            let mut m = IndexMap::new();
-            m.insert("x".to_string(), Input::Integer(1));
-            m
-        });
-        assert!(inputs_equal(&a, &b));
-    }
 }
