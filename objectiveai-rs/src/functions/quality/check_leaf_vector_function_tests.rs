@@ -16,6 +16,31 @@ fn wrong_type_scalar() {
 }
 
 #[test]
+fn rejects_input_maps() {
+    use crate::functions::expression::InputMaps;
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: fixed_two_strings_schema(),
+        input_maps: Some(InputMaps::One(Expression::Starlark(
+            "input".to_string(),
+        ))),
+        tasks: vec![valid_vector_vc_task()],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    let err = check_leaf_vector_function(&f).unwrap_err();
+    assert!(err.contains("must not have input_maps"));
+}
+
+#[test]
 fn input_schema_string() {
     let f = leaf_vector(simple_string_schema(), vec![]);
     let err = check_leaf_vector_function(&f).unwrap_err();

@@ -21,25 +21,27 @@ use super::example_inputs::generate_example_inputs;
 ///
 /// # Checks
 ///
-/// 1. Input schema must be an array or an object with at least one required array property
-/// 2. All tasks must be `vector.completion`
-/// 3. No `map` on vector.completion tasks
-/// 4. Message content must be content parts arrays, not plain strings
-/// 5. Response content must be content parts arrays, not plain strings
-/// 6. Vector fields (output_length, input_split, input_merge) round-trip correctly
+/// 1. No `input_maps` — leaf vector tasks are never mapped
+/// 2. Input schema must be an array or an object with at least one required array property
+/// 3. All tasks must be `vector.completion`
+/// 4. No `map` on vector.completion tasks
+/// 5. Message content must be content parts arrays, not plain strings
+/// 6. Response content must be content parts arrays, not plain strings
+/// 7. Vector fields (output_length, input_split, input_merge) round-trip correctly
 pub fn check_leaf_vector_function(
     function: &RemoteFunction,
 ) -> Result<(), String> {
-    let (input_schema, tasks, output_length, input_split, input_merge) =
+    let (input_maps, input_schema, tasks, output_length, input_split, input_merge) =
         match function {
             RemoteFunction::Vector {
+                input_maps,
                 input_schema,
                 tasks,
                 output_length,
                 input_split,
                 input_merge,
                 ..
-            } => (input_schema, tasks, output_length, input_split, input_merge),
+            } => (input_maps, input_schema, tasks, output_length, input_split, input_merge),
             RemoteFunction::Scalar { .. } => {
                 return Err(
                     "Expected vector function, got scalar function".to_string()
@@ -47,7 +49,12 @@ pub fn check_leaf_vector_function(
             }
         };
 
-    // 1. Input schema must be array or object with ≥1 required array property
+    // 1. No input_maps
+    if input_maps.is_some() {
+        return Err("Leaf vector functions must not have input_maps".to_string());
+    }
+
+    // 2. Input schema must be array or object with ≥1 required array property
     check_vector_input_schema(input_schema)?;
 
     // 2. Must have at least one task

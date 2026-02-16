@@ -371,13 +371,19 @@ pub fn branch_vector(
     input_schema: InputSchema,
     tasks: Vec<TaskExpression>,
 ) -> RemoteFunction {
+    branch_vector_with_maps(input_schema, None, tasks)
+}
+
+pub fn branch_vector_with_maps(
+    input_schema: InputSchema,
+    input_maps: Option<crate::functions::expression::InputMaps>,
+    tasks: Vec<TaskExpression>,
+) -> RemoteFunction {
     RemoteFunction::Vector {
         description: "test".to_string(),
         changelog: None,
         input_schema: input_schema.clone(),
-        input_maps: Some(crate::functions::expression::InputMaps::Many(vec![
-            Expression::Starlark("input['items']".to_string()),
-        ])),
+        input_maps,
         tasks,
         output_length: WithExpression::Expression(
             Expression::Starlark("len(input['items'])".to_string()),

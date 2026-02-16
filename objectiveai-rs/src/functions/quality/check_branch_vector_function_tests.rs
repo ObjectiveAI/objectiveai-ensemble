@@ -147,8 +147,9 @@ fn valid_single_placeholder_vector() {
 
 #[test]
 fn valid_50_50_split() {
-    let f = branch_vector(
+    let f = branch_vector_with_maps(
         object_with_required_array_schema(),
+        Some(items_input_maps()),
         vec![
             valid_scalar_function_task(Some(0)),
             valid_vector_function_task(None),
@@ -159,8 +160,9 @@ fn valid_50_50_split() {
 
 #[test]
 fn valid_mixed_tasks() {
-    let f = branch_vector(
+    let f = branch_vector_with_maps(
         object_with_required_array_schema(),
+        Some(items_input_maps()),
         vec![
             valid_scalar_function_task(Some(0)),
             valid_vector_function_task(None),
@@ -185,7 +187,7 @@ fn valid_all_unmapped_vector() {
 // --- Full-function input diversity tests (inline RemoteFunction::Vector) ---
 
 use crate::functions::expression::{
-    ArrayInputSchema, Expression, InputSchema, IntegerInputSchema,
+    ArrayInputSchema, Expression, InputMaps, InputSchema, IntegerInputSchema,
     ObjectInputSchema, StringInputSchema, WithExpression,
 };
 use crate::functions::{
@@ -194,6 +196,13 @@ use crate::functions::{
     VectorFunctionTaskExpression,
 };
 use indexmap::IndexMap;
+
+/// Standard input_maps expression: `[input['items']]`.
+fn items_input_maps() -> InputMaps {
+    InputMaps::Many(vec![
+        Expression::Starlark("input['items']".to_string()),
+    ])
+}
 
 /// Helper: unmapped vector function task with custom input expression.
 fn vf_task(input_expr: &str) -> TaskExpression {
@@ -339,13 +348,18 @@ fn child_items_schema() -> InputSchema {
 }
 
 fn items_label_branch_vector(tasks: Vec<TaskExpression>) -> RemoteFunction {
+    items_label_branch_vector_with_maps(None, tasks)
+}
+
+fn items_label_branch_vector_with_maps(
+    input_maps: Option<crate::functions::expression::InputMaps>,
+    tasks: Vec<TaskExpression>,
+) -> RemoteFunction {
     RemoteFunction::Vector {
         description: "test".to_string(),
         changelog: None,
         input_schema: items_label_schema(),
-        input_maps: Some(crate::functions::expression::InputMaps::Many(vec![
-            Expression::Starlark("input['items']".to_string()),
-        ])),
+        input_maps,
         tasks,
         output_length: WithExpression::Expression(Expression::Starlark(
             "len(input['items'])".to_string(),
@@ -385,12 +399,15 @@ fn input_diversity_fail_third_task_fixed_input() {
 fn input_diversity_fail_third_task_mapped_fixed() {
     // Tasks 0,1: unmapped vector (OK). Task 2: mapped scalar with FIXED input.
     // 1/4 mapped satisfies 50% rule, but task 2 has fixed input.
-    let f = items_label_branch_vector(vec![
-        vf_task("input"),
-        vf_task("{'items': input['items'], 'label': input['label'] + ' v2'}"),
-        sf_mapped_task(0, "'constant'"),
-        vf_task("{'items': input['items'], 'label': 'alt'}"),
-    ]);
+    let f = items_label_branch_vector_with_maps(
+        Some(items_input_maps()),
+        vec![
+            vf_task("input"),
+            vf_task("{'items': input['items'], 'label': input['label'] + ' v2'}"),
+            sf_mapped_task(0, "'constant'"),
+            vf_task("{'items': input['items'], 'label': 'alt'}"),
+        ],
+    );
     let err = check_branch_vector_function(&f, None).unwrap_err();
     assert!(
         err.contains("Task [2]") && err.contains("fixed value"),
@@ -413,10 +430,13 @@ fn input_diversity_pass_vector_function_passthrough() {
 #[test]
 fn input_diversity_pass_mixed_mapped_and_unmapped() {
     // One mapped scalar (uses map element) + one unmapped vector (passes input).
-    let f = items_label_branch_vector(vec![
-        sf_mapped_task(0, "map"),
-        vf_task("input"),
-    ]);
+    let f = items_label_branch_vector_with_maps(
+        Some(items_input_maps()),
+        vec![
+            sf_mapped_task(0, "map"),
+            vf_task("input"),
+        ],
+    );
     check_branch_vector_function(&f, None).unwrap();
 }
 
@@ -436,11 +456,14 @@ fn input_diversity_pass_placeholder_vector_tasks() {
 #[test]
 fn input_diversity_pass_mapped_scalar_with_two_vectors() {
     // One mapped scalar + two unmapped vectors, all derived from input.
-    let f = items_label_branch_vector(vec![
-        sf_mapped_task(0, "map"),
-        vf_task("input"),
-        vf_task("{'items': input['items'], 'label': input['label'] + ' alt'}"),
-    ]);
+    let f = items_label_branch_vector_with_maps(
+        Some(items_input_maps()),
+        vec![
+            sf_mapped_task(0, "map"),
+            vf_task("input"),
+            vf_task("{'items': input['items'], 'label': input['label'] + ' alt'}"),
+        ],
+    );
     check_branch_vector_function(&f, None).unwrap();
 }
 
@@ -523,9 +546,7 @@ fn input_diversity_fail_child_min_items_3() {
         description: "test".to_string(),
         changelog: None,
         input_schema: parent_schema,
-        input_maps: Some(crate::functions::expression::InputMaps::Many(vec![
-            Expression::Starlark("input['entries']".to_string()),
-        ])),
+        input_maps: None,
         tasks: vec![
             // Unmapped vector function — passes input through
             vf_task("input"),
@@ -582,12 +603,15 @@ fn input_diversity_pass_no_input_maps() {
 #[test]
 fn input_diversity_fail_with_input_maps_fixed() {
     // input_maps is set, mapped scalar task ignores map element — uses fixed input.
-    let f = items_label_branch_vector(vec![
-        // Task 0: unmapped vector passes input — OK
-        vf_task("input"),
-        // Task 1: mapped scalar uses FIXED input, ignoring map element
-        sf_mapped_task(0, "'always_same'"),
-    ]);
+    let f = items_label_branch_vector_with_maps(
+        Some(items_input_maps()),
+        vec![
+            // Task 0: unmapped vector passes input — OK
+            vf_task("input"),
+            // Task 1: mapped scalar uses FIXED input, ignoring map element
+            sf_mapped_task(0, "'always_same'"),
+        ],
+    );
     let err = check_branch_vector_function(&f, None).unwrap_err();
     assert!(
         err.contains("Task [1]") && err.contains("fixed value"),
@@ -600,4 +624,42 @@ fn rejects_no_tasks() {
     let f = branch_vector(object_with_required_array_schema(), vec![]);
     let err = check_branch_vector_function(&f, None).unwrap_err();
     assert!(err.contains("at least one task"));
+}
+
+// --- Unused input_maps tests ---
+
+#[test]
+fn rejects_unused_input_maps() {
+    // input_maps has 1 sub-array but no task has map=0.
+    let f = items_label_branch_vector_with_maps(
+        Some(items_input_maps()),
+        vec![
+            vf_task("input"),
+            vf_task("{'items': input['items'], 'label': input['label']}"),
+        ],
+    );
+    let err = check_branch_vector_function(&f, None).unwrap_err();
+    assert!(
+        err.contains("not referenced by any task's map field"),
+        "expected unused input_maps error, got: {err}"
+    );
+}
+
+#[test]
+fn rejects_out_of_bounds_map_index() {
+    // input_maps has 1 sub-array but task references map index 1 (out of bounds).
+    let f = items_label_branch_vector_with_maps(
+        Some(items_input_maps()),
+        vec![
+            sf_mapped_task(0, "map"),
+            sf_mapped_task(1, "map"), // index 1 doesn't exist
+            vf_task("input"),
+            vf_task("{'items': input['items'], 'label': input['label']}"),
+        ],
+    );
+    let err = check_branch_vector_function(&f, None).unwrap_err();
+    assert!(
+        err.contains("map index 1") && err.contains("only 1 sub-arrays"),
+        "expected out-of-bounds map error, got: {err}"
+    );
 }

@@ -237,7 +237,6 @@ const baseLeafVectorFunction = {
   output_length: { $starlark: "len(input['items'])" },
   input_split: { $starlark: "[{'items': [x]} for x in input['items']]" },
   input_merge: { $starlark: "{'items': [x['items'][0] for x in input]}" },
-  input_maps: [{ $starlark: "input['items']" }],
   tasks: [qualityVectorVectorCompletionTaskExpression],
 };
 
@@ -1005,6 +1004,14 @@ describe("Quality schemas reject invalid values", () => {
   it("QualityLeafRemoteScalarFunctionSchema rejects input_maps", () => {
     const result = QualityLeafRemoteScalarFunctionSchema.safeParse({
       ...baseLeafScalarFunction,
+      input_maps: [{ $starlark: "input['items']" }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("QualityLeafRemoteVectorFunctionSchema rejects input_maps", () => {
+    const result = QualityLeafRemoteVectorFunctionSchema.safeParse({
+      ...baseLeafVectorFunction,
       input_maps: [{ $starlark: "input['items']" }],
     });
     expect(result.success).toBe(false);

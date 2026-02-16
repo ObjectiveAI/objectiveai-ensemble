@@ -173,7 +173,7 @@ export const QualityLeafRemoteScalarFunctionJsonSchema: JSONSchema = convert(
 export const QualityLeafRemoteVectorFunctionSchema =
   RemoteVectorFunctionSchema.extend({
     input_schema: QualityVectorFunctionInputSchemaSchema,
-    input_maps: QualityInputMapsExpressionSchema.optional().nullable(),
+    input_maps: z.undefined(),
     tasks: QualityLeafVectorTasksExpressionsSchema,
   })
     .describe(RemoteVectorFunctionSchema.description!)

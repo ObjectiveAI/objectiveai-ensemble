@@ -1177,6 +1177,74 @@ fn extract_array_at_path<'a>(
     }
 }
 
+/// Validates that every compiled input_maps sub-array is referenced by at
+/// least one task's `map` field, and that no task references an out-of-bounds
+/// index.
+///
+/// This check operates on **compiled** input_maps (not the raw expressions),
+/// because `InputMaps::One` can produce a variable number of sub-arrays
+/// depending on the input.
+///
+/// If the function has no `input_maps`, this is a no-op.
+pub(super) fn check_no_unused_input_maps(
+    function: &RemoteFunction,
+) -> Result<(), String> {
+    // Only applies if input_maps is present
+    if function.input_maps().is_none() {
+        return Ok(());
+    }
+
+    let input_schema = function.input_schema();
+    let inputs = generate_example_inputs(input_schema);
+    if inputs.is_empty() {
+        return Ok(());
+    }
+
+    // Collect all task map indices
+    let task_map_indices: HashSet<u64> = function
+        .tasks()
+        .iter()
+        .filter_map(|t| t.input_map())
+        .collect();
+
+    for (i, input) in inputs.iter().enumerate() {
+        let func = Function::Remote(function.clone());
+        let compiled = func.compile_input_maps(input).map_err(|e| {
+            format!("Input [{}]: input_maps compilation failed: {}", i, e)
+        })?;
+
+        let Some(compiled_maps) = compiled else {
+            continue;
+        };
+
+        let len = compiled_maps.len() as u64;
+
+        // Check no task references an out-of-bounds index
+        for &idx in &task_map_indices {
+            if idx >= len {
+                return Err(format!(
+                    "Input [{}]: task has map index {} but compiled \
+                     input_maps has only {} sub-arrays",
+                    i, idx, len
+                ));
+            }
+        }
+
+        // Check every index is referenced by at least one task
+        for idx in 0..len {
+            if !task_map_indices.contains(&idx) {
+                return Err(format!(
+                    "Input [{}]: compiled input_maps has {} sub-arrays \
+                     but index {} is not referenced by any task's map field",
+                    i, len, idx
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Checks that a compiled message's content is parts, not a plain string.
 fn check_compiled_message_content(
     location: &str,

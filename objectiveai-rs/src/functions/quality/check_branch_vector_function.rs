@@ -9,7 +9,8 @@ use super::check_leaf_vector_function::{
 };
 use super::check_vector_fields::{VectorFieldsValidation, check_vector_fields};
 use super::compile_and_validate::{
-    compile_and_validate_task_inputs, validate_function_input_diversity,
+    check_no_unused_input_maps, compile_and_validate_task_inputs,
+    validate_function_input_diversity,
 };
 
 /// Validates quality requirements for a branch vector function.
@@ -139,7 +140,10 @@ pub fn check_branch_vector_function(
         ));
     }
 
-    // 7. Vector fields round-trip validation
+    // 7. No unused input_maps (compiled)
+    check_no_unused_input_maps(function)?;
+
+    // 8. Vector fields round-trip validation
     check_vector_fields(VectorFieldsValidation {
         input_schema: input_schema.clone(),
         output_length: output_length.clone(),
@@ -147,13 +151,13 @@ pub fn check_branch_vector_function(
         input_merge: input_merge.clone(),
     })?;
 
-    // 8. Compile tasks with example inputs and validate placeholder inputs
+    // 9. Compile tasks with example inputs and validate placeholder inputs
     compile_and_validate_task_inputs(function, children)?;
 
-    // 9. Function input diversity — compiled inputs must vary with parent input
+    // 10. Function input diversity — compiled inputs must vary with parent input
     validate_function_input_diversity(function)?;
 
-    // 10. Compile and validate tasks for merged sub-inputs
+    // 11. Compile and validate tasks for merged sub-inputs
     validate_tasks_for_merged_inputs(function, children)?;
 
     Ok(())
