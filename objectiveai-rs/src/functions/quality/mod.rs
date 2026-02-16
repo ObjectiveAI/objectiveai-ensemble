@@ -5,6 +5,7 @@
 //! - [`check_leaf_function`] — validates a leaf function (depth 0, vector.completion tasks)
 //! - [`check_branch_function`] — validates a branch function (depth > 0, function/placeholder tasks)
 
+mod check_description;
 mod example_inputs;
 mod check_vector_fields;
 mod compile_and_validate;

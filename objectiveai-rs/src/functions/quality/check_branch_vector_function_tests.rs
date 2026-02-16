@@ -184,6 +184,90 @@ fn valid_all_unmapped_vector() {
     check_branch_vector_function(&f, None).unwrap();
 }
 
+// --- Description tests ---
+
+#[test]
+fn description_too_long() {
+    let f = RemoteFunction::Vector {
+        description: "a".repeat(351),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: {
+                let mut m = IndexMap::new();
+                m.insert(
+                    "items".to_string(),
+                    InputSchema::Array(ArrayInputSchema {
+                        description: None,
+                        min_items: Some(2),
+                        max_items: Some(2),
+                        items: Box::new(InputSchema::String(StringInputSchema {
+                            description: None,
+                            r#enum: None,
+                        })),
+                    }),
+                );
+                m
+            },
+            required: Some(vec!["items".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![valid_vector_function_task(None)],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input['items'])".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[{'items': [x]} for x in input['items']]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "{'items': [x['items'][0] for x in input]}".to_string(),
+        )),
+    };
+    let err = check_branch_vector_function(&f, None).unwrap_err();
+    assert!(err.contains("351 bytes"), "expected byte count error, got: {err}");
+}
+
+#[test]
+fn description_empty() {
+    let f = RemoteFunction::Vector {
+        description: "  ".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: {
+                let mut m = IndexMap::new();
+                m.insert(
+                    "items".to_string(),
+                    InputSchema::Array(ArrayInputSchema {
+                        description: None,
+                        min_items: Some(2),
+                        max_items: Some(2),
+                        items: Box::new(InputSchema::String(StringInputSchema {
+                            description: None,
+                            r#enum: None,
+                        })),
+                    }),
+                );
+                m
+            },
+            required: Some(vec!["items".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![valid_vector_function_task(None)],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input['items'])".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[{'items': [x]} for x in input['items']]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "{'items': [x['items'][0] for x in input]}".to_string(),
+        )),
+    };
+    let err = check_branch_vector_function(&f, None).unwrap_err();
+    assert!(err.contains("must not be empty"), "expected empty error, got: {err}");
+}
+
 // --- Full-function input diversity tests (inline RemoteFunction::Vector) ---
 
 use crate::functions::expression::{

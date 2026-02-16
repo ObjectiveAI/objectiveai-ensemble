@@ -108,6 +108,40 @@ fn rejects_no_tasks() {
     assert!(err.contains("at least one task"));
 }
 
+// --- Description tests ---
+
+#[test]
+fn description_too_long() {
+    let f = RemoteFunction::Scalar {
+        description: "a".repeat(351),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![valid_scalar_function_task(None)],
+    };
+    let err = check_branch_scalar_function(&f, None).unwrap_err();
+    assert!(err.contains("351 bytes"), "expected byte count error, got: {err}");
+}
+
+#[test]
+fn description_empty() {
+    let f = RemoteFunction::Scalar {
+        description: "  ".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![valid_scalar_function_task(None)],
+    };
+    let err = check_branch_scalar_function(&f, None).unwrap_err();
+    assert!(err.contains("must not be empty"), "expected empty error, got: {err}");
+}
+
 // --- Full-function input diversity tests (inline RemoteFunction::Scalar) ---
 
 /// Helper: scalar function task with custom input expression.

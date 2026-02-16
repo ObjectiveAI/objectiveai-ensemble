@@ -3,6 +3,7 @@
 use crate::functions::expression::InputSchema;
 use crate::functions::{Function, RemoteFunction, TaskExpression};
 
+use super::check_description::check_description;
 use super::check_leaf_scalar_function::{
     check_vector_completion_messages, check_vector_vector_completion_responses,
 };
@@ -31,9 +32,10 @@ use super::example_inputs::generate_example_inputs;
 pub fn check_leaf_vector_function(
     function: &RemoteFunction,
 ) -> Result<(), String> {
-    let (input_maps, input_schema, tasks, output_length, input_split, input_merge) =
+    let (description, input_maps, input_schema, tasks, output_length, input_split, input_merge) =
         match function {
             RemoteFunction::Vector {
+                description,
                 input_maps,
                 input_schema,
                 tasks,
@@ -41,7 +43,7 @@ pub fn check_leaf_vector_function(
                 input_split,
                 input_merge,
                 ..
-            } => (input_maps, input_schema, tasks, output_length, input_split, input_merge),
+            } => (description, input_maps, input_schema, tasks, output_length, input_split, input_merge),
             RemoteFunction::Scalar { .. } => {
                 return Err(
                     "Expected vector function, got scalar function".to_string()
@@ -49,7 +51,10 @@ pub fn check_leaf_vector_function(
             }
         };
 
-    // 1. No input_maps
+    // 1. Description
+    check_description(description)?;
+
+    // 2. No input_maps
     if input_maps.is_some() {
         return Err("Leaf vector functions must not have input_maps".to_string());
     }

@@ -286,6 +286,68 @@ fn responses_derived_from_input_passes_diversity() {
     check_leaf_vector_function(&f).unwrap();
 }
 
+// --- Description tests ---
+
+#[test]
+fn description_too_long() {
+    let f = RemoteFunction::Vector {
+        description: "a".repeat(351),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![valid_vector_vc_task()],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    let err = check_leaf_vector_function(&f).unwrap_err();
+    assert!(err.contains("351 bytes"), "expected byte count error, got: {err}");
+}
+
+#[test]
+fn description_empty() {
+    let f = RemoteFunction::Vector {
+        description: "  ".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![valid_vector_vc_task()],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    let err = check_leaf_vector_function(&f).unwrap_err();
+    assert!(err.contains("must not be empty"), "expected empty error, got: {err}");
+}
+
 // --- Full-function diversity tests (inline RemoteFunction::Vector) ---
 
 use crate::functions::expression::{

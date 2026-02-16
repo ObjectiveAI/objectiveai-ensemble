@@ -460,6 +460,38 @@ fn branching_scalar_output_three_values() {
 }
 
 #[test]
+fn description_too_long() {
+    let f = RemoteFunction::Scalar {
+        description: "a".repeat(351),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![input_derived_vc_task()],
+    };
+    let err = check_leaf_scalar_function(&f).unwrap_err();
+    assert!(err.contains("351 bytes"), "expected byte count error, got: {err}");
+}
+
+#[test]
+fn description_empty() {
+    let f = RemoteFunction::Scalar {
+        description: "  ".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![input_derived_vc_task()],
+    };
+    let err = check_leaf_scalar_function(&f).unwrap_err();
+    assert!(err.contains("must not be empty"), "expected empty error, got: {err}");
+}
+
+#[test]
 fn valid_developer_message_parts() {
     // Developer message uses content parts (not plain string) — passes structural check.
     // The text derives from input so the compiled task varies.

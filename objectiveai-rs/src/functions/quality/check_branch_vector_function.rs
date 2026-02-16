@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::functions::{RemoteFunction, TaskExpression};
 
+use super::check_description::check_description;
 use super::check_leaf_vector_function::{
     check_vector_input_schema, validate_tasks_for_merged_inputs,
 };
@@ -34,16 +35,17 @@ pub fn check_branch_vector_function(
     function: &RemoteFunction,
     children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
-    let (input_schema, tasks, output_length, input_split, input_merge) =
+    let (description, input_schema, tasks, output_length, input_split, input_merge) =
         match function {
             RemoteFunction::Vector {
+                description,
                 input_schema,
                 tasks,
                 output_length,
                 input_split,
                 input_merge,
                 ..
-            } => (input_schema, tasks, output_length, input_split, input_merge),
+            } => (description, input_schema, tasks, output_length, input_split, input_merge),
             RemoteFunction::Scalar { .. } => {
                 return Err(
                     "Expected vector function, got scalar function".to_string()
@@ -51,7 +53,10 @@ pub fn check_branch_vector_function(
             }
         };
 
-    // 1. Input schema check
+    // 1. Description
+    check_description(description)?;
+
+    // 2. Input schema check
     check_vector_input_schema(input_schema)?;
 
     // 2. Must have at least one task

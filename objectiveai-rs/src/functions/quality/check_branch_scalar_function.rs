@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::functions::{RemoteFunction, TaskExpression};
 
+use super::check_description::check_description;
 use super::compile_and_validate::{
     compile_and_validate_task_inputs, validate_scalar_function_input_diversity,
 };
@@ -25,10 +26,10 @@ pub fn check_branch_scalar_function(
     function: &RemoteFunction,
     children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
-    let (input_maps, tasks) = match function {
+    let (description, input_maps, tasks) = match function {
         RemoteFunction::Scalar {
-            input_maps, tasks, ..
-        } => (input_maps, tasks),
+            description, input_maps, tasks, ..
+        } => (description, input_maps, tasks),
         RemoteFunction::Vector { .. } => {
             return Err(
                 "Expected scalar function, got vector function".to_string()
@@ -36,7 +37,10 @@ pub fn check_branch_scalar_function(
         }
     };
 
-    // 1. No input_maps
+    // 1. Description
+    check_description(description)?;
+
+    // 2. No input_maps
     if input_maps.is_some() {
         return Err("Scalar functions must not have input_maps".to_string());
     }
