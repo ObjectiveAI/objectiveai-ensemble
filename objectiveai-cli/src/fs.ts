@@ -219,7 +219,7 @@ function writeParametersToFilesystem(
   writeJsonToFilesystem(join(dir, "parameters.json"), parameters);
 }
 
-function writeFunctionToFilesystem(
+export function writeFunctionToFilesystem(
   dir: string,
   fn: Functions.RemoteFunction,
 ): void {
@@ -256,7 +256,7 @@ function writePlaceholderTaskSpecsToFilesystem(
   writeJsonToFilesystem(join(dir, "placeholder_task_specs.json"), specs);
 }
 
-export function writeState(
+export function writeStateToFilesystem(
   dir: string,
   state: State,
   parameters: Parameters,

@@ -1,4 +1,12 @@
 import { Functions } from "objectiveai";
+import { relative } from "path";
+import {
+  getRepoRoot,
+  getRemoteUrl,
+  parseGitHubRemote,
+  getLatestCommitForPath,
+  hasUncommittedChanges,
+} from "./git";
 
 export interface OwnerRepositoryCommit {
   owner: string;
@@ -76,4 +84,61 @@ export async function fetchRemoteFunctions(
   }
 
   return record;
+}
+
+async function commitExistsOnRemote(
+  owner: string,
+  repository: string,
+  sha: string,
+): Promise<boolean> {
+  try {
+    const url = `https://api.github.com/repos/${owner}/${repository}/commits/${sha}`;
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        ...(process.env.GITHUB_TOKEN
+          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+          : {}),
+      },
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function getOwnerRepositoryCommit(
+  dir: string,
+): Promise<OwnerRepositoryCommit | null> {
+  const repoRoot = getRepoRoot(dir);
+  if (!repoRoot) return null;
+
+  const remoteUrl = getRemoteUrl(repoRoot);
+  if (!remoteUrl) return null;
+
+  const parsed = parseGitHubRemote(remoteUrl);
+  if (!parsed) return null;
+
+  const relativePath = relative(repoRoot, dir).replace(/\\/g, "/");
+
+  if (hasUncommittedChanges(repoRoot, relativePath + "/function.json"))
+    return null;
+  if (hasUncommittedChanges(repoRoot, relativePath + "/profile.json"))
+    return null;
+
+  const localCommit = getLatestCommitForPath(repoRoot, relativePath);
+  if (!localCommit) return null;
+
+  const exists = await commitExistsOnRemote(
+    parsed.owner,
+    parsed.repository,
+    localCommit,
+  );
+  if (!exists) return null;
+
+  return {
+    owner: parsed.owner,
+    repository: parsed.repository,
+    commit: localCommit,
+  };
 }
