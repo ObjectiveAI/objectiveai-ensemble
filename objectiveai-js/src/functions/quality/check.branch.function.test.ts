@@ -30,7 +30,12 @@ function vectorFunctionTask() {
 const objectWithRequiredArraySchema = {
   type: "object",
   properties: {
-    items: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 10 },
+    items: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 2,
+      maxItems: 10,
+    },
     label: { type: "string" },
   },
   required: ["items", "label"],
@@ -46,7 +51,7 @@ describe("checkBranchFunction", () => {
       input_schema: { type: "integer", minimum: 1, maximum: 10 },
       tasks: [scalarFunctionTask()],
     };
-    expect(() => Functions.Quality.checkBranchFunction(f)).not.toThrow();
+    expect(() => Functions.Quality.checkBranchFunction(f as any)).not.toThrow();
   });
 
   it("routes vector correctly (accepts valid branch vector)", () => {
@@ -65,7 +70,7 @@ describe("checkBranchFunction", () => {
       },
       tasks: [vectorFunctionTask()],
     };
-    expect(() => Functions.Quality.checkBranchFunction(f)).not.toThrow();
+    expect(() => Functions.Quality.checkBranchFunction(f as any)).not.toThrow();
   });
 
   it("routes scalar and catches scalar-specific errors", () => {
@@ -76,7 +81,7 @@ describe("checkBranchFunction", () => {
       input_maps: [{ $starlark: "input" }],
       tasks: [scalarFunctionTask()],
     };
-    expect(() => Functions.Quality.checkBranchFunction(f)).toThrow(
+    expect(() => Functions.Quality.checkBranchFunction(f as any)).toThrow(
       /must not have input_maps/,
     );
   });
@@ -91,7 +96,7 @@ describe("checkBranchFunction", () => {
       input_merge: { $starlark: "input[0]" },
       tasks: [],
     };
-    expect(() => Functions.Quality.checkBranchFunction(f)).toThrow(
+    expect(() => Functions.Quality.checkBranchFunction(f as any)).toThrow(
       /must be an array, or an object/,
     );
   });
