@@ -1,5 +1,7 @@
 import { Functions } from "objectiveai";
+import z from "zod";
 import { Result } from "../result";
+import { Tool } from "../tool";
 
 export class LeafVectorState {
   readonly function: Partial<Functions.QualityLeafRemoteVectorFunction>;
@@ -33,6 +35,15 @@ export class LeafVectorState {
     }
   }
 
+  getInputSchemaTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionInputSchema",
+      description: "Read FunctionInputSchema",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInputSchema()),
+    };
+  }
+
   setInputSchema(value: unknown): Result<string> {
     const parsed =
       Functions.QualityLeafRemoteVectorFunctionSchema.shape.input_schema.safeParse(
@@ -53,6 +64,17 @@ export class LeafVectorState {
     };
   }
 
+  setInputSchemaTool(): Tool<{
+    input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  }> {
+    return {
+      name: "WriteFunctionInputSchema",
+      description: "Write FunctionInputSchema",
+      inputSchema: { input_schema: z.record(z.string(), z.unknown()) },
+      fn: (args) => Promise.resolve(this.setInputSchema(args.input_schema)),
+    };
+  }
+
   getOutputLength(): Result<string> {
     if (this.function.output_length !== undefined) {
       return {
@@ -67,6 +89,15 @@ export class LeafVectorState {
         error: "FunctionOutputLength not set",
       };
     }
+  }
+
+  getOutputLengthTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionOutputLength",
+      description: "Read FunctionOutputLength",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getOutputLength()),
+    };
   }
 
   setOutputLength(value: unknown): Result<string> {
@@ -89,6 +120,15 @@ export class LeafVectorState {
     };
   }
 
+  setOutputLengthTool(): Tool<{ output_length: z.ZodUnknown }> {
+    return {
+      name: "WriteFunctionOutputLength",
+      description: "Write FunctionOutputLength",
+      inputSchema: { output_length: z.unknown() },
+      fn: (args) => Promise.resolve(this.setOutputLength(args.output_length)),
+    };
+  }
+
   getInputSplit(): Result<string> {
     if (this.function.input_split) {
       return {
@@ -103,6 +143,15 @@ export class LeafVectorState {
         error: "FunctionInputSplit not set",
       };
     }
+  }
+
+  getInputSplitTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionInputSplit",
+      description: "Read FunctionInputSplit",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInputSplit()),
+    };
   }
 
   setInputSplit(value: unknown): Result<string> {
@@ -125,6 +174,15 @@ export class LeafVectorState {
     };
   }
 
+  setInputSplitTool(): Tool<{ input_split: z.ZodUnknown }> {
+    return {
+      name: "WriteFunctionInputSplit",
+      description: "Write FunctionInputSplit",
+      inputSchema: { input_split: z.unknown() },
+      fn: (args) => Promise.resolve(this.setInputSplit(args.input_split)),
+    };
+  }
+
   getInputMerge(): Result<string> {
     if (this.function.input_merge) {
       return {
@@ -139,6 +197,15 @@ export class LeafVectorState {
         error: "FunctionInputMerge not set",
       };
     }
+  }
+
+  getInputMergeTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionInputMerge",
+      description: "Read FunctionInputMerge",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInputMerge()),
+    };
   }
 
   setInputMerge(value: unknown): Result<string> {
@@ -158,6 +225,15 @@ export class LeafVectorState {
       ok: true,
       value: "",
       error: undefined,
+    };
+  }
+
+  setInputMergeTool(): Tool<{ input_merge: z.ZodUnknown }> {
+    return {
+      name: "WriteFunctionInputMerge",
+      description: "Write FunctionInputMerge",
+      inputSchema: { input_merge: z.unknown() },
+      fn: (args) => Promise.resolve(this.setInputMerge(args.input_merge)),
     };
   }
 
@@ -215,6 +291,32 @@ export class LeafVectorState {
     };
   }
 
+  checkFieldsTool(): Tool<{}> {
+    return {
+      name: "CheckFields",
+      description: "Check Fields",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.checkFields()),
+    };
+  }
+
+  getTasksLength(): Result<string> {
+    return {
+      ok: true,
+      value: String(this.function.tasks?.length ?? 0),
+      error: undefined,
+    };
+  }
+
+  getTasksLengthTool(): Tool<{}> {
+    return {
+      name: "ReadTasksLength",
+      description: "Read TasksLength",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getTasksLength()),
+    };
+  }
+
   getTask(index: number): Result<string> {
     if (
       !this.function.tasks ||
@@ -234,6 +336,15 @@ export class LeafVectorState {
     };
   }
 
+  getTaskTool(): Tool<{ index: z.ZodNumber }> {
+    return {
+      name: "ReadTask",
+      description: "Read Task",
+      inputSchema: { index: z.number() },
+      fn: (args) => Promise.resolve(this.getTask(args.index)),
+    };
+  }
+
   appendTask(value: unknown): Result<string> {
     const parsed =
       Functions.QualityVectorVectorCompletionTaskExpressionSchema.safeParse(
@@ -243,7 +354,7 @@ export class LeafVectorState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid QualityVectorVectorCompletionTaskExpressionSchema: ${parsed.error.message}`,
+        error: `Invalid QualityVectorVectorCompletionTaskExpression: ${parsed.error.message}`,
       };
     }
     if (this.function.tasks) {
@@ -255,6 +366,15 @@ export class LeafVectorState {
       ok: true,
       value: `New length: ${this.function.tasks.length}`,
       error: undefined,
+    };
+  }
+
+  appendTaskTool(): Tool<{ task: z.ZodRecord<z.ZodString, z.ZodUnknown> }> {
+    return {
+      name: "AppendTask",
+      description: "Append Task",
+      inputSchema: { task: z.record(z.string(), z.unknown()) },
+      fn: (args) => Promise.resolve(this.appendTask(args.task)),
     };
   }
 
@@ -278,6 +398,15 @@ export class LeafVectorState {
     };
   }
 
+  deleteTaskTool(): Tool<{ index: z.ZodNumber }> {
+    return {
+      name: "DeleteTask",
+      description: "Delete Task",
+      inputSchema: { index: z.number() },
+      fn: (args) => Promise.resolve(this.deleteTask(args.index)),
+    };
+  }
+
   editTask(index: number, value: unknown): Result<string> {
     if (
       !this.function.tasks ||
@@ -298,7 +427,7 @@ export class LeafVectorState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid QualityVectorVectorCompletionTaskExpressionSchema: ${parsed.error.message}`,
+        error: `Invalid QualityVectorVectorCompletionTaskExpression: ${parsed.error.message}`,
       };
     }
     this.function.tasks[index] = parsed.data;
@@ -309,10 +438,25 @@ export class LeafVectorState {
     };
   }
 
+  editTaskTool(): Tool<{
+    index: z.ZodNumber;
+    task: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  }> {
+    return {
+      name: "EditTask",
+      description: "Edit Task",
+      inputSchema: {
+        index: z.number(),
+        task: z.record(z.string(), z.unknown()),
+      },
+      fn: (args) => Promise.resolve(this.editTask(args.index, args.task)),
+    };
+  }
+
   checkFunction(): Result<string> {
     const parsed = Functions.QualityLeafRemoteVectorFunctionSchema.safeParse({
       ...this.function,
-      description: this.function.description || "",
+      description: this.function.description || "description",
     });
     if (!parsed.success) {
       return {
@@ -337,4 +481,12 @@ export class LeafVectorState {
     };
   }
 
+  checkFunctionTool(): Tool<{}> {
+    return {
+      name: "CheckFunction",
+      description: "Check Function",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.checkFunction()),
+    };
+  }
 }

@@ -1,5 +1,7 @@
 import { Functions } from "objectiveai";
+import z from "zod";
 import { Result } from "../result";
+import { Tool } from "../tool";
 
 export class LeafScalarState {
   readonly function: Partial<Functions.QualityLeafRemoteScalarFunction>;
@@ -26,6 +28,15 @@ export class LeafScalarState {
     }
   }
 
+  getInputSchemaTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionInputSchema",
+      description: "Read FunctionInputSchema",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInputSchema()),
+    };
+  }
+
   setInputSchema(value: unknown): Result<string> {
     const parsed =
       Functions.QualityLeafRemoteScalarFunctionSchema.shape.input_schema.safeParse(
@@ -43,6 +54,34 @@ export class LeafScalarState {
       ok: true,
       value: "",
       error: undefined,
+    };
+  }
+
+  setInputSchemaTool(): Tool<{
+    input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  }> {
+    return {
+      name: "WriteFunctionInputSchema",
+      description: "Write FunctionInputSchema",
+      inputSchema: { input_schema: z.record(z.string(), z.unknown()) },
+      fn: (args) => Promise.resolve(this.setInputSchema(args.input_schema)),
+    };
+  }
+
+  getTasksLength(): Result<string> {
+    return {
+      ok: true,
+      value: String(this.function.tasks?.length ?? 0),
+      error: undefined,
+    };
+  }
+
+  getTasksLengthTool(): Tool<{}> {
+    return {
+      name: "ReadTasksLength",
+      description: "Read TasksLength",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getTasksLength()),
     };
   }
 
@@ -65,6 +104,15 @@ export class LeafScalarState {
     };
   }
 
+  getTaskTool(): Tool<{ index: z.ZodNumber }> {
+    return {
+      name: "ReadTask",
+      description: "Read Task",
+      inputSchema: { index: z.number() },
+      fn: (args) => Promise.resolve(this.getTask(args.index)),
+    };
+  }
+
   appendTask(value: unknown): Result<string> {
     const parsed =
       Functions.QualityScalarVectorCompletionTaskExpressionSchema.safeParse(
@@ -74,7 +122,7 @@ export class LeafScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid QualityScalarVectorCompletionTaskExpressionSchema: ${parsed.error.message}`,
+        error: `Invalid QualityScalarVectorCompletionTaskExpression: ${parsed.error.message}`,
       };
     }
     if (this.function.tasks) {
@@ -86,6 +134,15 @@ export class LeafScalarState {
       ok: true,
       value: `New length: ${this.function.tasks.length}`,
       error: undefined,
+    };
+  }
+
+  appendTaskTool(): Tool<{ task: z.ZodRecord<z.ZodString, z.ZodUnknown> }> {
+    return {
+      name: "AppendTask",
+      description: "Append Task",
+      inputSchema: { task: z.record(z.string(), z.unknown()) },
+      fn: (args) => Promise.resolve(this.appendTask(args.task)),
     };
   }
 
@@ -109,6 +166,15 @@ export class LeafScalarState {
     };
   }
 
+  deleteTaskTool(): Tool<{ index: z.ZodNumber }> {
+    return {
+      name: "DeleteTask",
+      description: "Delete Task",
+      inputSchema: { index: z.number() },
+      fn: (args) => Promise.resolve(this.deleteTask(args.index)),
+    };
+  }
+
   editTask(index: number, value: unknown): Result<string> {
     if (
       !this.function.tasks ||
@@ -129,7 +195,7 @@ export class LeafScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid QualityScalarVectorCompletionTaskExpressionSchema: ${parsed.error.message}`,
+        error: `Invalid QualityScalarVectorCompletionTaskExpression: ${parsed.error.message}`,
       };
     }
     this.function.tasks[index] = parsed.data;
@@ -140,12 +206,26 @@ export class LeafScalarState {
     };
   }
 
+  editTaskTool(): Tool<{
+    index: z.ZodNumber;
+    task: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  }> {
+    return {
+      name: "EditTask",
+      description: "Edit Task",
+      inputSchema: {
+        index: z.number(),
+        task: z.record(z.string(), z.unknown()),
+      },
+      fn: (args) => Promise.resolve(this.editTask(args.index, args.task)),
+    };
+  }
+
   checkFunction(): Result<string> {
-    const parsed =
-      Functions.QualityLeafRemoteScalarFunctionSchema.safeParse({
-        ...this.function,
-        description: this.function.description || "",
-      });
+    const parsed = Functions.QualityLeafRemoteScalarFunctionSchema.safeParse({
+      ...this.function,
+      description: this.function.description || "description",
+    });
     if (!parsed.success) {
       return {
         ok: false,
@@ -169,4 +249,12 @@ export class LeafScalarState {
     };
   }
 
+  checkFunctionTool(): Tool<{}> {
+    return {
+      name: "CheckFunction",
+      description: "Check Function",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.checkFunction()),
+    };
+  }
 }

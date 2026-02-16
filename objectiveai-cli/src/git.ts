@@ -1,6 +1,6 @@
-import { execSync } from "child_process";
+import { execSync, ExecSyncOptionsWithStringEncoding } from "child_process";
 
-const execOpts = { encoding: "utf-8" as const, stdio: ["pipe", "pipe", "pipe"] as const };
+const execOpts: ExecSyncOptionsWithStringEncoding = { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] };
 
 export function getRepoRoot(dir: string): string | null {
   try {

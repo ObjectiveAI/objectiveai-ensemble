@@ -1,5 +1,7 @@
 import { Functions } from "objectiveai";
+import z from "zod";
 import { Result } from "../result";
+import { Tool } from "../tool";
 import { PlaceholderTaskSpecs } from "src/placeholder";
 
 export class BranchScalarState {
@@ -28,6 +30,15 @@ export class BranchScalarState {
     }
   }
 
+  getInputSchemaTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionInputSchema",
+      description: "Read FunctionInputSchema",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInputSchema()),
+    };
+  }
+
   setInputSchema(value: unknown): Result<string> {
     const parsed =
       Functions.QualityBranchRemoteScalarFunctionSchema.shape.input_schema.safeParse(
@@ -48,6 +59,34 @@ export class BranchScalarState {
     };
   }
 
+  setInputSchemaTool(): Tool<{
+    input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  }> {
+    return {
+      name: "WriteFunctionInputSchema",
+      description: "Write FunctionInputSchema",
+      inputSchema: { input_schema: z.record(z.string(), z.unknown()) },
+      fn: (args) => Promise.resolve(this.setInputSchema(args.input_schema)),
+    };
+  }
+
+  getTasksLength(): Result<string> {
+    return {
+      ok: true,
+      value: String(this.function.tasks?.length ?? 0),
+      error: undefined,
+    };
+  }
+
+  getTasksLengthTool(): Tool<{}> {
+    return {
+      name: "ReadTasksLength",
+      description: "Read TasksLength",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getTasksLength()),
+    };
+  }
+
   getTask(index: number): Result<string> {
     if (
       !this.function.tasks ||
@@ -64,6 +103,15 @@ export class BranchScalarState {
       ok: true,
       value: JSON.stringify(this.function.tasks[index], null, 2),
       error: undefined,
+    };
+  }
+
+  getTaskTool(): Tool<{ index: z.ZodNumber }> {
+    return {
+      name: "ReadTask",
+      description: "Read Task",
+      inputSchema: { index: z.number() },
+      fn: (args) => Promise.resolve(this.getTask(args.index)),
     };
   }
 
@@ -94,6 +142,15 @@ export class BranchScalarState {
     };
   }
 
+  getTaskSpecTool(): Tool<{ index: z.ZodNumber }> {
+    return {
+      name: "ReadTaskSpec",
+      description: "Read TaskSpec",
+      inputSchema: { index: z.number() },
+      fn: (args) => Promise.resolve(this.getTaskSpec(args.index)),
+    };
+  }
+
   appendTask(value: unknown, spec: string): Result<string> {
     const parsed =
       Functions.QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema.safeParse(
@@ -103,7 +160,7 @@ export class BranchScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema: ${parsed.error.message}`,
+        error: `Invalid QualityUnmappedPlaceholderScalarFunctionTaskExpression: ${parsed.error.message}`,
       };
     }
     if (spec.trim() === "") {
@@ -130,6 +187,21 @@ export class BranchScalarState {
     };
   }
 
+  appendTaskTool(): Tool<{
+    task: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+    spec: z.ZodString;
+  }> {
+    return {
+      name: "AppendTask",
+      description: "Append Task",
+      inputSchema: {
+        task: z.record(z.string(), z.unknown()),
+        spec: z.string(),
+      },
+      fn: (args) => Promise.resolve(this.appendTask(args.task, args.spec)),
+    };
+  }
+
   deleteTask(index: number): Result<string> {
     if (
       !this.function.tasks ||
@@ -148,6 +220,15 @@ export class BranchScalarState {
       ok: true,
       value: `New length: ${this.function.tasks.length}`,
       error: undefined,
+    };
+  }
+
+  deleteTaskTool(): Tool<{ index: z.ZodNumber }> {
+    return {
+      name: "DeleteTask",
+      description: "Delete Task",
+      inputSchema: { index: z.number() },
+      fn: (args) => Promise.resolve(this.deleteTask(args.index)),
     };
   }
 
@@ -171,7 +252,7 @@ export class BranchScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema: ${parsed.error.message}`,
+        error: `Invalid QualityUnmappedPlaceholderScalarFunctionTaskExpression: ${parsed.error.message}`,
       };
     }
     this.function.tasks[index] = parsed.data;
@@ -179,6 +260,21 @@ export class BranchScalarState {
       ok: true,
       value: "Task updated. If the task spec should change, edit it as well.",
       error: undefined,
+    };
+  }
+
+  editTaskTool(): Tool<{
+    index: z.ZodNumber;
+    task: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+  }> {
+    return {
+      name: "EditTask",
+      description: "Edit Task",
+      inputSchema: {
+        index: z.number(),
+        task: z.record(z.string(), z.unknown()),
+      },
+      fn: (args) => Promise.resolve(this.editTask(args.index, args.task)),
     };
   }
 
@@ -215,10 +311,20 @@ export class BranchScalarState {
     };
   }
 
+  editTaskSpecTool(): Tool<{ index: z.ZodNumber; spec: z.ZodString }> {
+    return {
+      name: "EditTaskSpec",
+      description: "Edit TaskSpec",
+      inputSchema: { index: z.number(), spec: z.string() },
+      fn: (args) =>
+        Promise.resolve(this.editTaskSpec(args.index, args.spec)),
+    };
+  }
+
   checkFunction(): Result<string> {
     const parsed = Functions.QualityBranchRemoteScalarFunctionSchema.safeParse({
       ...this.function,
-      description: this.function.description || "",
+      description: this.function.description || "description",
     });
     if (!parsed.success) {
       return {
@@ -240,6 +346,15 @@ export class BranchScalarState {
       ok: true,
       value: "Function is valid",
       error: undefined,
+    };
+  }
+
+  checkFunctionTool(): Tool<{}> {
+    return {
+      name: "CheckFunction",
+      description: "Check Function",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.checkFunction()),
     };
   }
 

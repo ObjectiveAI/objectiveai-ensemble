@@ -6,6 +6,7 @@ import { BranchScalarState } from "./branchScalarState";
 import { BranchVectorState } from "./branchVectorState";
 import { LeafScalarState } from "./leafScalarState";
 import { LeafVectorState } from "./leafVectorState";
+import { Tool } from "src/tool";
 
 export const StateOptionsBaseSchema = z.object({
   parameters: ParametersSchema,
@@ -72,17 +73,39 @@ export class State {
 
   getName(): Result<string> {
     if (this.name === undefined) {
-      return { ok: false, value: undefined, error: "Name not set" };
+      return { ok: false, value: undefined, error: "FunctionName not set" };
     }
     return { ok: true, value: this.name, error: undefined };
   }
 
-  setName(value: string): Result<undefined> {
+  getNameTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionName",
+      description: "Read FunctionName",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getName()),
+    };
+  }
+
+  setName(value: string): Result<string> {
     if (value.trim() === "") {
-      return { ok: false, value: undefined, error: "Name cannot be empty" };
+      return {
+        ok: false,
+        value: undefined,
+        error: "FunctionName cannot be empty",
+      };
     }
     this.name = value;
-    return { ok: true, value: undefined, error: undefined };
+    return { ok: true, value: "", error: undefined };
+  }
+
+  setNameTool(): Tool<{ content: z.ZodString }> {
+    return {
+      name: "WriteFunctionName",
+      description: "Write FunctionName",
+      inputSchema: { content: z.string() },
+      fn: (args) => Promise.resolve(this.setName(args.content)),
+    };
   }
 
   getInventEssay(): Result<string> {
@@ -92,7 +115,16 @@ export class State {
     return { ok: true, value: this.inventEssay, error: undefined };
   }
 
-  setInventEssay(value: string): Result<undefined> {
+  getInventEssayTool(): Tool<{}> {
+    return {
+      name: "ReadInventEssay",
+      description: "Read InventEssay",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInventEssay()),
+    };
+  }
+
+  setInventEssay(value: string): Result<string> {
     if (value.trim() === "") {
       return {
         ok: false,
@@ -101,7 +133,16 @@ export class State {
       };
     }
     this.inventEssay = value;
-    return { ok: true, value: undefined, error: undefined };
+    return { ok: true, value: "", error: undefined };
+  }
+
+  setInventEssayTool(): Tool<{ content: z.ZodString }> {
+    return {
+      name: "WriteInventEssay",
+      description: "Write InventEssay",
+      inputSchema: { content: z.string() },
+      fn: (args) => Promise.resolve(this.setInventEssay(args.content)),
+    };
   }
 
   getInventEssayTasks(): Result<string> {
@@ -115,7 +156,16 @@ export class State {
     return { ok: true, value: this.inventEssayTasks, error: undefined };
   }
 
-  setInventEssayTasks(value: string): Result<undefined> {
+  getInventEssayTasksTool(): Tool<{}> {
+    return {
+      name: "ReadInventEssayTasks",
+      description: "Read InventEssayTasks",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInventEssayTasks()),
+    };
+  }
+
+  setInventEssayTasks(value: string): Result<string> {
     if (value.trim() === "") {
       return {
         ok: false,
@@ -124,7 +174,16 @@ export class State {
       };
     }
     this.inventEssayTasks = value;
-    return { ok: true, value: undefined, error: undefined };
+    return { ok: true, value: "", error: undefined };
+  }
+
+  setInventEssayTasksTool(): Tool<{ content: z.ZodString }> {
+    return {
+      name: "WriteInventEssayTasks",
+      description: "Write InventEssayTasks",
+      inputSchema: { content: z.string() },
+      fn: (args) => Promise.resolve(this.setInventEssayTasks(args.content)),
+    };
   }
 
   getInventPlan(): Result<string> {
@@ -134,7 +193,16 @@ export class State {
     return { ok: true, value: this.inventPlan, error: undefined };
   }
 
-  setInventPlan(value: string): Result<undefined> {
+  getInventPlanTool(): Tool<{}> {
+    return {
+      name: "ReadInventPlan",
+      description: "Read InventPlan",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInventPlan()),
+    };
+  }
+
+  setInventPlan(value: string): Result<string> {
     if (value.trim() === "") {
       return {
         ok: false,
@@ -143,7 +211,16 @@ export class State {
       };
     }
     this.inventPlan = value;
-    return { ok: true, value: undefined, error: undefined };
+    return { ok: true, value: "", error: undefined };
+  }
+
+  setInventPlanTool(): Tool<{ content: z.ZodString }> {
+    return {
+      name: "WriteInventPlan",
+      description: "Write InventPlan",
+      inputSchema: { content: z.string() },
+      fn: (args) => Promise.resolve(this.setInventPlan(args.content)),
+    };
   }
 
   getReadme(): Result<string> {
@@ -153,12 +230,30 @@ export class State {
     return { ok: true, value: this.readme, error: undefined };
   }
 
-  setReadme(value: string): Result<undefined> {
+  getReadmeTool(): Tool<{}> {
+    return {
+      name: "ReadReadme",
+      description: "Read Readme",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getReadme()),
+    };
+  }
+
+  setReadme(value: string): Result<string> {
     if (value.trim() === "") {
       return { ok: false, value: undefined, error: "Readme cannot be empty" };
     }
     this.readme = value;
-    return { ok: true, value: undefined, error: undefined };
+    return { ok: true, value: "", error: undefined };
+  }
+
+  setReadmeTool(): Tool<{ content: z.ZodString }> {
+    return {
+      name: "WriteReadme",
+      description: "Write Readme",
+      inputSchema: { content: z.string() },
+      fn: (args) => Promise.resolve(this.setReadme(args.content)),
+    };
   }
 
   getFunctionType(): Result<"scalar.function" | "vector.function"> {
@@ -191,6 +286,15 @@ export class State {
     }
   }
 
+  getFunctionTypeTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionType",
+      description: "Read FunctionType",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getFunctionType()),
+    };
+  }
+
   setFunctionType(value: string): Result<string> {
     if (value === "scalar.function") {
       if (this.parameters.depth > 0) {
@@ -207,7 +311,16 @@ export class State {
     } else {
       throw new Error("Invalid FunctionType");
     }
-    return { ok: true, value: "FunctionType set", error: undefined };
+    return { ok: true, value: "", error: undefined };
+  }
+
+  setFunctionTypeTool(): Tool<{ content: z.ZodString }> {
+    return {
+      name: "WriteFunctionType",
+      description: "Write FunctionType",
+      inputSchema: { content: z.string() },
+      fn: (args) => Promise.resolve(this.setFunctionType(args.content)),
+    };
   }
 
   getDescription(): Result<string> {
@@ -224,6 +337,15 @@ export class State {
     return { ok: false, value: undefined, error: "Description not set" };
   }
 
+  getDescriptionTool(): Tool<{}> {
+    return {
+      name: "ReadFunctionDescription",
+      description: "Read FunctionDescription",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getDescription()),
+    };
+  }
+
   setDescription(value: string): Result<string> {
     if (!this._inner) {
       return { ok: false, value: undefined, error: "Function type not set" };
@@ -235,8 +357,25 @@ export class State {
         error: "Description cannot be empty",
       };
     }
+    const byteLength = new TextEncoder().encode(value).length;
+    if (byteLength > 350) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Description is ${byteLength} bytes, exceeds maximum of 350 bytes`,
+      };
+    }
     this._inner.function.description = value;
     return { ok: true, value: "", error: undefined };
+  }
+
+  setDescriptionTool(): Tool<{ content: z.ZodString }> {
+    return {
+      name: "WriteFunctionDescription",
+      description: "Write FunctionDescription",
+      inputSchema: { content: z.string() },
+      fn: (args) => Promise.resolve(this.setDescription(args.content)),
+    };
   }
 
   get inner():
