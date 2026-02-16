@@ -3,7 +3,7 @@ import { Result } from "../result";
 import { PlaceholderTaskSpecs } from "src/placeholder";
 
 export class BranchVectorState {
-  private function: Partial<Functions.QualityBranchRemoteVectorFunction>;
+  readonly function: Partial<Functions.QualityBranchRemoteVectorFunction>;
   private placeholderTaskSpecs?: PlaceholderTaskSpecs;
 
   constructor(
@@ -528,7 +528,7 @@ export class BranchVectorState {
   checkFunction(): Result<string> {
     const parsed = Functions.QualityBranchRemoteVectorFunctionSchema.safeParse({
       ...this.function,
-      description: "",
+      description: this.function.description || "",
     });
     if (!parsed.success) {
       return {
@@ -551,5 +551,9 @@ export class BranchVectorState {
       value: "Function is valid",
       error: undefined,
     };
+  }
+
+  getPlaceholderTaskSpecs(): PlaceholderTaskSpecs | undefined {
+    return this.placeholderTaskSpecs;
   }
 }

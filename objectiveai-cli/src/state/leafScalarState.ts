@@ -2,7 +2,7 @@ import { Functions } from "objectiveai";
 import { Result } from "../result";
 
 export class LeafScalarState {
-  private function: Partial<Functions.QualityLeafRemoteScalarFunction>;
+  readonly function: Partial<Functions.QualityLeafRemoteScalarFunction>;
 
   constructor() {
     this.function = {
@@ -144,7 +144,7 @@ export class LeafScalarState {
     const parsed =
       Functions.QualityLeafRemoteScalarFunctionSchema.safeParse({
         ...this.function,
-        description: "",
+        description: this.function.description || "",
       });
     if (!parsed.success) {
       return {
@@ -168,4 +168,5 @@ export class LeafScalarState {
       error: undefined,
     };
   }
+
 }

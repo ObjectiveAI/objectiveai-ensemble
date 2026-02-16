@@ -3,7 +3,7 @@ import { Result } from "../result";
 import { PlaceholderTaskSpecs } from "src/placeholder";
 
 export class BranchScalarState {
-  private function: Partial<Functions.QualityBranchRemoteScalarFunction>;
+  readonly function: Partial<Functions.QualityBranchRemoteScalarFunction>;
   private placeholderTaskSpecs?: PlaceholderTaskSpecs;
 
   constructor() {
@@ -143,9 +143,7 @@ export class BranchScalarState {
       };
     }
     this.function.tasks.splice(index, 1);
-    if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.splice(index, 1);
-    }
+    this.placeholderTaskSpecs?.splice(index, 1);
     return {
       ok: true,
       value: `New length: ${this.function.tasks.length}`,
@@ -220,7 +218,7 @@ export class BranchScalarState {
   checkFunction(): Result<string> {
     const parsed = Functions.QualityBranchRemoteScalarFunctionSchema.safeParse({
       ...this.function,
-      description: "",
+      description: this.function.description || "",
     });
     if (!parsed.success) {
       return {
@@ -243,5 +241,9 @@ export class BranchScalarState {
       value: "Function is valid",
       error: undefined,
     };
+  }
+
+  getPlaceholderTaskSpecs(): PlaceholderTaskSpecs | undefined {
+    return this.placeholderTaskSpecs;
   }
 }

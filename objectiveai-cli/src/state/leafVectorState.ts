@@ -2,7 +2,7 @@ import { Functions } from "objectiveai";
 import { Result } from "../result";
 
 export class LeafVectorState {
-  private function: Partial<Functions.QualityLeafRemoteVectorFunction>;
+  readonly function: Partial<Functions.QualityLeafRemoteVectorFunction>;
 
   constructor(
     outputLength?: Functions.RemoteVectorFunction["output_length"],
@@ -312,7 +312,7 @@ export class LeafVectorState {
   checkFunction(): Result<string> {
     const parsed = Functions.QualityLeafRemoteVectorFunctionSchema.safeParse({
       ...this.function,
-      description: "",
+      description: this.function.description || "",
     });
     if (!parsed.success) {
       return {
@@ -336,4 +336,5 @@ export class LeafVectorState {
       error: undefined,
     };
   }
+
 }

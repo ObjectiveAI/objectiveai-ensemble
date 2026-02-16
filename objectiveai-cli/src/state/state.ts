@@ -7,17 +7,6 @@ import { BranchVectorState } from "./branchVectorState";
 import { LeafScalarState } from "./leafScalarState";
 import { LeafVectorState } from "./leafVectorState";
 
-const FUNCTION_FIELD_ORDER = [
-  "type",
-  "description",
-  "input_schema",
-  "input_maps",
-  "tasks",
-  "output_length",
-  "input_split",
-  "input_merge",
-] as const;
-
 export const StateOptionsBaseSchema = z.object({
   parameters: ParametersSchema,
   inventSpec: z.string().nonempty(),
@@ -219,6 +208,35 @@ export class State {
       throw new Error("Invalid FunctionType");
     }
     return { ok: true, value: "FunctionType set", error: undefined };
+  }
+
+  getDescription(): Result<string> {
+    if (!this._inner) {
+      return { ok: false, value: undefined, error: "Function type not set" };
+    }
+    if (this._inner.function.description) {
+      return {
+        ok: true,
+        value: this._inner.function.description,
+        error: undefined,
+      };
+    }
+    return { ok: false, value: undefined, error: "Description not set" };
+  }
+
+  setDescription(value: string): Result<string> {
+    if (!this._inner) {
+      return { ok: false, value: undefined, error: "Function type not set" };
+    }
+    if (value.trim() === "") {
+      return {
+        ok: false,
+        value: undefined,
+        error: "Description cannot be empty",
+      };
+    }
+    this._inner.function.description = value;
+    return { ok: true, value: "", error: undefined };
   }
 
   get inner():

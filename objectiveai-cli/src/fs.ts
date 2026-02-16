@@ -2,13 +2,16 @@ import z from "zod";
 import { join } from "path";
 import { Parameters, ParametersSchema } from "./parameters";
 import { Functions } from "objectiveai";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import {
   PlaceholderTaskSpecs,
   PlaceholderTaskSpecsSchema,
 } from "./placeholder";
 import { fetchRemoteFunctions } from "./github";
 import { CliFunctionExt } from "./ext";
+import { State } from "./state/state";
+import { BranchScalarState } from "./state/branchScalarState";
+import { BranchVectorState } from "./state/branchVectorState";
 
 export const QualityFunctionSchema = z.object({
   parameters: ParametersSchema,
@@ -195,24 +198,100 @@ export async function readQualityFunctionFromFilesystem(
   return null;
 }
 
-// export function readInventSpecFromFilesystem(path: string): string | null {
-//   return readTextFromFilesystem(join(path, "INVENT_SPEC.md"));
-// }
+// Write
 
-// export function readInventEssayFromFilesystem(path: string): string | null {
-//   return readTextFromFilesystem(join(path, "INVENT_ESSAY.md"));
-// }
+function writeTextToFilesystem(path: string, content: string): void {
+  writeFileSync(path, content, "utf-8");
+}
 
-// export function readInventEssayTasksFromFilesystem(
-//   path: string,
-// ): string | null {
-//   return readTextFromFilesystem(join(path, "INVENT_ESSAY_TASKS.md"));
-// }
+function writeJsonToFilesystem(path: string, data: unknown): void {
+  writeTextToFilesystem(path, JSON.stringify(data, null, 2));
+}
 
-// export function readInventPlanFromFilesystem(path: string): string | null {
-//   return readTextFromFilesystem(join(path, "INVENT_PLAN.md"));
-// }
+function writeNameToFilesystem(dir: string, name: string): void {
+  writeTextToFilesystem(join(dir, "name.txt"), name);
+}
 
-// export function readReadmeFromFilesystem(path: string): string | null {
-//   return readTextFromFilesystem(join(path, "README.md"));
-// }
+function writeParametersToFilesystem(
+  dir: string,
+  parameters: Parameters,
+): void {
+  writeJsonToFilesystem(join(dir, "parameters.json"), parameters);
+}
+
+function writeFunctionToFilesystem(
+  dir: string,
+  fn: Functions.RemoteFunction,
+): void {
+  writeJsonToFilesystem(join(dir, "function.json"), fn);
+}
+
+function writeInventSpecToFilesystem(dir: string, spec: string): void {
+  writeTextToFilesystem(join(dir, "INVENT_SPEC.md"), spec);
+}
+
+function writeInventEssayToFilesystem(dir: string, essay: string): void {
+  writeTextToFilesystem(join(dir, "INVENT_ESSAY.md"), essay);
+}
+
+function writeInventEssayTasksToFilesystem(
+  dir: string,
+  essayTasks: string,
+): void {
+  writeTextToFilesystem(join(dir, "INVENT_ESSAY_TASKS.md"), essayTasks);
+}
+
+function writeInventPlanToFilesystem(dir: string, plan: string): void {
+  writeTextToFilesystem(join(dir, "INVENT_PLAN.md"), plan);
+}
+
+function writeReadmeToFilesystem(dir: string, readme: string): void {
+  writeTextToFilesystem(join(dir, "README.md"), readme);
+}
+
+function writePlaceholderTaskSpecsToFilesystem(
+  dir: string,
+  specs: PlaceholderTaskSpecs,
+): void {
+  writeJsonToFilesystem(join(dir, "placeholder_task_specs.json"), specs);
+}
+
+export function writeState(
+  dir: string,
+  state: State,
+  parameters: Parameters,
+): void {
+  mkdirSync(dir, { recursive: true });
+
+  const name = state.getName();
+  if (!name.ok) throw new Error("Name not set");
+  writeNameToFilesystem(dir, name.value);
+
+  writeParametersToFilesystem(dir, parameters);
+
+  const inner = state.inner;
+  if (!inner) throw new Error("Inner state not set");
+  writeFunctionToFilesystem(dir, inner.function as Functions.RemoteFunction);
+
+  writeInventSpecToFilesystem(dir, state.inventSpec);
+
+  const essay = state.getInventEssay();
+  if (essay.ok) writeInventEssayToFilesystem(dir, essay.value);
+
+  const essayTasks = state.getInventEssayTasks();
+  if (essayTasks.ok) writeInventEssayTasksToFilesystem(dir, essayTasks.value);
+
+  const plan = state.getInventPlan();
+  if (plan.ok) writeInventPlanToFilesystem(dir, plan.value);
+
+  const readme = state.getReadme();
+  if (readme.ok) writeReadmeToFilesystem(dir, readme.value);
+
+  if (
+    inner instanceof BranchScalarState ||
+    inner instanceof BranchVectorState
+  ) {
+    const specs = inner.getPlaceholderTaskSpecs();
+    if (specs) writePlaceholderTaskSpecsToFilesystem(dir, specs);
+  }
+}
