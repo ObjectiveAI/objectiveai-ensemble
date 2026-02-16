@@ -1,7 +1,7 @@
 import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
-import { Tool } from "../tool";
+import { Tool, getSchemaTools } from "../tool";
 import { PlaceholderTaskSpecs } from "src/placeholder";
 
 export class BranchVectorState {
@@ -772,6 +772,13 @@ export class BranchVectorState {
       inputSchema: {},
       fn: () => Promise.resolve(this.checkFunction()),
     };
+  }
+
+  getSchemaTools(): Tool<{}>[] {
+    return getSchemaTools(
+      Functions.QualityBranchRemoteVectorFunctionJsonSchema,
+      "QualityBranchRemoteVectorFunction",
+    );
   }
 
   getPlaceholderTaskSpecs(): PlaceholderTaskSpecs | undefined {

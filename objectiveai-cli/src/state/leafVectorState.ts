@@ -1,7 +1,7 @@
 import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
-import { Tool } from "../tool";
+import { Tool, getSchemaTools } from "../tool";
 
 export class LeafVectorState {
   readonly function: Partial<Functions.QualityLeafRemoteVectorFunction>;
@@ -488,5 +488,12 @@ export class LeafVectorState {
       inputSchema: {},
       fn: () => Promise.resolve(this.checkFunction()),
     };
+  }
+
+  getSchemaTools(): Tool<{}>[] {
+    return getSchemaTools(
+      Functions.QualityLeafRemoteVectorFunctionJsonSchema,
+      "QualityLeafRemoteVectorFunction",
+    );
   }
 }

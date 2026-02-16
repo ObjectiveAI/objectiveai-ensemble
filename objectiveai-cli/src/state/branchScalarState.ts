@@ -1,7 +1,7 @@
 import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
-import { Tool } from "../tool";
+import { Tool, getSchemaTools } from "../tool";
 import { PlaceholderTaskSpecs } from "src/placeholder";
 
 export class BranchScalarState {
@@ -356,6 +356,13 @@ export class BranchScalarState {
       inputSchema: {},
       fn: () => Promise.resolve(this.checkFunction()),
     };
+  }
+
+  getSchemaTools(): Tool<{}>[] {
+    return getSchemaTools(
+      Functions.QualityBranchRemoteScalarFunctionJsonSchema,
+      "QualityBranchRemoteScalarFunction",
+    );
   }
 
   getPlaceholderTaskSpecs(): PlaceholderTaskSpecs | undefined {

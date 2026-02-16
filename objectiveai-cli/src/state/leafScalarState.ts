@@ -1,7 +1,7 @@
 import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
-import { Tool } from "../tool";
+import { Tool, getSchemaTools } from "../tool";
 
 export class LeafScalarState {
   readonly function: Partial<Functions.QualityLeafRemoteScalarFunction>;
@@ -256,5 +256,12 @@ export class LeafScalarState {
       inputSchema: {},
       fn: () => Promise.resolve(this.checkFunction()),
     };
+  }
+
+  getSchemaTools(): Tool<{}>[] {
+    return getSchemaTools(
+      Functions.QualityLeafRemoteScalarFunctionJsonSchema,
+      "QualityLeafRemoteScalarFunction",
+    );
   }
 }
