@@ -24,12 +24,12 @@ export async function stepFields(
       maxRetries,
     );
   } else {
-    if (inner.getInputSchema().ok) return;
+    if (inner.checkFields().ok) return;
 
     await runAgentStep(
       agent,
       { prompt: "", tools: [] },
-      () => inner.getInputSchema(),
+      () => inner.checkFields(),
       maxRetries,
     );
   }

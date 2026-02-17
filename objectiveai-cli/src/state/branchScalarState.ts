@@ -70,6 +70,42 @@ export class BranchScalarState {
     };
   }
 
+  checkFields(): Result<string> {
+    const inputSchema = this.function.input_schema;
+    if (!inputSchema) {
+      return {
+        ok: false,
+        value: undefined,
+        error: "FunctionInputSchema not set",
+      };
+    }
+    try {
+      Functions.Quality.checkScalarFields({
+        input_schema: inputSchema,
+      });
+    } catch (e) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid Fields: ${(e as Error).message}`,
+      };
+    }
+    return {
+      ok: true,
+      value: "Fields are valid",
+      error: undefined,
+    };
+  }
+
+  checkFieldsTool(): Tool<{}> {
+    return {
+      name: "CheckFields",
+      description: "Check Fields",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.checkFields()),
+    };
+  }
+
   getTasksLength(): Result<string> {
     return {
       ok: true,
