@@ -6,6 +6,7 @@
 use rand::Rng;
 use serde::Deserialize;
 
+use super::check_input_schema::check_input_schema;
 use super::example_inputs;
 use crate::functions::expression::{Input, InputSchema, WithExpression};
 use crate::functions::{Function, RemoteFunction};
@@ -42,6 +43,9 @@ impl VectorFieldsValidation {
 pub fn check_vector_fields(
     fields: VectorFieldsValidation,
 ) -> Result<(), String> {
+    // Input schema permutations
+    check_input_schema(&fields.input_schema)?;
+
     let mut count = 0usize;
     for (i, ref input) in
         example_inputs::generate(&fields.input_schema).enumerate()

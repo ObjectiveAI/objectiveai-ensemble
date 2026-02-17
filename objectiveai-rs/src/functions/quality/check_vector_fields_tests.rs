@@ -460,3 +460,58 @@ fn test_output_length_wrong_type_returns_error() {
         "VF01",
     );
 }
+
+#[test]
+fn rejects_single_permutation_string_enum() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(2),
+                max_items: Some(2),
+                items: Box::new(InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: Some(vec!["only".to_string()]),
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input)".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input]".to_string(),
+            )),
+        },
+        "QI01",
+    );
+}
+
+#[test]
+fn rejects_single_permutation_integer() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(2),
+                max_items: Some(2),
+                items: Box::new(InputSchema::Integer(IntegerInputSchema {
+                    description: None,
+                    minimum: Some(0),
+                    maximum: Some(0),
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input)".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input]".to_string(),
+            )),
+        },
+        "QI01",
+    );
+}

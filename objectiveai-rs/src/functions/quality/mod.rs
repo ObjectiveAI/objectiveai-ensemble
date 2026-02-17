@@ -9,6 +9,7 @@ mod check_branch_function;
 mod check_branch_scalar_function;
 mod check_branch_vector_function;
 mod check_description;
+mod check_input_schema;
 mod check_leaf_function;
 mod check_leaf_scalar_function;
 mod check_leaf_vector_function;

@@ -8,7 +8,7 @@ use crate::chat::completions::request::{
 };
 use crate::functions::expression::{
     ArrayInputSchema, BooleanInputSchema, Expression, InputMaps, InputSchema,
-    ObjectInputSchema, StringInputSchema, WithExpression,
+    IntegerInputSchema, ObjectInputSchema, StringInputSchema, WithExpression,
 };
 use crate::functions::quality::check_branch_vector_function;
 use crate::functions::{
@@ -1704,4 +1704,87 @@ fn rejects_out_of_bounds_map_index() {
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
     test_err(&f, "BV11");
+}
+
+#[test]
+fn rejects_single_permutation_string_enum() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: Some(vec!["only".to_string()]),
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorFunction(
+            VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "QI01");
+}
+
+#[test]
+fn rejects_single_permutation_integer() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::Integer(IntegerInputSchema {
+                description: None,
+                minimum: Some(0),
+                maximum: Some(0),
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorFunction(
+            VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "QI01");
 }

@@ -976,3 +976,58 @@ fn valid_with_skip_on_low_priority() {
     };
     test(&f);
 }
+
+#[test]
+fn rejects_single_permutation_string_enum() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: Some(vec!["only".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QI01");
+}
+
+#[test]
+fn rejects_single_permutation_integer() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(0),
+            maximum: Some(0),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QI01");
+}

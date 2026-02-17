@@ -6,6 +6,7 @@ use crate::functions::expression::Input;
 use crate::functions::{CompiledTask, Function, RemoteFunction, TaskExpression};
 
 use super::check_description::check_description;
+use super::check_input_schema::check_input_schema;
 use super::check_leaf_vector_function::check_vector_input_schema;
 use super::check_vector_fields::{
     VectorFieldsValidation, check_vector_fields_for_input, random_subsets,
@@ -69,6 +70,9 @@ pub fn check_branch_vector_function(
 
     // Description
     check_description(description)?;
+
+    // Input schema permutations
+    check_input_schema(input_schema)?;
 
     // Input schema check
     check_vector_input_schema(input_schema)?;

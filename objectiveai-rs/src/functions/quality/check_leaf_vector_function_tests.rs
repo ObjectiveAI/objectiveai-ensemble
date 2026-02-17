@@ -1964,3 +1964,110 @@ fn valid_with_skip_on_quick_mode() {
     };
     test(&f);
 }
+
+#[test]
+fn rejects_single_permutation_string_enum() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: Some(vec!["only".to_string()]),
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(
+                            vec![WithExpression::Value(
+                                RichContentPartExpression::Text {
+                                    text: WithExpression::Expression(Expression::Starlark(
+                                        "input[0]".to_string(),
+                                    )),
+                                },
+                            )],
+                        )),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[{'type': 'text', 'text': x} for x in input]".to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "QI01");
+}
+
+#[test]
+fn rejects_single_permutation_integer() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::Integer(IntegerInputSchema {
+                description: None,
+                minimum: Some(0),
+                maximum: Some(0),
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(
+                            vec![WithExpression::Value(
+                                RichContentPartExpression::Text {
+                                    text: WithExpression::Expression(Expression::Starlark(
+                                        "str(input[0])".to_string(),
+                                    )),
+                                },
+                            )],
+                        )),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[{'type': 'text', 'text': str(x)} for x in input]".to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "QI01");
+}

@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use crate::functions::{CompiledTask, RemoteFunction, TaskExpression};
 
 use super::check_description::check_description;
+use super::check_input_schema::check_input_schema;
 use super::compile_and_validate::{
     compile_and_validate_one_input, extract_task_input,
 };
@@ -43,6 +44,9 @@ pub fn check_branch_scalar_function(
 
     // Description
     check_description(description)?;
+
+    // Input schema permutations
+    check_input_schema(function.input_schema())?;
 
     // No input_maps
     if input_maps.is_some() {

@@ -12,6 +12,7 @@ use crate::functions::{
 };
 
 use super::check_description::check_description;
+use super::check_input_schema::check_input_schema;
 use super::compile_and_validate::compile_and_validate_one_input;
 use super::example_inputs;
 
@@ -45,6 +46,9 @@ pub fn check_leaf_scalar_function(
 
     // Description length
     check_description(description)?;
+
+    // Input schema permutations
+    check_input_schema(function.input_schema())?;
 
     // No input_maps
     if input_maps.is_some() {

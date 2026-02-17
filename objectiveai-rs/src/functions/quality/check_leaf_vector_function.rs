@@ -6,6 +6,7 @@ use crate::functions::expression::{Input, InputSchema};
 use crate::functions::{CompiledTask, Function, RemoteFunction, Task, TaskExpression};
 
 use super::check_description::check_description;
+use super::check_input_schema::check_input_schema;
 use super::check_leaf_scalar_function::{
     check_vector_completion_messages, check_vector_vector_completion_responses,
 };
@@ -67,6 +68,9 @@ pub fn check_leaf_vector_function(
 
     // Description
     check_description(description)?;
+
+    // Input schema permutations
+    check_input_schema(input_schema)?;
 
     // No input_maps
     if input_maps.is_some() {

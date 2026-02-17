@@ -1879,3 +1879,100 @@ fn valid_with_skip_on_high_confidence() {
     };
     test(&f);
 }
+
+#[test]
+fn rejects_single_permutation_string_enum() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: Some(vec!["only".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(
+                            vec![WithExpression::Value(
+                                RichContentPartExpression::Text {
+                                    text: WithExpression::Expression(Expression::Starlark(
+                                        "input".to_string(),
+                                    )),
+                                },
+                            )],
+                        )),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("yes".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("no".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QI01");
+}
+
+#[test]
+fn rejects_single_permutation_integer() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(0),
+            maximum: Some(0),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(
+                            vec![WithExpression::Value(
+                                RichContentPartExpression::Text {
+                                    text: WithExpression::Expression(Expression::Starlark(
+                                        "str(input)".to_string(),
+                                    )),
+                                },
+                            )],
+                        )),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("yes".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("no".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QI01");
+}
