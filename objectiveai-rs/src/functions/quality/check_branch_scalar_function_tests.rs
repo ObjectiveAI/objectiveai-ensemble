@@ -6,8 +6,8 @@ use crate::chat::completions::request::{
     RichContentExpression, RichContentPartExpression, UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, Expression, InputSchema, IntegerInputSchema,
-    ObjectInputSchema, StringInputSchema, WithExpression,
+    ArrayInputSchema, BooleanInputSchema, Expression, InputSchema,
+    IntegerInputSchema, ObjectInputSchema, StringInputSchema, WithExpression,
 };
 use crate::functions::quality::check_branch_scalar_function;
 use crate::functions::{
@@ -22,11 +22,9 @@ fn test(f: &RemoteFunction) {
     check_branch_scalar_function(f, None).unwrap();
 }
 
-fn test_err(f: &RemoteFunction, expected: &[&str]) {
+fn test_err(f: &RemoteFunction, expected: &str) {
     let err = check_branch_scalar_function(f, None).unwrap_err();
-    for s in expected {
-        assert!(err.contains(s), "expected '{s}' in error, got: {err}");
-    }
+    assert!(err.contains(expected), "expected '{expected}' in error, got: {err}");
 }
 
 #[test]
@@ -67,7 +65,7 @@ fn wrong_type_vector() {
                 .to_string(),
         )),
     };
-    test_err(&f, &["Expected scalar function, got vector function"]);
+    test_err(&f, "BS01");
 }
 
 #[test]
@@ -97,7 +95,7 @@ fn has_input_maps() {
             },
         )],
     };
-    test_err(&f, &["must not have input_maps"]);
+    test_err(&f, "BS02");
 }
 
 #[test]
@@ -127,7 +125,7 @@ fn scalar_function_has_map() {
             },
         )],
     };
-    test_err(&f, &["branch scalar function tasks must not have map"]);
+    test_err(&f, "BS04");
 }
 
 #[test]
@@ -159,7 +157,7 @@ fn placeholder_scalar_has_map() {
             },
         )],
     };
-    test_err(&f, &["branch scalar function tasks must not have map"]);
+    test_err(&f, "BS05");
 }
 
 #[test]
@@ -187,7 +185,7 @@ fn contains_vector_function() {
             },
         )],
     };
-    test_err(&f, &["found vector.function"]);
+    test_err(&f, "BS06");
 }
 
 #[test]
@@ -230,7 +228,7 @@ fn contains_placeholder_vector() {
             },
         )],
     };
-    test_err(&f, &["found placeholder.vector.function"]);
+    test_err(&f, "BS07");
 }
 
 #[test]
@@ -291,7 +289,7 @@ fn contains_vector_completion() {
             },
         )],
     };
-    test_err(&f, &["must not contain vector.completion tasks"]);
+    test_err(&f, "BS08");
 }
 
 // --- Success cases ---
@@ -410,7 +408,7 @@ fn rejects_no_tasks() {
         input_maps: None,
         tasks: vec![],
     };
-    test_err(&f, &["at least one task"]);
+    test_err(&f, "BS03");
 }
 
 // --- Description tests ---
@@ -439,7 +437,7 @@ fn description_too_long() {
             },
         )],
     };
-    test_err(&f, &["351 bytes"]);
+    test_err(&f, "QD02");
 }
 
 #[test]
@@ -466,7 +464,7 @@ fn description_empty() {
             },
         )],
     };
-    test_err(&f, &["must not be empty"]);
+    test_err(&f, "QD01");
 }
 
 // --- Diversity failures ---
@@ -506,7 +504,7 @@ fn scalar_diversity_fail_fixed_input() {
             }),
         ],
     };
-    test_err(&f, &["Task [1]", "fixed value"]);
+    test_err(&f, "BS10");
 }
 
 #[test]
@@ -545,7 +543,7 @@ fn scalar_diversity_fail_fixed_integer() {
             }),
         ],
     };
-    test_err(&f, &["Task [0]", "fixed value"]);
+    test_err(&f, "BS10");
 }
 
 #[test]
@@ -605,7 +603,7 @@ fn scalar_diversity_fail_third_task_fixed_object() {
             }),
         ],
     };
-    test_err(&f, &["Task [2]", "fixed value"]);
+    test_err(&f, "BS10");
 }
 
 // --- Diversity passes ---
@@ -873,6 +871,104 @@ fn scalar_diversity_pass_array_input() {
                 map: None,
                 input: WithExpression::Expression(Expression::Starlark(
                     "input[0]".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+    };
+    test(&f);
+}
+
+// --- Skip expression tests ---
+
+#[test]
+fn valid_with_skip_last_task_boolean() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "text" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+                "skip_last_task" => InputSchema::Boolean(BooleanInputSchema {
+                    description: None,
+                })
+            },
+            required: Some(vec!["text".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("input.get('skip_last_task', False)".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['text']".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+    };
+    test(&f);
+}
+
+#[test]
+fn valid_with_skip_on_low_priority() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "text" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+                "priority" => InputSchema::Integer(IntegerInputSchema {
+                    description: None,
+                    minimum: Some(1),
+                    maximum: Some(10),
+                })
+            },
+            required: Some(vec!["text".to_string(), "priority".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("input['priority'] < 4".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['text'] + ' [p=' + str(input['priority']) + ']'".to_string(),
                 )),
                 output: Expression::Starlark("output".to_string()),
             }),

@@ -186,6 +186,7 @@ pub fn check_branch_vector_function(
     // Mapped scalar inputs not all equal
     let mut per_task_has_varying = vec![false; task_count];
     let mut per_task_is_mapped = vec![false; task_count];
+    let mut per_task_skipped = vec![false; task_count];
     let mut count = 0usize;
     let mut merged_count = 0usize;
 
@@ -237,6 +238,7 @@ pub fn check_branch_vector_function(
         // Track per-task input diversity + mapped scalar diversity
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {
             let Some(compiled_task) = compiled_task else {
+                per_task_skipped[j] = true;
                 continue;
             };
 
@@ -349,7 +351,9 @@ pub fn check_branch_vector_function(
     if count >= 2 {
         // Function input diversity
         for (j, unique_inputs) in per_task_inputs.iter().enumerate() {
-            if unique_inputs.len() < 2 {
+            let effective = unique_inputs.len()
+                + if per_task_skipped[j] { 1 } else { 0 };
+            if effective < 2 {
                 return Err(format!(
                     "BV18: Task [{}]: task input is a fixed value — task inputs must \
                      be derived from the parent input, otherwise the score is useless",
@@ -361,10 +365,14 @@ pub fn check_branch_vector_function(
         // Mapped scalar per-index diversity
         for (j, indexed) in per_task_indexed.iter().enumerate() {
             for (&mi, (occurrences, unique_inputs)) in indexed {
-                if *occurrences <= 1 {
+                let total = *occurrences
+                    + if per_task_skipped[j] { 1 } else { 0 };
+                if total <= 1 {
                     continue;
                 }
-                if unique_inputs.len() < 2 {
+                let effective = unique_inputs.len()
+                    + if per_task_skipped[j] { 1 } else { 0 };
+                if effective < 2 {
                     return Err(format!(
                         "BV19: Task [{}]: mapped input at index {} is a fixed value — \
                          mapped inputs must be derived from the parent input",
@@ -379,7 +387,7 @@ pub fn check_branch_vector_function(
             if !per_task_is_mapped[j] {
                 continue;
             }
-            if !has_varying {
+            if !has_varying && !per_task_skipped[j] {
                 return Err(format!(
                     "BV20: Task [{}]: all mapped inputs are equal to each other for \
                      every example input — rankings are useless if every item \

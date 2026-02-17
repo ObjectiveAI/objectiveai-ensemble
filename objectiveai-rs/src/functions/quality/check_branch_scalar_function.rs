@@ -103,6 +103,7 @@ pub fn check_branch_scalar_function(
     let task_count = tasks.len();
     let mut per_task_inputs: Vec<HashSet<String>> =
         vec![HashSet::new(); task_count];
+    let mut per_task_skipped = vec![false; task_count];
     let mut count = 0usize;
 
     for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
@@ -113,6 +114,7 @@ pub fn check_branch_scalar_function(
         // Track per-task input diversity
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {
             let Some(compiled_task) = compiled_task else {
+                per_task_skipped[j] = true;
                 continue;
             };
             if let CompiledTask::One(task) = compiled_task {
@@ -134,7 +136,9 @@ pub fn check_branch_scalar_function(
     // Post-loop: function input diversity check
     if count >= 2 {
         for (j, unique_inputs) in per_task_inputs.iter().enumerate() {
-            if unique_inputs.len() < 2 {
+            let effective = unique_inputs.len()
+                + if per_task_skipped[j] { 1 } else { 0 };
+            if effective < 2 {
                 return Err(format!(
                     "BS10: Task [{}]: task input is a fixed value — task inputs must \
                      be derived from the parent input, otherwise the score is useless",

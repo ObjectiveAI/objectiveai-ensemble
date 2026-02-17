@@ -7,8 +7,8 @@ use crate::chat::completions::request::{
     UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, Expression, InputMaps, InputSchema, ObjectInputSchema,
-    StringInputSchema, WithExpression,
+    ArrayInputSchema, BooleanInputSchema, Expression, InputMaps, InputSchema,
+    ObjectInputSchema, StringInputSchema, WithExpression,
 };
 use crate::functions::quality::check_branch_vector_function;
 use crate::functions::{
@@ -23,11 +23,9 @@ fn test(f: &RemoteFunction) {
     check_branch_vector_function(f, None).unwrap();
 }
 
-fn test_err(f: &RemoteFunction, expected: &[&str]) {
+fn test_err(f: &RemoteFunction, expected: &str) {
     let err = check_branch_vector_function(f, None).unwrap_err();
-    for s in expected {
-        assert!(err.contains(s), "expected '{s}' in error, got: {err}");
-    }
+    assert!(err.contains(expected), "expected '{expected}' in error, got: {err}");
 }
 
 // --- Structural checks ---
@@ -56,7 +54,7 @@ fn wrong_type_scalar() {
             },
         )],
     };
-    test_err(&f, &["Expected vector function, got scalar function"]);
+    test_err(&f, "BV01");
 }
 
 #[test]
@@ -92,7 +90,7 @@ fn input_schema_string() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must be an array, or an object"]);
+    test_err(&f, "LV14");
 }
 
 #[test]
@@ -134,7 +132,7 @@ fn input_schema_object_no_required_array() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must be an array, or an object"]);
+    test_err(&f, "LV13");
 }
 
 #[test]
@@ -186,7 +184,7 @@ fn scalar_function_without_map() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, &["scalar.function in a vector function must have map"]);
+    test_err(&f, "BV03");
 }
 
 #[test]
@@ -239,10 +237,7 @@ fn placeholder_scalar_without_map() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(
-        &f,
-        &["placeholder.scalar.function in a vector function must have map"],
-    );
+    test_err(&f, "BV04");
 }
 
 #[test]
@@ -283,10 +278,7 @@ fn vector_function_with_map() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(
-        &f,
-        &["vector.function in a vector function must not have map"],
-    );
+    test_err(&f, "BV05");
 }
 
 #[test]
@@ -346,10 +338,7 @@ fn placeholder_vector_with_map() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(
-        &f,
-        &["placeholder.vector.function in a vector function must not have map"],
-    );
+    test_err(&f, "BV06");
 }
 
 #[test]
@@ -401,7 +390,7 @@ fn contains_vector_completion() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, &["must not contain vector.completion tasks"]);
+    test_err(&f, "BV07");
 }
 
 #[test]
@@ -444,7 +433,7 @@ fn single_mapped_scalar_task() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, &["single task must use an unmapped vector-like task"]);
+    test_err(&f, "BV08");
 }
 
 #[test]
@@ -507,7 +496,7 @@ fn over_50_percent_mapped_scalar() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, &["At most 50%"]);
+    test_err(&f, "BV09");
 }
 
 // --- Success cases ---
@@ -828,11 +817,7 @@ fn description_too_long() {
             "{'items': [x['items'][0] for x in input]}".to_string(),
         )),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("351 bytes"),
-        "expected byte count error, got: {err}"
-    );
+    test_err(&f, "QD02");
 }
 
 #[test]
@@ -879,11 +864,7 @@ fn description_empty() {
             "{'items': [x['items'][0] for x in input]}".to_string(),
         )),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("must not be empty"),
-        "expected empty error, got: {err}"
-    );
+    test_err(&f, "QD01");
 }
 
 // --- Full-function input diversity tests ---
@@ -949,11 +930,7 @@ fn input_diversity_fail_third_task_fixed_input() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("Task [2]") && err.contains("fixed value"),
-        "expected Task [2] fixed value error, got: {err}"
-    );
+    test_err(&f, "BV18");
 }
 
 #[test]
@@ -1025,11 +1002,7 @@ fn input_diversity_fail_third_task_mapped_fixed() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("Task [2]") && err.contains("fixed value"),
-        "expected Task [2] fixed value error, got: {err}"
-    );
+    test_err(&f, "BV18");
 }
 
 // --- Passing diversity ---
@@ -1351,11 +1324,7 @@ fn input_diversity_fail_child_min_items_3() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'entries': [e], 'tag': input['tag']} for e in input['entries']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'entries': [x['entries'][0] for x in input], 'tag': input[0]['tag']}".to_string())),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("violates input_schema") && err.contains("min_items"),
-        "Expected min_items violation from input_merge, got: {err}"
-    );
+    test_err(&f, "VF21");
 }
 
 #[test]
@@ -1463,11 +1432,7 @@ fn input_diversity_fail_with_input_maps_fixed() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("Task [1]") && err.contains("fixed value"),
-        "expected Task [1] fixed value error, got: {err}"
-    );
+    test_err(&f, "BV18");
 }
 
 #[test]
@@ -1500,7 +1465,7 @@ fn rejects_no_tasks() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, &["at least one task"]);
+    test_err(&f, "BV02");
 }
 
 // --- Unused input_maps tests ---
@@ -1556,11 +1521,117 @@ fn rejects_unused_input_maps() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("not referenced by any task's map field"),
-        "expected unused input_maps error, got: {err}"
-    );
+    test_err(&f, "BV12");
+}
+
+#[test]
+// --- Skip expression tests ---
+
+#[test]
+fn valid_with_skip_last_task_boolean() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+                "skip_last_task" => InputSchema::Boolean(BooleanInputSchema {
+                    description: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string(), "skip_last_task".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("input['skip_last_task']".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("{'items': input['items'], 'label': input['label'] + ' v2', 'skip_last_task': input['skip_last_task']}".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label'], 'skip_last_task': input['skip_last_task']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label'], 'skip_last_task': input[0]['skip_last_task']}".to_string())),
+    };
+    test(&f);
+}
+
+#[test]
+fn valid_with_skip_on_quick_mode() {
+    let f = RemoteFunction::Vector {
+        description: "Rank with optional deep analysis".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "mode" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: Some(vec!["quick".to_string(), "thorough".to_string()]),
+                })
+            },
+            required: Some(vec!["items".to_string(), "mode".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("input['mode'] == 'quick'".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("{'items': input['items'], 'mode': input['mode'] + '-deep'}".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'mode': input['mode']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'mode': input[0]['mode']}".to_string())),
+    };
+    test(&f);
 }
 
 #[test]
@@ -1632,9 +1703,5 @@ fn rejects_out_of_bounds_map_index() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    let err = check_branch_vector_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("map index 1") && err.contains("only 1 sub-arrays"),
-        "expected out-of-bounds map error, got: {err}"
-    );
+    test_err(&f, "BV11");
 }

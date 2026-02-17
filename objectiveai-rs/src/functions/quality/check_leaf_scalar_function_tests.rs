@@ -9,8 +9,8 @@ use crate::chat::completions::request::{
     SystemMessageExpression, ToolMessageExpression, UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, Expression, InputSchema, IntegerInputSchema,
-    ObjectInputSchema, StringInputSchema, WithExpression,
+    ArrayInputSchema, BooleanInputSchema, Expression, InputSchema,
+    IntegerInputSchema, ObjectInputSchema, StringInputSchema, WithExpression,
 };
 use crate::functions::quality::check_leaf_scalar_function;
 use crate::functions::{
@@ -25,11 +25,9 @@ fn test(f: &RemoteFunction) {
     check_leaf_scalar_function(f).unwrap();
 }
 
-fn test_err(f: &RemoteFunction, expected: &[&str]) {
+fn test_err(f: &RemoteFunction, expected: &str) {
     let err = check_leaf_scalar_function(f).unwrap_err();
-    for s in expected {
-        assert!(err.contains(s), "expected '{s}' in error, got: {err}");
-    }
+    assert!(err.contains(expected), "expected '{expected}' in error, got: {err}");
 }
 
 #[test]
@@ -58,7 +56,7 @@ fn wrong_type_vector() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["Expected scalar function, got vector function"]);
+    test_err(&f, "LS01");
 }
 
 #[test]
@@ -120,7 +118,7 @@ fn has_input_maps() {
             },
         )],
     };
-    test_err(&f, &["must not have input_maps"]);
+    test_err(&f, "LS02");
 }
 
 #[test]
@@ -180,7 +178,7 @@ fn vc_task_has_map() {
             },
         )],
     };
-    test_err(&f, &["must not have map"]);
+    test_err(&f, "LS04");
 }
 
 #[test]
@@ -207,7 +205,7 @@ fn contains_scalar_function_task() {
             },
         )],
     };
-    test_err(&f, &["found scalar.function"]);
+    test_err(&f, "LS05");
 }
 
 #[test]
@@ -234,7 +232,7 @@ fn contains_vector_function_task() {
             },
         )],
     };
-    test_err(&f, &["found vector.function"]);
+    test_err(&f, "LS06");
 }
 
 #[test]
@@ -263,7 +261,7 @@ fn contains_placeholder_scalar_task() {
             },
         )],
     };
-    test_err(&f, &["found placeholder.scalar.function"]);
+    test_err(&f, "LS07");
 }
 
 #[test]
@@ -313,7 +311,7 @@ fn contains_placeholder_vector_task() {
             },
         )],
     };
-    test_err(&f, &["found placeholder.vector.function"]);
+    test_err(&f, "LS08");
 }
 
 #[test]
@@ -358,7 +356,7 @@ fn empty_messages() {
             },
         )],
     };
-    test_err(&f, &["at least 1 message"]);
+    test_err(&f, "LS09");
 }
 
 #[test]
@@ -409,7 +407,7 @@ fn one_response() {
             },
         )],
     };
-    test_err(&f, &["at least 2 responses"]);
+    test_err(&f, "LS10");
 }
 
 #[test]
@@ -454,7 +452,7 @@ fn one_response_expression() {
             },
         )],
     };
-    test_err(&f, &["at least 2 responses"]);
+    test_err(&f, "LS10");
 }
 
 #[test]
@@ -508,7 +506,7 @@ fn response_plain_string() {
             },
         )],
     };
-    test_err(&f, &["response must be an array of content parts"]);
+    test_err(&f, "LS11");
 }
 
 #[test]
@@ -564,7 +562,7 @@ fn developer_message_plain_string() {
             },
         )],
     };
-    test_err(&f, &["(developer): content must be an array"]);
+    test_err(&f, "LS13");
 }
 
 #[test]
@@ -618,7 +616,7 @@ fn system_message_plain_string() {
             },
         )],
     };
-    test_err(&f, &["(system): content must be an array"]);
+    test_err(&f, "LS14");
 }
 
 #[test]
@@ -670,7 +668,7 @@ fn user_message_plain_string() {
             },
         )],
     };
-    test_err(&f, &["(user): content must be an array"]);
+    test_err(&f, "LS15");
 }
 
 #[test]
@@ -729,7 +727,7 @@ fn assistant_message_plain_string() {
             },
         )],
     };
-    test_err(&f, &["(assistant): content must be an array"]);
+    test_err(&f, "LS16");
 }
 
 #[test]
@@ -783,7 +781,7 @@ fn tool_message_plain_string() {
             },
         )],
     };
-    test_err(&f, &["(tool): content must be an array"]);
+    test_err(&f, "LS17");
 }
 
 // --- Success cases ---
@@ -972,7 +970,7 @@ fn rejects_no_tasks() {
         input_maps: None,
         tasks: vec![],
     };
-    test_err(&f, &["at least one task"]);
+    test_err(&f, "LS03");
 }
 
 #[test]
@@ -1118,11 +1116,7 @@ fn fixed_scalar_output_expression() {
             },
         )],
     };
-    let err = check_leaf_scalar_function(&f).unwrap_err();
-    assert!(
-        err.contains("duplicate results"),
-        "expected duplicate results error, got: {err}"
-    );
+    test_err(&f, "CV11");
 }
 
 #[test]
@@ -1183,11 +1177,7 @@ fn branching_scalar_output_three_values() {
             },
         )],
     };
-    let err = check_leaf_scalar_function(&f).unwrap_err();
-    assert!(
-        err.contains("duplicate results"),
-        "expected duplicate results error, got: {err}"
-    );
+    test_err(&f, "CV11");
 }
 
 #[test]
@@ -1235,7 +1225,7 @@ fn description_too_long() {
             },
         )],
     };
-    test_err(&f, &["351 bytes"]);
+    test_err(&f, "QD02");
 }
 
 #[test]
@@ -1283,7 +1273,7 @@ fn description_empty() {
             },
         )],
     };
-    test_err(&f, &["must not be empty"]);
+    test_err(&f, "QD01");
 }
 
 #[test]
@@ -1384,11 +1374,7 @@ fn diversity_fail_all_fixed_parameters() {
             },
         )],
     };
-    let err = check_leaf_scalar_function(&f).unwrap_err();
-    assert!(
-        err.contains("Task [0]") && err.contains("fixed parameters"),
-        "expected Task [0] fixed parameters error, got: {err}"
-    );
+    test_err(&f, "LS19");
 }
 
 #[test]
@@ -1448,11 +1434,7 @@ fn diversity_fail_second_task_fixed() {
             ),
         ],
     };
-    let err = check_leaf_scalar_function(&f).unwrap_err();
-    assert!(
-        err.contains("Task [1]") && err.contains("fixed parameters"),
-        "expected Task [1] fixed parameters error, got: {err}"
-    );
+    test_err(&f, "LS19");
 }
 
 #[test]
@@ -1495,11 +1477,7 @@ fn diversity_fail_object_input_ignored() {
             },
         )],
     };
-    let err = check_leaf_scalar_function(&f).unwrap_err();
-    assert!(
-        err.contains("Task [0]") && err.contains("fixed parameters"),
-        "expected Task [0] fixed parameters error, got: {err}"
-    );
+    test_err(&f, "LS19");
 }
 
 // --- Diversity passes ---
@@ -1760,6 +1738,144 @@ fn diversity_pass_value_messages_with_expression_text() {
                 ),
             },
         )],
+    };
+    test(&f);
+}
+
+// --- Skip expression tests ---
+
+#[test]
+fn valid_with_skip_last_task_boolean() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "text" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+                "skip_last_task" => InputSchema::Boolean(BooleanInputSchema {
+                    description: None,
+                })
+            },
+            required: Some(vec!["text".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input['text']}]}]".to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Yes".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("No".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            }),
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark("input.get('skip_last_task', False)".to_string())),
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': 'Review: ' + input['text']}]}]".to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Good".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Bad".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            }),
+        ],
+    };
+    test(&f);
+}
+
+#[test]
+fn valid_with_skip_on_high_confidence() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "text" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+                "confidence" => InputSchema::Integer(IntegerInputSchema {
+                    description: None,
+                    minimum: Some(0),
+                    maximum: Some(100),
+                })
+            },
+            required: Some(vec!["text".to_string(), "confidence".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input['text']}]}]".to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Agree".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Disagree".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            }),
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark("input['confidence'] > 75".to_string())),
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': 'Confidence ' + str(input['confidence']) + ': ' + input['text']}]}]".to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Confirm".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Reject".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            }),
+        ],
     };
     test(&f);
 }

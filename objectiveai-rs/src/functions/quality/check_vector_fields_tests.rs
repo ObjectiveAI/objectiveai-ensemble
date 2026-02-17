@@ -17,11 +17,9 @@ fn test(fields: VectorFieldsValidation) {
     check_vector_fields(fields).unwrap();
 }
 
-fn test_err(fields: VectorFieldsValidation, expected: &[&str]) {
+fn test_err(fields: VectorFieldsValidation, expected: &str) {
     let err = check_vector_fields(fields).unwrap_err();
-    for s in expected {
-        assert!(err.contains(s), "expected '{s}' in error, got: {err}");
-    }
+    assert!(err.contains(expected), "expected '{expected}' in error, got: {err}");
 }
 
 // ── random_subsets tests ─────────────────────────────────────────────
@@ -233,7 +231,7 @@ fn test_output_length_compilation_error() {
                 "[x[0] for x in input]".to_string(),
             )),
         },
-        &["output_length compilation failed"],
+        "VF01",
     );
 }
 
@@ -260,7 +258,7 @@ fn test_input_split_compilation_error() {
                 "[x[0] for x in input]".to_string(),
             )),
         },
-        &["input_split compilation failed"],
+        "VF04",
     );
 }
 
@@ -287,7 +285,7 @@ fn test_input_split_length_mismatch() {
                 "[x[0] for x in input]".to_string(),
             )),
         },
-        &["input_split produced", "but output_length is"],
+        "VF06",
     );
 }
 
@@ -314,7 +312,7 @@ fn test_split_element_output_length_not_one() {
                 "[x[0] for x in input]".to_string(),
             )),
         },
-        &["output_length must be 1"],
+        "VF09",
     );
 }
 
@@ -341,7 +339,7 @@ fn test_merge_does_not_reconstruct_original() {
                 "[x[0] for x in reversed(input)]".to_string(),
             )),
         },
-        &["merged input does not match original"],
+        "VF12",
     );
 }
 
@@ -368,7 +366,7 @@ fn test_input_merge_compilation_error() {
                 "undefined_var".to_string(),
             )),
         },
-        &["input_merge compilation failed"],
+        "VF10",
     );
 }
 
@@ -432,7 +430,7 @@ fn test_merged_subset_violates_min_items() {
                     .to_string(),
             )),
         },
-        &["violates input_schema", "min_items"],
+        "VF21",
     );
 }
 
@@ -459,6 +457,6 @@ fn test_output_length_wrong_type_returns_error() {
                 "[x[0] for x in input]".to_string(),
             )),
         },
-        &["output_length compilation failed"],
+        "VF01",
     );
 }

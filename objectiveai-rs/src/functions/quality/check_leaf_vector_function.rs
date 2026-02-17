@@ -145,6 +145,7 @@ pub fn check_leaf_vector_function(
         vec![HashMap::new(); task_count];
     // Responses not all equal tracking
     let mut per_task_has_varying = vec![false; task_count];
+    let mut per_task_skipped = vec![false; task_count];
     let mut count = 0usize;
     let mut merged_count = 0usize;
 
@@ -158,6 +159,7 @@ pub fn check_leaf_vector_function(
         // Track response diversity and responses-not-all-equal
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {
             let Some(compiled_task) = compiled_task else {
+                per_task_skipped[j] = true;
                 continue;
             };
             if let CompiledTask::One(Task::VectorCompletion(vc)) = compiled_task
@@ -249,10 +251,14 @@ pub fn check_leaf_vector_function(
     if count >= 2 {
         for (j, indexed) in per_task_indexed.iter().enumerate() {
             for (&ri, (occurrences, unique_values)) in indexed {
-                if *occurrences <= 1 {
+                let total = *occurrences
+                    + if per_task_skipped[j] { 1 } else { 0 };
+                if total <= 1 {
                     continue;
                 }
-                if unique_values.len() < 2 {
+                let effective = unique_values.len()
+                    + if per_task_skipped[j] { 1 } else { 0 };
+                if effective < 2 {
                     return Err(format!(
                         "LV16: Task [{}]: response at index {} is a fixed value — \
                          responses must be derived from an array in the input",
@@ -264,7 +270,7 @@ pub fn check_leaf_vector_function(
 
         // Responses not all equal check
         for (j, has_varying) in per_task_has_varying.iter().enumerate() {
-            if !has_varying {
+            if !has_varying && !per_task_skipped[j] {
                 return Err(format!(
                     "LV17: Task [{}]: all responses are equal to each other for every \
                      example input — rankings are useless if every item is the same",

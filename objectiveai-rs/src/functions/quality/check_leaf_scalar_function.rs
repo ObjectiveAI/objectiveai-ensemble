@@ -107,6 +107,7 @@ pub fn check_leaf_scalar_function(
     let task_count = tasks.len();
     let mut per_task_serialized: Vec<HashSet<String>> =
         vec![HashSet::new(); task_count];
+    let mut per_task_skipped = vec![false; task_count];
     let mut count = 0usize;
 
     for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
@@ -117,6 +118,7 @@ pub fn check_leaf_scalar_function(
         // Track VC task diversity
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {
             let Some(compiled_task) = compiled_task else {
+                per_task_skipped[j] = true;
                 continue;
             };
             if let CompiledTask::One(Task::VectorCompletion(vc)) = compiled_task
@@ -137,7 +139,9 @@ pub fn check_leaf_scalar_function(
     // Post-loop: VC task diversity check
     if count >= 2 {
         for (j, unique_tasks) in per_task_serialized.iter().enumerate() {
-            if unique_tasks.len() < 2 {
+            let effective = unique_tasks.len()
+                + if per_task_skipped[j] { 1 } else { 0 };
+            if effective < 2 {
                 return Err(format!(
                     "LS19: Task [{}]: task has fixed parameters — messages, tools, and/or \
                      responses must be derived from the parent input, otherwise \

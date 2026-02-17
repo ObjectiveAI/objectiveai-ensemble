@@ -23,11 +23,12 @@ fn test(f: &RemoteFunction) {
     check_leaf_vector_function(f).unwrap();
 }
 
-fn test_err(f: &RemoteFunction, expected: &[&str]) {
+fn test_err(f: &RemoteFunction, expected: &str) {
     let err = check_leaf_vector_function(f).unwrap_err();
-    for s in expected {
-        assert!(err.contains(s), "expected '{s}' in error, got: {err}");
-    }
+    assert!(
+        err.contains(expected),
+        "expected '{expected}' in error, got: {err}"
+    );
 }
 
 #[test]
@@ -42,7 +43,7 @@ fn wrong_type_scalar() {
         input_maps: None,
         tasks: vec![],
     };
-    test_err(&f, &["Expected vector function, got scalar function"]);
+    test_err(&f, "LV01");
 }
 
 #[test]
@@ -88,9 +89,7 @@ fn rejects_input_maps() {
                     "[[{'type': 'text', 'text': x}] for x in input]"
                         .to_string(),
                 )),
-                output: Expression::Starlark(
-                    "output['scores']".to_string(),
-                ),
+                output: Expression::Starlark("output['scores']".to_string()),
             },
         )],
         output_length: WithExpression::Expression(Expression::Starlark(
@@ -103,7 +102,7 @@ fn rejects_input_maps() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must not have input_maps"]);
+    test_err(&f, "LV02");
 }
 
 #[test]
@@ -127,7 +126,7 @@ fn input_schema_string() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must be an array, or an object"]);
+    test_err(&f, "LV14");
 }
 
 #[test]
@@ -157,7 +156,7 @@ fn input_schema_object_no_required_array() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must be an array, or an object"]);
+    test_err(&f, "LV13");
 }
 
 #[test]
@@ -198,7 +197,7 @@ fn contains_scalar_function_task() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["found scalar.function"]);
+    test_err(&f, "LV05");
 }
 
 #[test]
@@ -239,7 +238,7 @@ fn contains_vector_function_task() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["found vector.function"]);
+    test_err(&f, "LV06");
 }
 
 #[test]
@@ -282,7 +281,7 @@ fn contains_placeholder_scalar_task() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["found placeholder.scalar.function"]);
+    test_err(&f, "LV07");
 }
 
 #[test]
@@ -312,22 +311,14 @@ fn contains_placeholder_vector_task() {
                     })),
                 }),
                 output_length: WithExpression::Expression(
-                    Expression::Starlark(
-                        "len(input['items'])".to_string(),
-                    ),
+                    Expression::Starlark("len(input['items'])".to_string()),
                 ),
-                input_split: WithExpression::Expression(
-                    Expression::Starlark(
-                        "[{'items': [x]} for x in input['items']]"
-                            .to_string(),
-                    ),
-                ),
-                input_merge: WithExpression::Expression(
-                    Expression::Starlark(
-                        "{'items': [x['items'][0] for x in input]}"
-                            .to_string(),
-                    ),
-                ),
+                input_split: WithExpression::Expression(Expression::Starlark(
+                    "[{'items': [x]} for x in input['items']]".to_string(),
+                )),
+                input_merge: WithExpression::Expression(Expression::Starlark(
+                    "{'items': [x['items'][0] for x in input]}".to_string(),
+                )),
                 skip: None,
                 map: None,
                 input: WithExpression::Expression(Expression::Starlark(
@@ -346,7 +337,7 @@ fn contains_placeholder_vector_task() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["found placeholder.vector.function"]);
+    test_err(&f, "LV08");
 }
 
 #[test]
@@ -389,9 +380,7 @@ fn vc_task_has_map() {
                     "[[{'type': 'text', 'text': x}] for x in input]"
                         .to_string(),
                 )),
-                output: Expression::Starlark(
-                    "output['scores']".to_string(),
-                ),
+                output: Expression::Starlark("output['scores']".to_string()),
             },
         )],
         output_length: WithExpression::Expression(Expression::Starlark(
@@ -404,7 +393,7 @@ fn vc_task_has_map() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must not have map"]);
+    test_err(&f, "LV04");
 }
 
 #[test]
@@ -444,28 +433,26 @@ fn responses_fixed_array() {
                 )]),
                 tools: None,
                 responses: WithExpression::Value(vec![
-                    WithExpression::Value(RichContentExpression::Parts(
-                        vec![WithExpression::Value(
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(
                             RichContentPartExpression::Text {
                                 text: WithExpression::Value(
                                     "Option A".to_string(),
                                 ),
                             },
-                        )],
-                    )),
-                    WithExpression::Value(RichContentExpression::Parts(
-                        vec![WithExpression::Value(
+                        ),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(
                             RichContentPartExpression::Text {
                                 text: WithExpression::Value(
                                     "Option A".to_string(),
                                 ),
                             },
-                        )],
-                    )),
+                        ),
+                    ])),
                 ]),
-                output: Expression::Starlark(
-                    "output['scores']".to_string(),
-                ),
+                output: Expression::Starlark("output['scores']".to_string()),
             },
         )],
         output_length: WithExpression::Expression(Expression::Starlark(
@@ -478,7 +465,7 @@ fn responses_fixed_array() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must be a single expression"]);
+    test_err(&f, "LS12");
 }
 
 // --- Output expression uniqueness ---
@@ -523,9 +510,7 @@ fn derived_vector_output_expression_passes() {
                     "[[{'type': 'text', 'text': x}] for x in input]"
                         .to_string(),
                 )),
-                output: Expression::Starlark(
-                    "output['scores']".to_string(),
-                ),
+                output: Expression::Starlark("output['scores']".to_string()),
             },
         )],
         output_length: WithExpression::Expression(Expression::Starlark(
@@ -594,11 +579,7 @@ fn fixed_vector_output_expression() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(
-        err.contains("duplicate results"),
-        "expected duplicate results error, got: {err}"
-    );
+    test_err(&f, "CV11");
 }
 
 #[test]
@@ -657,11 +638,7 @@ fn branching_vector_output_two_values() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(
-        err.contains("duplicate results"),
-        "expected duplicate results error, got: {err}"
-    );
+    test_err(&f, "CV11");
 }
 
 #[test]
@@ -720,11 +697,7 @@ fn branching_vector_output_three_values() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(
-        err.contains("duplicate results"),
-        "expected duplicate results error, got: {err}"
-    );
+    test_err(&f, "CV11");
 }
 
 // --- Response diversity ---
@@ -796,7 +769,7 @@ fn responses_fixed_expression_fails_diversity() {
                 .to_string(),
         )),
     };
-    test_err(&f, &["fixed value"]);
+    test_err(&f, "LV16");
 }
 
 #[test]
@@ -866,7 +839,7 @@ fn responses_fixed_pool_expression_fails_diversity() {
                 .to_string(),
         )),
     };
-    test_err(&f, &["fixed value"]);
+    test_err(&f, "LV16");
 }
 
 #[test]
@@ -981,9 +954,7 @@ fn description_too_long() {
                     "[[{'type': 'text', 'text': x}] for x in input]"
                         .to_string(),
                 )),
-                output: Expression::Starlark(
-                    "output['scores']".to_string(),
-                ),
+                output: Expression::Starlark("output['scores']".to_string()),
             },
         )],
         output_length: WithExpression::Expression(Expression::Starlark(
@@ -996,7 +967,7 @@ fn description_too_long() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["351 bytes"]);
+    test_err(&f, "QD02");
 }
 
 #[test]
@@ -1039,9 +1010,7 @@ fn description_empty() {
                     "[[{'type': 'text', 'text': x}] for x in input]"
                         .to_string(),
                 )),
-                output: Expression::Starlark(
-                    "output['scores']".to_string(),
-                ),
+                output: Expression::Starlark("output['scores']".to_string()),
             },
         )],
         output_length: WithExpression::Expression(Expression::Starlark(
@@ -1054,7 +1023,7 @@ fn description_empty() {
             "[x[0] for x in input]".to_string(),
         )),
     };
-    test_err(&f, &["must not be empty"]);
+    test_err(&f, "QD01");
 }
 
 // --- Full-function diversity tests ---
@@ -1153,11 +1122,7 @@ fn diversity_fail_third_task_object_schema() {
             "{'candidates': [x['candidates'][0] for x in input], 'category': input[0]['category']}".to_string(),
         )),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(
-        err.contains("Task [2]") && err.contains("fixed value"),
-        "expected Task [2] fixed pool error, got: {err}"
-    );
+    test_err(&f, "LV16");
 }
 
 #[test]
@@ -1212,11 +1177,7 @@ fn diversity_fail_third_task_with_labels() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'entries': [e], 'label': input['label']} for e in input['entries']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'entries': [x['entries'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(
-        err.contains("Task [2]") && err.contains("fixed value"),
-        "expected Task [2] fixed pool error, got: {err}"
-    );
+    test_err(&f, "LV16");
 }
 
 // --- Passing diversity ---
@@ -1437,23 +1398,54 @@ fn within_input_responses_all_cloned() {
         description: "test".to_string(),
         changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
-            description: None, min_items: Some(2), max_items: Some(4),
-            items: Box::new(InputSchema::String(StringInputSchema { description: None, r#enum: None })),
+            description: None,
+            min_items: Some(2),
+            max_items: Some(4),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
         }),
         input_maps: None,
-        tasks: vec![TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
-            skip: None, map: None,
-            messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
-            tools: None,
-            responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': input[0]}] for _ in input]".to_string())),
-            output: Expression::Starlark("output['scores']".to_string()),
-        })],
-        output_length: WithExpression::Expression(Expression::Starlark("len(input)".to_string())),
-        input_split: WithExpression::Expression(Expression::Starlark("[[x] for x in input]".to_string())),
-        input_merge: WithExpression::Expression(Expression::Starlark("[x[0] for x in input]".to_string())),
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': input[0]}] for _ in input]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(err.contains("rankings are useless"), "expected rankings-are-useless error, got: {err}");
+    test_err(&f, "LV17");
 }
 
 #[test]
@@ -1462,23 +1454,54 @@ fn within_input_responses_cloned_two_elements() {
         description: "test".to_string(),
         changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
-            description: None, min_items: Some(2), max_items: Some(2),
-            items: Box::new(InputSchema::String(StringInputSchema { description: None, r#enum: None })),
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
         }),
         input_maps: None,
-        tasks: vec![TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
-            skip: None, map: None,
-            messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
-            tools: None,
-            responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': input[0]}] for _ in input]".to_string())),
-            output: Expression::Starlark("output['scores']".to_string()),
-        })],
-        output_length: WithExpression::Expression(Expression::Starlark("len(input)".to_string())),
-        input_split: WithExpression::Expression(Expression::Starlark("[[x] for x in input]".to_string())),
-        input_merge: WithExpression::Expression(Expression::Starlark("[x[0] for x in input]".to_string())),
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': input[0]}] for _ in input]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(err.contains("rankings are useless"), "expected rankings-are-useless error, got: {err}");
+    test_err(&f, "LV17");
 }
 
 // --- Success cases ---
@@ -1489,20 +1512,52 @@ fn valid_array_schema() {
         description: "test".to_string(),
         changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
-            description: None, min_items: Some(2), max_items: Some(2),
-            items: Box::new(InputSchema::String(StringInputSchema { description: None, r#enum: None })),
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
         }),
         input_maps: None,
-        tasks: vec![TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
-            skip: None, map: None,
-            messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
-            tools: None,
-            responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': x}] for x in input]".to_string())),
-            output: Expression::Starlark("output['scores']".to_string()),
-        })],
-        output_length: WithExpression::Expression(Expression::Starlark("len(input)".to_string())),
-        input_split: WithExpression::Expression(Expression::Starlark("[[x] for x in input]".to_string())),
-        input_merge: WithExpression::Expression(Expression::Starlark("[x[0] for x in input]".to_string())),
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x}] for x in input]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
     };
     test(&f);
 }
@@ -1541,29 +1596,78 @@ fn valid_multiple_tasks() {
         description: "test".to_string(),
         changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
-            description: None, min_items: Some(2), max_items: Some(2),
-            items: Box::new(InputSchema::String(StringInputSchema { description: None, r#enum: None })),
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
         }),
         input_maps: None,
         tasks: vec![
             TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
-                skip: None, map: None,
-                messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
                 tools: None,
-                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': x}] for x in input]".to_string())),
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x}] for x in input]"
+                        .to_string(),
+                )),
                 output: Expression::Starlark("output['scores']".to_string()),
             }),
             TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
-                skip: None, map: None,
-                messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
                 tools: None,
-                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': x}] for x in input]".to_string())),
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x}] for x in input]"
+                        .to_string(),
+                )),
                 output: Expression::Starlark("output['scores']".to_string()),
             }),
         ],
-        output_length: WithExpression::Expression(Expression::Starlark("len(input)".to_string())),
-        input_split: WithExpression::Expression(Expression::Starlark("[[x] for x in input]".to_string())),
-        input_merge: WithExpression::Expression(Expression::Starlark("[x[0] for x in input]".to_string())),
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
     };
     test(&f);
 }
@@ -1590,14 +1694,16 @@ fn valid_people_ranking_with_skip() {
         input_maps: None,
         tasks: vec![
             TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
-                skip: None, map: None,
+                skip: None,
+                map: None,
                 messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
                 tools: None,
                 responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': p['fullName']}] for p in input]".to_string())),
                 output: Expression::Starlark("output['scores']".to_string()),
             }),
             TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
-                skip: None, map: None,
+                skip: None,
+                map: None,
                 messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
                 tools: None,
                 responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': p['firstName']}] for p in input]".to_string())),
@@ -1673,16 +1779,27 @@ fn rejects_no_tasks() {
         description: "test".to_string(),
         changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
-            description: None, min_items: Some(2), max_items: Some(2),
-            items: Box::new(InputSchema::String(StringInputSchema { description: None, r#enum: None })),
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
         }),
         input_maps: None,
         tasks: vec![],
-        output_length: WithExpression::Expression(Expression::Starlark("len(input)".to_string())),
-        input_split: WithExpression::Expression(Expression::Starlark("[[x] for x in input]".to_string())),
-        input_merge: WithExpression::Expression(Expression::Starlark("[x[0] for x in input]".to_string())),
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
     };
-    test_err(&f, &["at least one task"]);
+    test_err(&f, "LV03");
 }
 
 // --- Response diversity: optional-field array items ---
@@ -1746,9 +1863,104 @@ fn response_diversity_fail_fixed_responses() {
         input_split: WithExpression::Expression(Expression::Starlark("[[x] for x in input]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("[x[0] for x in input]".to_string())),
     };
-    let err = check_leaf_vector_function(&f).unwrap_err();
-    assert!(
-        err.contains("Task [0]") && err.contains("responses must be derived from an array in the input"),
-        "expected response diversity error, got: {err}"
-    );
+    test_err(&f, "LV16");
+}
+
+// --- Skip expression tests ---
+
+#[test]
+fn valid_with_skip_last_task_boolean() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "skip_last_task" => InputSchema::Boolean(BooleanInputSchema {
+                    description: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "skip_last_task".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None, map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': x}] for x in input['items']]".to_string())),
+                output: Expression::Starlark("output['scores']".to_string()),
+            }),
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark("input['skip_last_task']".to_string())),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': 'alt: ' + x}] for x in input['items']]".to_string())),
+                output: Expression::Starlark("output['scores']".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'skip_last_task': input['skip_last_task']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'skip_last_task': input[0]['skip_last_task']}".to_string())),
+    };
+    test(&f);
+}
+
+#[test]
+fn valid_with_skip_on_quick_mode() {
+    let f = RemoteFunction::Vector {
+        description: "Rank with optional deep analysis".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "mode" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: Some(vec!["quick".to_string(), "thorough".to_string()]),
+                })
+            },
+            required: Some(vec!["items".to_string(), "mode".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None, map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': x}] for x in input['items']]".to_string())),
+                output: Expression::Starlark("output['scores']".to_string()),
+            }),
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark("input['mode'] == 'quick'".to_string())),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': input['mode'] + ': ' + x}] for x in input['items']]".to_string())),
+                output: Expression::Starlark("output['scores']".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'mode': input['mode']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'mode': input[0]['mode']}".to_string())),
+    };
+    test(&f);
 }
