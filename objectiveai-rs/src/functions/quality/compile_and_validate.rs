@@ -8,14 +8,14 @@ use rust_decimal::Decimal;
 
 use crate::chat::completions::request::{Message, RichContent, SimpleContent};
 use crate::functions::expression::{
-    FunctionOutput, InputSchema, Params, ParamsRef, TaskOutput, TaskOutputOwned,
-    VectorCompletionOutput,
+    FunctionOutput, InputSchema, Params, ParamsRef, TaskOutput,
+    TaskOutputOwned, VectorCompletionOutput,
 };
 use crate::functions::{
     CompiledTask, Function, RemoteFunction, Task, VectorCompletionTask,
 };
 
-use super::example_inputs::generate_example_inputs;
+use super::example_inputs;
 
 /// Number of randomized output expression evaluations to verify variance.
 const OUTPUT_EXPRESSION_TRIALS: usize = 100;
@@ -40,14 +40,19 @@ pub(super) fn compile_and_validate_task_inputs(
     children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
     let input_schema = function.input_schema();
-    let inputs = generate_example_inputs(input_schema);
 
-    if inputs.is_empty() {
+    let mut count = 0usize;
+    for (i, input) in example_inputs::generate(input_schema).enumerate() {
+        count += 1;
+        compile_and_validate_one_input(i, function, &input, children)?;
+    }
+
+    if count == 0 {
         return Err("Failed to generate any example inputs from input_schema"
             .to_string());
     }
 
-    compile_and_validate_for_inputs(function, &inputs, children)
+    Ok(())
 }
 
 /// Compiles tasks for each of the provided inputs and validates compiled task
@@ -59,77 +64,85 @@ pub(super) fn compile_and_validate_for_inputs(
     children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
     for (i, input) in inputs.iter().enumerate() {
-        // Determine parent function type (scalar or vector with output_length)
-        let function_type = match function {
-            RemoteFunction::Scalar { .. } => FunctionType::Scalar,
-            RemoteFunction::Vector { output_length, .. } => {
-                let params = Params::Ref(ParamsRef {
-                    input,
-                    output: None,
-                    map: None,
-                });
-                let len = output_length.clone().compile_one(&params).map_err(|e| {
+        compile_and_validate_one_input(i, function, input, children)?;
+    }
+    Ok(())
+}
+
+/// Validates a single input: compiles tasks and checks all constraints.
+fn compile_and_validate_one_input(
+    i: usize,
+    function: &RemoteFunction,
+    input: &crate::functions::expression::Input,
+    children: Option<&HashMap<String, RemoteFunction>>,
+) -> Result<(), String> {
+    // Determine parent function type (scalar or vector with output_length)
+    let function_type = match function {
+        RemoteFunction::Scalar { .. } => FunctionType::Scalar,
+        RemoteFunction::Vector { output_length, .. } => {
+            let params = Params::Ref(ParamsRef {
+                input,
+                output: None,
+                map: None,
+            });
+            let len =
+                output_length.clone().compile_one(&params).map_err(|e| {
                     format!(
                         "Input [{}]: output_length compilation failed: {}",
                         i, e
                     )
                 })?;
-                FunctionType::Vector {
-                    output_length: len,
-                }
-            }
+            FunctionType::Vector { output_length: len }
+        }
+    };
+
+    // compile_tasks takes self by value, so we clone into a Function
+    let func = Function::Remote(function.clone());
+    let compiled_tasks = func.compile_tasks(input).map_err(|e| {
+        format!(
+            "Input [{}]: task compilation failed: {}\n\nInput: {}",
+            i,
+            e,
+            serde_json::to_string_pretty(input).unwrap_or_default()
+        )
+    })?;
+
+    // Validate each compiled task
+    for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+        let compiled_task = match compiled_task {
+            Some(ct) => ct,
+            None => continue, // skipped task
         };
 
-        // compile_tasks takes self by value, so we clone into a Function
-        let func = Function::Remote(function.clone());
-        let compiled_tasks = func.compile_tasks(input).map_err(|e| {
-            format!(
-                "Input [{}]: task compilation failed: {}\n\nInput: {}",
-                i,
-                e,
-                serde_json::to_string_pretty(input).unwrap_or_default()
-            )
-        })?;
-
-        // Validate each compiled task
-        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
-            let compiled_task = match compiled_task {
-                Some(ct) => ct,
-                None => continue, // skipped task
-            };
-
-            match compiled_task {
-                CompiledTask::One(task) => {
-                    validate_compiled_task(i, j, None, task, children)?;
+        match compiled_task {
+            CompiledTask::One(task) => {
+                validate_compiled_task(i, j, None, task, children)?;
+                validate_output_expression(
+                    i,
+                    j,
+                    input,
+                    compiled_task,
+                    task,
+                    &function_type,
+                    children,
+                )?;
+            }
+            CompiledTask::Many(tasks) => {
+                for (k, task) in tasks.iter().enumerate() {
+                    validate_compiled_task(i, j, Some(k), task, children)?;
+                }
+                // Validate the mapped output expression using the first
+                // task as representative (all share the same output expr)
+                if let Some(first) = tasks.first() {
                     validate_output_expression(
                         i,
                         j,
                         input,
                         compiled_task,
-                        task,
+                        first,
                         &function_type,
                         children,
                     )?;
-                }
-                CompiledTask::Many(tasks) => {
-                    for (k, task) in tasks.iter().enumerate() {
-                        validate_compiled_task(
-                            i, j, Some(k), task, children,
-                        )?;
-                    }
-                    // Validate the mapped output expression using the first
-                    // task as representative (all share the same output expr)
-                    if let Some(first) = tasks.first() {
-                        validate_output_expression(
-                            i,
-                            j,
-                            input,
-                            compiled_task,
-                            first,
-                            &function_type,
-                            children,
-                        )?;
-                    }
                 }
             }
         }
@@ -193,7 +206,8 @@ fn validate_compiled_task(
                         "{}: compiled input does not match child function's input_schema ({})\n\nInput: {}\n\nSchema: {}",
                         location,
                         key,
-                        serde_json::to_string_pretty(&t.input).unwrap_or_default(),
+                        serde_json::to_string_pretty(&t.input)
+                            .unwrap_or_default(),
                         serde_json::to_string_pretty(child.input_schema())
                             .unwrap_or_default(),
                     ));
@@ -214,7 +228,8 @@ fn validate_compiled_task(
                         "{}: compiled input does not match child function's input_schema ({})\n\nInput: {}\n\nSchema: {}",
                         location,
                         key,
-                        serde_json::to_string_pretty(&t.input).unwrap_or_default(),
+                        serde_json::to_string_pretty(&t.input)
+                            .unwrap_or_default(),
                         serde_json::to_string_pretty(child.input_schema())
                             .unwrap_or_default(),
                     ));
@@ -314,10 +329,7 @@ fn validate_function_output(
                 v.len()
             ));
         }
-        (
-            FunctionType::Vector { output_length },
-            FunctionOutput::Vector(v),
-        ) => {
+        (FunctionType::Vector { output_length }, FunctionOutput::Vector(v)) => {
             if v.len() as u64 != *output_length {
                 return Err(format!(
                     "{}: output expression produced a vector of length {} but \
@@ -450,14 +462,13 @@ fn mapped_task_output_shape(
             for task in tasks {
                 match task {
                     Task::VectorFunction(t) => {
-                        let Some(n) =
-                            resolve_vector_function_output_length(
-                                &t.owner,
-                                &t.repository,
-                                &t.input,
-                                children,
-                                location,
-                            )?
+                        let Some(n) = resolve_vector_function_output_length(
+                            &t.owner,
+                            &t.repository,
+                            &t.input,
+                            children,
+                            location,
+                        )?
                         else {
                             return Ok(None);
                         };
@@ -467,7 +478,7 @@ fn mapped_task_output_shape(
                         return Err(format!(
                             "{}: mixed task types in mapped task",
                             location
-                        ))
+                        ));
                     }
                 }
             }
@@ -518,14 +529,12 @@ fn random_task_output<'a>(
         OutputShape::Scalar => TaskOutput::Owned(TaskOutputOwned::Function(
             random_scalar_output(rng),
         )),
-        OutputShape::Vector(n) => TaskOutput::Owned(
-            TaskOutputOwned::Function(random_vector_output(*n, rng)),
-        ),
+        OutputShape::Vector(n) => TaskOutput::Owned(TaskOutputOwned::Function(
+            random_vector_output(*n, rng),
+        )),
         OutputShape::MapVectorCompletion(sizes) => {
-            let outputs = sizes
-                .iter()
-                .map(|&n| random_vc_output(n, rng))
-                .collect();
+            let outputs =
+                sizes.iter().map(|&n| random_vc_output(n, rng)).collect();
             TaskOutput::Owned(TaskOutputOwned::MapVectorCompletion(outputs))
         }
         OutputShape::MapScalar(count) => {
@@ -558,10 +567,7 @@ fn random_vector_output(n: u64, rng: &mut impl Rng) -> FunctionOutput {
 }
 
 /// Random vector completion output with `n` responses.
-fn random_vc_output(
-    n: usize,
-    rng: &mut impl Rng,
-) -> VectorCompletionOutput {
+fn random_vc_output(n: usize, rng: &mut impl Rng) -> VectorCompletionOutput {
     let scores = random_scores(n, rng);
     let weights = random_scores(n, rng);
     VectorCompletionOutput {
@@ -577,12 +583,11 @@ fn random_scores(n: usize, rng: &mut impl Rng) -> Vec<Decimal> {
         return vec![];
     }
     // Generate random f64 values, normalize to sum to 1
-    let raw: Vec<f64> = (0..n).map(|_| rng.random_range(0.01_f64..1.0)).collect();
+    let raw: Vec<f64> =
+        (0..n).map(|_| rng.random_range(0.01_f64..1.0)).collect();
     let sum: f64 = raw.iter().sum();
     raw.iter()
-        .map(|&v| {
-            Decimal::from_f64_retain(v / sum).unwrap_or(Decimal::ZERO)
-        })
+        .map(|&v| Decimal::from_f64_retain(v / sum).unwrap_or(Decimal::ZERO))
         .collect()
 }
 
@@ -685,26 +690,17 @@ pub(super) fn validate_vc_task_diversity(
     function: &RemoteFunction,
 ) -> Result<(), String> {
     let input_schema = function.input_schema();
-    let inputs = generate_example_inputs(input_schema);
 
-    if inputs.len() < 2 {
-        return Ok(());
-    }
-
-    let path_unique_counts =
-        compute_value_diversity(input_schema, &inputs);
-    if path_unique_counts.is_empty() {
-        return Ok(());
-    }
-
-    // Compile tasks for each input and collect serialized VC tasks per task index
     let task_count = function.tasks().len();
     let mut per_task_serialized: Vec<HashSet<String>> =
         vec![HashSet::new(); task_count];
+    let mut count = 0usize;
 
-    for input in &inputs {
+    for input in example_inputs::generate(input_schema) {
+        count += 1;
+
         let func = Function::Remote(function.clone());
-        let compiled_tasks = match func.compile_tasks(input) {
+        let compiled_tasks = match func.compile_tasks(&input) {
             Ok(ct) => ct,
             Err(_) => continue,
         };
@@ -713,37 +709,25 @@ pub(super) fn validate_vc_task_diversity(
             let Some(compiled_task) = compiled_task else {
                 continue;
             };
-            if let CompiledTask::One(Task::VectorCompletion(vc)) =
-                compiled_task
+            if let CompiledTask::One(Task::VectorCompletion(vc)) = compiled_task
             {
-                // Serialize the full VC task (messages + responses + tools)
-                let key =
-                    serde_json::to_string(vc).unwrap_or_default();
+                let key = serde_json::to_string(vc).unwrap_or_default();
                 per_task_serialized[j].insert(key);
             }
         }
     }
 
-    for (j, unique_tasks) in per_task_serialized.iter().enumerate() {
-        let passes = path_unique_counts
-            .iter()
-            .any(|(_, unique_values)| unique_tasks.len() >= *unique_values);
+    if count < 2 {
+        return Ok(());
+    }
 
-        if !passes {
-            let best_path = path_unique_counts
-                .iter()
-                .max_by_key(|(_, count)| *count)
-                .unwrap();
+    for (j, unique_tasks) in per_task_serialized.iter().enumerate() {
+        if unique_tasks.len() < 2 {
             return Err(format!(
-                "Task [{}]: compiled vector completion tasks have {} unique \
-                 variations across {} example inputs, but the input value at \
-                 '{}' has {} unique variations — tasks must derive from the \
-                 input, not use fixed parameters",
+                "Task [{}]: task has fixed parameters — messages, tools, and/or \
+                 responses must be derived from the parent input, otherwise \
+                 the score is useless",
                 j,
-                unique_tasks.len(),
-                inputs.len(),
-                best_path.0,
-                best_path.1,
             ));
         }
     }
@@ -757,70 +741,72 @@ pub(super) fn validate_vc_task_diversity(
 /// compiled response sets. Then for each array path in the input schema,
 /// counts unique arrays across all inputs. The task passes if
 /// `unique_responses >= unique_arrays` for at least one array path.
+/// Validates that compiled vector completion responses vary with the input.
+///
+/// For each task, across all generated inputs, we check every individual
+/// response at each index position. Each indexed response must either:
+/// - Have at least 2 unique values across all inputs, OR
+/// - Only appear once (i.e., that index was only produced by one input)
+///
+/// This ensures responses are derived from an array in the input rather
+/// than being a fixed pool.
 pub(super) fn validate_response_diversity(
     function: &RemoteFunction,
 ) -> Result<(), String> {
     let input_schema = function.input_schema();
-    let inputs = generate_example_inputs(input_schema);
 
-    if inputs.len() < 2 {
-        return Ok(());
-    }
-
-    let (_array_paths, path_unique_counts) =
-        compute_array_diversity(input_schema, &inputs);
-    if path_unique_counts.is_empty() {
-        return Ok(());
-    }
-
-    // Compile tasks for each input and collect serialized responses per task
     let task_count = function.tasks().len();
-    let mut per_task_responses: Vec<HashSet<String>> =
-        vec![HashSet::new(); task_count];
+    // per_task_indexed[j][i] = (occurrence_count, unique_values)
+    let mut per_task_indexed: Vec<HashMap<usize, (usize, HashSet<String>)>> =
+        vec![HashMap::new(); task_count];
+    let mut count = 0usize;
 
-    for input in &inputs {
+    for input in example_inputs::generate(input_schema) {
+        count += 1;
+
         let func = Function::Remote(function.clone());
-        let compiled_tasks = match func.compile_tasks(input) {
+        let compiled_tasks = match func.compile_tasks(&input) {
             Ok(ct) => ct,
-            Err(_) => continue, // skip inputs that fail to compile
+            Err(_) => continue,
         };
 
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {
             let Some(compiled_task) = compiled_task else {
                 continue;
             };
-            if let CompiledTask::One(Task::VectorCompletion(vc)) =
-                compiled_task
+            if let CompiledTask::One(Task::VectorCompletion(vc)) = compiled_task
             {
-                let key =
-                    serde_json::to_string(&vc.responses).unwrap_or_default();
-                per_task_responses[j].insert(key);
+                for (i, response) in vc.responses.iter().enumerate() {
+                    let key =
+                        serde_json::to_string(response).unwrap_or_default();
+                    let entry = per_task_indexed[j]
+                        .entry(i)
+                        .or_insert_with(|| (0, HashSet::new()));
+                    entry.0 += 1;
+                    entry.1.insert(key);
+                }
             }
         }
     }
 
-    // For each task, check that unique responses >= unique arrays for at least one path
-    for (j, unique_responses) in per_task_responses.iter().enumerate() {
-        let passes = path_unique_counts
-            .iter()
-            .any(|(_, unique_arrays)| unique_responses.len() >= *unique_arrays);
+    if count < 2 {
+        return Ok(());
+    }
 
-        if !passes {
-            let best_path = path_unique_counts
-                .iter()
-                .max_by_key(|(_, count)| *count)
-                .unwrap();
-            return Err(format!(
-                "Task [{}]: compiled responses have {} unique variations \
-                 across {} example inputs, but the input array at '{}' has \
-                 {} unique variations — responses must derive from the input, \
-                 not use a fixed pool",
-                j,
-                unique_responses.len(),
-                inputs.len(),
-                best_path.0,
-                best_path.1,
-            ));
+    for (j, indexed) in per_task_indexed.iter().enumerate() {
+        for (&i, (occurrences, unique_values)) in indexed {
+            // If this index only appeared once, it's fine
+            if *occurrences <= 1 {
+                continue;
+            }
+            // Appeared multiple times — must have at least 2 unique values
+            if unique_values.len() < 2 {
+                return Err(format!(
+                    "Task [{}]: response at index {} is a fixed value — \
+                     responses must be derived from an array in the input",
+                    j, i,
+                ));
+            }
         }
     }
 
@@ -839,26 +825,29 @@ pub(super) fn validate_function_input_diversity(
     function: &RemoteFunction,
 ) -> Result<(), String> {
     let input_schema = function.input_schema();
-    let inputs = generate_example_inputs(input_schema);
+    let array_paths = collect_array_paths(input_schema);
 
-    if inputs.len() < 2 {
-        return Ok(());
-    }
-
-    let (array_paths, path_unique_counts) =
-        compute_array_diversity(input_schema, &inputs);
-    if path_unique_counts.is_empty() {
-        return Ok(());
-    }
-
-    // Compile tasks for each input and collect serialized task inputs per task
     let task_count = function.tasks().len();
     let mut per_task_inputs: Vec<HashSet<String>> =
         vec![HashSet::new(); task_count];
+    let mut path_seen: Vec<HashSet<String>> =
+        vec![HashSet::new(); array_paths.len()];
+    let mut count = 0usize;
 
-    for input in &inputs {
+    for input in example_inputs::generate(input_schema) {
+        count += 1;
+
+        // Track array diversity per path
+        for (p, path) in array_paths.iter().enumerate() {
+            if let Some(arr) = extract_array_at_path(&input, path) {
+                path_seen[p]
+                    .insert(serde_json::to_string(arr).unwrap_or_default());
+            }
+        }
+
+        // Compile tasks and track per-task input uniqueness
         let func = Function::Remote(function.clone());
-        let compiled_tasks = match func.compile_tasks(input) {
+        let compiled_tasks = match func.compile_tasks(&input) {
             Ok(ct) => ct,
             Err(_) => continue,
         };
@@ -868,9 +857,7 @@ pub(super) fn validate_function_input_diversity(
                 continue;
             };
             let key = match compiled_task {
-                CompiledTask::One(task) => {
-                    extract_task_input(task)
-                }
+                CompiledTask::One(task) => extract_task_input(task),
                 CompiledTask::Many(tasks) => {
                     let inputs: Vec<_> = tasks
                         .iter()
@@ -883,6 +870,15 @@ pub(super) fn validate_function_input_diversity(
                 per_task_inputs[j].insert(key);
             }
         }
+    }
+
+    if count < 2 {
+        return Ok(());
+    }
+
+    let path_unique_counts = build_path_unique_counts(&array_paths, &path_seen);
+    if path_unique_counts.is_empty() {
+        return Ok(());
     }
 
     for (j, unique_inputs) in per_task_inputs.iter().enumerate() {
@@ -902,7 +898,7 @@ pub(super) fn validate_function_input_diversity(
                  parent input, not use a fixed value",
                 j,
                 unique_inputs.len(),
-                inputs.len(),
+                count,
                 best_path.0,
                 best_path.1,
             ));
@@ -945,26 +941,17 @@ pub(super) fn validate_scalar_function_input_diversity(
     function: &RemoteFunction,
 ) -> Result<(), String> {
     let input_schema = function.input_schema();
-    let inputs = generate_example_inputs(input_schema);
 
-    if inputs.len() < 2 {
-        return Ok(());
-    }
-
-    let path_unique_counts =
-        compute_value_diversity(input_schema, &inputs);
-    if path_unique_counts.is_empty() {
-        return Ok(());
-    }
-
-    // Compile tasks for each input and collect serialized task inputs per task
     let task_count = function.tasks().len();
     let mut per_task_inputs: Vec<HashSet<String>> =
         vec![HashSet::new(); task_count];
+    let mut count = 0usize;
 
-    for input in &inputs {
+    for input in example_inputs::generate(input_schema) {
+        count += 1;
+
         let func = Function::Remote(function.clone());
-        let compiled_tasks = match func.compile_tasks(input) {
+        let compiled_tasks = match func.compile_tasks(&input) {
             Ok(ct) => ct,
             Err(_) => continue,
         };
@@ -973,7 +960,6 @@ pub(super) fn validate_scalar_function_input_diversity(
             let Some(compiled_task) = compiled_task else {
                 continue;
             };
-            // Branch scalar tasks are always CompiledTask::One (no map)
             if let CompiledTask::One(task) = compiled_task {
                 let key = extract_task_input(task);
                 if !key.is_empty() {
@@ -983,26 +969,16 @@ pub(super) fn validate_scalar_function_input_diversity(
         }
     }
 
-    for (j, unique_inputs) in per_task_inputs.iter().enumerate() {
-        let passes = path_unique_counts
-            .iter()
-            .any(|(_, unique_values)| unique_inputs.len() >= *unique_values);
+    if count < 2 {
+        return Ok(());
+    }
 
-        if !passes {
-            let best_path = path_unique_counts
-                .iter()
-                .max_by_key(|(_, count)| *count)
-                .unwrap();
+    for (j, unique_inputs) in per_task_inputs.iter().enumerate() {
+        if unique_inputs.len() < 2 {
             return Err(format!(
-                "Task [{}]: compiled function inputs have {} unique variations \
-                 across {} example inputs, but the input value at '{}' has \
-                 {} unique variations — function inputs must derive from the \
-                 parent input, not use a fixed value",
+                "Task [{}]: task input is a fixed value — task inputs must \
+                 be derived from the parent input, otherwise the score is useless",
                 j,
-                unique_inputs.len(),
-                inputs.len(),
-                best_path.0,
-                best_path.1,
             ));
         }
     }
@@ -1010,121 +986,31 @@ pub(super) fn validate_scalar_function_input_diversity(
     Ok(())
 }
 
-/// Computes unique value counts for each path in the schema across all inputs.
-/// Includes ALL properties (required and optional) and the root itself.
-///
-/// Returns `path_unique_counts` where only paths with ≥ 2 unique values are included.
-fn compute_value_diversity(
-    input_schema: &InputSchema,
-    inputs: &[crate::functions::expression::Input],
+/// Builds `(label, unique_count)` pairs from pre-computed `path_seen` hash sets.
+/// Only includes paths with ≥ 2 unique values.
+fn build_path_unique_counts(
+    paths: &[Vec<String>],
+    path_seen: &[HashSet<String>],
 ) -> Vec<(String, usize)> {
-    let value_paths = collect_value_paths(input_schema);
-    let mut path_unique_counts: Vec<(String, usize)> =
-        Vec::with_capacity(value_paths.len());
-
-    for path in &value_paths {
-        let mut seen = HashSet::new();
-        for input in inputs {
-            if let Some(value) = extract_value_at_path(input, path) {
-                let key = serde_json::to_string(value).unwrap_or_default();
-                seen.insert(key);
-            }
-        }
-        if seen.len() >= 2 {
-            let label = if path.is_empty() {
-                "root".to_string()
-            } else {
-                path.join(".")
-            };
-            path_unique_counts.push((label, seen.len()));
-        }
-    }
-
-    path_unique_counts
-}
-
-/// Collects all value paths in the input schema, including the root.
-/// For objects, recurses into ALL properties (required and optional).
-fn collect_value_paths(schema: &InputSchema) -> Vec<Vec<String>> {
-    let mut paths = Vec::new();
-    collect_value_paths_rec(schema, &[], &mut paths);
     paths
-}
-
-fn collect_value_paths_rec(
-    schema: &InputSchema,
-    prefix: &[String],
-    paths: &mut Vec<Vec<String>>,
-) {
-    // Every node is a valid path (the root, any property, nested property, etc.)
-    paths.push(prefix.to_vec());
-
-    if let InputSchema::Object(obj) = schema {
-        for (name, prop_schema) in &obj.properties {
-            let mut child = prefix.to_vec();
-            child.push(name.clone());
-            collect_value_paths_rec(prop_schema, &child, paths);
-        }
-    }
-}
-
-/// Extracts the value at a given path from an input.
-fn extract_value_at_path<'a>(
-    input: &'a crate::functions::expression::Input,
-    path: &[String],
-) -> Option<&'a crate::functions::expression::Input> {
-    use crate::functions::expression::Input;
-
-    let mut current = input;
-    for segment in path {
-        match current {
-            Input::Object(obj) => {
-                current = obj.get(segment)?;
-            }
-            _ => return None,
-        }
-    }
-    Some(current)
-}
-
-/// Shared logic: computes unique array counts for each array path in the schema
-/// across all example inputs.
-///
-/// Returns `(array_paths, path_unique_counts)` where `path_unique_counts`
-/// only includes paths with ≥ 2 unique arrays.
-fn compute_array_diversity(
-    input_schema: &InputSchema,
-    inputs: &[crate::functions::expression::Input],
-) -> (Vec<Vec<String>>, Vec<(String, usize)>) {
-    let array_paths = collect_array_paths(input_schema);
-    let mut path_unique_counts: Vec<(String, usize)> =
-        Vec::with_capacity(array_paths.len());
-
-    for path in &array_paths {
-        let mut seen = HashSet::new();
-        for input in inputs {
-            if let Some(arr) = extract_array_at_path(input, path) {
-                let key = serde_json::to_string(arr).unwrap_or_default();
-                seen.insert(key);
-            }
-        }
-        if seen.len() >= 2 {
+        .iter()
+        .zip(path_seen.iter())
+        .filter(|(_, seen)| seen.len() >= 2)
+        .map(|(path, seen)| {
             let label = if path.is_empty() {
                 "root".to_string()
             } else {
                 path.join(".")
             };
-            path_unique_counts.push((label, seen.len()));
-        }
-    }
-
-    (array_paths, path_unique_counts)
+            (label, seen.len())
+        })
+        .collect()
 }
 
 /// Collects all paths to arrays in the input schema.
 /// Each path is a `Vec<String>` — empty means the root is an array,
 /// `["items"]` means `input.items` is an array, etc.
-/// Only required properties of objects are traversed.
+/// All properties of objects are traversed.
 fn collect_array_paths(schema: &InputSchema) -> Vec<Vec<String>> {
     let mut paths = Vec::new();
     collect_array_paths_rec(schema, &[], &mut paths);
@@ -1195,10 +1081,6 @@ pub(super) fn check_no_unused_input_maps(
     }
 
     let input_schema = function.input_schema();
-    let inputs = generate_example_inputs(input_schema);
-    if inputs.is_empty() {
-        return Ok(());
-    }
 
     // Collect all task map indices
     let task_map_indices: HashSet<u64> = function
@@ -1207,9 +1089,11 @@ pub(super) fn check_no_unused_input_maps(
         .filter_map(|t| t.input_map())
         .collect();
 
-    for (i, input) in inputs.iter().enumerate() {
+    let mut count = 0usize;
+    for (i, input) in example_inputs::generate(input_schema).enumerate() {
+        count += 1;
         let func = Function::Remote(function.clone());
-        let compiled = func.compile_input_maps(input).map_err(|e| {
+        let compiled = func.compile_input_maps(&input).map_err(|e| {
             format!("Input [{}]: input_maps compilation failed: {}", i, e)
         })?;
 
@@ -1240,6 +1124,10 @@ pub(super) fn check_no_unused_input_maps(
                 ));
             }
         }
+    }
+
+    if count == 0 {
+        return Ok(());
     }
 
     Ok(())
@@ -1300,5 +1188,212 @@ fn check_compiled_message_content(
             }
         }
     }
+    Ok(())
+}
+
+/// Validates that compiled vector completion responses are not all identical
+/// within every example input.
+///
+/// For each task, checks that at least one example input produces responses
+/// that differ from each other. If every single input produces responses that
+/// are all equal, rankings are useless since every item is the same.
+pub(super) fn validate_responses_not_all_equal(
+    function: &RemoteFunction,
+) -> Result<(), String> {
+    let input_schema = function.input_schema();
+
+    let task_count = function.tasks().len();
+    // Track whether we've seen at least one input with varying responses
+    let mut per_task_has_varying = vec![false; task_count];
+    let mut count = 0usize;
+
+    for input in example_inputs::generate(input_schema) {
+        count += 1;
+
+        let func = Function::Remote(function.clone());
+        let compiled_tasks = match func.compile_tasks(&input) {
+            Ok(ct) => ct,
+            Err(_) => continue,
+        };
+
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            if per_task_has_varying[j] {
+                continue; // already found a varying input
+            }
+            let Some(compiled_task) = compiled_task else {
+                continue;
+            };
+            if let CompiledTask::One(Task::VectorCompletion(vc)) = compiled_task
+            {
+                if vc.responses.len() < 2 {
+                    continue;
+                }
+                let first =
+                    serde_json::to_string(&vc.responses[0]).unwrap_or_default();
+                let has_different = vc.responses[1..].iter().any(|r| {
+                    serde_json::to_string(r).unwrap_or_default() != first
+                });
+                if has_different {
+                    per_task_has_varying[j] = true;
+                }
+            }
+        }
+    }
+
+    if count < 2 {
+        return Ok(());
+    }
+
+    for (j, has_varying) in per_task_has_varying.iter().enumerate() {
+        if !has_varying {
+            return Err(format!(
+                "Task [{}]: all responses are equal to each other for every \
+                 example input — rankings are useless if every item is the same",
+                j,
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Validates that compiled mapped scalar function task inputs vary across
+/// example inputs at each index position.
+///
+/// For each mapped scalar task, for each index in the compiled `Many` array,
+/// tracks (occurrence_count, unique_serialized_inputs). If an index appears
+/// more than once but has fewer than 2 unique inputs, the task input at that
+/// index is fixed and the check fails.
+pub(super) fn validate_mapped_scalar_input_diversity(
+    function: &RemoteFunction,
+) -> Result<(), String> {
+    let input_schema = function.input_schema();
+
+    let task_count = function.tasks().len();
+    // per_task_indexed[j][i] = (occurrence_count, unique_inputs)
+    let mut per_task_indexed: Vec<HashMap<usize, (usize, HashSet<String>)>> =
+        vec![HashMap::new(); task_count];
+    let mut count = 0usize;
+
+    for input in example_inputs::generate(input_schema) {
+        count += 1;
+
+        let func = Function::Remote(function.clone());
+        let compiled_tasks = match func.compile_tasks(&input) {
+            Ok(ct) => ct,
+            Err(_) => continue,
+        };
+
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            let Some(compiled_task) = compiled_task else {
+                continue;
+            };
+            if let CompiledTask::Many(tasks) = compiled_task {
+                for (i, task) in tasks.iter().enumerate() {
+                    if let Some(task_input) = extract_task_input_value(task) {
+                        let key = serde_json::to_string(task_input)
+                            .unwrap_or_default();
+                        let entry = per_task_indexed[j]
+                            .entry(i)
+                            .or_insert_with(|| (0, HashSet::new()));
+                        entry.0 += 1;
+                        entry.1.insert(key);
+                    }
+                }
+            }
+        }
+    }
+
+    if count < 2 {
+        return Ok(());
+    }
+
+    for (j, indexed) in per_task_indexed.iter().enumerate() {
+        for (&i, (occurrences, unique_inputs)) in indexed {
+            if *occurrences <= 1 {
+                continue;
+            }
+            if unique_inputs.len() < 2 {
+                return Err(format!(
+                    "Task [{}]: mapped input at index {} is a fixed value — \
+                     mapped inputs must be derived from the parent input",
+                    j, i,
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Validates that compiled mapped scalar function task inputs are not all
+/// identical within every example input.
+///
+/// For each mapped scalar task, checks that at least one example input produces
+/// mapped inputs that differ from each other. If every single input produces
+/// all-equal mapped inputs, rankings are useless since every item is the same.
+pub(super) fn validate_mapped_scalar_inputs_not_all_equal(
+    function: &RemoteFunction,
+) -> Result<(), String> {
+    let input_schema = function.input_schema();
+
+    let task_count = function.tasks().len();
+    let mut per_task_has_varying = vec![false; task_count];
+    let mut per_task_is_mapped = vec![false; task_count];
+    let mut count = 0usize;
+
+    for input in example_inputs::generate(input_schema) {
+        count += 1;
+
+        let func = Function::Remote(function.clone());
+        let compiled_tasks = match func.compile_tasks(&input) {
+            Ok(ct) => ct,
+            Err(_) => continue,
+        };
+
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            if per_task_has_varying[j] {
+                continue;
+            }
+            let Some(compiled_task) = compiled_task else {
+                continue;
+            };
+            if let CompiledTask::Many(tasks) = compiled_task {
+                per_task_is_mapped[j] = true;
+                if tasks.len() < 2 {
+                    continue;
+                }
+                let first = extract_task_input_value(&tasks[0])
+                    .map(|v| serde_json::to_string(v).unwrap_or_default());
+                let has_different = tasks[1..].iter().any(|t| {
+                    extract_task_input_value(t)
+                        .map(|v| serde_json::to_string(v).unwrap_or_default())
+                        != first
+                });
+                if has_different {
+                    per_task_has_varying[j] = true;
+                }
+            }
+        }
+    }
+
+    if count < 2 {
+        return Ok(());
+    }
+
+    for (j, has_varying) in per_task_has_varying.iter().enumerate() {
+        if !per_task_is_mapped[j] {
+            continue;
+        }
+        if !has_varying {
+            return Err(format!(
+                "Task [{}]: all mapped inputs are equal to each other for \
+                 every example input — rankings are useless if every item \
+                 is the same",
+                j,
+            ));
+        }
+    }
+
     Ok(())
 }

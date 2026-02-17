@@ -11,7 +11,8 @@ use super::check_leaf_vector_function::{
 use super::check_vector_fields::{VectorFieldsValidation, check_vector_fields};
 use super::compile_and_validate::{
     check_no_unused_input_maps, compile_and_validate_task_inputs,
-    validate_function_input_diversity,
+    validate_function_input_diversity, validate_mapped_scalar_input_diversity,
+    validate_mapped_scalar_inputs_not_all_equal,
 };
 
 /// Validates quality requirements for a branch vector function.
@@ -35,23 +36,36 @@ pub fn check_branch_vector_function(
     function: &RemoteFunction,
     children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
-    let (description, input_schema, tasks, output_length, input_split, input_merge) =
-        match function {
-            RemoteFunction::Vector {
-                description,
-                input_schema,
-                tasks,
-                output_length,
-                input_split,
-                input_merge,
-                ..
-            } => (description, input_schema, tasks, output_length, input_split, input_merge),
-            RemoteFunction::Scalar { .. } => {
-                return Err(
-                    "Expected vector function, got scalar function".to_string()
-                );
-            }
-        };
+    let (
+        description,
+        input_schema,
+        tasks,
+        output_length,
+        input_split,
+        input_merge,
+    ) = match function {
+        RemoteFunction::Vector {
+            description,
+            input_schema,
+            tasks,
+            output_length,
+            input_split,
+            input_merge,
+            ..
+        } => (
+            description,
+            input_schema,
+            tasks,
+            output_length,
+            input_split,
+            input_merge,
+        ),
+        RemoteFunction::Scalar { .. } => {
+            return Err(
+                "Expected vector function, got scalar function".to_string()
+            );
+        }
+    };
 
     // 1. Description
     check_description(description)?;
@@ -162,7 +176,13 @@ pub fn check_branch_vector_function(
     // 10. Function input diversity — compiled inputs must vary with parent input
     validate_function_input_diversity(function)?;
 
-    // 11. Compile and validate tasks for merged sub-inputs
+    // 11. Mapped scalar per-index input diversity
+    validate_mapped_scalar_input_diversity(function)?;
+
+    // 12. Mapped scalar inputs not all equal within each input
+    validate_mapped_scalar_inputs_not_all_equal(function)?;
+
+    // 13. Compile and validate tasks for merged sub-inputs
     validate_tasks_for_merged_inputs(function, children)?;
 
     Ok(())

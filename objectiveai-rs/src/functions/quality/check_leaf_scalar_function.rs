@@ -29,7 +29,10 @@ pub fn check_leaf_scalar_function(
 ) -> Result<(), String> {
     let (description, input_maps, tasks) = match function {
         RemoteFunction::Scalar {
-            description, input_maps, tasks, ..
+            description,
+            input_maps,
+            tasks,
+            ..
         } => (description, input_maps, tasks),
         RemoteFunction::Vector { .. } => {
             return Err(

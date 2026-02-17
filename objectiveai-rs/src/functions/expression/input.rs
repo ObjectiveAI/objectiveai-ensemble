@@ -58,7 +58,7 @@ impl InputMaps {
 ///
 /// Represents any JSON-like value that can be passed to a Function,
 /// including rich content types (images, audio, video, files).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Input {
     /// Rich content (image, audio, video, file).
@@ -76,6 +76,8 @@ pub enum Input {
     /// A boolean value.
     Boolean(bool),
 }
+
+impl Eq for Input {}
 
 impl std::hash::Hash for Input {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

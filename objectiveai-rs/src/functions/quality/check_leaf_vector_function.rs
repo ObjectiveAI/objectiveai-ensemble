@@ -12,9 +12,9 @@ use super::check_vector_fields::{
 };
 use super::compile_and_validate::{
     compile_and_validate_for_inputs, compile_and_validate_task_inputs,
-    validate_response_diversity,
+    validate_response_diversity, validate_responses_not_all_equal,
 };
-use super::example_inputs::generate_example_inputs;
+use super::example_inputs;
 
 /// Validates quality requirements for a leaf vector function.
 ///
@@ -32,31 +32,48 @@ use super::example_inputs::generate_example_inputs;
 pub fn check_leaf_vector_function(
     function: &RemoteFunction,
 ) -> Result<(), String> {
-    let (description, input_maps, input_schema, tasks, output_length, input_split, input_merge) =
-        match function {
-            RemoteFunction::Vector {
-                description,
-                input_maps,
-                input_schema,
-                tasks,
-                output_length,
-                input_split,
-                input_merge,
-                ..
-            } => (description, input_maps, input_schema, tasks, output_length, input_split, input_merge),
-            RemoteFunction::Scalar { .. } => {
-                return Err(
-                    "Expected vector function, got scalar function".to_string()
-                );
-            }
-        };
+    let (
+        description,
+        input_maps,
+        input_schema,
+        tasks,
+        output_length,
+        input_split,
+        input_merge,
+    ) = match function {
+        RemoteFunction::Vector {
+            description,
+            input_maps,
+            input_schema,
+            tasks,
+            output_length,
+            input_split,
+            input_merge,
+            ..
+        } => (
+            description,
+            input_maps,
+            input_schema,
+            tasks,
+            output_length,
+            input_split,
+            input_merge,
+        ),
+        RemoteFunction::Scalar { .. } => {
+            return Err(
+                "Expected vector function, got scalar function".to_string()
+            );
+        }
+    };
 
     // 1. Description
     check_description(description)?;
 
     // 2. No input_maps
     if input_maps.is_some() {
-        return Err("Leaf vector functions must not have input_maps".to_string());
+        return Err(
+            "Leaf vector functions must not have input_maps".to_string()
+        );
     }
 
     // 2. Input schema must be array or object with ≥1 required array property
@@ -120,6 +137,9 @@ pub fn check_leaf_vector_function(
     // 7. Response diversity — compiled responses must vary with input
     validate_response_diversity(function)?;
 
+    // 8. Responses not all equal — at least one input must have differing responses
+    validate_responses_not_all_equal(function)?;
+
     // 9. Vector fields round-trip validation
     check_vector_fields(VectorFieldsValidation {
         input_schema: input_schema.clone(),
@@ -144,16 +164,15 @@ pub(super) fn validate_tasks_for_merged_inputs(
     children: Option<&std::collections::HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
     let input_schema = function.input_schema();
-    let inputs = generate_example_inputs(input_schema);
 
     let func_template = Function::Remote(function.clone());
     let mut merged_inputs = Vec::new();
 
-    for (i, input) in inputs.iter().enumerate() {
+    for (i, input) in example_inputs::generate(input_schema).enumerate() {
         // Split the input
         let splits = func_template
             .clone()
-            .compile_input_split(input)
+            .compile_input_split(&input)
             .map_err(|e| {
                 format!(
                     "Merged input validation, input [{}]: input_split failed: {}",

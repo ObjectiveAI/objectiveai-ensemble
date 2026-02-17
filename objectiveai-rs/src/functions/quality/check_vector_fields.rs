@@ -6,7 +6,7 @@
 use rand::Rng;
 use serde::Deserialize;
 
-use super::example_inputs::generate_example_inputs;
+use super::example_inputs;
 use crate::functions::expression::{Input, InputSchema, WithExpression};
 use crate::functions::{Function, RemoteFunction};
 
@@ -47,14 +47,11 @@ impl VectorFieldsValidation {
 pub fn check_vector_fields(
     fields: VectorFieldsValidation,
 ) -> Result<(), String> {
-    let inputs = generate_example_inputs(&fields.input_schema);
-
-    if inputs.is_empty() {
-        return Err("Failed to generate any example inputs from input_schema"
-            .to_string());
-    }
-
-    for (i, input) in inputs.iter().enumerate() {
+    let mut count = 0usize;
+    for (i, ref input) in
+        example_inputs::generate(&fields.input_schema).enumerate()
+    {
+        count += 1;
         // 1. Compile output_length
         let output_length = fields
             .to_function()
@@ -242,6 +239,11 @@ pub fn check_vector_fields(
                 )
             })?;
         }
+    }
+
+    if count == 0 {
+        return Err("Failed to generate any example inputs from input_schema"
+            .to_string());
     }
 
     Ok(())
