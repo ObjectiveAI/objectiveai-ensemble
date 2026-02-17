@@ -70,6 +70,19 @@ export class State {
     }
   }
 
+  getInventSpec(): Result<string> {
+    return { ok: true, value: this.inventSpec, error: undefined };
+  }
+
+  getInventSpecTool(): Tool<{}> {
+    return {
+      name: "ReadInventSpec",
+      description: "Read InventSpec",
+      inputSchema: {},
+      fn: () => Promise.resolve(this.getInventSpec()),
+    };
+  }
+
   getName(): Result<string> {
     if (this.name === undefined) {
       return { ok: false, value: undefined, error: "FunctionName not set" };
@@ -92,6 +105,21 @@ export class State {
         ok: false,
         value: undefined,
         error: "FunctionName cannot be empty",
+      };
+    }
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)) {
+      return {
+        ok: false,
+        value: undefined,
+        error:
+          "FunctionName must be lowercase alphanumeric with dashes, cannot start or end with a dash",
+      };
+    }
+    if (new TextEncoder().encode(value).length > 100) {
+      return {
+        ok: false,
+        value: undefined,
+        error: "FunctionName exceeds maximum of 100 bytes",
       };
     }
     this.name = value;
