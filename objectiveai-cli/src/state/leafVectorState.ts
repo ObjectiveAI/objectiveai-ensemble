@@ -2,9 +2,11 @@ import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
 import { Tool, getSchemaTools } from "../tool";
+import { collectModalities } from "../modalities";
 
 export class LeafVectorState {
   readonly function: Partial<Functions.QualityLeafRemoteVectorFunction>;
+  private editInputSchemaModalityRemovalRejected = false;
 
   constructor(
     outputLength?: Functions.RemoteVectorFunction["output_length"],
@@ -44,7 +46,10 @@ export class LeafVectorState {
     };
   }
 
-  setInputSchema(value: unknown): Result<string> {
+  setInputSchema(
+    value: unknown,
+    dangerouslyRemoveModalities?: boolean,
+  ): Result<string> {
     const parsed =
       Functions.QualityLeafRemoteVectorFunctionSchema.shape.input_schema.safeParse(
         value,
@@ -56,22 +61,64 @@ export class LeafVectorState {
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`,
       };
     }
+
+    if (dangerouslyRemoveModalities) {
+      if (!this.editInputSchemaModalityRemovalRejected) {
+        return {
+          ok: false,
+          value: undefined,
+          error:
+            "dangerouslyRemoveModalities can only be used after a previous WriteFunctionInputSchema call was rejected for removing modalities.",
+        };
+      }
+      this.editInputSchemaModalityRemovalRejected = false;
+      this.function.input_schema = parsed.data;
+      return { ok: true, value: "", error: undefined };
+    }
+
+    if (this.function.input_schema && parsed.data) {
+      const oldModalities = collectModalities(this.function.input_schema);
+      const newModalities = collectModalities(parsed.data);
+      const removed: string[] = [];
+      for (const m of oldModalities) {
+        if (!newModalities.has(m)) removed.push(m);
+      }
+      if (removed.length > 0) {
+        this.editInputSchemaModalityRemovalRejected = true;
+        return {
+          ok: false,
+          value: undefined,
+          error:
+            `This edit would remove multimodal types: ${removed.join(", ")}. ` +
+            `Re-read the InventSpec and confirm this does not contradict it. ` +
+            `If the spec allows removing these modalities, call WriteFunctionInputSchema again with dangerouslyRemoveModalities: true.`,
+        };
+      }
+    }
+
+    this.editInputSchemaModalityRemovalRejected = false;
     this.function.input_schema = parsed.data;
-    return {
-      ok: true,
-      value: "",
-      error: undefined,
-    };
+    return { ok: true, value: "", error: undefined };
   }
 
   setInputSchemaTool(): Tool<{
     input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+    dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
   }> {
     return {
       name: "WriteFunctionInputSchema",
       description: "Write FunctionInputSchema",
-      inputSchema: { input_schema: z.record(z.string(), z.unknown()) },
-      fn: (args) => Promise.resolve(this.setInputSchema(args.input_schema)),
+      inputSchema: {
+        input_schema: z.record(z.string(), z.unknown()),
+        dangerouslyRemoveModalities: z.boolean().optional(),
+      },
+      fn: (args) =>
+        Promise.resolve(
+          this.setInputSchema(
+            args.input_schema,
+            args.dangerouslyRemoveModalities,
+          ),
+        ),
     };
   }
 
