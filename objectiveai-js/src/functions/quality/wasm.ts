@@ -1,4 +1,5 @@
 import {
+  qualityCheckScalarFields as wasmQualityCheckScalarFields,
   qualityCheckVectorFields as wasmQualityCheckVectorFields,
   qualityCheckLeafFunction as wasmQualityCheckLeafFunction,
   qualityCheckBranchFunction as wasmQualityCheckBranchFunction,
@@ -7,8 +8,19 @@ import {
   qualityCheckBranchScalarFunction as wasmQualityCheckBranchScalarFunction,
   qualityCheckBranchVectorFunction as wasmQualityCheckBranchVectorFunction,
 } from "../../wasm/loader.js";
+import { ScalarFieldsValidation } from "./scalarFields.js";
 import { VectorFieldsValidation } from "./vectorFields.js";
 import type { RemoteFunction } from "../function.js";
+
+/**
+ * Validates that a scalar function's input_schema produces enough diverse
+ * example inputs.
+ *
+ * Throws a descriptive error string on failure.
+ */
+export function checkScalarFields(fields: ScalarFieldsValidation): void {
+  wasmQualityCheckScalarFields(fields);
+}
 
 /**
  * Validates that a vector function's output_length, input_split, and

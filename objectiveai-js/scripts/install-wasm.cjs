@@ -123,6 +123,7 @@ export const compileFunctionOutput = _wasm.compileFunctionOutput;
 export const compileFunctionOutputLength = _wasm.compileFunctionOutputLength;
 export const compileFunctionInputSplit = _wasm.compileFunctionInputSplit;
 export const compileFunctionInputMerge = _wasm.compileFunctionInputMerge;
+export const qualityCheckScalarFields = _wasm.qualityCheckScalarFields;
 export const qualityCheckVectorFields = _wasm.qualityCheckVectorFields;
 export const qualityCheckLeafFunction = _wasm.qualityCheckLeafFunction;
 export const qualityCheckBranchFunction = _wasm.qualityCheckBranchFunction;

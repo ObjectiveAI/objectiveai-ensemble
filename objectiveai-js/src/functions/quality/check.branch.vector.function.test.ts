@@ -109,7 +109,7 @@ describe("checkBranchVectorFunction", () => {
       tasks: [],
     };
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /Expected vector function/,
+      /BV01/,
     );
   });
 
@@ -117,7 +117,7 @@ describe("checkBranchVectorFunction", () => {
   it("rejects string input_schema", () => {
     const f = branchVector({ type: "string" }, [vectorFunctionTask()]);
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /must be an array, or an object/,
+      /LV14/,
     );
   });
 
@@ -129,7 +129,7 @@ describe("checkBranchVectorFunction", () => {
     };
     const f = branchVector(schema, [vectorFunctionTask()]);
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /must be an array, or an object/,
+      /LV13/,
     );
   });
 
@@ -140,7 +140,7 @@ describe("checkBranchVectorFunction", () => {
       vectorFunctionTask(),
     ]);
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /scalar\.function.*must have map/,
+      /BV03/,
     );
   });
 
@@ -150,7 +150,7 @@ describe("checkBranchVectorFunction", () => {
       vectorFunctionTask(),
     ]);
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /placeholder\.scalar\.function.*must have map/,
+      /BV04/,
     );
   });
 
@@ -159,7 +159,7 @@ describe("checkBranchVectorFunction", () => {
       vectorFunctionTask(0),
     ]);
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /vector\.function.*must not have map/,
+      /BV05/,
     );
   });
 
@@ -168,14 +168,14 @@ describe("checkBranchVectorFunction", () => {
       placeholderVectorTask(0),
     ]);
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /placeholder\.vector\.function.*must not have map/,
+      /BV06/,
     );
   });
 
   it("rejects vector.completion task", () => {
     const f = branchVector(objectWithRequiredArraySchema, [qualityVcTask()]);
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /must not contain vector\.completion/,
+      /BV07/,
     );
   });
 
@@ -187,7 +187,7 @@ describe("checkBranchVectorFunction", () => {
       [{ $starlark: "input['items']" }],
     );
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /single task must use an unmapped vector-like task/,
+      /BV08/,
     );
   });
 
@@ -203,7 +203,7 @@ describe("checkBranchVectorFunction", () => {
       [{ $starlark: "input['items']" }],
     );
     expect(() => Functions.Quality.checkBranchVectorFunction(f)).toThrow(
-      /At most 50%/,
+      /BV09/,
     );
   });
 
@@ -269,6 +269,6 @@ describe("checkBranchVectorFunction", () => {
     const f = branchVector(objectWithRequiredArraySchema, []);
     expect(() =>
       Functions.Quality.checkBranchVectorFunction(f),
-    ).toThrow(/at least one task/);
+    ).toThrow(/BV02/);
   });
 });
