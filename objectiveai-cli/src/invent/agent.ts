@@ -1,5 +1,6 @@
 import { Tool } from "../tool";
 import { Result } from "../result";
+import { AgentUpstream } from "src/upstream";
 
 export interface AgentStep {
   prompt: string;
@@ -34,4 +35,8 @@ export async function runAgentStep(
       `Agent step failed after ${maxRetries} retries: ${finalResult.error}`,
     );
   }
+}
+
+export function getAgentStepFn(agentUpstream: AgentUpstream): AgentStepFn {
+  throw new Error("Not implemented yet");
 }

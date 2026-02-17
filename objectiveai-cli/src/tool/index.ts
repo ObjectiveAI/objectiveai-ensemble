@@ -1,4 +1,8 @@
-import { type JSONSchema, listRefDependencies, getJsonSchema } from "objectiveai";
+import {
+  type JSONSchema,
+  listRefDependencies,
+  getJsonSchema,
+} from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
 
@@ -9,10 +13,7 @@ export interface Tool<TSchema extends z.ZodRawShape = z.ZodRawShape> {
   fn: (args: z.infer<z.ZodObject<TSchema>>) => Promise<Result<string>>;
 }
 
-export function getSchemaTools(
-  schema: JSONSchema,
-  name: string,
-): Tool<{}>[] {
+export function getSchemaTools(schema: JSONSchema, name: string): Tool<{}>[] {
   const toolName = `Read${name}Schema`;
   const tools: Tool<{}>[] = [
     {

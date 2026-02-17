@@ -1,18 +1,22 @@
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 import { State } from "../state/state";
-import { AgentStepFn } from "./agent";
+import { getAgentStepFn } from "./agent";
 import { Parameters, ParametersBuilder, buildParameters } from "../parameters";
 import { Functions } from "objectiveai";
 import {
   readQualityFunctionFromFilesystem,
-  writeStateToFilesystem,
+  writeInitialStateToFilesystem,
+  writeFinalStateToFilesystem,
   writeFunctionToFilesystem,
 } from "../fs";
 import {
   getOwnerRepositoryCommit,
   OwnerRepositoryCommit,
+  pushFinal,
+  pushInitial,
 } from "../github";
+import { isDirty } from "../git";
 import {
   stepName,
   stepType,
@@ -22,12 +26,17 @@ import {
   stepBody,
   stepDescription,
 } from "./steps";
+import { AgentUpstream } from "src/upstream";
+import { getGitHubToken } from "src/config";
 
 interface InventOptionsBase {
   dir: string;
   inventSpec?: string;
   parameters?: ParametersBuilder;
-  agent: AgentStepFn;
+  agentUpstream: AgentUpstream;
+  gitHubToken?: string;
+  gitAuthorName?: string;
+  gitAuthorEmail?: string;
 }
 
 export type InventOptions =
@@ -51,16 +60,48 @@ async function stage1({
   dir,
   parameters,
   inventSpec,
-  agent,
+  agentUpstream,
+  gitHubToken: stateGitHubToken,
+  gitAuthorName: stateGitAuthorName,
+  gitAuthorEmail: stateGitAuthorEmail,
   ...stateOptions
 }: InventOptions & { inventSpec: string }): Promise<void> {
+  const gitHubToken =
+    stateGitHubToken ??
+    getGitHubToken() ??
+    (() => {
+      throw new Error("gitHubToken required");
+    })();
+  const gitAuthorName =
+    stateGitAuthorName ??
+    (() => {
+      throw new Error("gitAuthorName required");
+    })();
+  const gitAuthorEmail =
+    stateGitAuthorEmail ??
+    (() => {
+      throw new Error("gitAuthorEmail required");
+    })();
+
   const state = new State({
     parameters: buildParameters(parameters),
     inventSpec,
+    gitHubToken,
     ...stateOptions,
   });
+  const agent = getAgentStepFn(agentUpstream);
 
   await stepName(state, agent);
+  writeInitialStateToFilesystem(dir, state, state.parameters);
+  pushInitial({
+    dir,
+    name: state.getName().value!,
+    gitHubToken,
+    gitAuthorName,
+    gitAuthorEmail,
+    message: "initial commit",
+  });
+
   await stepType(state, agent);
   await stepFields(state, agent);
   await stepEssay(state, agent);
@@ -68,12 +109,54 @@ async function stage1({
   await stepBody(state, agent);
   await stepDescription(state, agent);
 
-  writeStateToFilesystem(dir, state, buildParameters(parameters));
+  writeFinalStateToFilesystem(dir, state, state.parameters);
+  pushFinal({
+    dir,
+    gitHubToken,
+    gitAuthorName,
+    gitAuthorEmail,
+    message: `implement ${state.getName().value!}`,
+    description: state.getDescription().value!,
+  });
 }
 
-async function stage2({ dir, agent }: InventOptions): Promise<void> {
+async function stage2({
+  dir,
+  agentUpstream,
+  gitHubToken: stateGitHubToken,
+  gitAuthorName: stateGitAuthorName,
+  gitAuthorEmail: stateGitAuthorEmail,
+}: InventOptions): Promise<void> {
   const qualityFn = await readQualityFunctionFromFilesystem(dir);
   if (!qualityFn) return;
+
+  const gitHubToken =
+    stateGitHubToken ??
+    getGitHubToken() ??
+    (() => {
+      throw new Error("gitHubToken required");
+    })();
+  const gitAuthorName =
+    stateGitAuthorName ??
+    (() => {
+      throw new Error("gitAuthorName required");
+    })();
+  const gitAuthorEmail =
+    stateGitAuthorEmail ??
+    (() => {
+      throw new Error("gitAuthorEmail required");
+    })();
+
+  if (isDirty(dir)) {
+    pushFinal({
+      dir,
+      gitHubToken,
+      gitAuthorName,
+      gitAuthorEmail,
+      message: `update ${qualityFn.name}`,
+      description: qualityFn.function.function.description ?? "",
+    });
+  }
 
   if (
     qualityFn.function.type !== "branch.scalar.function" &&
@@ -112,7 +195,10 @@ async function stage2({ dir, agent }: InventOptions): Promise<void> {
         invent({
           dir: subFunctionDir,
           parameters: subParameters,
-          agent,
+          gitHubToken,
+          gitAuthorName,
+          gitAuthorEmail,
+          agentUpstream,
         }),
       );
     } else if (task.type === "placeholder.vector.function") {
@@ -121,7 +207,10 @@ async function stage2({ dir, agent }: InventOptions): Promise<void> {
           dir: subFunctionDir,
           inventSpec: spec,
           parameters: subParameters,
-          agent,
+          gitHubToken,
+          gitAuthorName,
+          gitAuthorEmail,
+          agentUpstream,
           type: "vector.function",
           output_length: task.output_length,
           input_split: task.input_split,
@@ -134,7 +223,10 @@ async function stage2({ dir, agent }: InventOptions): Promise<void> {
           dir: subFunctionDir,
           inventSpec: spec,
           parameters: subParameters,
-          agent,
+          gitHubToken,
+          gitAuthorName,
+          gitAuthorEmail,
+          agentUpstream,
           type: "scalar.function",
         }),
       );
@@ -180,6 +272,14 @@ async function stage2({ dir, agent }: InventOptions): Promise<void> {
       dir,
       qualityFn.function.function as Functions.RemoteFunction,
     );
+    pushFinal({
+      dir,
+      gitHubToken,
+      gitAuthorName,
+      gitAuthorEmail,
+      message: `update ${qualityFn.name}`,
+      description: qualityFn.function.function.description ?? "",
+    });
   }
 
   // Re-throw any sub-invent errors

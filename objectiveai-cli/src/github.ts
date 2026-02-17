@@ -1,4 +1,5 @@
 import { Functions } from "objectiveai";
+import { execSync } from "child_process";
 import { relative } from "path";
 import {
   getRepoRoot,
@@ -6,6 +7,12 @@ import {
   parseGitHubRemote,
   getLatestCommitForPath,
   hasUncommittedChanges,
+  removeGitDir,
+  initRepo,
+  addAll,
+  commit,
+  addRemote,
+  push,
 } from "./git";
 
 export interface OwnerRepositoryCommit {
@@ -86,6 +93,23 @@ export async function fetchRemoteFunctions(
   return record;
 }
 
+export async function repoExists(
+  name: string,
+  gitHubToken: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${name}`, {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function commitExistsOnRemote(
   owner: string,
   repository: string,
@@ -141,4 +165,94 @@ export async function getOwnerRepositoryCommit(
     repository: parsed.repository,
     commit: localCommit,
   };
+}
+
+export interface PushInitialOptions {
+  dir: string;
+  name: string;
+  gitHubToken: string;
+  gitAuthorName: string;
+  gitAuthorEmail: string;
+  message: string;
+}
+
+export function pushInitial(options: PushInitialOptions): OwnerRepositoryCommit {
+  const { dir, name, gitHubToken, gitAuthorName, gitAuthorEmail, message } =
+    options;
+
+  const ghEnv = { ...process.env, GH_TOKEN: gitHubToken };
+  const execOpts = { encoding: "utf-8" as const, stdio: ["pipe", "pipe", "pipe"] as const };
+
+  // Initialize fresh git repo
+  removeGitDir(dir);
+  initRepo(dir);
+  addAll(dir);
+  commit(dir, message, gitAuthorName, gitAuthorEmail);
+
+  // Create upstream repository
+  const repoJson = execSync(
+    `gh repo create ${name} --public --json owner,name`,
+    { ...execOpts, cwd: dir, env: ghEnv },
+  );
+  const repo = JSON.parse(repoJson.toString().trim());
+  const owner: string = repo.owner.login;
+  const repository: string = repo.name;
+
+  // Push
+  addRemote(dir, `https://github.com/${owner}/${repository}.git`);
+  push(dir);
+
+  // Get commit SHA
+  const sha = execSync("git rev-parse HEAD", { ...execOpts, cwd: dir })
+    .toString()
+    .trim();
+
+  return { owner, repository, commit: sha };
+}
+
+export interface PushFinalOptions {
+  dir: string;
+  gitHubToken: string;
+  gitAuthorName: string;
+  gitAuthorEmail: string;
+  message: string;
+  description: string;
+}
+
+export function pushFinal(options: PushFinalOptions): OwnerRepositoryCommit {
+  const { dir, gitHubToken, gitAuthorName, gitAuthorEmail, message, description } =
+    options;
+
+  const ghEnv = { ...process.env, GH_TOKEN: gitHubToken };
+  const execOpts = { encoding: "utf-8" as const, stdio: ["pipe", "pipe", "pipe"] as const };
+
+  // Verify git is initialized and has a remote
+  const repoRoot = getRepoRoot(dir);
+  if (!repoRoot) throw new Error("Git repository not initialized");
+
+  const remoteUrl = getRemoteUrl(repoRoot);
+  if (!remoteUrl) throw new Error("No remote origin set");
+
+  const parsed = parseGitHubRemote(remoteUrl);
+  if (!parsed) throw new Error("Remote is not a GitHub repository");
+
+  const { owner, repository } = parsed;
+
+  // Update repository description
+  execSync(
+    `gh repo edit ${owner}/${repository} --description "${description.replace(/"/g, '\\"')}"`,
+    { ...execOpts, cwd: dir, env: ghEnv },
+  );
+
+  // Commit and push
+  addAll(dir);
+  commit(dir, message, gitAuthorName, gitAuthorEmail);
+  push(dir);
+
+  // Get commit SHA
+  const sha = execSync("git rev-parse HEAD", { ...execOpts, cwd: dir })
+    .toString()
+    .trim();
+
+  return { owner, repository, commit: sha };
 }

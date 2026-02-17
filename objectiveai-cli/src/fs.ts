@@ -252,7 +252,27 @@ function writePlaceholderTaskSpecsToFilesystem(
   writeJsonToFilesystem(join(dir, "placeholder_task_specs.json"), specs);
 }
 
-export function writeStateToFilesystem(
+export function writeGitignoreToFilesystem(dir: string): void {
+  const content = [
+    "# Ignore everything",
+    "*",
+    "",
+    "# Allow specific files",
+    "!.gitignore",
+    "!name.txt",
+    "!parameters.json",
+    "!function.json",
+    "!INVENT_SPEC.md",
+    "!INVENT_ESSAY.md",
+    "!INVENT_ESSAY_TASKS.md",
+    "!README.md",
+    "!placeholder_task_specs.json",
+    "",
+  ].join("\n");
+  writeTextToFilesystem(join(dir, ".gitignore"), content);
+}
+
+export function writeInitialStateToFilesystem(
   dir: string,
   state: State,
   parameters: Parameters,
@@ -264,6 +284,16 @@ export function writeStateToFilesystem(
   writeNameToFilesystem(dir, name.value);
 
   writeParametersToFilesystem(dir, parameters);
+
+  writeGitignoreToFilesystem(dir);
+}
+
+export function writeFinalStateToFilesystem(
+  dir: string,
+  state: State,
+  parameters: Parameters,
+): void {
+  writeInitialStateToFilesystem(dir, state, parameters);
 
   const inner = state.inner;
   if (!inner) throw new Error("Inner state not set");

@@ -1,4 +1,6 @@
 import { execSync, ExecSyncOptionsWithStringEncoding } from "child_process";
+import { rmSync } from "fs";
+import { join } from "path";
 
 const execOpts: ExecSyncOptionsWithStringEncoding = { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] };
 
@@ -70,4 +72,55 @@ export function hasUncommittedChanges(
   } catch {
     return true; // If we can't check, assume dirty
   }
+}
+
+export function isDirty(dir: string): boolean {
+  try {
+    const output = execSync("git status --porcelain", {
+      ...execOpts,
+      cwd: dir,
+    }).trim();
+    return output.length > 0;
+  } catch {
+    return true;
+  }
+}
+
+export function removeGitDir(dir: string): void {
+  rmSync(join(dir, ".git"), { recursive: true, force: true });
+}
+
+export function initRepo(dir: string): void {
+  execSync("git init", { ...execOpts, cwd: dir });
+}
+
+export function addAll(dir: string): void {
+  execSync("git add -A", { ...execOpts, cwd: dir });
+}
+
+export function commit(
+  dir: string,
+  message: string,
+  authorName: string,
+  authorEmail: string,
+): void {
+  execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, {
+    ...execOpts,
+    cwd: dir,
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: authorName,
+      GIT_COMMITTER_NAME: authorName,
+      GIT_AUTHOR_EMAIL: authorEmail,
+      GIT_COMMITTER_EMAIL: authorEmail,
+    },
+  });
+}
+
+export function addRemote(dir: string, url: string): void {
+  execSync(`git remote add origin ${url}`, { ...execOpts, cwd: dir });
+}
+
+export function push(dir: string): void {
+  execSync("git push -u origin main", { ...execOpts, cwd: dir });
 }

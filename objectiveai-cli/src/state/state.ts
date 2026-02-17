@@ -7,10 +7,12 @@ import { BranchVectorState } from "./branchVectorState";
 import { LeafScalarState } from "./leafScalarState";
 import { LeafVectorState } from "./leafVectorState";
 import { Tool } from "src/tool";
+import { repoExists } from "../github";
 
 export const StateOptionsBaseSchema = z.object({
   parameters: ParametersSchema,
   inventSpec: z.string().nonempty(),
+  gitHubToken: z.string().nonempty(),
 });
 export type StateOptionsBase = z.infer<typeof StateOptionsBaseSchema>;
 
@@ -31,6 +33,7 @@ export type StateOptions = z.infer<typeof StateOptionsSchema>;
 export class State {
   readonly parameters: Parameters;
   readonly inventSpec: string;
+  readonly gitHubToken: string;
   private name: string | undefined;
   private inventEssay: string | undefined;
   private inventEssayTasks: string | undefined;
@@ -45,6 +48,7 @@ export class State {
   constructor(options: StateOptions) {
     this.parameters = options.parameters;
     this.inventSpec = options.inventSpec;
+    this.gitHubToken = options.gitHubToken;
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
@@ -99,7 +103,7 @@ export class State {
     };
   }
 
-  setName(value: string): Result<string> {
+  async setName(value: string): Promise<Result<string>> {
     if (value.trim() === "") {
       return {
         ok: false,
@@ -122,6 +126,13 @@ export class State {
         error: "FunctionName exceeds maximum of 100 bytes",
       };
     }
+    if (await repoExists(value, this.gitHubToken)) {
+      return {
+        ok: false,
+        value: undefined,
+        error: "Name is already taken, please use another",
+      };
+    }
     this.name = value;
     return { ok: true, value: "", error: undefined };
   }
@@ -131,7 +142,7 @@ export class State {
       name: "WriteFunctionName",
       description: "Write FunctionName",
       inputSchema: { content: z.string() },
-      fn: (args) => Promise.resolve(this.setName(args.content)),
+      fn: (args) => this.setName(args.content),
     };
   }
 
