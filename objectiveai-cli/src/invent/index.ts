@@ -19,7 +19,6 @@ import {
   stepFields,
   stepEssay,
   stepEssayTasks,
-  stepPlan,
   stepBody,
   stepDescription,
 } from "./steps";
@@ -66,7 +65,6 @@ async function stage1({
   await stepFields(state, agent);
   await stepEssay(state, agent);
   await stepEssayTasks(state, agent);
-  await stepPlan(state, agent);
   await stepBody(state, agent);
   await stepDescription(state, agent);
 

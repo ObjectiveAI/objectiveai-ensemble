@@ -241,10 +241,6 @@ function writeInventEssayTasksToFilesystem(
   writeTextToFilesystem(join(dir, "INVENT_ESSAY_TASKS.md"), essayTasks);
 }
 
-function writeInventPlanToFilesystem(dir: string, plan: string): void {
-  writeTextToFilesystem(join(dir, "INVENT_PLAN.md"), plan);
-}
-
 function writeReadmeToFilesystem(dir: string, readme: string): void {
   writeTextToFilesystem(join(dir, "README.md"), readme);
 }
@@ -280,9 +276,6 @@ export function writeStateToFilesystem(
 
   const essayTasks = state.getInventEssayTasks();
   if (essayTasks.ok) writeInventEssayTasksToFilesystem(dir, essayTasks.value);
-
-  const plan = state.getInventPlan();
-  if (plan.ok) writeInventPlanToFilesystem(dir, plan.value);
 
   const readme = state.getReadme();
   if (readme.ok) writeReadmeToFilesystem(dir, readme.value);

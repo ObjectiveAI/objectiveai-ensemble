@@ -34,7 +34,6 @@ export class State {
   private name: string | undefined;
   private inventEssay: string | undefined;
   private inventEssayTasks: string | undefined;
-  private inventPlan: string | undefined;
   private _inner:
     | BranchScalarState
     | BranchVectorState
@@ -183,43 +182,6 @@ export class State {
       description: "Write InventEssayTasks",
       inputSchema: { content: z.string() },
       fn: (args) => Promise.resolve(this.setInventEssayTasks(args.content)),
-    };
-  }
-
-  getInventPlan(): Result<string> {
-    if (this.inventPlan === undefined) {
-      return { ok: false, value: undefined, error: "InventPlan not set" };
-    }
-    return { ok: true, value: this.inventPlan, error: undefined };
-  }
-
-  getInventPlanTool(): Tool<{}> {
-    return {
-      name: "ReadInventPlan",
-      description: "Read InventPlan",
-      inputSchema: {},
-      fn: () => Promise.resolve(this.getInventPlan()),
-    };
-  }
-
-  setInventPlan(value: string): Result<string> {
-    if (value.trim() === "") {
-      return {
-        ok: false,
-        value: undefined,
-        error: "InventPlan cannot be empty",
-      };
-    }
-    this.inventPlan = value;
-    return { ok: true, value: "", error: undefined };
-  }
-
-  setInventPlanTool(): Tool<{ content: z.ZodString }> {
-    return {
-      name: "WriteInventPlan",
-      description: "Write InventPlan",
-      inputSchema: { content: z.string() },
-      fn: (args) => Promise.resolve(this.setInventPlan(args.content)),
     };
   }
 
