@@ -1170,7 +1170,7 @@ fn diversity_fail_third_task_with_labels() {
             properties: index_map! {
                 "entries" => InputSchema::Array(ArrayInputSchema {
                     description: None,
-                    min_items: Some(3),
+                    min_items: Some(2),
                     max_items: Some(3),
                     items: Box::new(InputSchema::String(StringInputSchema {
                         description: None,
@@ -1204,7 +1204,7 @@ fn diversity_fail_third_task_with_labels() {
                 skip: None, map: None,
                 messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
                 tools: None,
-                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': 'First'}], [{'type': 'text', 'text': 'Second'}], [{'type': 'text', 'text': 'Third'}]]".to_string())),
+                responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': ['First', 'Second', 'Third'][i]}] for i in range(len(input['entries']))]".to_string())),
                 output: Expression::Starlark("output['scores']".to_string()),
             }),
         ],
@@ -1437,7 +1437,7 @@ fn within_input_responses_all_cloned() {
         description: "test".to_string(),
         changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
-            description: None, min_items: Some(4), max_items: Some(4),
+            description: None, min_items: Some(2), max_items: Some(4),
             items: Box::new(InputSchema::String(StringInputSchema { description: None, r#enum: None })),
         }),
         input_maps: None,
@@ -1724,7 +1724,7 @@ fn response_diversity_fail_fixed_responses() {
         description: "test".to_string(),
         changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
-            description: None, min_items: Some(3), max_items: Some(3),
+            description: None, min_items: Some(2), max_items: Some(3),
             items: Box::new(InputSchema::Object(ObjectInputSchema {
                 description: None,
                 properties: index_map! {
@@ -1739,7 +1739,7 @@ fn response_diversity_fail_fixed_responses() {
             skip: None, map: None,
             messages: WithExpression::Value(vec![WithExpression::Value(MessageExpression::User(UserMessageExpression { content: WithExpression::Value(RichContentExpression::Parts(vec![WithExpression::Value(RichContentPartExpression::Text { text: WithExpression::Value("Hello".to_string()) })])), name: None }))]),
             tools: None,
-            responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': x}] for x in ['a', 'b', 'c']]".to_string())),
+            responses: WithExpression::Expression(Expression::Starlark("[[{'type': 'text', 'text': str(i)}] for i in range(len(input))]".to_string())),
             output: Expression::Starlark("output['scores']".to_string()),
         })],
         output_length: WithExpression::Expression(Expression::Starlark("len(input)".to_string())),

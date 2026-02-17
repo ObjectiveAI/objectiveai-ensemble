@@ -1,17 +1,19 @@
 //! Quality checks for leaf scalar functions (depth 0: vector.completion tasks only).
 
+use std::collections::HashSet;
+
 use crate::chat::completions::request::{
     MessageExpression, RichContentExpression, SimpleContentExpression,
 };
 use crate::functions::expression::WithExpression;
 use crate::functions::{
-    RemoteFunction, TaskExpression, VectorCompletionTaskExpression,
+    CompiledTask, RemoteFunction, Task, TaskExpression,
+    VectorCompletionTaskExpression,
 };
 
 use super::check_description::check_description;
-use super::compile_and_validate::{
-    compile_and_validate_task_inputs, validate_vc_task_diversity,
-};
+use super::compile_and_validate::compile_and_validate_one_input;
+use super::example_inputs;
 
 /// Validates quality requirements for a leaf scalar function.
 ///
@@ -36,63 +38,63 @@ pub fn check_leaf_scalar_function(
         } => (description, input_maps, tasks),
         RemoteFunction::Vector { .. } => {
             return Err(
-                "Expected scalar function, got vector function".to_string()
+                "LS01: Expected scalar function, got vector function".to_string()
             );
         }
     };
 
-    // 1. Description length
+    // Description length
     check_description(description)?;
 
-    // 2. No input_maps
+    // No input_maps
     if input_maps.is_some() {
-        return Err("Scalar functions must not have input_maps".to_string());
+        return Err("LS02: Scalar functions must not have input_maps".to_string());
     }
 
-    // 2. Must have at least one task
+    // Must have at least one task
     if tasks.is_empty() {
-        return Err("Functions must have at least one task".to_string());
+        return Err("LS03: Functions must have at least one task".to_string());
     }
 
-    // 3. All tasks must be vector.completion, no map, content parts only
+    // All tasks must be vector.completion, no map, content parts only
     for (i, task) in tasks.iter().enumerate() {
         match task {
             TaskExpression::VectorCompletion(vc) => {
-                // 3. No map
+                // No map
                 if vc.map.is_some() {
                     return Err(format!(
-                        "Task [{}]: vector.completion tasks must not have map",
+                        "LS04: Task [{}]: vector.completion tasks must not have map",
                         i
                     ));
                 }
-                // 4 & 5. Check content parts
+                // Check content parts
                 check_vector_completion_messages(i, vc)?;
                 check_scalar_vector_completion_responses(i, vc)?;
             }
             TaskExpression::ScalarFunction(_) => {
                 return Err(format!(
-                    "Task [{}]: leaf functions must only contain vector.completion tasks, \
+                    "LS05: Task [{}]: leaf functions must only contain vector.completion tasks, \
                      found scalar.function",
                     i
                 ));
             }
             TaskExpression::VectorFunction(_) => {
                 return Err(format!(
-                    "Task [{}]: leaf functions must only contain vector.completion tasks, \
+                    "LS06: Task [{}]: leaf functions must only contain vector.completion tasks, \
                      found vector.function",
                     i
                 ));
             }
             TaskExpression::PlaceholderScalarFunction(_) => {
                 return Err(format!(
-                    "Task [{}]: leaf functions must only contain vector.completion tasks, \
+                    "LS07: Task [{}]: leaf functions must only contain vector.completion tasks, \
                      found placeholder.scalar.function",
                     i
                 ));
             }
             TaskExpression::PlaceholderVectorFunction(_) => {
                 return Err(format!(
-                    "Task [{}]: leaf functions must only contain vector.completion tasks, \
+                    "LS08: Task [{}]: leaf functions must only contain vector.completion tasks, \
                      found placeholder.vector.function",
                     i
                 ));
@@ -100,11 +102,51 @@ pub fn check_leaf_scalar_function(
         }
     }
 
-    // Compile tasks against example inputs and validate compiled output
-    compile_and_validate_task_inputs(function, None)?;
+    // --- Single generate() loop: compile + validate + diversity tracking ---
+    let input_schema = function.input_schema();
+    let task_count = tasks.len();
+    let mut per_task_serialized: Vec<HashSet<String>> =
+        vec![HashSet::new(); task_count];
+    let mut count = 0usize;
 
-    // 6. VC task diversity — compiled tasks must vary with parent input
-    validate_vc_task_diversity(function)?;
+    for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
+        count += 1;
+        let compiled_tasks =
+            compile_and_validate_one_input(i, function, input, None)?;
+
+        // Track VC task diversity
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            let Some(compiled_task) = compiled_task else {
+                continue;
+            };
+            if let CompiledTask::One(Task::VectorCompletion(vc)) = compiled_task
+            {
+                let key = serde_json::to_string(vc).unwrap_or_default();
+                per_task_serialized[j].insert(key);
+            }
+        }
+    }
+
+    if count == 0 {
+        return Err(
+            "LS18: Failed to generate any example inputs from input_schema"
+                .to_string(),
+        );
+    }
+
+    // Post-loop: VC task diversity check
+    if count >= 2 {
+        for (j, unique_tasks) in per_task_serialized.iter().enumerate() {
+            if unique_tasks.len() < 2 {
+                return Err(format!(
+                    "LS19: Task [{}]: task has fixed parameters — messages, tools, and/or \
+                     responses must be derived from the parent input, otherwise \
+                     the score is useless",
+                    j,
+                ));
+            }
+        }
+    }
 
     Ok(())
 }
@@ -119,7 +161,7 @@ pub(super) fn check_vector_completion_messages(
     if let WithExpression::Value(messages) = &vc.messages {
         if messages.is_empty() {
             return Err(format!(
-                "Task [{}]: messages must have at least 1 message",
+                "LS09: Task [{}]: messages must have at least 1 message",
                 task_index
             ));
         }
@@ -143,7 +185,7 @@ pub(super) fn check_scalar_vector_completion_responses(
     if let WithExpression::Value(responses) = &vc.responses {
         if responses.len() < 2 {
             return Err(format!(
-                "Task [{}]: responses must have at least 2 responses, found {}",
+                "LS10: Task [{}]: responses must have at least 2 responses, found {}",
                 task_index,
                 responses.len()
             ));
@@ -152,7 +194,7 @@ pub(super) fn check_scalar_vector_completion_responses(
             if let WithExpression::Value(resp) = resp_expr {
                 if matches!(resp, RichContentExpression::Text(_)) {
                     return Err(format!(
-                        "Task [{}], response [{}]: response must be an array of content parts, \
+                        "LS11: Task [{}], response [{}]: response must be an array of content parts, \
                          not a plain string",
                         task_index, j
                     ));
@@ -172,7 +214,7 @@ pub(super) fn check_vector_vector_completion_responses(
 ) -> Result<(), String> {
     if !matches!(vc.responses, WithExpression::Expression(_)) {
         return Err(format!(
-            "Task [{}]: vector function responses must be a single expression, \
+            "LS12: Task [{}]: vector function responses must be a single expression, \
              not a fixed array of responses",
             task_index
         ));
@@ -192,7 +234,7 @@ fn check_message_content(
             if let WithExpression::Value(content) = &dev.content {
                 if matches!(content, SimpleContentExpression::Text(_)) {
                     return Err(format!(
-                        "Task [{}], message [{}] (developer): content must be an array of \
+                        "LS13: Task [{}], message [{}] (developer): content must be an array of \
                          content parts, not a plain string",
                         task_index, msg_index
                     ));
@@ -203,7 +245,7 @@ fn check_message_content(
             if let WithExpression::Value(content) = &sys.content {
                 if matches!(content, SimpleContentExpression::Text(_)) {
                     return Err(format!(
-                        "Task [{}], message [{}] (system): content must be an array of \
+                        "LS14: Task [{}], message [{}] (system): content must be an array of \
                          content parts, not a plain string",
                         task_index, msg_index
                     ));
@@ -214,7 +256,7 @@ fn check_message_content(
             if let WithExpression::Value(content) = &user.content {
                 if matches!(content, RichContentExpression::Text(_)) {
                     return Err(format!(
-                        "Task [{}], message [{}] (user): content must be an array of \
+                        "LS15: Task [{}], message [{}] (user): content must be an array of \
                          content parts, not a plain string",
                         task_index, msg_index
                     ));
@@ -225,7 +267,7 @@ fn check_message_content(
             if let Some(WithExpression::Value(Some(content))) = &asst.content {
                 if matches!(content, RichContentExpression::Text(_)) {
                     return Err(format!(
-                        "Task [{}], message [{}] (assistant): content must be an array of \
+                        "LS16: Task [{}], message [{}] (assistant): content must be an array of \
                          content parts, not a plain string",
                         task_index, msg_index
                     ));
@@ -236,7 +278,7 @@ fn check_message_content(
             if let WithExpression::Value(content) = &tool.content {
                 if matches!(content, RichContentExpression::Text(_)) {
                     return Err(format!(
-                        "Task [{}], message [{}] (tool): content must be an array of \
+                        "LS17: Task [{}], message [{}] (tool): content must be an array of \
                          content parts, not a plain string",
                         task_index, msg_index
                     ));

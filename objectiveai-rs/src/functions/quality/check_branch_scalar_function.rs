@@ -1,13 +1,14 @@
 //! Quality checks for branch scalar functions (depth > 0: function/placeholder tasks only).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::functions::{RemoteFunction, TaskExpression};
+use crate::functions::{CompiledTask, RemoteFunction, TaskExpression};
 
 use super::check_description::check_description;
 use super::compile_and_validate::{
-    compile_and_validate_task_inputs, validate_scalar_function_input_diversity,
+    compile_and_validate_one_input, extract_task_input,
 };
+use super::example_inputs;
 
 /// Validates quality requirements for a branch scalar function.
 ///
@@ -35,73 +36,113 @@ pub fn check_branch_scalar_function(
         } => (description, input_maps, tasks),
         RemoteFunction::Vector { .. } => {
             return Err(
-                "Expected scalar function, got vector function".to_string()
+                "BS01: Expected scalar function, got vector function".to_string()
             );
         }
     };
 
-    // 1. Description
+    // Description
     check_description(description)?;
 
-    // 2. No input_maps
+    // No input_maps
     if input_maps.is_some() {
-        return Err("Scalar functions must not have input_maps".to_string());
+        return Err("BS02: Scalar functions must not have input_maps".to_string());
     }
 
-    // 2. Must have at least one task
+    // Must have at least one task
     if tasks.is_empty() {
-        return Err("Functions must have at least one task".to_string());
+        return Err("BS03: Functions must have at least one task".to_string());
     }
 
-    // 3-6. Check each task
+    // Check each task
     for (i, task) in tasks.iter().enumerate() {
         match task {
             TaskExpression::ScalarFunction(sf) => {
-                // 3. No map
+                // No map
                 if sf.map.is_some() {
                     return Err(format!(
-                        "Task [{}]: branch scalar function tasks must not have map",
+                        "BS04: Task [{}]: branch scalar function tasks must not have map",
                         i
                     ));
                 }
             }
             TaskExpression::PlaceholderScalarFunction(psf) => {
-                // 3. No map
+                // No map
                 if psf.map.is_some() {
                     return Err(format!(
-                        "Task [{}]: branch scalar function tasks must not have map",
+                        "BS05: Task [{}]: branch scalar function tasks must not have map",
                         i
                     ));
                 }
             }
             TaskExpression::VectorFunction(_) => {
                 return Err(format!(
-                    "Task [{}]: branch scalar functions must only contain scalar-like tasks, \
+                    "BS06: Task [{}]: branch scalar functions must only contain scalar-like tasks, \
                      found vector.function",
                     i
                 ));
             }
             TaskExpression::PlaceholderVectorFunction(_) => {
                 return Err(format!(
-                    "Task [{}]: branch scalar functions must only contain scalar-like tasks, \
+                    "BS07: Task [{}]: branch scalar functions must only contain scalar-like tasks, \
                      found placeholder.vector.function",
                     i
                 ));
             }
             TaskExpression::VectorCompletion(_) => {
                 return Err(format!(
-                    "Task [{}]: branch functions must not contain vector.completion tasks",
+                    "BS08: Task [{}]: branch functions must not contain vector.completion tasks",
                     i
                 ));
             }
         }
     }
 
-    // 6. Compile tasks with example inputs and validate placeholder inputs
-    compile_and_validate_task_inputs(function, children)?;
+    // --- Single generate() loop: compile + validate + diversity tracking ---
+    let input_schema = function.input_schema();
+    let task_count = tasks.len();
+    let mut per_task_inputs: Vec<HashSet<String>> =
+        vec![HashSet::new(); task_count];
+    let mut count = 0usize;
 
-    // 7. Function input diversity — compiled inputs must vary with parent input
-    validate_scalar_function_input_diversity(function)?;
+    for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
+        count += 1;
+        let compiled_tasks =
+            compile_and_validate_one_input(i, function, input, children)?;
+
+        // Track per-task input diversity
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            let Some(compiled_task) = compiled_task else {
+                continue;
+            };
+            if let CompiledTask::One(task) = compiled_task {
+                let key = extract_task_input(task);
+                if !key.is_empty() {
+                    per_task_inputs[j].insert(key);
+                }
+            }
+        }
+    }
+
+    if count == 0 {
+        return Err(
+            "BS09: Failed to generate any example inputs from input_schema"
+                .to_string(),
+        );
+    }
+
+    // Post-loop: function input diversity check
+    if count >= 2 {
+        for (j, unique_inputs) in per_task_inputs.iter().enumerate() {
+            if unique_inputs.len() < 2 {
+                return Err(format!(
+                    "BS10: Task [{}]: task input is a fixed value — task inputs must \
+                     be derived from the parent input, otherwise the score is useless",
+                    j,
+                ));
+            }
+        }
+    }
 
     Ok(())
 }

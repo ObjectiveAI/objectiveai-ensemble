@@ -341,7 +341,7 @@ fn test_merge_does_not_reconstruct_original() {
                 "[x[0] for x in reversed(input)]".to_string(),
             )),
         },
-        &["Input [0]"],
+        &["merged input does not match original"],
     );
 }
 
