@@ -442,10 +442,12 @@ export class BranchScalarState {
   }
 
   getSchemaTools(): Tool<{}>[] {
-    return getSchemaTools(
-      Functions.QualityBranchRemoteScalarFunctionJsonSchema,
-      "QualityBranchRemoteScalarFunction",
-    );
+    return getSchemaTools([
+      {
+        schema: Functions.QualityBranchRemoteScalarFunctionJsonSchema,
+        name: "QualityBranchRemoteScalarFunction",
+      },
+    ]);
   }
 
   getPlaceholderTaskSpecs(): PlaceholderTaskSpecs | undefined {

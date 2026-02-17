@@ -822,10 +822,12 @@ export class BranchVectorState {
   }
 
   getSchemaTools(): Tool<{}>[] {
-    return getSchemaTools(
-      Functions.QualityBranchRemoteVectorFunctionJsonSchema,
-      "QualityBranchRemoteVectorFunction",
-    );
+    return getSchemaTools([
+      {
+        schema: Functions.QualityBranchRemoteVectorFunctionJsonSchema,
+        name: "QualityBranchRemoteVectorFunction",
+      },
+    ]);
   }
 
   getPlaceholderTaskSpecs(): PlaceholderTaskSpecs | undefined {

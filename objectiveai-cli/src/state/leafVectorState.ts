@@ -538,9 +538,11 @@ export class LeafVectorState {
   }
 
   getSchemaTools(): Tool<{}>[] {
-    return getSchemaTools(
-      Functions.QualityLeafRemoteVectorFunctionJsonSchema,
-      "QualityLeafRemoteVectorFunction",
-    );
+    return getSchemaTools([
+      {
+        schema: Functions.QualityLeafRemoteVectorFunctionJsonSchema,
+        name: "QualityLeafRemoteVectorFunction",
+      },
+    ]);
   }
 }

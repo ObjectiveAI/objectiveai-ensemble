@@ -342,9 +342,11 @@ export class LeafScalarState {
   }
 
   getSchemaTools(): Tool<{}>[] {
-    return getSchemaTools(
-      Functions.QualityLeafRemoteScalarFunctionJsonSchema,
-      "QualityLeafRemoteScalarFunction",
-    );
+    return getSchemaTools([
+      {
+        schema: Functions.QualityLeafRemoteScalarFunctionJsonSchema,
+        name: "QualityLeafRemoteScalarFunction",
+      },
+    ]);
   }
 }
