@@ -464,6 +464,20 @@ export class BranchVectorState {
         error: "Spec cannot be empty",
       };
     }
+    try {
+      Functions.Quality.checkVectorFields({
+        input_schema: parsed.data.input_schema,
+        output_length: parsed.data.output_length,
+        input_split: parsed.data.input_split,
+        input_merge: parsed.data.input_merge,
+      });
+    } catch (e) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid Fields in new task: ${(e as Error).message}`,
+      };
+    }
     if (this.function.tasks) {
       this.function.tasks.push(parsed.data);
     } else {
@@ -533,6 +547,17 @@ export class BranchVectorState {
         ok: false,
         value: undefined,
         error: `Invalid InputMap Expression: ${inputMapParsed.error.message}`,
+      };
+    }
+    try {
+      Functions.Quality.checkScalarFields({
+        input_schema: parsed.data.input_schema,
+      });
+    } catch (e) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid Fields in new task: ${(e as Error).message}`,
       };
     }
     if (this.function.tasks) {

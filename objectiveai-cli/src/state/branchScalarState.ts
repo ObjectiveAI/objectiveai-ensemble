@@ -253,6 +253,17 @@ export class BranchScalarState {
         error: "Spec cannot be empty",
       };
     }
+    try {
+      Functions.Quality.checkScalarFields({
+        input_schema: parsed.data.input_schema,
+      });
+    } catch (e) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid Fields in new task: ${(e as Error).message}`,
+      };
+    }
     if (this.function.tasks) {
       this.function.tasks.push(parsed.data);
     } else {
