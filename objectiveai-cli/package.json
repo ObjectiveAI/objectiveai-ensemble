@@ -34,12 +34,15 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.29",
     "commander": "^14.0.3",
+    "ink": "^6.7.0",
     "objectiveai": "*",
+    "react": "^19.2.1",
     "zod": "^4.3.5"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@types/node": "^25.2.0",
+    "@types/react": "^19.2.14",
     "rollup": "^4.57.1",
     "shx": "^0.4.0",
     "tsup": "^8.5.1",
