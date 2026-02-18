@@ -41,9 +41,13 @@ interface InventOptionsBase {
 
 export type InventOptions =
   | InventOptionsBase
-  | (InventOptionsBase & { type: "scalar.function" })
+  | (InventOptionsBase & {
+      type: "scalar.function";
+      input_schema?: Functions.RemoteScalarFunction["input_schema"];
+    })
   | (InventOptionsBase & {
       type: "vector.function";
+      input_schema?: Functions.RemoteVectorFunction["input_schema"];
       output_length?: Functions.RemoteVectorFunction["output_length"];
       input_split?: Functions.RemoteVectorFunction["input_split"];
       input_merge?: Functions.RemoteVectorFunction["input_merge"];
@@ -212,6 +216,7 @@ async function stage2({
           gitAuthorEmail,
           agentUpstream,
           type: "vector.function",
+          input_schema: task.input_schema,
           output_length: task.output_length,
           input_split: task.input_split,
           input_merge: task.input_merge,
@@ -228,6 +233,7 @@ async function stage2({
           gitAuthorEmail,
           agentUpstream,
           type: "scalar.function",
+          input_schema: task.input_schema,
         }),
       );
     }

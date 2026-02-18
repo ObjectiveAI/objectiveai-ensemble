@@ -20,9 +20,11 @@ export const StateOptionsSchema = z.union([
   StateOptionsBaseSchema,
   StateOptionsBaseSchema.extend({
     type: z.literal("scalar.function"),
+    input_schema: Functions.RemoteScalarFunctionSchema.shape.input_schema,
   }),
   StateOptionsBaseSchema.extend({
     type: z.literal("vector.function"),
+    input_schema: Functions.RemoteVectorFunctionSchema.shape.input_schema,
     output_length: Functions.RemoteVectorFunctionSchema.shape.output_length,
     input_split: Functions.RemoteVectorFunctionSchema.shape.input_split,
     input_merge: Functions.RemoteVectorFunctionSchema.shape.input_merge,
