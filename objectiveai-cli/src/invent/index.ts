@@ -153,6 +153,8 @@ async function stage1(
     agentState,
   );
 
+  boundOnNotification({ role: "done" });
+
   writeFinalStateToFilesystem(dir, state, state.parameters);
   pushFinal({
     dir,

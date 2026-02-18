@@ -21,4 +21,7 @@ export type NotificationMessage =
       role: "tool";
       name: string;
       error?: string;
+    }
+  | {
+      role: "done";
     };
