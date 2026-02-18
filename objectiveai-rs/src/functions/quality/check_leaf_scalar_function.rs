@@ -146,7 +146,6 @@ pub fn check_leaf_scalar_function(
                         &ScalarOutputShape::VectorCompletion(
                             vc.responses.len(),
                         ),
-                        "LS21",
                     )?;
                 }
             }

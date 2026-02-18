@@ -51,7 +51,7 @@ function scalarFunctionTask(map?: number) {
     commit: "abc123",
     input: { $starlark: "map" },
     // Mapped scalar output is [s1, s2, ...]; normalize to sum ≈ 1 for vector parent
-    output: { $starlark: "[x / sum(output) for x in output]" },
+    output: { $starlark: "[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]" },
     ...(map !== undefined ? { map } : {}),
   };
 }

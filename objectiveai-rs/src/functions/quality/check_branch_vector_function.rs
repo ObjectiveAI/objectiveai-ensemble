@@ -270,7 +270,6 @@ pub fn check_branch_vector_function(
                                     first,
                                     &VectorOutputShape::MapScalar(tasks.len()),
                                     ol,
-                                    "BV23",
                                 )?;
                             }
                         }
@@ -285,7 +284,6 @@ pub fn check_branch_vector_function(
                                 task,
                                 &VectorOutputShape::Vector(ol as u64),
                                 ol,
-                                "BV24",
                             )?;
                         }
                     }

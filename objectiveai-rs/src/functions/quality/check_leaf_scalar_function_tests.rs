@@ -1881,7 +1881,6 @@ fn valid_with_skip_on_high_confidence() {
     test(&f);
 }
 
-#[test]
 // --- Output expression distribution tests ---
 
 #[test]
@@ -1921,7 +1920,7 @@ fn output_distribution_fail_biased() {
             },
         )],
     };
-    test_err(&f, "LS21");
+    test_err(&f, "OD02");
 }
 
 #[test]
@@ -1962,6 +1961,46 @@ fn output_distribution_pass() {
         )],
     };
     test(&f);
+}
+
+#[test]
+fn output_distribution_fail_division_by_zero() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Option A".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Option B".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark(
+                    "output['scores'][0] / sum(output['scores'])".to_string(),
+                ),
+            },
+        )],
+    };
+    test_err(&f, "OD01");
 }
 
 #[test]

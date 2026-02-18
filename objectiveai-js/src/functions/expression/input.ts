@@ -474,7 +474,7 @@ export const QualityVectorFunctionInputSchemaSchema = z
   .describe(
     "Input schema for a vector function. Must be an array or an object with at least one required array property.",
   )
-  .meta({ title: "QualityVectorFunctionInputSchema", wrapper: true });
+  .meta({ title: "QualityVectorFunctionInputSchema" });
 export type QualityVectorFunctionInputSchema = z.infer<
   typeof QualityVectorFunctionInputSchemaSchema
 >;

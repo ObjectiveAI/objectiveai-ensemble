@@ -129,7 +129,6 @@ pub fn check_branch_scalar_function(
                         input,
                         task,
                         &ScalarOutputShape::Scalar,
-                        "BS12",
                     )?;
                 }
             }

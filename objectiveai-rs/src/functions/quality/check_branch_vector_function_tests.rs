@@ -168,7 +168,7 @@ fn scalar_function_without_map() {
                 skip: None,
                 map: None, // missing map
                 input: WithExpression::Expression(Expression::Starlark("input".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -221,7 +221,7 @@ fn placeholder_scalar_without_map() {
                 skip: None,
                 map: None, // missing map
                 input: WithExpression::Expression(Expression::Starlark("input".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -427,7 +427,7 @@ fn single_mapped_scalar_task() {
             skip: None,
             map: Some(0),
             input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-            output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+            output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
         })],
         output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
@@ -471,7 +471,7 @@ fn over_50_percent_mapped_scalar() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -480,7 +480,7 @@ fn over_50_percent_mapped_scalar() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -637,7 +637,7 @@ fn valid_50_50_split() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -691,7 +691,7 @@ fn valid_mixed_tasks() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -986,7 +986,7 @@ fn input_diversity_fail_third_task_mapped_fixed() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("'constant'".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -1094,7 +1094,7 @@ fn input_diversity_pass_mixed_mapped_and_unmapped() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -1230,7 +1230,7 @@ fn input_diversity_pass_mapped_scalar_with_two_vectors() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -1425,7 +1425,7 @@ fn input_diversity_fail_with_input_maps_fixed() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("'always_same'".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
         ],
         output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
@@ -1524,7 +1524,6 @@ fn rejects_unused_input_maps() {
     test_err(&f, "BV12");
 }
 
-#[test]
 // --- Skip expression tests ---
 
 #[test]
@@ -1669,7 +1668,7 @@ fn rejects_out_of_bounds_map_index() {
                 skip: None,
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -1678,7 +1677,7 @@ fn rejects_out_of_bounds_map_index() {
                 skip: None,
                 map: Some(1), // index 1 doesn't exist
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
-                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
                 owner: "test".to_string(),
@@ -1706,8 +1705,124 @@ fn rejects_out_of_bounds_map_index() {
     test_err(&f, "BV11");
 }
 
-#[test]
 // --- Output expression distribution tests ---
+
+#[test]
+fn output_distribution_pass_mapped_scalar_max_items_10() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(10),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: Some(InputMaps::Many(vec![
+            Expression::Starlark("input['items']".to_string()),
+        ])),
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: Some(0),
+                input: WithExpression::Expression(Expression::Starlark("map".to_string())),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
+    };
+    test(&f);
+}
+
+#[test]
+fn output_distribution_pass_mixed_tasks_max_items_10() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(10),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: Some(InputMaps::Many(vec![
+            Expression::Starlark("input['items']".to_string()),
+        ])),
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: Some(0),
+                input: WithExpression::Expression(Expression::Starlark("map".to_string())),
+                output: Expression::Starlark("[x / sum(output) if sum(output) > 0 else 1.0 / len(output) for x in output]".to_string()),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
+    };
+    test(&f);
+}
 
 #[test]
 fn output_distribution_fail_biased_mapped_scalar() {
@@ -1745,7 +1860,7 @@ fn output_distribution_fail_biased_mapped_scalar() {
                 map: Some(0),
                 input: WithExpression::Expression(Expression::Starlark("map".to_string())),
                 output: Expression::Starlark(
-                    "[x * 0.1 + 0.45 for x in [y / sum(output) for y in output]]".to_string(),
+                    "[x * 0.1 + 0.45 for x in [y / sum(output) if sum(output) > 0 else 1.0 / len(output) for y in output]]".to_string(),
                 ),
             }),
             TaskExpression::VectorFunction(VectorFunctionTaskExpression {
@@ -1762,7 +1877,7 @@ fn output_distribution_fail_biased_mapped_scalar() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, "BV23");
+    test_err(&f, "OD06");
 }
 
 #[test]
@@ -1805,7 +1920,61 @@ fn output_distribution_fail_biased_unmapped_vector() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, "BV24");
+    test_err(&f, "OD06");
+}
+
+#[test]
+fn output_distribution_fail_mapped_scalar_division_by_zero() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: Some(InputMaps::Many(vec![
+            Expression::Starlark("input['items']".to_string()),
+        ])),
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: Some(0),
+                input: WithExpression::Expression(Expression::Starlark("map".to_string())),
+                output: Expression::Starlark("[x / sum(output) for x in output]".to_string()),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
+    };
+    test_err(&f, "OD09");
 }
 
 #[test]

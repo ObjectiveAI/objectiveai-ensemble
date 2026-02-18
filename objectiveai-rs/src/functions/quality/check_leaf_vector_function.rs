@@ -194,7 +194,6 @@ pub fn check_leaf_vector_function(
                             vc.responses.len(),
                         ),
                         ol,
-                        "LV19",
                     )?;
                 }
             }

@@ -977,7 +977,6 @@ fn valid_with_skip_on_low_priority() {
     test(&f);
 }
 
-#[test]
 // --- Output expression distribution tests ---
 
 #[test]
@@ -1007,7 +1006,7 @@ fn output_distribution_fail_biased_output_expression() {
             },
         )],
     };
-    test_err(&f, "BS12");
+    test_err(&f, "OD02");
 }
 
 #[test]

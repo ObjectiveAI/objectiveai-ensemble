@@ -4,6 +4,17 @@
 //! outputs to the full [0, 1] range (scalar) or produces well-distributed
 //! per-element scores (vector). Catches expressions like `output * 0.1 + 0.45`
 //! that pass uniqueness checks but produce a useless narrow range.
+//!
+//! Error codes:
+//! - OD01: scalar output expression eval failed
+//! - OD02: scalar output min bias (min > 0.01)
+//! - OD03: scalar output max bias (max < 0.99)
+//! - OD04: scalar output non-uniform (avg outside [0.4, 0.6])
+//! - OD05: vector output expression eval failed
+//! - OD06: vector element min bias
+//! - OD07: vector element max bias
+//! - OD08: vector element non-uniform
+//! - OD09: mapped scalar output expression fails on all-zero inputs
 
 use rust_decimal::Decimal;
 
@@ -21,9 +32,10 @@ fn systematic_scalar(k: usize) -> Decimal {
 }
 
 /// Generates a systematic normalized vector of length `len` for trial k.
-/// One element at a time gets most of the weight, cycling through elements.
-/// Each element's weight sweeps from near 0 to near 1, ensuring per-element
-/// extremes reach close to 0 and close to 1 for any vector length.
+/// Trial 0 produces all zeros (stress-tests expressions that divide by sum).
+/// Remaining trials use a focus-element strategy: one element at a time gets
+/// most of the weight, sweeping from 0.0 to 1.0, ensuring per-element
+/// extremes reach exactly 0 and 1 for any vector length.
 fn systematic_vector(k: usize, len: usize) -> Vec<Decimal> {
     if len == 0 {
         return vec![];
@@ -32,21 +44,25 @@ fn systematic_vector(k: usize, len: usize) -> Vec<Decimal> {
         return vec![Decimal::ONE];
     }
 
-    // Which element gets the focus this trial
+    // Trial 0: all zeros — tests expressions that assume non-zero sums
+    if k == 0 {
+        return vec![Decimal::ZERO; len];
+    }
+
+    let k = k - 1; // shift remaining trials to 0-based
     let focus = k % len;
-    // How much weight the focused element gets (sweeps 0 → 1)
     let sub_k = k / len;
-    let sub_trials = TRIALS / len;
+    let sub_trials = (TRIALS - 1) / len;
     let proportion = if sub_trials <= 1 {
         0.5
     } else {
         (sub_k as f64 / (sub_trials - 1) as f64).clamp(0.0, 1.0)
     };
 
-    // Focused element gets `focus_weight`, rest is split evenly
-    let epsilon = 0.001;
-    let total_epsilon = epsilon * len as f64;
-    let focus_weight = epsilon + (1.0 - total_epsilon) * proportion;
+    // Focused element gets `proportion` of total weight, rest is split evenly.
+    // At proportion=1: focus=1.0, others=0.0  →  [0, ..., 1, ..., 0]
+    // At proportion=0: focus=0.0, others=1/(len-1)
+    let focus_weight = proportion;
     let other_weight = (1.0 - focus_weight) / (len - 1) as f64;
 
     (0..len)
@@ -61,16 +77,51 @@ fn systematic_vector(k: usize, len: usize) -> Vec<Decimal> {
         .collect()
 }
 
-/// Generates a systematic map-scalar output: a vec of scalars (not normalized),
-/// each at a different phase.
+/// Generates a systematic map-scalar output: a vec of scalars (not normalized).
+/// Trial 0 produces all zeros (stress-tests expressions that divide by sum).
+/// Remaining trials use a focus-element strategy: one element at a time gets a
+/// high value while others get a minimal value, with the background scaling as
+/// 1/len so that the focused element can reach near 1.0 after normalization
+/// regardless of the number of elements.
 fn systematic_map_scalar(k: usize, len: usize) -> Vec<FunctionOutput> {
-    let step = TRIALS / len.max(1);
+    if len == 0 {
+        return vec![];
+    }
+    if len == 1 {
+        let v = k as f64 / 999.0;
+        return vec![FunctionOutput::Scalar(
+            Decimal::from_f64_retain(v).unwrap_or(Decimal::ZERO),
+        )];
+    }
+
+    // Trial 0: all zeros — tests expressions that assume non-zero sums
+    if k == 0 {
+        return vec![
+            FunctionOutput::Scalar(Decimal::ZERO);
+            len
+        ];
+    }
+
+    let k = k - 1;
+    let focus = k % len;
+    let sub_k = k / len;
+    let sub_trials = (TRIALS - 1) / len;
+    let proportion = if sub_trials <= 1 {
+        0.5
+    } else {
+        (sub_k as f64 / (sub_trials - 1) as f64).clamp(0.0, 1.0)
+    };
+
+    // Background scales as 1/len so total background ≈ 0.001 regardless of len,
+    // ensuring the focus element can always reach near 1.0 after normalization.
+    let background = 0.001 / len as f64;
+    let focus_value = proportion; // sweeps 0.0 → 1.0
+
     (0..len)
         .map(|i| {
-            let v = ((k + i * step) % TRIALS) as f64 / 999.0;
-            let v = v.clamp(0.001, 0.999);
+            let v = if i == focus { focus_value } else { background };
             FunctionOutput::Scalar(
-                Decimal::from_f64_retain(v).unwrap_or(Decimal::new(5, 1)),
+                Decimal::from_f64_retain(v).unwrap_or(Decimal::ZERO),
             )
         })
         .collect()
@@ -109,7 +160,6 @@ pub(super) fn check_scalar_distribution(
     input: &Input,
     task: &Task,
     shape: &ScalarOutputShape,
-    code: &str,
 ) -> Result<(), String> {
     let mut min = Decimal::ONE;
     let mut max = Decimal::ZERO;
@@ -129,9 +179,9 @@ pub(super) fn check_scalar_distribution(
 
         let result = task.compile_output(input, mock_output).map_err(|e| {
             format!(
-                "{}: Task [{}]: output expression evaluation failed during \
+                "OD01: Task [{}]: output expression evaluation failed during \
                  distribution check (trial {}): {}",
-                code, task_index, k, e
+                task_index, k, e
             )
         })?;
 
@@ -157,29 +207,29 @@ pub(super) fn check_scalar_distribution(
 
     if min > Decimal::new(1, 2) {
         return Err(format!(
-            "{}: Task [{}]: output expression is biased — when given raw outputs \
+            "OD02: Task [{}]: output expression is biased — when given raw outputs \
              ranging from 0.0 to 1.0, the minimum compiled output was {} (expected \
              near 0.0). The output expression should map the full range of raw task \
              outputs to the full [0, 1] range.",
-            code, task_index, min
+            task_index, min
         ));
     }
     if max < Decimal::new(99, 2) {
         return Err(format!(
-            "{}: Task [{}]: output expression is biased — when given raw outputs \
+            "OD03: Task [{}]: output expression is biased — when given raw outputs \
              ranging from 0.0 to 1.0, the maximum compiled output was {} (expected \
              near 1.0). The output expression should map the full range of raw task \
              outputs to the full [0, 1] range.",
-            code, task_index, max
+            task_index, max
         ));
     }
     if avg < Decimal::new(4, 1) || avg > Decimal::new(6, 1) {
         return Err(format!(
-            "{}: Task [{}]: output expression is non-uniform — the average compiled \
+            "OD04: Task [{}]: output expression is non-uniform — the average compiled \
              output was {} (expected near 0.5). The output expression should produce \
              roughly uniform results across the [0, 1] range when given uniformly \
              distributed raw outputs.",
-            code, task_index, avg
+            task_index, avg
         ));
     }
 
@@ -211,7 +261,6 @@ pub(super) fn check_vector_distribution(
     task: &Task,
     shape: &VectorOutputShape,
     output_length: usize,
-    code: &str,
 ) -> Result<(), String> {
     let mut per_element_min = vec![Decimal::ONE; output_length];
     let mut per_element_max = vec![Decimal::ZERO; output_length];
@@ -233,11 +282,22 @@ pub(super) fn check_vector_distribution(
         };
 
         let result = task.compile_output(input, mock_output).map_err(|e| {
-            format!(
-                "{}: Task [{}]: output expression evaluation failed during \
-                 distribution check (trial {}): {}",
-                code, task_index, k, e
-            )
+            // Special error for all-zero mapped scalar inputs (trial 0)
+            if k == 0 && matches!(shape, VectorOutputShape::MapScalar(_)) {
+                format!(
+                    "OD09: Task [{}]: output expression fails when all mapped \
+                     scalar outputs are zero (division by zero). The expression \
+                     must handle the case where sum(output) == 0, e.g. use \
+                     `x / sum(output) if sum(output) > 0 else 1.0 / len(output)`.",
+                    task_index
+                )
+            } else {
+                format!(
+                    "OD05: Task [{}]: output expression evaluation failed during \
+                     distribution check (trial {}): {}",
+                    task_index, k, e
+                )
+            }
         })?;
 
         let values = match result {
@@ -277,29 +337,29 @@ pub(super) fn check_vector_distribution(
 
         if per_element_min[p] > Decimal::new(1, 2) {
             return Err(format!(
-                "{}: Task [{}], element [{}]: output expression is biased — when \
+                "OD06: Task [{}], element [{}]: output expression is biased — when \
                  given systematic raw outputs, the minimum compiled value for this \
                  element was {} (expected near 0.0). Each element of the output vector \
                  should be able to reach values near 0.",
-                code, task_index, p, per_element_min[p]
+                task_index, p, per_element_min[p]
             ));
         }
         if per_element_max[p] < Decimal::new(99, 2) {
             return Err(format!(
-                "{}: Task [{}], element [{}]: output expression is biased — when \
+                "OD07: Task [{}], element [{}]: output expression is biased — when \
                  given systematic raw outputs, the maximum compiled value for this \
                  element was {} (expected near 1.0). Each element of the output vector \
                  should be able to reach values near 1.",
-                code, task_index, p, per_element_max[p]
+                task_index, p, per_element_max[p]
             ));
         }
         if avg < avg_low || avg > avg_high {
             return Err(format!(
-                "{}: Task [{}], element [{}]: output expression is non-uniform — \
+                "OD08: Task [{}], element [{}]: output expression is non-uniform — \
                  the average compiled value for this element was {} (expected near \
                  {:.4}). Each element should average around 1/{} when given uniformly \
                  distributed raw outputs.",
-                code, task_index, p, avg, expected_avg, output_length
+                task_index, p, avg, expected_avg, output_length
             ));
         }
     }
