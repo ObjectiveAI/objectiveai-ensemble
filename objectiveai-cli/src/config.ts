@@ -2,12 +2,14 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { AgentUpstream, AgentUpstreamSchema } from "./agent";
+import type { Config as MockConfig } from "./agent/mock";
 
 interface ConfigJson {
   gitHubToken?: string;
   gitAuthorName?: string;
   gitAuthorEmail?: string;
-  agentUpstream?: string;
+  agent?: string;
+  agentMock?: MockConfig;
 }
 
 function readConfigFile(dir: string): ConfigJson | undefined {
@@ -19,15 +21,18 @@ function readConfigFile(dir: string): ConfigJson | undefined {
   }
 }
 
-function getValue(
+function getValue<K extends keyof ConfigJson>(
   env: string | undefined,
-  key: keyof ConfigJson,
-): string | null {
-  if (env) return env;
+  key: K,
+  deserialize?: (env: string) => NonNullable<ConfigJson[K]>,
+): NonNullable<ConfigJson[K]> | null {
+  if (env)
+    return deserialize ? deserialize(env) : (env as NonNullable<ConfigJson[K]>);
   const project = readConfigFile(process.cwd());
-  if (project?.[key]) return project[key];
+  if (project?.[key] !== undefined)
+    return project[key] as NonNullable<ConfigJson[K]>;
   const user = readConfigFile(homedir());
-  if (user?.[key]) return user[key];
+  if (user?.[key] !== undefined) return user[key] as NonNullable<ConfigJson[K]>;
   return null;
 }
 
@@ -44,9 +49,17 @@ export function getGitAuthorEmail(): string | null {
 }
 
 export function getAgentUpstream(): AgentUpstream | null {
-  const raw = getValue(process.env.OBJECTIVEAI_AGENT_UPSTREAM, "agentUpstream");
+  const raw = getValue(process.env.OBJECTIVEAI_AGENT, "agent");
   if (raw === null) return null;
   const parsed = AgentUpstreamSchema.safeParse(raw);
   if (!parsed.success) return null;
   return parsed.data;
+}
+
+export function getAgentMockConfig(): MockConfig | null {
+  return getValue(
+    process.env.OBJECTIVEAI_AGENT_MOCK,
+    "agentMock",
+    (env) => JSON.parse(env) as MockConfig,
+  );
 }
