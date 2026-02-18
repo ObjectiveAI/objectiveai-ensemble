@@ -978,6 +978,67 @@ fn valid_with_skip_on_low_priority() {
 }
 
 #[test]
+// --- Output expression distribution tests ---
+
+#[test]
+fn output_distribution_fail_biased_output_expression() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark(
+                    "output * 0.1 + 0.45".to_string(),
+                ),
+            },
+        )],
+    };
+    test_err(&f, "BS12");
+}
+
+#[test]
+fn output_distribution_pass_identity() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test(&f);
+}
+
+#[test]
 fn rejects_single_permutation_string_enum() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),

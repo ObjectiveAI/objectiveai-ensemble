@@ -13,6 +13,9 @@ use crate::functions::{
 
 use super::check_description::check_description;
 use super::check_input_schema::check_input_schema;
+use super::check_output_expression::{
+    ScalarOutputShape, check_scalar_distribution,
+};
 use super::check_modalities::{
     ModalityFlags, check_modality_coverage, collect_schema_modalities,
     collect_task_modalities,
@@ -116,6 +119,7 @@ pub fn check_leaf_scalar_function(
     let mut per_task_serialized: Vec<HashSet<String>> =
         vec![HashSet::new(); task_count];
     let mut per_task_skipped = vec![false; task_count];
+    let mut seen_dist_tasks: HashSet<(usize, usize)> = HashSet::new();
     let mut count = 0usize;
 
     // Multimodal coverage tracking
@@ -127,6 +131,26 @@ pub fn check_leaf_scalar_function(
         count += 1;
         let compiled_tasks =
             compile_and_validate_one_input(i, function, input, None)?;
+
+        // Output expression distribution check (once per task+response_count)
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            if let Some(CompiledTask::One(Task::VectorCompletion(vc))) =
+                compiled_task
+            {
+                let key = (j, vc.responses.len());
+                if seen_dist_tasks.insert(key) {
+                    check_scalar_distribution(
+                        j,
+                        input,
+                        &Task::VectorCompletion(vc.clone()),
+                        &ScalarOutputShape::VectorCompletion(
+                            vc.responses.len(),
+                        ),
+                        "LS21",
+                    )?;
+                }
+            }
+        }
 
         // Track VC task diversity
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {

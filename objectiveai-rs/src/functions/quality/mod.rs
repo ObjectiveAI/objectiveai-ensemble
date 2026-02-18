@@ -15,6 +15,7 @@ mod check_scalar_fields;
 mod check_leaf_function;
 mod check_leaf_scalar_function;
 mod check_leaf_vector_function;
+mod check_output_expression;
 mod check_vector_fields;
 mod compile_and_validate;
 mod example_inputs;

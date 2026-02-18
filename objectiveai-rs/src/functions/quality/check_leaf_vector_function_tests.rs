@@ -1966,6 +1966,100 @@ fn valid_with_skip_on_quick_mode() {
     test(&f);
 }
 
+// --- Output expression distribution tests ---
+
+#[test]
+fn output_distribution_fail_biased() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': 'rank these'}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x}] for x in input]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark(
+                    "[x * 0.1 + 0.45 for x in output['scores']]".to_string(),
+                ),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "LV19");
+}
+
+#[test]
+fn output_distribution_pass() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': 'rank these'}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x}] for x in input]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark(
+                    "output['scores']".to_string(),
+                ),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test(&f);
+}
+
 #[test]
 fn rejects_single_permutation_string_enum() {
     let f = RemoteFunction::Vector {

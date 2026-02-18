@@ -1882,6 +1882,89 @@ fn valid_with_skip_on_high_confidence() {
 }
 
 #[test]
+// --- Output expression distribution tests ---
+
+#[test]
+fn output_distribution_fail_biased() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Option A".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Option B".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark(
+                    "output['scores'][0] * 0.1 + 0.45".to_string(),
+                ),
+            },
+        )],
+    };
+    test_err(&f, "LS21");
+}
+
+#[test]
+fn output_distribution_pass() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Option A".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Option B".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark(
+                    "output['scores'][0]".to_string(),
+                ),
+            },
+        )],
+    };
+    test(&f);
+}
+
+#[test]
 fn rejects_single_permutation_string_enum() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),

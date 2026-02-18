@@ -7,6 +7,9 @@ use crate::functions::{CompiledTask, RemoteFunction, TaskExpression};
 use super::check_description::check_description;
 use super::check_input_schema::check_input_schema;
 use super::check_scalar_fields::{ScalarFieldsValidation, check_scalar_fields};
+use super::check_output_expression::{
+    ScalarOutputShape, check_scalar_distribution,
+};
 use super::compile_and_validate::{
     compile_and_validate_one_input, extract_task_input,
 };
@@ -109,12 +112,28 @@ pub fn check_branch_scalar_function(
     let mut per_task_inputs: Vec<HashSet<String>> =
         vec![HashSet::new(); task_count];
     let mut per_task_skipped = vec![false; task_count];
+    let mut seen_dist_tasks: HashSet<usize> = HashSet::new();
     let mut count = 0usize;
 
     for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
         count += 1;
         let compiled_tasks =
             compile_and_validate_one_input(i, function, input, children)?;
+
+        // Output expression distribution check (once per task)
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            if let Some(CompiledTask::One(task)) = compiled_task {
+                if seen_dist_tasks.insert(j) {
+                    check_scalar_distribution(
+                        j,
+                        input,
+                        task,
+                        &ScalarOutputShape::Scalar,
+                        "BS12",
+                    )?;
+                }
+            }
+        }
 
         // Track per-task input diversity
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {

@@ -2,11 +2,14 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::functions::expression::Input;
+use crate::functions::expression::{Input, Params, ParamsRef};
 use crate::functions::{CompiledTask, Function, RemoteFunction, TaskExpression};
 
 use super::check_description::check_description;
 use super::check_input_schema::check_input_schema;
+use super::check_output_expression::{
+    VectorOutputShape, check_vector_distribution,
+};
 use super::check_leaf_vector_function::check_vector_input_schema;
 use super::check_scalar_fields::{ScalarFieldsValidation, check_scalar_fields};
 use super::check_vector_fields::{
@@ -193,6 +196,7 @@ pub fn check_branch_vector_function(
     let mut per_task_has_varying = vec![false; task_count];
     let mut per_task_is_mapped = vec![false; task_count];
     let mut per_task_skipped = vec![false; task_count];
+    let mut seen_dist_tasks: HashSet<(usize, usize)> = HashSet::new();
     let mut count = 0usize;
     let mut merged_count = 0usize;
 
@@ -240,6 +244,55 @@ pub fn check_branch_vector_function(
         // Compile and validate
         let compiled_tasks =
             compile_and_validate_one_input(i, function, input, children)?;
+
+        // Output expression distribution check (once per task+length pair)
+        {
+            let params = Params::Ref(ParamsRef {
+                input,
+                output: None,
+                map: None,
+            });
+            let ol = output_length
+                .clone()
+                .compile_one(&params)
+                .unwrap_or(0) as usize;
+
+            for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+                match compiled_task {
+                    Some(CompiledTask::Many(tasks)) => {
+                        // Mapped scalar: key = (j, tasks.len())
+                        let key = (j, tasks.len());
+                        if seen_dist_tasks.insert(key) {
+                            if let Some(first) = tasks.first() {
+                                check_vector_distribution(
+                                    j,
+                                    input,
+                                    first,
+                                    &VectorOutputShape::MapScalar(tasks.len()),
+                                    ol,
+                                    "BV23",
+                                )?;
+                            }
+                        }
+                    }
+                    Some(CompiledTask::One(task)) => {
+                        // Unmapped vector: key = (j, output_length)
+                        let key = (j, ol);
+                        if seen_dist_tasks.insert(key) {
+                            check_vector_distribution(
+                                j,
+                                input,
+                                task,
+                                &VectorOutputShape::Vector(ol as u64),
+                                ol,
+                                "BV24",
+                            )?;
+                        }
+                    }
+                    None => {}
+                }
+            }
+        }
 
         // Track per-task input diversity + mapped scalar diversity
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {

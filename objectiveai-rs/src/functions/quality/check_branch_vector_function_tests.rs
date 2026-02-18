@@ -1707,6 +1707,149 @@ fn rejects_out_of_bounds_map_index() {
 }
 
 #[test]
+// --- Output expression distribution tests ---
+
+#[test]
+fn output_distribution_fail_biased_mapped_scalar() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: Some(InputMaps::Many(vec![
+            Expression::Starlark("input['items']".to_string()),
+        ])),
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: Some(0),
+                input: WithExpression::Expression(Expression::Starlark("map".to_string())),
+                output: Expression::Starlark(
+                    "[x * 0.1 + 0.45 for x in [y / sum(output) for y in output]]".to_string(),
+                ),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
+    };
+    test_err(&f, "BV23");
+}
+
+#[test]
+fn output_distribution_fail_biased_unmapped_vector() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+            owner: "test".to_string(),
+            repository: "test".to_string(),
+            commit: "abc123".to_string(),
+            skip: None,
+            map: None,
+            input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+            output: Expression::Starlark(
+                "[x * 0.1 + 0.45 for x in output]".to_string(),
+            ),
+        })],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
+    };
+    test_err(&f, "BV24");
+}
+
+#[test]
+fn output_distribution_pass_identity() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(2),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+            owner: "test".to_string(),
+            repository: "test".to_string(),
+            commit: "abc123".to_string(),
+            skip: None,
+            map: None,
+            input: WithExpression::Expression(Expression::Starlark("input".to_string())),
+            output: Expression::Starlark("output".to_string()),
+        })],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
+    };
+    test(&f);
+}
+
+#[test]
 fn rejects_single_permutation_string_enum() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),

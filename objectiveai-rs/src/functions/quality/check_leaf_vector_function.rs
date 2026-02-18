@@ -7,6 +7,9 @@ use crate::functions::{CompiledTask, Function, RemoteFunction, Task, TaskExpress
 
 use super::check_description::check_description;
 use super::check_input_schema::check_input_schema;
+use super::check_output_expression::{
+    VectorOutputShape, check_vector_distribution,
+};
 use super::check_leaf_scalar_function::{
     check_vector_completion_messages, check_vector_vector_completion_responses,
 };
@@ -154,6 +157,7 @@ pub fn check_leaf_vector_function(
     // Responses not all equal tracking
     let mut per_task_has_varying = vec![false; task_count];
     let mut per_task_skipped = vec![false; task_count];
+    let mut seen_dist_tasks: HashSet<(usize, usize)> = HashSet::new();
     let mut count = 0usize;
     let mut merged_count = 0usize;
 
@@ -168,6 +172,33 @@ pub fn check_leaf_vector_function(
         // Compile and validate
         let compiled_tasks =
             compile_and_validate_one_input(i, function, input, None)?;
+
+        // Output expression distribution check (once per task+response_count)
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            if let Some(CompiledTask::One(Task::VectorCompletion(vc))) =
+                compiled_task
+            {
+                let key = (j, vc.responses.len());
+                if seen_dist_tasks.insert(key) {
+                    let ol = func_template
+                        .clone()
+                        .compile_output_length(input)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(0) as usize;
+                    check_vector_distribution(
+                        j,
+                        input,
+                        &Task::VectorCompletion(vc.clone()),
+                        &VectorOutputShape::VectorCompletion(
+                            vc.responses.len(),
+                        ),
+                        ol,
+                        "LV19",
+                    )?;
+                }
+            }
+        }
 
         // Track response diversity and responses-not-all-equal
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {
