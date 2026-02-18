@@ -9,9 +9,12 @@ export function stepFields<TState>(
   agent: AgentStepFn<TState>,
   agentState?: TState,
   maxRetries = 5,
-): Promise<TState> {
+): Promise<TState | undefined> {
   const inner = state.inner;
   if (!inner) throw new Error("Function type not set");
+  if (inner.checkFields().ok) {
+    return Promise.resolve(agentState);
+  }
   const isVector =
     inner instanceof BranchVectorState || inner instanceof LeafVectorState;
 

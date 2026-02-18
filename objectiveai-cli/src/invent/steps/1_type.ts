@@ -7,7 +7,10 @@ export function stepType<TState>(
   agent: AgentStepFn<TState>,
   agentState?: TState,
   maxRetries = 5,
-): Promise<TState> {
+): Promise<TState | undefined> {
+  if (state.getFunctionType().ok) {
+    return Promise.resolve(agentState);
+  }
   return runAgentStep(
     agent,
     {
