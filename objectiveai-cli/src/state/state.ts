@@ -143,12 +143,12 @@ export class State {
     return { ok: true, value: "", error: undefined };
   }
 
-  setNameTool(): Tool<{ content: z.ZodString }> {
+  setNameTool(): Tool<{ name: z.ZodString }> {
     return {
       name: "WriteFunctionName",
       description: "Write FunctionName",
-      inputSchema: { content: z.string() },
-      fn: (args) => this.setName(args.content),
+      inputSchema: { name: z.string() },
+      fn: (args) => this.setName(args.name),
     };
   }
 
@@ -180,12 +180,12 @@ export class State {
     return { ok: true, value: "", error: undefined };
   }
 
-  setInventEssayTool(): Tool<{ content: z.ZodString }> {
+  setInventEssayTool(): Tool<{ essay: z.ZodString }> {
     return {
       name: "WriteInventEssay",
       description: "Write InventEssay",
-      inputSchema: { content: z.string() },
-      fn: (args) => Promise.resolve(this.setInventEssay(args.content)),
+      inputSchema: { essay: z.string() },
+      fn: (args) => Promise.resolve(this.setInventEssay(args.essay)),
     };
   }
 
@@ -221,12 +221,12 @@ export class State {
     return { ok: true, value: "", error: undefined };
   }
 
-  setInventEssayTasksTool(): Tool<{ content: z.ZodString }> {
+  setInventEssayTasksTool(): Tool<{ essay_tasks: z.ZodString }> {
     return {
       name: "WriteInventEssayTasks",
       description: "Write InventEssayTasks",
-      inputSchema: { content: z.string() },
-      fn: (args) => Promise.resolve(this.setInventEssayTasks(args.content)),
+      inputSchema: { essay_tasks: z.string() },
+      fn: (args) => Promise.resolve(this.setInventEssayTasks(args.essay_tasks)),
     };
   }
 
@@ -254,12 +254,12 @@ export class State {
     return { ok: true, value: "", error: undefined };
   }
 
-  setReadmeTool(): Tool<{ content: z.ZodString }> {
+  setReadmeTool(): Tool<{ readme: z.ZodString }> {
     return {
       name: "WriteReadme",
       description: "Write Readme",
-      inputSchema: { content: z.string() },
-      fn: (args) => Promise.resolve(this.setReadme(args.content)),
+      inputSchema: { readme: z.string() },
+      fn: (args) => Promise.resolve(this.setReadme(args.readme)),
     };
   }
 
@@ -321,12 +321,12 @@ export class State {
     return { ok: true, value: "", error: undefined };
   }
 
-  setFunctionTypeTool(): Tool<{ content: z.ZodString }> {
+  setFunctionTypeTool(): Tool<{ type: z.ZodString }> {
     return {
       name: "WriteFunctionType",
       description: "Write FunctionType",
-      inputSchema: { content: z.string() },
-      fn: (args) => Promise.resolve(this.setFunctionType(args.content)),
+      inputSchema: { type: z.string() },
+      fn: (args) => Promise.resolve(this.setFunctionType(args.type)),
     };
   }
 
@@ -376,12 +376,12 @@ export class State {
     return { ok: true, value: "", error: undefined };
   }
 
-  setDescriptionTool(): Tool<{ content: z.ZodString }> {
+  setDescriptionTool(): Tool<{ description: z.ZodString }> {
     return {
       name: "WriteFunctionDescription",
       description: "Write FunctionDescription",
-      inputSchema: { content: z.string() },
-      fn: (args) => Promise.resolve(this.setDescription(args.content)),
+      inputSchema: { description: z.string() },
+      fn: (args) => Promise.resolve(this.setDescription(args.description)),
     };
   }
 

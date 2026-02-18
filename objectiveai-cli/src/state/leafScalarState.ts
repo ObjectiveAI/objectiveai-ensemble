@@ -135,7 +135,7 @@ export class LeafScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid Fields: ${(e as Error).message}`,
+        error: `Invalid Fields: ${e}`,
       };
     }
     return {
@@ -335,7 +335,7 @@ export class LeafScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid Function: ${(e as Error).message}`,
+        error: `Invalid Function: ${e}`,
       };
     }
     return {

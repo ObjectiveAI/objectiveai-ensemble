@@ -137,7 +137,7 @@ export class BranchScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid Fields: ${(e as Error).message}`,
+        error: `Invalid Fields: ${e}`,
       };
     }
     return {
@@ -264,7 +264,7 @@ export class BranchScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid Fields in new task: ${(e as Error).message}`,
+        error: `Invalid Fields in new task: ${e}`,
       };
     }
     if (this.function.tasks) {
@@ -445,7 +445,7 @@ export class BranchScalarState {
       return {
         ok: false,
         value: undefined,
-        error: `Invalid Function: ${(e as Error).message}`,
+        error: `Invalid Function: ${e}`,
       };
     }
     return {
