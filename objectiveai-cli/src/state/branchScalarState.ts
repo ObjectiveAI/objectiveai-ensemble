@@ -4,13 +4,16 @@ import { Result } from "../result";
 import { Tool, getSchemaTools } from "../tool";
 import { PlaceholderTaskSpecs } from "src/placeholder";
 import { collectModalities } from "../modalities";
+import { Parameters } from "../parameters";
 
 export class BranchScalarState {
+  readonly parameters: Parameters;
   readonly function: Partial<Functions.QualityBranchRemoteScalarFunction>;
   private placeholderTaskSpecs?: PlaceholderTaskSpecs;
   private editInputSchemaModalityRemovalRejected = false;
 
-  constructor() {
+  constructor(parameters: Parameters) {
+    this.parameters = parameters;
     this.function = {
       type: "scalar.function",
     };
@@ -282,15 +285,15 @@ export class BranchScalarState {
   }
 
   appendTaskTool(): Tool<{
-    task: z.ZodRecord<z.ZodString, z.ZodUnknown>;
     spec: z.ZodString;
+    task: z.ZodRecord<z.ZodString, z.ZodUnknown>;
   }> {
     return {
       name: "AppendTask",
       description: "Append Task",
       inputSchema: {
-        task: z.record(z.string(), z.unknown()),
         spec: z.string(),
+        task: z.record(z.string(), z.unknown()),
       },
       fn: (args) => Promise.resolve(this.appendTask(args.task, args.spec)),
     };
@@ -424,6 +427,16 @@ export class BranchScalarState {
         ok: false,
         value: undefined,
         error: `Invalid Function: ${parsed.error.message}`,
+      };
+    }
+    if (
+      parsed.data.tasks.length < this.parameters.branchMinWidth ||
+      parsed.data.tasks.length > this.parameters.branchMaxWidth
+    ) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid Function: Number of tasks must be between ${this.parameters.branchMinWidth} and ${this.parameters.branchMaxWidth}`,
       };
     }
     try {

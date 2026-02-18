@@ -54,9 +54,10 @@ export class State {
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
-          this._inner = new BranchScalarState();
+          this._inner = new BranchScalarState(options.parameters);
         } else if (options.type === "vector.function") {
           this._inner = new BranchVectorState(
+            options.parameters,
             options.output_length,
             options.input_split,
             options.input_merge,
@@ -64,9 +65,10 @@ export class State {
         }
       } else {
         if (options.type === "scalar.function") {
-          this._inner = new LeafScalarState();
+          this._inner = new LeafScalarState(options.parameters);
         } else if (options.type === "vector.function") {
           this._inner = new LeafVectorState(
+            options.parameters,
             options.output_length,
             options.input_split,
             options.input_merge,
@@ -301,15 +303,15 @@ export class State {
   setFunctionType(value: string): Result<string> {
     if (value === "scalar.function") {
       if (this.parameters.depth > 0) {
-        this._inner = new BranchScalarState();
+        this._inner = new BranchScalarState(this.parameters);
       } else {
-        this._inner = new LeafScalarState();
+        this._inner = new LeafScalarState(this.parameters);
       }
     } else if (value === "vector.function") {
       if (this.parameters.depth > 0) {
-        this._inner = new BranchVectorState();
+        this._inner = new BranchVectorState(this.parameters);
       } else {
-        this._inner = new LeafVectorState();
+        this._inner = new LeafVectorState(this.parameters);
       }
     } else {
       throw new Error("Invalid FunctionType");

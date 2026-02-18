@@ -4,17 +4,21 @@ import { Result } from "../result";
 import { Tool, getSchemaTools } from "../tool";
 import { PlaceholderTaskSpecs } from "src/placeholder";
 import { collectModalities } from "../modalities";
+import { Parameters } from "../parameters";
 
 export class BranchVectorState {
+  readonly parameters: Parameters;
   readonly function: Partial<Functions.QualityBranchRemoteVectorFunction>;
   private placeholderTaskSpecs?: PlaceholderTaskSpecs;
   private editInputSchemaModalityRemovalRejected = false;
 
   constructor(
+    parameters: Parameters,
     outputLength?: Functions.RemoteVectorFunction["output_length"],
     inputSplit?: Functions.RemoteVectorFunction["input_split"],
     inputMerge?: Functions.RemoteVectorFunction["input_merge"],
   ) {
+    this.parameters = parameters;
     this.function = {
       type: "vector.function",
       output_length: outputLength,
@@ -503,8 +507,8 @@ export class BranchVectorState {
       name: "AppendVectorTask",
       description: "Append VectorTask",
       inputSchema: {
-        task: z.record(z.string(), z.unknown()),
         spec: z.string(),
+        task: z.record(z.string(), z.unknown()),
       },
       fn: (args) =>
         Promise.resolve(this.appendVectorTask(args.task, args.spec)),
@@ -591,9 +595,9 @@ export class BranchVectorState {
       name: "AppendScalarTask",
       description: "Append ScalarTask",
       inputSchema: {
+        spec: z.string(),
         task: z.record(z.string(), z.unknown()),
         input_map: z.unknown(),
-        spec: z.string(),
       },
       fn: (args) =>
         Promise.resolve(
@@ -816,6 +820,16 @@ export class BranchVectorState {
         ok: false,
         value: undefined,
         error: `Invalid Function: ${parsed.error.message}`,
+      };
+    }
+    if (
+      parsed.data.tasks.length < this.parameters.branchMinWidth ||
+      parsed.data.tasks.length > this.parameters.branchMaxWidth
+    ) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid Function: Number of tasks must be between ${this.parameters.branchMinWidth} and ${this.parameters.branchMaxWidth}`,
       };
     }
     try {

@@ -3,12 +3,15 @@ import z from "zod";
 import { Result } from "../result";
 import { Tool, getSchemaTools } from "../tool";
 import { collectModalities } from "../modalities";
+import { Parameters } from "../parameters";
 
 export class LeafScalarState {
+  readonly parameters: Parameters;
   readonly function: Partial<Functions.QualityLeafRemoteScalarFunction>;
   private editInputSchemaModalityRemovalRejected = false;
 
-  constructor() {
+  constructor(parameters: Parameters) {
+    this.parameters = parameters;
     this.function = {
       type: "scalar.function",
     };
@@ -314,6 +317,16 @@ export class LeafScalarState {
         ok: false,
         value: undefined,
         error: `Invalid Function: ${parsed.error.message}`,
+      };
+    }
+    if (
+      parsed.data.tasks.length < this.parameters.leafMinWidth ||
+      parsed.data.tasks.length > this.parameters.leafMaxWidth
+    ) {
+      return {
+        ok: false,
+        value: undefined,
+        error: `Invalid Function: Number of tasks must be between ${this.parameters.leafMinWidth} and ${this.parameters.leafMaxWidth}`,
       };
     }
     try {
