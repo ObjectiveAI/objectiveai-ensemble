@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { AgentUpstream, AgentUpstreamSchema } from "./upstream";
+import { AgentUpstream, AgentUpstreamSchema } from "./agent";
 
 interface ConfigJson {
   gitHubToken?: string;
@@ -12,10 +12,7 @@ interface ConfigJson {
 
 function readConfigFile(dir: string): ConfigJson | undefined {
   try {
-    const raw = readFileSync(
-      join(dir, ".objectiveai", "config.json"),
-      "utf-8",
-    );
+    const raw = readFileSync(join(dir, ".objectiveai", "config.json"), "utf-8");
     return JSON.parse(raw);
   } catch {
     return undefined;
@@ -47,10 +44,7 @@ export function getGitAuthorEmail(): string | null {
 }
 
 export function getAgentUpstream(): AgentUpstream | null {
-  const raw = getValue(
-    process.env.OBJECTIVEAI_AGENT_UPSTREAM,
-    "agentUpstream",
-  );
+  const raw = getValue(process.env.OBJECTIVEAI_AGENT_UPSTREAM, "agentUpstream");
   if (raw === null) return null;
   const parsed = AgentUpstreamSchema.safeParse(raw);
   if (!parsed.success) return null;

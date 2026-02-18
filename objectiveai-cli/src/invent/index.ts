@@ -1,7 +1,7 @@
 import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { mkdirSync } from "fs";
 import { State } from "../state/state";
-import { getAgentStepFn } from "./agent";
+import { AgentStepFn, getAgentStepFn } from "../agent";
 import { Parameters, ParametersBuilder, buildParameters } from "../parameters";
 import { Functions } from "objectiveai";
 import {
@@ -11,10 +11,9 @@ import {
   writeFunctionToFilesystem,
 } from "../fs";
 import {
-  getOwnerRepositoryCommit,
+  GitHubBackend,
+  DefaultGitHubBackend,
   OwnerRepositoryCommit,
-  pushFinal,
-  pushInitial,
 } from "../github";
 import { isDirty } from "../git";
 import {
@@ -26,17 +25,17 @@ import {
   stepBody,
   stepDescription,
 } from "./steps";
-import { AgentUpstream } from "../upstream";
-import { getAgentUpstream, getGitHubToken } from "../config";
+import {
+  getAgentUpstream,
+  getGitAuthorEmail,
+  getGitAuthorName,
+  getGitHubToken,
+} from "../config";
 import { Notification, NotificationMessage } from "../notification";
 
 interface InventOptionsBase {
-  inventSpec?: string;
-  parameters?: ParametersBuilder;
-  agentUpstream?: AgentUpstream;
-  gitHubToken?: string;
-  gitAuthorName?: string;
-  gitAuthorEmail?: string;
+  inventSpec: string;
+  parameters: ParametersBuilder;
 }
 
 export type InventOptions =
@@ -55,65 +54,91 @@ export type InventOptions =
 
 export async function invent(
   dir: string,
-  options: InventOptions,
   onNotification: (notification: Notification) => void,
-  notificationOptions?: { parent: string; taskIndex: number },
+  options?: InventOptions,
+  continuation?: {
+    parent: string;
+    taskIndex: number;
+    agent: AgentStepFn;
+    gitHubBackend: GitHubBackend;
+    gitHubToken: string;
+    gitAuthorName: string;
+    gitAuthorEmail: string;
+  },
 ): Promise<void> {
-  if (options.inventSpec !== undefined) {
+  const [agent, gitHubBackend] = continuation
+    ? [continuation.agent, continuation.gitHubBackend]
+    : (() => {
+        const [agent, gitHubBackend] = getAgentStepFn(
+          getAgentUpstream() ??
+            (() => {
+              throw new Error("agentUpstream required");
+            })(),
+        );
+        return [agent, gitHubBackend ?? DefaultGitHubBackend];
+      })();
+  const gitHubToken = continuation
+    ? continuation.gitHubToken
+    : (getGitHubToken() ??
+      (() => {
+        throw new Error("gitHubToken required");
+      })());
+  const gitAuthorName = continuation
+    ? continuation.gitAuthorName
+    : (getGitAuthorName() ??
+      (() => {
+        throw new Error("gitAuthorName required");
+      })());
+  const gitAuthorEmail = continuation
+    ? continuation.gitAuthorEmail
+    : (getGitAuthorEmail() ??
+      (() => {
+        throw new Error("gitAuthorEmail required");
+      })());
+  if (options !== undefined) {
     await stage1(
       dir,
-      options as typeof options & { inventSpec: string },
       onNotification,
-      notificationOptions,
+      options,
+      agent,
+      gitHubBackend,
+      gitHubToken,
+      gitAuthorName,
+      gitAuthorEmail,
+      continuation
+        ? { parent: continuation.parent, taskIndex: continuation.taskIndex }
+        : undefined,
     );
   }
-  await stage2(dir, options, onNotification);
+  await stage2(dir, onNotification, {
+    agent,
+    gitHubBackend,
+    gitHubToken,
+    gitAuthorName,
+    gitAuthorEmail,
+  });
 }
 
 async function stage1(
   dir: string,
-  {
-    parameters,
-    inventSpec,
-    agentUpstream: stateAgentUpstream,
-    gitHubToken: stateGitHubToken,
-    gitAuthorName: stateGitAuthorName,
-    gitAuthorEmail: stateGitAuthorEmail,
-    ...stateOptions
-  }: InventOptions & { inventSpec: string },
   onNotification: (notification: Notification) => void,
+  { parameters, inventSpec, ...stateOptions }: InventOptions,
+  agent: AgentStepFn,
+  gitHubBackend: GitHubBackend,
+  gitHubToken: string,
+  gitAuthorName: string,
+  gitAuthorEmail: string,
   notificationOptions?: { parent: string; taskIndex: number },
 ): Promise<void> {
-  const agentUpstream =
-    stateAgentUpstream ??
-    getAgentUpstream() ??
-    (() => {
-      throw new Error("agentUpstream required");
-    })();
-  const gitHubToken =
-    stateGitHubToken ??
-    getGitHubToken() ??
-    (() => {
-      throw new Error("gitHubToken required");
-    })();
-  const gitAuthorName =
-    stateGitAuthorName ??
-    (() => {
-      throw new Error("gitAuthorName required");
-    })();
-  const gitAuthorEmail =
-    stateGitAuthorEmail ??
-    (() => {
-      throw new Error("gitAuthorEmail required");
-    })();
-
-  const state = new State({
-    parameters: buildParameters(parameters),
-    inventSpec,
-    gitHubToken,
-    ...stateOptions,
-  });
-  const agent = getAgentStepFn(agentUpstream);
+  const state = new State(
+    {
+      parameters: buildParameters(parameters),
+      inventSpec,
+      gitHubToken,
+      ...stateOptions,
+    },
+    gitHubBackend,
+  );
 
   let boundOnNotification = notificationOptions
     ? (message: NotificationMessage) =>
@@ -123,7 +148,7 @@ async function stage1(
 
   const name = state.getName().value!;
   writeInitialStateToFilesystem(dir, state, state.parameters);
-  pushInitial({
+  await gitHubBackend.pushInitial({
     dir,
     name,
     gitHubToken,
@@ -156,7 +181,7 @@ async function stage1(
   boundOnNotification({ role: "done" });
 
   writeFinalStateToFilesystem(dir, state, state.parameters);
-  pushFinal({
+  await gitHubBackend.pushFinal({
     dir,
     gitHubToken,
     gitAuthorName,
@@ -168,42 +193,39 @@ async function stage1(
 
 async function stage2(
   dir: string,
-  {
-    agentUpstream: stateAgentUpstream,
-    gitHubToken: stateGitHubToken,
-    gitAuthorName: stateGitAuthorName,
-    gitAuthorEmail: stateGitAuthorEmail,
-  }: InventOptions,
   onNotification: (notification: Notification) => void,
+  continuation: {
+    agent: AgentStepFn;
+    gitHubBackend: GitHubBackend;
+    gitHubToken: string;
+    gitAuthorName: string;
+    gitAuthorEmail: string;
+  },
 ): Promise<void> {
-  const qualityFn = await readQualityFunctionFromFilesystem(dir);
+  const qualityFn = await readQualityFunctionFromFilesystem(
+    dir,
+    continuation.gitHubBackend,
+  );
   if (!qualityFn) return;
 
-  const agentUpstream =
-    stateAgentUpstream ??
-    getAgentUpstream() ??
-    (() => {
-      throw new Error("agentUpstream required");
-    })();
   const gitHubToken =
-    stateGitHubToken ??
     getGitHubToken() ??
     (() => {
       throw new Error("gitHubToken required");
     })();
   const gitAuthorName =
-    stateGitAuthorName ??
+    getGitAuthorName() ??
     (() => {
       throw new Error("gitAuthorName required");
     })();
   const gitAuthorEmail =
-    stateGitAuthorEmail ??
+    getGitAuthorEmail() ??
     (() => {
       throw new Error("gitAuthorEmail required");
     })();
 
   if (isDirty(dir)) {
-    pushFinal({
+    await continuation.gitHubBackend.pushFinal({
       dir,
       gitHubToken,
       gitAuthorName,
@@ -242,62 +264,58 @@ async function stage2(
     const subFunctionDir = join(subDir, String(i));
 
     // If a valid quality function already exists on disk + on GitHub, skip stage1
+    const childQualityFn = await readQualityFunctionFromFilesystem(
+      subFunctionDir,
+      continuation.gitHubBackend,
+    );
     if (
-      existsSync(subFunctionDir) &&
-      (await readQualityFunctionFromFilesystem(subFunctionDir)) &&
-      (await getOwnerRepositoryCommit(subFunctionDir))
+      childQualityFn &&
+      (await continuation.gitHubBackend.getOwnerRepositoryCommit(
+        subFunctionDir,
+      ))
     ) {
       subInvents.push(
-        invent(
-          subFunctionDir,
-          {
-            parameters: subParameters,
-            agentUpstream,
-            gitHubToken,
-            gitAuthorName,
-            gitAuthorEmail,
-          },
-          onNotification,
-          { parent: qualityFn.name, taskIndex: i },
-        ),
+        invent(subFunctionDir, onNotification, undefined, {
+          parent: qualityFn.name,
+          taskIndex: i,
+          ...continuation,
+        }),
       );
+      onNotification({
+        parent: qualityFn.name,
+        taskIndex: i,
+        name: childQualityFn.name,
+        message: { role: "done" },
+      });
     } else if (task.type === "placeholder.vector.function") {
       subInvents.push(
         invent(
           subFunctionDir,
+          onNotification,
           {
             inventSpec: spec,
             parameters: subParameters,
-            agentUpstream,
-            gitHubToken,
-            gitAuthorName,
-            gitAuthorEmail,
             type: "vector.function",
             input_schema: task.input_schema,
             output_length: task.output_length,
             input_split: task.input_split,
             input_merge: task.input_merge,
           },
-          onNotification,
-          { parent: qualityFn.name, taskIndex: i },
+          { parent: qualityFn.name, taskIndex: i, ...continuation },
         ),
       );
     } else if (task.type === "placeholder.scalar.function") {
       subInvents.push(
         invent(
           subFunctionDir,
+          onNotification,
           {
             inventSpec: spec,
             parameters: subParameters,
-            agentUpstream,
-            gitHubToken,
-            gitAuthorName,
-            gitAuthorEmail,
             type: "scalar.function",
             input_schema: task.input_schema,
           },
-          onNotification,
-          { parent: qualityFn.name, taskIndex: i },
+          { parent: qualityFn.name, taskIndex: i, ...continuation },
         ),
       );
     }
@@ -323,14 +341,17 @@ async function stage2(
 
     const subFunctionDir = join(subDir, String(i));
 
-    const subQualityFn =
-      await readQualityFunctionFromFilesystem(subFunctionDir);
+    const subQualityFn = await readQualityFunctionFromFilesystem(
+      subFunctionDir,
+      continuation.gitHubBackend,
+    );
     if (!subQualityFn) continue;
 
     // Assert sub-function has no placeholder tasks remaining
     if (hasPlaceholderTasks(subQualityFn.function.function)) continue;
 
-    const orc = await getOwnerRepositoryCommit(subFunctionDir);
+    const orc =
+      await continuation.gitHubBackend.getOwnerRepositoryCommit(subFunctionDir);
     if (!orc) continue;
 
     replacePlaceholderTask(tasks, i, task, orc);
@@ -342,7 +363,7 @@ async function stage2(
       dir,
       qualityFn.function.function as Functions.RemoteFunction,
     );
-    pushFinal({
+    await continuation.gitHubBackend.pushFinal({
       dir,
       gitHubToken,
       gitAuthorName,

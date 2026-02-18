@@ -1,5 +1,5 @@
 export { invent, type InventOptions } from "./invent";
-export { type AgentStep, type AgentStepFn } from "./invent/agent";
+export { type AgentStep, type AgentStepFn } from "./agent";
 export { type Tool } from "./tool";
 export { type Result } from "./result";
 export {

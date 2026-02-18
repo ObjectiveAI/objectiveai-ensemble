@@ -1,5 +1,5 @@
 import { State } from "../../state/state";
-import { AgentStepFn, runAgentStep } from "../agent";
+import { AgentStepFn, runAgentStep } from "../../agent";
 import { BranchVectorState } from "../../state/branchVectorState";
 import { LeafVectorState } from "../../state/leafVectorState";
 import { Tool } from "../../tool";

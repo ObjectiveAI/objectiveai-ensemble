@@ -13,8 +13,7 @@
   },
   "type": "module",
   "scripts": {
-    "real_building_is_forbidden_for_now": "shx rm -rf dist && tsup",
-    "build": "echo Build Successful!",
+    "build": "tsc --noEmit && shx rm -rf dist && tsup",
     "test": "vitest run",
     "start": "node dist/index.js"
   },

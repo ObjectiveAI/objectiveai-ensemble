@@ -1,5 +1,4 @@
 import { Functions } from "objectiveai";
-import { execSync } from "child_process";
 import { relative } from "path";
 import {
   getRepoRoot,
@@ -13,7 +12,26 @@ import {
   commit,
   addRemote,
   push,
+  getHeadSha,
 } from "./git";
+
+export interface GitHubBackend {
+  pushInitial(options: PushInitialOptions): Promise<OwnerRepositoryCommit>;
+  pushFinal(options: PushFinalOptions): Promise<OwnerRepositoryCommit>;
+  getOwnerRepositoryCommit(dir: string): Promise<OwnerRepositoryCommit | null>;
+  fetchRemoteFunctions(
+    refs: Iterable<OwnerRepositoryCommit>,
+  ): Promise<Record<string, Functions.RemoteFunction> | null>;
+  repoExists(name: string, gitHubToken: string): Promise<boolean>;
+}
+
+export const DefaultGitHubBackend: GitHubBackend = {
+  pushInitial,
+  pushFinal,
+  getOwnerRepositoryCommit,
+  fetchRemoteFunctions,
+  repoExists,
+};
 
 export interface OwnerRepositoryCommit {
   owner: string;
@@ -26,7 +44,7 @@ const fetchRemoteFunctionCache = new Map<
   Promise<Functions.RemoteFunction | null>
 >();
 
-export function fetchRemoteFunction(
+function fetchRemoteFunction(
   owner: string,
   repository: string,
   commit: string,
@@ -70,7 +88,7 @@ export function fetchRemoteFunction(
   return promise;
 }
 
-export async function fetchRemoteFunctions(
+async function fetchRemoteFunctions(
   refs: Iterable<OwnerRepositoryCommit>,
 ): Promise<Record<string, Functions.RemoteFunction> | null> {
   const entries = Array.from(refs);
@@ -93,10 +111,7 @@ export async function fetchRemoteFunctions(
   return record;
 }
 
-export async function repoExists(
-  name: string,
-  gitHubToken: string,
-): Promise<boolean> {
+async function repoExists(name: string, gitHubToken: string): Promise<boolean> {
   try {
     const res = await fetch(`https://api.github.com/repos/${name}`, {
       headers: {
@@ -131,7 +146,7 @@ async function commitExistsOnRemote(
   }
 }
 
-export async function getOwnerRepositoryCommit(
+async function getOwnerRepositoryCommit(
   dir: string,
 ): Promise<OwnerRepositoryCommit | null> {
   const repoRoot = getRepoRoot(dir);
@@ -145,10 +160,9 @@ export async function getOwnerRepositoryCommit(
 
   const relativePath = relative(repoRoot, dir).replace(/\\/g, "/");
 
-  if (hasUncommittedChanges(repoRoot, relativePath + "/function.json"))
+  if (hasUncommittedChanges(repoRoot, relativePath + "/function.json")) {
     return null;
-  if (hasUncommittedChanges(repoRoot, relativePath + "/profile.json"))
-    return null;
+  }
 
   const localCommit = getLatestCommitForPath(repoRoot, relativePath);
   if (!localCommit) return null;
@@ -176,12 +190,11 @@ export interface PushInitialOptions {
   message: string;
 }
 
-export function pushInitial(options: PushInitialOptions): OwnerRepositoryCommit {
+async function pushInitial(
+  options: PushInitialOptions,
+): Promise<OwnerRepositoryCommit> {
   const { dir, name, gitHubToken, gitAuthorName, gitAuthorEmail, message } =
     options;
-
-  const ghEnv = { ...process.env, GH_TOKEN: gitHubToken };
-  const execOpts = { encoding: "utf-8" as const, stdio: ["pipe", "pipe", "pipe"] as const };
 
   // Initialize fresh git repo
   removeGitDir(dir);
@@ -189,12 +202,23 @@ export function pushInitial(options: PushInitialOptions): OwnerRepositoryCommit 
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
 
-  // Create upstream repository
-  const repoJson = execSync(
-    `gh repo create ${name} --public --json owner,name`,
-    { ...execOpts, cwd: dir, env: ghEnv },
-  );
-  const repo = JSON.parse(repoJson.toString().trim());
+  // Create upstream repository via GitHub API
+  const res = await fetch("https://api.github.com/user/repos", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${gitHubToken}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, visibility: "public" }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to create repo ${name}: HTTP ${res.status} ${body}`,
+    );
+  }
+  const repo = (await res.json()) as { owner: { login: string }; name: string };
   const owner: string = repo.owner.login;
   const repository: string = repo.name;
 
@@ -202,12 +226,7 @@ export function pushInitial(options: PushInitialOptions): OwnerRepositoryCommit 
   addRemote(dir, `https://github.com/${owner}/${repository}.git`);
   push(dir);
 
-  // Get commit SHA
-  const sha = execSync("git rev-parse HEAD", { ...execOpts, cwd: dir })
-    .toString()
-    .trim();
-
-  return { owner, repository, commit: sha };
+  return { owner, repository, commit: getHeadSha(dir) };
 }
 
 export interface PushFinalOptions {
@@ -219,12 +238,17 @@ export interface PushFinalOptions {
   description: string;
 }
 
-export function pushFinal(options: PushFinalOptions): OwnerRepositoryCommit {
-  const { dir, gitHubToken, gitAuthorName, gitAuthorEmail, message, description } =
-    options;
-
-  const ghEnv = { ...process.env, GH_TOKEN: gitHubToken };
-  const execOpts = { encoding: "utf-8" as const, stdio: ["pipe", "pipe", "pipe"] as const };
+async function pushFinal(
+  options: PushFinalOptions,
+): Promise<OwnerRepositoryCommit> {
+  const {
+    dir,
+    gitHubToken,
+    gitAuthorName,
+    gitAuthorEmail,
+    message,
+    description,
+  } = options;
 
   // Verify git is initialized and has a remote
   const repoRoot = getRepoRoot(dir);
@@ -238,21 +262,30 @@ export function pushFinal(options: PushFinalOptions): OwnerRepositoryCommit {
 
   const { owner, repository } = parsed;
 
-  // Update repository description
-  execSync(
-    `gh repo edit ${owner}/${repository} --description "${description.replace(/"/g, '\\"')}"`,
-    { ...execOpts, cwd: dir, env: ghEnv },
+  // Update repository description via GitHub API
+  const res = await fetch(
+    `https://api.github.com/repos/${owner}/${repository}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ description }),
+    },
   );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(
+      `Failed to update repo ${owner}/${repository}: HTTP ${res.status} ${body}`,
+    );
+  }
 
   // Commit and push
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
   push(dir);
 
-  // Get commit SHA
-  const sha = execSync("git rev-parse HEAD", { ...execOpts, cwd: dir })
-    .toString()
-    .trim();
-
-  return { owner, repository, commit: sha };
+  return { owner, repository, commit: getHeadSha(dir) };
 }

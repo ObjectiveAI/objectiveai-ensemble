@@ -1,7 +1,7 @@
 import { Tool } from "../../tool";
 import { NotificationMessage } from "../../notification";
 import { State } from "../../state/state";
-import { AgentStepFn, runAgentStep } from "../agent";
+import { AgentStepFn, runAgentStep } from "../../agent";
 
 export function stepName<TState>(
   state: State,

@@ -7,7 +7,7 @@ import { BranchVectorState } from "./branchVectorState";
 import { LeafScalarState } from "./leafScalarState";
 import { LeafVectorState } from "./leafVectorState";
 import { Tool } from "src/tool";
-import { repoExists } from "../github";
+import { GitHubBackend } from "../github";
 
 export const StateOptionsBaseSchema = z.object({
   parameters: ParametersSchema,
@@ -46,11 +46,13 @@ export class State {
     | LeafVectorState
     | undefined;
   private readme: string | undefined;
+  private gitHubBackend: GitHubBackend;
 
-  constructor(options: StateOptions) {
+  constructor(options: StateOptions, gitHubBackend: GitHubBackend) {
     this.parameters = options.parameters;
     this.inventSpec = options.inventSpec;
     this.gitHubToken = options.gitHubToken;
+    this.gitHubBackend = gitHubBackend;
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
@@ -130,7 +132,7 @@ export class State {
         error: "FunctionName exceeds maximum of 100 bytes",
       };
     }
-    if (await repoExists(value, this.gitHubToken)) {
+    if (await this.gitHubBackend.repoExists(value, this.gitHubToken)) {
       return {
         ok: false,
         value: undefined,

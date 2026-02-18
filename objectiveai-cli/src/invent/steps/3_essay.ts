@@ -1,6 +1,6 @@
 import { BranchVectorState, LeafVectorState } from "../../state";
 import { State } from "../../state/state";
-import { AgentStepFn, runAgentStep } from "../agent";
+import { AgentStepFn, runAgentStep } from "../../agent";
 import { Tool } from "../../tool";
 import { NotificationMessage } from "../../notification";
 

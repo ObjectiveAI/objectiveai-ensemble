@@ -124,3 +124,7 @@ export function addRemote(dir: string, url: string): void {
 export function push(dir: string): void {
   execSync("git push -u origin main", { ...execOpts, cwd: dir });
 }
+
+export function getHeadSha(dir: string): string {
+  return execSync("git rev-parse HEAD", { ...execOpts, cwd: dir }).trim();
+}

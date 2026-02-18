@@ -1,7 +1,21 @@
 import { Tool } from "../tool";
 import { Result } from "../result";
-import { AgentUpstream } from "../upstream";
 import { NotificationMessage } from "../notification";
+import z from "zod";
+import { GitHubBackend } from "src/github";
+import { mock } from "./mock";
+
+export const MockAgentUpstreamSchema = z.literal("mock");
+export type MockAgentUpstream = z.infer<typeof MockAgentUpstreamSchema>;
+
+export const ClaudeAgentUpstreamSchema = z.literal("claude");
+export type ClaudeAgentUpstream = z.infer<typeof ClaudeAgentUpstreamSchema>;
+
+export const AgentUpstreamSchema = z.union([
+  MockAgentUpstreamSchema,
+  ClaudeAgentUpstreamSchema,
+]);
+export type AgentUpstream = z.infer<typeof AgentUpstreamSchema>;
 
 export interface AgentStep {
   prompt: string;
@@ -65,6 +79,15 @@ async function runAgentStepOne<TState>(
   }
 }
 
-export function getAgentStepFn(agentUpstream: AgentUpstream): AgentStepFn {
-  throw new Error("Not implemented yet");
+export function getAgentStepFn(
+  agentUpstream: AgentUpstream,
+): [AgentStepFn, GitHubBackend | null] {
+  if (agentUpstream === "mock") {
+    return mock();
+  } else if (agentUpstream === "claude") {
+    throw new Error("Not implemented yet");
+  } else {
+    const _exhaustiveCheck: never = agentUpstream;
+    return _exhaustiveCheck;
+  }
 }

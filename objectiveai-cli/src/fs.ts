@@ -7,7 +7,7 @@ import {
   PlaceholderTaskSpecs,
   PlaceholderTaskSpecsSchema,
 } from "./placeholder";
-import { fetchRemoteFunctions } from "./github";
+import { GitHubBackend } from "./github";
 import { CliFunctionExt } from "./ext";
 import { State } from "./state/state";
 import { BranchScalarState } from "./state/branchScalarState";
@@ -96,6 +96,7 @@ function readPlaceholderTaskSpecsFromFilesystem(
 
 export async function readQualityFunctionFromFilesystem(
   dir: string,
+  githubBackend: GitHubBackend,
 ): Promise<QualityFunction | null> {
   const parameters = readParametersFromFilesystem(dir);
   if (parameters === null) return null;
@@ -126,7 +127,7 @@ export async function readQualityFunctionFromFilesystem(
       const parsed =
         Functions.QualityBranchRemoteScalarFunctionSchema.safeParse(fn);
       if (!parsed.success) return null;
-      const children = await fetchRemoteFunctions(
+      const children = await githubBackend.fetchRemoteFunctions(
         CliFunctionExt.remoteChildren(parsed.data),
       );
       if (children === null) return null;
@@ -146,7 +147,7 @@ export async function readQualityFunctionFromFilesystem(
       const parsed =
         Functions.QualityBranchRemoteVectorFunctionSchema.safeParse(fn);
       if (!parsed.success) return null;
-      const children = await fetchRemoteFunctions(
+      const children = await githubBackend.fetchRemoteFunctions(
         CliFunctionExt.remoteChildren(parsed.data),
       );
       if (children === null) return null;
