@@ -8,8 +8,10 @@ use crate::functions::{CompiledTask, Function, RemoteFunction, TaskExpression};
 use super::check_description::check_description;
 use super::check_input_schema::check_input_schema;
 use super::check_leaf_vector_function::check_vector_input_schema;
+use super::check_scalar_fields::{ScalarFieldsValidation, check_scalar_fields};
 use super::check_vector_fields::{
-    VectorFieldsValidation, check_vector_fields_for_input, random_subsets,
+    VectorFieldsValidation, check_vector_fields, check_vector_fields_for_input,
+    random_subsets,
 };
 use super::compile_and_validate::{
     compile_and_validate_one_input, extract_task_input, extract_task_input_value,
@@ -399,6 +401,38 @@ pub fn check_branch_vector_function(
                     j,
                 ));
             }
+        }
+    }
+
+    // Validate placeholder task fields as if they were standalone functions
+    for (i, task) in tasks.iter().enumerate() {
+        match task {
+            TaskExpression::PlaceholderScalarFunction(psf) => {
+                check_scalar_fields(ScalarFieldsValidation {
+                    input_schema: psf.input_schema.clone(),
+                })
+                .map_err(|e| {
+                    format!(
+                        "BV21: Task [{}]: placeholder scalar field validation failed: {}",
+                        i, e
+                    )
+                })?;
+            }
+            TaskExpression::PlaceholderVectorFunction(pvf) => {
+                check_vector_fields(VectorFieldsValidation {
+                    input_schema: pvf.input_schema.clone(),
+                    output_length: pvf.output_length.clone(),
+                    input_split: pvf.input_split.clone(),
+                    input_merge: pvf.input_merge.clone(),
+                })
+                .map_err(|e| {
+                    format!(
+                        "BV22: Task [{}]: placeholder vector field validation failed: {}",
+                        i, e
+                    )
+                })?;
+            }
+            _ => {}
         }
     }
 
