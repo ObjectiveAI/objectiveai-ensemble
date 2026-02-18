@@ -10,6 +10,7 @@ mod check_branch_scalar_function;
 mod check_branch_vector_function;
 mod check_description;
 mod check_input_schema;
+mod check_modalities;
 mod check_scalar_fields;
 mod check_leaf_function;
 mod check_leaf_scalar_function;

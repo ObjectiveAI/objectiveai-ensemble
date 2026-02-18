@@ -10,6 +10,10 @@ use super::check_input_schema::check_input_schema;
 use super::check_leaf_scalar_function::{
     check_vector_completion_messages, check_vector_vector_completion_responses,
 };
+use super::check_modalities::{
+    ModalityFlags, check_modality_coverage, collect_schema_modalities,
+    collect_task_modalities,
+};
 use super::check_vector_fields::{
     VectorFieldsValidation, check_vector_fields_for_input, random_subsets,
 };
@@ -153,6 +157,11 @@ pub fn check_leaf_vector_function(
     let mut count = 0usize;
     let mut merged_count = 0usize;
 
+    // Multimodal coverage tracking
+    let mut schema_modalities: ModalityFlags = [false; 4];
+    collect_schema_modalities(input_schema, &mut schema_modalities);
+    let mut task_modalities: ModalityFlags = [false; 4];
+
     for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
         count += 1;
 
@@ -168,6 +177,8 @@ pub fn check_leaf_vector_function(
             };
             if let CompiledTask::One(Task::VectorCompletion(vc)) = compiled_task
             {
+                collect_task_modalities(vc, &mut task_modalities);
+
                 // Response diversity: per-index tracking
                 for (ri, response) in vc.responses.iter().enumerate() {
                     let key =
@@ -283,6 +294,9 @@ pub fn check_leaf_vector_function(
             }
         }
     }
+
+    // Multimodal coverage: every modality in the schema must appear in some task
+    check_modality_coverage(&schema_modalities, &task_modalities, "LV18")?;
 
     Ok(())
 }

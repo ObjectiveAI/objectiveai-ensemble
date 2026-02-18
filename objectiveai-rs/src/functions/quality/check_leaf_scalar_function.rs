@@ -13,6 +13,10 @@ use crate::functions::{
 
 use super::check_description::check_description;
 use super::check_input_schema::check_input_schema;
+use super::check_modalities::{
+    ModalityFlags, check_modality_coverage, collect_schema_modalities,
+    collect_task_modalities,
+};
 use super::compile_and_validate::compile_and_validate_one_input;
 use super::example_inputs;
 
@@ -114,6 +118,11 @@ pub fn check_leaf_scalar_function(
     let mut per_task_skipped = vec![false; task_count];
     let mut count = 0usize;
 
+    // Multimodal coverage tracking
+    let mut schema_modalities: ModalityFlags = [false; 4];
+    collect_schema_modalities(input_schema, &mut schema_modalities);
+    let mut task_modalities: ModalityFlags = [false; 4];
+
     for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
         count += 1;
         let compiled_tasks =
@@ -129,6 +138,7 @@ pub fn check_leaf_scalar_function(
             {
                 let key = serde_json::to_string(vc).unwrap_or_default();
                 per_task_serialized[j].insert(key);
+                collect_task_modalities(vc, &mut task_modalities);
             }
         }
     }
@@ -155,6 +165,9 @@ pub fn check_leaf_scalar_function(
             }
         }
     }
+
+    // Multimodal coverage: every modality in the schema must appear in some task
+    check_modality_coverage(&schema_modalities, &task_modalities, "LS20")?;
 
     Ok(())
 }

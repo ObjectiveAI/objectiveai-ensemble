@@ -7,8 +7,9 @@ use crate::chat::completions::request::{
     UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, BooleanInputSchema, Expression, InputSchema,
-    IntegerInputSchema, ObjectInputSchema, StringInputSchema, WithExpression,
+    ArrayInputSchema, BooleanInputSchema, Expression, ImageInputSchema,
+    InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
+    WithExpression,
 };
 use crate::functions::quality::check_leaf_vector_function;
 use crate::functions::{
@@ -2070,4 +2071,244 @@ fn rejects_single_permutation_integer() {
         )),
     };
     test_err(&f, "QI01");
+}
+
+// --- Multimodal coverage tests ---
+
+#[test]
+fn modality_fail_image_in_schema_but_text_only() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(4),
+            items: Box::new(InputSchema::Object(ObjectInputSchema {
+                description: None,
+                properties: index_map! {
+                    "photo" => InputSchema::Image(ImageInputSchema {
+                        description: None,
+                    }),
+                    "name" => InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })
+                },
+                required: Some(vec!["photo".to_string(), "name".to_string()]),
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(
+                            vec![WithExpression::Value(
+                                RichContentPartExpression::Text {
+                                    text: WithExpression::Value("rank these".to_string()),
+                                },
+                            )],
+                        )),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x['name']}] for x in input]".to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "LV18");
+}
+
+#[test]
+fn modality_fail_image_in_nested_schema_but_text_only() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "candidates" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(4),
+                    items: Box::new(InputSchema::Object(ObjectInputSchema {
+                        description: None,
+                        properties: index_map! {
+                            "avatar" => InputSchema::Image(ImageInputSchema {
+                                description: None,
+                            }),
+                            "bio" => InputSchema::String(StringInputSchema {
+                                description: None,
+                                r#enum: None,
+                            })
+                        },
+                        required: Some(vec!["avatar".to_string(), "bio".to_string()]),
+                    })),
+                })
+            },
+            required: Some(vec!["candidates".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(
+                            vec![WithExpression::Value(
+                                RichContentPartExpression::Text {
+                                    text: WithExpression::Value("rank".to_string()),
+                                },
+                            )],
+                        )),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': c['bio']}] for c in input['candidates']]".to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input['candidates'])".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[{'candidates': [c]} for c in input['candidates']]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "{'candidates': [x['candidates'][0] for x in input]}".to_string(),
+        )),
+    };
+    test_err(&f, "LV18");
+}
+
+#[test]
+fn modality_pass_image_in_responses() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(4),
+            items: Box::new(InputSchema::Object(ObjectInputSchema {
+                description: None,
+                properties: index_map! {
+                    "photo" => InputSchema::Image(ImageInputSchema {
+                        description: None,
+                    }),
+                    "name" => InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })
+                },
+                required: Some(vec!["photo".to_string(), "name".to_string()]),
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(
+                            vec![WithExpression::Value(
+                                RichContentPartExpression::Text {
+                                    text: WithExpression::Value("rank these photos".to_string()),
+                                },
+                            )],
+                        )),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[x['photo']] for x in input]".to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test(&f);
+}
+
+#[test]
+fn modality_pass_image_in_messages() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(4),
+            items: Box::new(InputSchema::Object(ObjectInputSchema {
+                description: None,
+                properties: index_map! {
+                    "photo" => InputSchema::Image(ImageInputSchema {
+                        description: None,
+                    }),
+                    "name" => InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })
+                },
+                required: Some(vec!["photo".to_string(), "name".to_string()]),
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [x['photo'] for x in input]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x['name']}] for x in input]".to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test(&f);
 }

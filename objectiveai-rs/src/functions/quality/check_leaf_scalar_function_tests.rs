@@ -9,8 +9,9 @@ use crate::chat::completions::request::{
     SystemMessageExpression, ToolMessageExpression, UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, BooleanInputSchema, Expression, InputSchema,
-    IntegerInputSchema, ObjectInputSchema, StringInputSchema, WithExpression,
+    ArrayInputSchema, BooleanInputSchema, Expression, ImageInputSchema,
+    InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
+    WithExpression,
 };
 use crate::functions::quality::check_leaf_scalar_function;
 use crate::functions::{
@@ -1975,4 +1976,178 @@ fn rejects_single_permutation_integer() {
         )],
     };
     test_err(&f, "QI01");
+}
+
+// --- Multimodal coverage tests ---
+
+#[test]
+fn modality_fail_image_in_schema_but_str_in_messages() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "photo" => InputSchema::Image(ImageInputSchema {
+                    description: None,
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["photo".to_string(), "label".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input['label']}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("good".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("bad".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "LS20");
+}
+
+#[test]
+fn modality_fail_image_in_schema_but_text_only_responses() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "image" => InputSchema::Image(ImageInputSchema {
+                    description: None,
+                }),
+                "text" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["image".to_string(), "text".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input['text']}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': input['text']}], [{'type': 'text', 'text': 'no'}]]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "LS20");
+}
+
+#[test]
+fn modality_pass_image_in_messages() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "photo" => InputSchema::Image(ImageInputSchema {
+                    description: None,
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["photo".to_string(), "label".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [input['photo'], {'type': 'text', 'text': input['label']}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("good".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("bad".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test(&f);
+}
+
+#[test]
+fn modality_pass_image_in_responses() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "photo" => InputSchema::Image(ImageInputSchema {
+                    description: None,
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["photo".to_string(), "label".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Expression(Expression::Starlark(
+                    "[{'role': 'user', 'content': [{'type': 'text', 'text': input['label']}]}]"
+                        .to_string(),
+                )),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[input['photo']], [{'type': 'text', 'text': 'none'}]]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test(&f);
 }
