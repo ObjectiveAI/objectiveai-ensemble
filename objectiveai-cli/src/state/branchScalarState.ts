@@ -399,8 +399,7 @@ export class BranchScalarState {
       name: "EditTaskSpec",
       description: "Edit TaskSpec",
       inputSchema: { index: z.number(), spec: z.string() },
-      fn: (args) =>
-        Promise.resolve(this.editTaskSpec(args.index, args.spec)),
+      fn: (args) => Promise.resolve(this.editTaskSpec(args.index, args.spec)),
     };
   }
 
@@ -446,6 +445,10 @@ export class BranchScalarState {
       {
         schema: Functions.QualityBranchRemoteScalarFunctionJsonSchema,
         name: "QualityBranchRemoteScalarFunction",
+      },
+      {
+        schema: Functions.Expression.ScalarFunctionOutputJsonSchema,
+        name: "ScalarFunctionOutput",
       },
     ]);
   }

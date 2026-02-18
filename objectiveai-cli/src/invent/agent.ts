@@ -7,26 +7,33 @@ export interface AgentStep {
   tools: Tool[];
 }
 
-export type AgentStepFn = (step: AgentStep) => Promise<void>;
+export type AgentStepFn<TState = unknown> = (
+  step: AgentStep,
+  state: TState | undefined,
+) => Promise<TState>;
 
-export async function runAgentStep(
-  agent: AgentStepFn,
+export async function runAgentStep<TState>(
+  agent: AgentStepFn<TState>,
   step: AgentStep,
   isDone: () => Result<string>,
   maxRetries: number,
-): Promise<void> {
-  await agent(step);
+  state?: TState,
+): Promise<TState> {
+  state = await agent(step, state);
 
   for (let i = 0; i < maxRetries; i++) {
     const result = isDone();
-    if (result.ok) return;
+    if (result.ok) return state;
 
-    await agent({
-      ...step,
-      prompt:
-        step.prompt +
-        `\n\nThe following error occurred: ${result.error}\n\nPlease try again.`,
-    });
+    state = await agent(
+      {
+        ...step,
+        prompt:
+          step.prompt +
+          `\n\nThe following error occurred: ${result.error}\n\nPlease try again.`,
+      },
+      state,
+    );
   }
 
   const finalResult = isDone();
@@ -35,6 +42,7 @@ export async function runAgentStep(
       `Agent step failed after ${maxRetries} retries: ${finalResult.error}`,
     );
   }
+  return state;
 }
 
 export function getAgentStepFn(agentUpstream: AgentUpstream): AgentStepFn {

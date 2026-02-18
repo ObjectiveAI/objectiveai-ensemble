@@ -174,8 +174,7 @@ export class BranchVectorState {
       name: "WriteFunctionOutputLength",
       description: "Write FunctionOutputLength",
       inputSchema: { output_length: z.unknown() },
-      fn: (args) =>
-        Promise.resolve(this.setOutputLength(args.output_length)),
+      fn: (args) => Promise.resolve(this.setOutputLength(args.output_length)),
     };
   }
 
@@ -668,8 +667,7 @@ export class BranchVectorState {
         index: z.number(),
         task: z.record(z.string(), z.unknown()),
       },
-      fn: (args) =>
-        Promise.resolve(this.editVectorTask(args.index, args.task)),
+      fn: (args) => Promise.resolve(this.editVectorTask(args.index, args.task)),
     };
   }
 
@@ -779,8 +777,7 @@ export class BranchVectorState {
       name: "EditTaskSpec",
       description: "Edit TaskSpec",
       inputSchema: { index: z.number(), spec: z.string() },
-      fn: (args) =>
-        Promise.resolve(this.editTaskSpec(args.index, args.spec)),
+      fn: (args) => Promise.resolve(this.editTaskSpec(args.index, args.spec)),
     };
   }
 
@@ -826,6 +823,18 @@ export class BranchVectorState {
       {
         schema: Functions.QualityBranchRemoteVectorFunctionJsonSchema,
         name: "QualityBranchRemoteVectorFunction",
+      },
+      {
+        schema: Functions.Expression.InputMapsAsParameterJsonSchema,
+        name: "InputMapsAsParameter",
+      },
+      {
+        schema: Functions.Expression.VectorFunctionOutputJsonSchema,
+        name: "VectorFunctionOutput",
+      },
+      {
+        schema: Functions.Expression.MapScalarFunctionOutputJsonSchema,
+        name: "MapScalarFunctionOutput",
       },
     ]);
   }

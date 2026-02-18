@@ -347,6 +347,10 @@ export class LeafScalarState {
         schema: Functions.QualityLeafRemoteScalarFunctionJsonSchema,
         name: "QualityLeafRemoteScalarFunction",
       },
+      {
+        schema: Functions.Expression.VectorCompletionOutputJsonSchema,
+        name: "VectorCompletionOutput",
+      },
     ]);
   }
 }

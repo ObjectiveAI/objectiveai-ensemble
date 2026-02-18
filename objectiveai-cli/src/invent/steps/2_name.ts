@@ -1,14 +1,14 @@
+import { Tool } from "src/tool";
 import { State } from "../../state/state";
 import { AgentStepFn, runAgentStep } from "../agent";
 
-export async function stepName(
+export function stepName<TState>(
   state: State,
-  agent: AgentStepFn,
+  agent: AgentStepFn<TState>,
+  agentState?: TState,
   maxRetries = 5,
-): Promise<void> {
-  if (state.getName().ok) return;
-
-  await runAgentStep(
+): Promise<TState> {
+  return runAgentStep(
     agent,
     {
       prompt:
@@ -19,10 +19,11 @@ export async function stepName(
       tools: [
         state.getInventSpecTool(),
         state.getFunctionTypeTool(),
-        state.setNameTool(),
+        state.setNameTool() as unknown as Tool,
       ],
     },
     () => state.getName(),
     maxRetries,
+    agentState,
   );
 }

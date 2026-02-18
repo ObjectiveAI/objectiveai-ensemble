@@ -91,7 +91,7 @@ async function stage1({
   });
   const agent = getAgentStepFn(agentUpstream);
 
-  await stepName(state, agent);
+  let agentState = await stepName(state, agent);
   writeInitialStateToFilesystem(dir, state, state.parameters);
   pushInitial({
     dir,
@@ -102,12 +102,12 @@ async function stage1({
     message: "initial commit",
   });
 
-  await stepType(state, agent);
-  await stepFields(state, agent);
-  await stepEssay(state, agent);
-  await stepEssayTasks(state, agent);
-  await stepBody(state, agent);
-  await stepDescription(state, agent);
+  agentState = await stepType(state, agent, agentState);
+  agentState = await stepFields(state, agent, agentState);
+  agentState = await stepEssay(state, agent, agentState);
+  agentState = await stepEssayTasks(state, agent, agentState);
+  agentState = await stepBody(state, agent, agentState);
+  agentState = await stepDescription(state, agent, agentState);
 
   writeFinalStateToFilesystem(dir, state, state.parameters);
   pushFinal({

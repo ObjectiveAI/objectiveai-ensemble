@@ -543,6 +543,10 @@ export class LeafVectorState {
         schema: Functions.QualityLeafRemoteVectorFunctionJsonSchema,
         name: "QualityLeafRemoteVectorFunction",
       },
+      {
+        schema: Functions.Expression.VectorCompletionOutputJsonSchema,
+        name: "VectorCompletionOutput",
+      },
     ]);
   }
 }
