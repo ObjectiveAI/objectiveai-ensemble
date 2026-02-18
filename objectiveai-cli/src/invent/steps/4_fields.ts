@@ -2,11 +2,13 @@ import { State } from "../../state/state";
 import { AgentStepFn, runAgentStep } from "../agent";
 import { BranchVectorState } from "../../state/branchVectorState";
 import { LeafVectorState } from "../../state/leafVectorState";
-import { Tool } from "src/tool";
+import { Tool } from "../../tool";
+import { NotificationMessage } from "../../notification";
 
 export function stepFields<TState>(
   state: State,
   agent: AgentStepFn<TState>,
+  onNotification: (notification: NotificationMessage) => void,
   agentState?: TState,
   maxRetries = 5,
 ): Promise<TState | undefined> {
@@ -55,6 +57,7 @@ export function stepFields<TState>(
       },
       () => inner.checkFields(),
       maxRetries,
+      onNotification,
       agentState,
     );
   } else {
@@ -79,6 +82,7 @@ export function stepFields<TState>(
       },
       () => inner.checkFields(),
       maxRetries,
+      onNotification,
       agentState,
     );
   }

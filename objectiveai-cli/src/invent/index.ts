@@ -26,14 +26,14 @@ import {
   stepBody,
   stepDescription,
 } from "./steps";
-import { AgentUpstream } from "src/upstream";
-import { getGitHubToken } from "src/config";
+import { AgentUpstream } from "../upstream";
+import { getAgentUpstream, getGitHubToken } from "../config";
+import { Notification, NotificationMessage } from "../notification";
 
 interface InventOptionsBase {
-  dir: string;
   inventSpec?: string;
   parameters?: ParametersBuilder;
-  agentUpstream: AgentUpstream;
+  agentUpstream?: AgentUpstream;
   gitHubToken?: string;
   gitAuthorName?: string;
   gitAuthorEmail?: string;
@@ -53,23 +53,43 @@ export type InventOptions =
       input_merge?: Functions.RemoteVectorFunction["input_merge"];
     });
 
-export async function invent(options: InventOptions): Promise<void> {
+export async function invent(
+  dir: string,
+  options: InventOptions,
+  onNotification: (notification: Notification) => void,
+  notificationOptions?: { parent: string; taskIndex: number },
+): Promise<void> {
   if (options.inventSpec !== undefined) {
-    await stage1(options as typeof options & { inventSpec: string });
+    await stage1(
+      dir,
+      options as typeof options & { inventSpec: string },
+      onNotification,
+      notificationOptions,
+    );
   }
-  await stage2(options);
+  await stage2(dir, options, onNotification);
 }
 
-async function stage1({
-  dir,
-  parameters,
-  inventSpec,
-  agentUpstream,
-  gitHubToken: stateGitHubToken,
-  gitAuthorName: stateGitAuthorName,
-  gitAuthorEmail: stateGitAuthorEmail,
-  ...stateOptions
-}: InventOptions & { inventSpec: string }): Promise<void> {
+async function stage1(
+  dir: string,
+  {
+    parameters,
+    inventSpec,
+    agentUpstream: stateAgentUpstream,
+    gitHubToken: stateGitHubToken,
+    gitAuthorName: stateGitAuthorName,
+    gitAuthorEmail: stateGitAuthorEmail,
+    ...stateOptions
+  }: InventOptions & { inventSpec: string },
+  onNotification: (notification: Notification) => void,
+  notificationOptions?: { parent: string; taskIndex: number },
+): Promise<void> {
+  const agentUpstream =
+    stateAgentUpstream ??
+    getAgentUpstream() ??
+    (() => {
+      throw new Error("agentUpstream required");
+    })();
   const gitHubToken =
     stateGitHubToken ??
     getGitHubToken() ??
@@ -95,23 +115,43 @@ async function stage1({
   });
   const agent = getAgentStepFn(agentUpstream);
 
-  let agentState = await stepName(state, agent);
+  let boundOnNotification = notificationOptions
+    ? (message: NotificationMessage) =>
+        onNotification({ ...notificationOptions, message })
+    : (message: NotificationMessage) => onNotification({ message });
+  let agentState = await stepName(state, agent, boundOnNotification);
+
+  const name = state.getName().value!;
   writeInitialStateToFilesystem(dir, state, state.parameters);
   pushInitial({
     dir,
-    name: state.getName().value!,
+    name,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
     message: "initial commit",
   });
 
-  agentState = await stepType(state, agent, agentState);
-  agentState = await stepFields(state, agent, agentState);
-  agentState = await stepEssay(state, agent, agentState);
-  agentState = await stepEssayTasks(state, agent, agentState);
-  agentState = await stepBody(state, agent, agentState);
-  agentState = await stepDescription(state, agent, agentState);
+  boundOnNotification = notificationOptions
+    ? (message: NotificationMessage) =>
+        onNotification({ ...notificationOptions, name, message })
+    : (message: NotificationMessage) => onNotification({ name, message });
+  agentState = await stepType(state, agent, boundOnNotification, agentState);
+  agentState = await stepFields(state, agent, boundOnNotification, agentState);
+  agentState = await stepEssay(state, agent, boundOnNotification, agentState);
+  agentState = await stepEssayTasks(
+    state,
+    agent,
+    boundOnNotification,
+    agentState,
+  );
+  agentState = await stepBody(state, agent, boundOnNotification, agentState);
+  agentState = await stepDescription(
+    state,
+    agent,
+    boundOnNotification,
+    agentState,
+  );
 
   writeFinalStateToFilesystem(dir, state, state.parameters);
   pushFinal({
@@ -124,16 +164,25 @@ async function stage1({
   });
 }
 
-async function stage2({
-  dir,
-  agentUpstream,
-  gitHubToken: stateGitHubToken,
-  gitAuthorName: stateGitAuthorName,
-  gitAuthorEmail: stateGitAuthorEmail,
-}: InventOptions): Promise<void> {
+async function stage2(
+  dir: string,
+  {
+    agentUpstream: stateAgentUpstream,
+    gitHubToken: stateGitHubToken,
+    gitAuthorName: stateGitAuthorName,
+    gitAuthorEmail: stateGitAuthorEmail,
+  }: InventOptions,
+  onNotification: (notification: Notification) => void,
+): Promise<void> {
   const qualityFn = await readQualityFunctionFromFilesystem(dir);
   if (!qualityFn) return;
 
+  const agentUpstream =
+    stateAgentUpstream ??
+    getAgentUpstream() ??
+    (() => {
+      throw new Error("agentUpstream required");
+    })();
   const gitHubToken =
     stateGitHubToken ??
     getGitHubToken() ??
@@ -190,51 +239,64 @@ async function stage2({
     const task = tasks[i];
     const subFunctionDir = join(subDir, String(i));
 
-    // If a valid quality function already exists on disk, skip stage1
+    // If a valid quality function already exists on disk + on GitHub, skip stage1
     if (
       existsSync(subFunctionDir) &&
-      (await readQualityFunctionFromFilesystem(subFunctionDir))
+      (await readQualityFunctionFromFilesystem(subFunctionDir)) &&
+      (await getOwnerRepositoryCommit(subFunctionDir))
     ) {
       subInvents.push(
-        invent({
-          dir: subFunctionDir,
-          parameters: subParameters,
-          gitHubToken,
-          gitAuthorName,
-          gitAuthorEmail,
-          agentUpstream,
-        }),
+        invent(
+          subFunctionDir,
+          {
+            parameters: subParameters,
+            agentUpstream,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail,
+          },
+          onNotification,
+          { parent: qualityFn.name, taskIndex: i },
+        ),
       );
     } else if (task.type === "placeholder.vector.function") {
       subInvents.push(
-        invent({
-          dir: subFunctionDir,
-          inventSpec: spec,
-          parameters: subParameters,
-          gitHubToken,
-          gitAuthorName,
-          gitAuthorEmail,
-          agentUpstream,
-          type: "vector.function",
-          input_schema: task.input_schema,
-          output_length: task.output_length,
-          input_split: task.input_split,
-          input_merge: task.input_merge,
-        }),
+        invent(
+          subFunctionDir,
+          {
+            inventSpec: spec,
+            parameters: subParameters,
+            agentUpstream,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail,
+            type: "vector.function",
+            input_schema: task.input_schema,
+            output_length: task.output_length,
+            input_split: task.input_split,
+            input_merge: task.input_merge,
+          },
+          onNotification,
+          { parent: qualityFn.name, taskIndex: i },
+        ),
       );
     } else if (task.type === "placeholder.scalar.function") {
       subInvents.push(
-        invent({
-          dir: subFunctionDir,
-          inventSpec: spec,
-          parameters: subParameters,
-          gitHubToken,
-          gitAuthorName,
-          gitAuthorEmail,
-          agentUpstream,
-          type: "scalar.function",
-          input_schema: task.input_schema,
-        }),
+        invent(
+          subFunctionDir,
+          {
+            inventSpec: spec,
+            parameters: subParameters,
+            agentUpstream,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail,
+            type: "scalar.function",
+            input_schema: task.input_schema,
+          },
+          onNotification,
+          { parent: qualityFn.name, taskIndex: i },
+        ),
       );
     }
   }

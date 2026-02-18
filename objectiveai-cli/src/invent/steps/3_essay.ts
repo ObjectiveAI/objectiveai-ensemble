@@ -1,11 +1,13 @@
-import { BranchVectorState, LeafVectorState } from "src/state";
+import { BranchVectorState, LeafVectorState } from "../../state";
 import { State } from "../../state/state";
 import { AgentStepFn, runAgentStep } from "../agent";
-import { Tool } from "src/tool";
+import { Tool } from "../../tool";
+import { NotificationMessage } from "../../notification";
 
 export function stepEssay<TState>(
   state: State,
   agent: AgentStepFn<TState>,
+  onNotification: (notification: NotificationMessage) => void,
   agentState?: TState,
   maxRetries = 5,
 ): Promise<TState> {
@@ -46,6 +48,7 @@ export function stepEssay<TState>(
       },
       () => state.getInventEssay(),
       maxRetries,
+      onNotification,
       agentState,
     );
   } else {
@@ -67,6 +70,7 @@ export function stepEssay<TState>(
       },
       () => state.getInventEssay(),
       maxRetries,
+      onNotification,
       agentState,
     );
   }

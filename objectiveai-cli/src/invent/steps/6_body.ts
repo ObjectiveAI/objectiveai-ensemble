@@ -3,14 +3,16 @@ import {
   BranchVectorState,
   LeafScalarState,
   LeafVectorState,
-} from "src/state";
+} from "../../state";
 import { State } from "../../state/state";
 import { AgentStepFn, runAgentStep } from "../agent";
-import { Tool } from "src/tool";
+import { Tool } from "../../tool";
+import { NotificationMessage } from "../../notification";
 
 export function stepBody<TState>(
   state: State,
   agent: AgentStepFn<TState>,
+  onNotification: (notification: NotificationMessage) => void,
   agentState?: TState,
   maxRetries = 5,
 ): Promise<TState | undefined> {
@@ -107,6 +109,7 @@ export function stepBody<TState>(
       },
       () => inner.checkFunction(),
       maxRetries,
+      onNotification,
       agentState,
     );
   } else if (inner instanceof BranchScalarState) {
@@ -158,6 +161,7 @@ export function stepBody<TState>(
       },
       () => inner.checkFunction(),
       maxRetries,
+      onNotification,
       agentState,
     );
   } else if (inner instanceof LeafVectorState) {
@@ -231,6 +235,7 @@ export function stepBody<TState>(
       },
       () => inner.checkFunction(),
       maxRetries,
+      onNotification,
       agentState,
     );
   } else if (inner instanceof LeafScalarState) {
@@ -298,6 +303,7 @@ export function stepBody<TState>(
       },
       () => inner.checkFunction(),
       maxRetries,
+      onNotification,
       agentState,
     );
   } else {

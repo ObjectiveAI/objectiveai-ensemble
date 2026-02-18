@@ -1,11 +1,13 @@
-import { BranchScalarState, BranchVectorState } from "src/state";
+import { BranchScalarState, BranchVectorState } from "../../state";
 import { State } from "../../state/state";
 import { AgentStepFn, runAgentStep } from "../agent";
-import { Tool } from "src/tool";
+import { Tool } from "../../tool";
+import { NotificationMessage } from "../../notification";
 
 export function stepDescription<TState>(
   state: State,
   agent: AgentStepFn<TState>,
+  onNotification: (notification: NotificationMessage) => void,
   agentState?: TState,
   maxRetries = 5,
 ): Promise<TState> {
@@ -41,6 +43,7 @@ export function stepDescription<TState>(
       return state.getReadme();
     },
     maxRetries,
+    onNotification,
     agentState,
   );
 }

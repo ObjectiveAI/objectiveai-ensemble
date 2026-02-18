@@ -1,6 +1,7 @@
 import { Tool } from "../tool";
 import { Result } from "../result";
-import { AgentUpstream } from "src/upstream";
+import { AgentUpstream } from "../upstream";
+import { NotificationMessage } from "../notification";
 
 export interface AgentStep {
   prompt: string;
@@ -10,28 +11,31 @@ export interface AgentStep {
 export type AgentStepFn<TState = unknown> = (
   step: AgentStep,
   state: TState | undefined,
-) => Promise<TState>;
+) => AsyncGenerator<NotificationMessage, TState>;
 
 export async function runAgentStep<TState>(
   agent: AgentStepFn<TState>,
   step: AgentStep,
   isDone: () => Result<string>,
   maxRetries: number,
+  onNotification: (notification: NotificationMessage) => void,
   state?: TState,
 ): Promise<TState> {
-  state = await agent(step, state);
+  state = await runAgentStepOne(agent, step, onNotification, state);
 
   for (let i = 0; i < maxRetries; i++) {
     const result = isDone();
     if (result.ok) return state;
 
-    state = await agent(
+    state = await runAgentStepOne(
+      agent,
       {
         ...step,
         prompt:
           step.prompt +
           `\n\nThe following error occurred: ${result.error}\n\nPlease try again.`,
       },
+      onNotification,
       state,
     );
   }
@@ -43,6 +47,22 @@ export async function runAgentStep<TState>(
     );
   }
   return state;
+}
+
+async function runAgentStepOne<TState>(
+  agent: AgentStepFn<TState>,
+  step: AgentStep,
+  onNotification: (notification: NotificationMessage) => void,
+  state?: TState,
+): Promise<TState> {
+  const generator = agent(step, state);
+  while (true) {
+    const { done, value } = await generator.next();
+    if (done) {
+      return value;
+    }
+    onNotification(value);
+  }
 }
 
 export function getAgentStepFn(agentUpstream: AgentUpstream): AgentStepFn {

@@ -1,11 +1,13 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { AgentUpstream, AgentUpstreamSchema } from "./upstream";
 
 interface ConfigJson {
   gitHubToken?: string;
   gitAuthorName?: string;
   gitAuthorEmail?: string;
+  agentUpstream?: string;
 }
 
 function readConfigFile(dir: string): ConfigJson | undefined {
@@ -42,4 +44,15 @@ export function getGitAuthorName(): string | null {
 
 export function getGitAuthorEmail(): string | null {
   return getValue(process.env.OBJECTIVEAI_GIT_AUTHOR_EMAIL, "gitAuthorEmail");
+}
+
+export function getAgentUpstream(): AgentUpstream | null {
+  const raw = getValue(
+    process.env.OBJECTIVEAI_AGENT_UPSTREAM,
+    "agentUpstream",
+  );
+  if (raw === null) return null;
+  const parsed = AgentUpstreamSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return parsed.data;
 }

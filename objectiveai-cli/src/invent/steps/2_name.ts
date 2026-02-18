@@ -1,10 +1,12 @@
-import { Tool } from "src/tool";
+import { Tool } from "../../tool";
+import { NotificationMessage } from "../../notification";
 import { State } from "../../state/state";
 import { AgentStepFn, runAgentStep } from "../agent";
 
 export function stepName<TState>(
   state: State,
   agent: AgentStepFn<TState>,
+  onNotification: (notification: NotificationMessage) => void,
   agentState?: TState,
   maxRetries = 5,
 ): Promise<TState> {
@@ -24,6 +26,7 @@ export function stepName<TState>(
     },
     () => state.getName(),
     maxRetries,
+    onNotification,
     agentState,
   );
 }
