@@ -36,61 +36,16 @@ export default function Footer() {
             marginBottom: isMobile ? '20px' : '28px',
             gap: isMobile ? '32px' : '48px',
           }} className="footerMenuSocialRow">
-            {/* Pages Menu (3 groups) - CENTERED */}
+            {/* Pages Menu - flat row matching nav */}
             <nav style={{
               display: 'flex',
-              gap: isMobile ? '32px' : '48px',
-              justifyContent: 'center',
+              gap: isMobile ? '24px' : '32px',
+              alignItems: 'center',
             }} className="footerPageMenu">
-              {/* GROUP 1: FUNCTIONS */}
-              <div style={{ textAlign: 'left' }}>
-                <Link href="/functions" className="footerGroupTitle">
-                  Functions
-                </Link>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                }}>
-                  <Link href="/functions" className="footerLink">Browse</Link>
-                  <Link href="/functions/create" className="footerLink">Create</Link>
-                  <Link href="/profiles" className="footerLink">Profiles</Link>
-                  <Link href="/profiles/train" className="footerLink">Train</Link>
-                </div>
-              </div>
-
-              {/* GROUP 2: ENSEMBLES */}
-              <div style={{ textAlign: 'left' }}>
-                <Link href="/ensembles" className="footerGroupTitle">
-                  Ensembles
-                </Link>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                }}>
-                  <Link href="/ensembles" className="footerLink">Browse</Link>
-                  <Link href="/ensembles/create" className="footerLink">Create</Link>
-                  <Link href="/ensemble-llms" className="footerLink">LLMs</Link>
-                  <Link href="/ensemble-llms/create" className="footerLink">Create LLM</Link>
-                </div>
-              </div>
-
-              {/* GROUP 3: INFORMATION */}
-              <div style={{ textAlign: 'left' }}>
-                <Link href="/information" className="footerGroupTitle">
-                  Information
-                </Link>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                }}>
-                  <Link href="/people" className="footerLink">Team</Link>
-                  <Link href="/information" className="footerLink">Info</Link>
-                  <Link href="/legal" className="footerLink">Legal</Link>
-                </div>
-              </div>
+              <Link href="/functions" className="footerLink">Functions</Link>
+              <Link href="/docs" className="footerLink">Docs</Link>
+              <Link href="/people" className="footerLink">Team</Link>
+              <Link href="/legal" className="footerLink">Legal</Link>
             </nav>
 
             {/* Social Icons - RIGHT */}
