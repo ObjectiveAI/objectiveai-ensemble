@@ -37,6 +37,7 @@ export function stepDescription<TState>(
         state.setReadmeTool() as unknown as Tool,
       ],
     },
+    state.parameters,
     () => {
       const desc = state.getDescription();
       if (!desc.ok) return desc;

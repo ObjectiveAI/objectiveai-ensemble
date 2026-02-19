@@ -1,6 +1,7 @@
 import { Tool } from "../tool";
 import { Result } from "../result";
 import { NotificationMessage } from "../notification";
+import { Parameters } from "../parameters";
 import z from "zod";
 import { GitHubBackend } from "src/github";
 import { mock } from "./mock";
@@ -25,17 +26,19 @@ export interface AgentStep {
 export type AgentStepFn<TState = unknown> = (
   step: AgentStep,
   state: TState | undefined,
+  parameters: Parameters,
 ) => AsyncGenerator<NotificationMessage, TState>;
 
 export async function runAgentStep<TState>(
   agent: AgentStepFn<TState>,
   step: AgentStep,
+  parameters: Parameters,
   isDone: () => Result<string>,
   maxRetries: number,
   onNotification: (notification: NotificationMessage) => void,
   state?: TState,
 ): Promise<TState> {
-  state = await runAgentStepOne(agent, step, onNotification, state);
+  state = await runAgentStepOne(agent, step, parameters, onNotification, state);
 
   for (let i = 0; i < maxRetries; i++) {
     const result = isDone();
@@ -49,6 +52,7 @@ export async function runAgentStep<TState>(
           step.prompt +
           `\n\nThe following error occurred: ${result.error}\n\nPlease try again.`,
       },
+      parameters,
       onNotification,
       state,
     );
@@ -66,10 +70,11 @@ export async function runAgentStep<TState>(
 async function runAgentStepOne<TState>(
   agent: AgentStepFn<TState>,
   step: AgentStep,
+  parameters: Parameters,
   onNotification: (notification: NotificationMessage) => void,
   state?: TState,
 ): Promise<TState> {
-  const generator = agent(step, state);
+  const generator = agent(step, state, parameters);
   while (true) {
     const { done, value } = await generator.next();
     if (done) {

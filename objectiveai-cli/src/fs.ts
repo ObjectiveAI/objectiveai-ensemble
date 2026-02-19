@@ -130,10 +130,16 @@ export async function readQualityFunctionFromFilesystem(
       const children = await githubBackend.fetchRemoteFunctions(
         CliFunctionExt.remoteChildren(parsed.data),
       );
+      console.log(children);
       if (children === null) return null;
       try {
         Functions.Quality.checkBranchScalarFunction(parsed.data, children);
-      } catch {
+      } catch (e) {
+        console.log(e);
+        console.log(e);
+        console.log(e);
+        console.log(e);
+        console.log(e);
         return null;
       }
       return {
@@ -150,10 +156,16 @@ export async function readQualityFunctionFromFilesystem(
       const children = await githubBackend.fetchRemoteFunctions(
         CliFunctionExt.remoteChildren(parsed.data),
       );
+      console.log(children);
       if (children === null) return null;
       try {
         Functions.Quality.checkBranchVectorFunction(parsed.data, children);
-      } catch {
+      } catch (e) {
+        console.log(e);
+        console.log(e);
+        console.log(e);
+        console.log(e);
+        console.log(e);
         return null;
       }
       return {

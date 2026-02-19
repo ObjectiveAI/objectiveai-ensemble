@@ -24,6 +24,7 @@ export function stepName<TState>(
         state.setNameTool() as unknown as Tool,
       ],
     },
+    state.parameters,
     () => state.getName(),
     maxRetries,
     onNotification,

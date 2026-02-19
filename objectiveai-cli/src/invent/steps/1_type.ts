@@ -25,6 +25,7 @@ export function stepType<TState>(
         state.setFunctionTypeTool() as unknown as Tool,
       ],
     },
+    state.parameters,
     () => state.getFunctionType(),
     maxRetries,
     onNotification,

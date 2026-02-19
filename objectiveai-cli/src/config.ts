@@ -9,7 +9,7 @@ interface ConfigJson {
   gitAuthorName?: string;
   gitAuthorEmail?: string;
   agent?: string;
-  agentMock?: MockConfig;
+  agentMockNotificationDelayMs?: number;
 }
 
 function readConfigFile(dir: string): ConfigJson | undefined {
@@ -57,9 +57,12 @@ export function getAgentUpstream(): AgentUpstream | null {
 }
 
 export function getAgentMockConfig(): MockConfig | null {
-  return getValue(
-    process.env.OBJECTIVEAI_AGENT_MOCK,
-    "agentMock",
-    (env) => JSON.parse(env) as MockConfig,
+  const raw = getValue(
+    process.env.OBJECTIVEAI_AGENT_MOCK_NOTIFICATION_DELAY_MS,
+    "agentMockNotificationDelayMs",
   );
+  if (raw === null) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return { notificationDelayMs: n };
 }

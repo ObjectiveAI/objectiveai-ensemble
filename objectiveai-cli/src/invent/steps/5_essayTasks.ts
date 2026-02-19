@@ -42,6 +42,7 @@ export function stepEssayTasks<TState>(
         state.setInventEssayTasksTool() as unknown as Tool,
       ],
     },
+    state.parameters,
     () => state.getInventEssayTasks(),
     maxRetries,
     onNotification,

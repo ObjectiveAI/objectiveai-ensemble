@@ -12,12 +12,11 @@ import {
   commit,
   addRemote,
   push,
-  getHeadSha,
 } from "./git";
 
 export interface GitHubBackend {
-  pushInitial(options: PushInitialOptions): Promise<OwnerRepositoryCommit>;
-  pushFinal(options: PushFinalOptions): Promise<OwnerRepositoryCommit>;
+  pushInitial(options: PushInitialOptions): Promise<void>;
+  pushFinal(options: PushFinalOptions): Promise<void>;
   getOwnerRepositoryCommit(dir: string): Promise<OwnerRepositoryCommit | null>;
   fetchRemoteFunctions(
     refs: Iterable<OwnerRepositoryCommit>,
@@ -190,9 +189,7 @@ export interface PushInitialOptions {
   message: string;
 }
 
-async function pushInitial(
-  options: PushInitialOptions,
-): Promise<OwnerRepositoryCommit> {
+async function pushInitial(options: PushInitialOptions): Promise<void> {
   const { dir, name, gitHubToken, gitAuthorName, gitAuthorEmail, message } =
     options;
 
@@ -225,8 +222,6 @@ async function pushInitial(
   // Push
   addRemote(dir, `https://github.com/${owner}/${repository}.git`);
   push(dir);
-
-  return { owner, repository, commit: getHeadSha(dir) };
 }
 
 export interface PushFinalOptions {
@@ -238,9 +233,7 @@ export interface PushFinalOptions {
   description: string;
 }
 
-async function pushFinal(
-  options: PushFinalOptions,
-): Promise<OwnerRepositoryCommit> {
+async function pushFinal(options: PushFinalOptions): Promise<void> {
   const {
     dir,
     gitHubToken,
@@ -286,6 +279,4 @@ async function pushFinal(
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
   push(dir);
-
-  return { owner, repository, commit: getHeadSha(dir) };
 }

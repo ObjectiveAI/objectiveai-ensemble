@@ -1,5 +1,5 @@
 import { join } from "path";
-import { mkdirSync } from "fs";
+import { mkdirSync, rmSync } from "fs";
 import { State } from "../state/state";
 import { AgentStepFn, getAgentStepFn } from "../agent";
 import { Parameters, ParametersBuilder, buildParameters } from "../parameters";
@@ -72,7 +72,7 @@ export async function invent(
         const [agent, gitHubBackend] = getAgentStepFn(
           getAgentUpstream() ??
             (() => {
-              throw new Error("agentUpstream required");
+              throw new Error("Agent required");
             })(),
         );
         return [agent, gitHubBackend ?? DefaultGitHubBackend];
@@ -81,19 +81,19 @@ export async function invent(
     ? continuation.gitHubToken
     : (getGitHubToken() ??
       (() => {
-        throw new Error("gitHubToken required");
+        throw new Error("GitHubToken required");
       })());
   const gitAuthorName = continuation
     ? continuation.gitAuthorName
     : (getGitAuthorName() ??
       (() => {
-        throw new Error("gitAuthorName required");
+        throw new Error("GitAuthorName required");
       })());
   const gitAuthorEmail = continuation
     ? continuation.gitAuthorEmail
     : (getGitAuthorEmail() ??
       (() => {
-        throw new Error("gitAuthorEmail required");
+        throw new Error("GitAuthorEmail required");
       })());
   if (options !== undefined) {
     await stage1(
@@ -130,6 +130,10 @@ async function stage1(
   gitAuthorEmail: string,
   notificationOptions?: { parent: string; taskIndex: number },
 ): Promise<void> {
+  // Starting from scratch for this branch — remove any stale sub_functions
+  const subFunctionsDir = join(dir, "sub_functions");
+  rmSync(subFunctionsDir, { recursive: true, force: true });
+
   const state = new State(
     {
       parameters: buildParameters(parameters),
@@ -144,7 +148,8 @@ async function stage1(
     ? (message: NotificationMessage) =>
         onNotification({ ...notificationOptions, message })
     : (message: NotificationMessage) => onNotification({ message });
-  let agentState = await stepName(state, agent, boundOnNotification);
+  let agentState = await stepType(state, agent, boundOnNotification);
+  agentState = await stepName(state, agent, boundOnNotification, agentState);
 
   const name = state.getName().value!;
   writeInitialStateToFilesystem(dir, state, state.parameters);
@@ -161,7 +166,6 @@ async function stage1(
     ? (message: NotificationMessage) =>
         onNotification({ ...notificationOptions, name, message })
     : (message: NotificationMessage) => onNotification({ name, message });
-  agentState = await stepType(state, agent, boundOnNotification, agentState);
   agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
@@ -211,17 +215,17 @@ async function stage2(
   const gitHubToken =
     getGitHubToken() ??
     (() => {
-      throw new Error("gitHubToken required");
+      throw new Error("GitHubToken required");
     })();
   const gitAuthorName =
     getGitAuthorName() ??
     (() => {
-      throw new Error("gitAuthorName required");
+      throw new Error("GitAuthorName required");
     })();
   const gitAuthorEmail =
     getGitAuthorEmail() ??
     (() => {
-      throw new Error("gitAuthorEmail required");
+      throw new Error("GitAuthorEmail required");
     })();
 
   if (isDirty(dir)) {

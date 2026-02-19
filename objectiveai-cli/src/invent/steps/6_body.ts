@@ -15,7 +15,7 @@ export function stepBody<TState>(
   onNotification: (notification: NotificationMessage) => void,
   agentState?: TState,
   maxRetries = 5,
-): Promise<TState | undefined> {
+): Promise<TState> {
   const inner = state.inner;
   if (!inner) throw new Error("Function type not set");
 
@@ -107,6 +107,7 @@ export function stepBody<TState>(
           ...inner.getSchemaTools(),
         ],
       },
+      state.parameters,
       () => inner.checkFunction(),
       maxRetries,
       onNotification,
@@ -159,6 +160,7 @@ export function stepBody<TState>(
           ...inner.getSchemaTools(),
         ],
       },
+      state.parameters,
       () => inner.checkFunction(),
       maxRetries,
       onNotification,
@@ -233,6 +235,7 @@ export function stepBody<TState>(
           ...inner.getSchemaTools(),
         ],
       },
+      state.parameters,
       () => inner.checkFunction(),
       maxRetries,
       onNotification,
@@ -301,6 +304,7 @@ export function stepBody<TState>(
           ...inner.getSchemaTools(),
         ],
       },
+      state.parameters,
       () => inner.checkFunction(),
       maxRetries,
       onNotification,
