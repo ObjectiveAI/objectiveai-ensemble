@@ -51,7 +51,7 @@ export function checkLeafFunction(func: RemoteFunction): void {
  * Routes to branch scalar or branch vector checks based on the function type.
  * Branch functions contain only function/placeholder tasks.
  *
- * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * @param children - Optional map of `"owner/repository/commit"` → RemoteFunction for
  * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */
@@ -90,7 +90,7 @@ export function checkLeafVectorFunction(func: RemoteFunction): void {
  * Validates: no input_maps, only scalar-like tasks, no map, no vector.completion,
  * example inputs compile and placeholder inputs match schemas.
  *
- * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * @param children - Optional map of `"owner/repository/commit"` → RemoteFunction for
  * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */
@@ -107,7 +107,7 @@ export function checkBranchScalarFunction(
  * Validates: vector input schema, task type/map constraints, single-task-must-be-vector,
  * <= 50% mapped scalar, vector field round-trip, example input compilation.
  *
- * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * @param children - Optional map of `"owner/repository/commit"` → RemoteFunction for
  * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */

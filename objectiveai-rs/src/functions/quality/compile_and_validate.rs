@@ -149,7 +149,7 @@ fn validate_compiled_task(
         }
         Task::ScalarFunction(t) => {
             if let Some(children) = children {
-                let key = format!("{}/{}", t.owner, t.repository);
+                let key = format!("{}/{}/{}", t.owner, t.repository, t.commit);
                 let child = children.get(&key).ok_or_else(|| {
                     format!(
                         "CV06: {}: referenced scalar.function '{}' not found in children",
@@ -171,7 +171,7 @@ fn validate_compiled_task(
         }
         Task::VectorFunction(t) => {
             if let Some(children) = children {
-                let key = format!("{}/{}", t.owner, t.repository);
+                let key = format!("{}/{}/{}", t.owner, t.repository, t.commit);
                 let child = children.get(&key).ok_or_else(|| {
                     format!(
                         "CV08: {}: referenced vector.function '{}' not found in children",
