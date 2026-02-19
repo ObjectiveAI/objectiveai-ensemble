@@ -1,16 +1,8 @@
-export type Notification =
-  | {
-      name?: string;
-      parent?: undefined;
-      taskIndex?: undefined;
-      message: NotificationMessage;
-    }
-  | {
-      name?: string;
-      parent: string;
-      taskIndex: number;
-      message: NotificationMessage;
-    };
+export interface Notification {
+  path: number[];
+  name?: string;
+  message: NotificationMessage;
+}
 
 export type NotificationMessage =
   | {

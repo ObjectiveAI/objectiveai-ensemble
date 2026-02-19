@@ -4,65 +4,27 @@ import { Notification, NotificationMessage } from "../notification";
 
 interface FunctionNode {
   name?: string;
-  parent?: string;
-  taskIndex?: number;
   messages: NotificationMessage[];
   done: boolean;
-  children: Map<string, FunctionNode>;
-}
-
-function getNodeKey(notification: Notification): string {
-  if (notification.parent === undefined) return "__root__";
-  return `${notification.parent}:${notification.taskIndex}`;
+  children: Map<number, FunctionNode>;
 }
 
 function findOrCreateNode(
   root: FunctionNode,
-  notification: Notification,
+  path: number[],
 ): FunctionNode {
-  if (notification.parent === undefined) return root;
-
-  const key = getNodeKey(notification);
-  if (!root.children.has(key)) {
-    // Find the parent node to attach to
-    const parentNode = findParentNode(root, notification.parent);
-    const target = parentNode ?? root;
-    target.children.set(key, {
-      name: notification.name,
-      parent: notification.parent,
-      taskIndex: notification.taskIndex,
-      messages: [],
-      done: false,
-      children: new Map(),
-    });
+  let node = root;
+  for (const index of path) {
+    if (!node.children.has(index)) {
+      node.children.set(index, {
+        messages: [],
+        done: false,
+        children: new Map(),
+      });
+    }
+    node = node.children.get(index)!;
   }
-  return root.children.has(key)
-    ? root.children.get(key)!
-    : findInTree(root, key)!;
-}
-
-function findParentNode(
-  node: FunctionNode,
-  parentName: string,
-): FunctionNode | undefined {
-  if (node.name === parentName) return node;
-  for (const child of node.children.values()) {
-    const found = findParentNode(child, parentName);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-function findInTree(
-  node: FunctionNode,
-  key: string,
-): FunctionNode | undefined {
-  if (node.children.has(key)) return node.children.get(key)!;
-  for (const child of node.children.values()) {
-    const found = findInTree(child, key);
-    if (found) return found;
-  }
-  return undefined;
+  return node;
 }
 
 function cloneTree(node: FunctionNode): FunctionNode {
@@ -85,7 +47,7 @@ export function useInventNotifications() {
   const onNotification = useCallback((notification: Notification) => {
     setTree((prev) => {
       const next = cloneTree(prev);
-      const node = findOrCreateNode(next, notification);
+      const node = findOrCreateNode(next, notification.path);
 
       if (notification.name !== undefined) {
         node.name = notification.name;
@@ -143,34 +105,9 @@ function FunctionBox({
   isLast: boolean;
 }) {
   const indent = depth * 3;
-  const children = Array.from(node.children.values());
+  const children = Array.from(node.children.entries());
 
   const title = node.name ?? "Unnamed Function";
-
-  if (node.done) {
-    return (
-      <Box flexDirection="column">
-        <Box marginLeft={indent}>
-          {depth > 0 && (
-            <Text dimColor>{isLast ? "└─ " : "├─ "}</Text>
-          )}
-          <Text dimColor>
-            {"▪ "}
-            {title}
-            {" — Invention Complete"}
-          </Text>
-        </Box>
-        {children.map((child, i) => (
-          <FunctionBox
-            key={getChildKey(child)}
-            node={child}
-            depth={depth + 1}
-            isLast={i === children.length - 1}
-          />
-        ))}
-      </Box>
-    );
-  }
 
   return (
     <Box flexDirection="column">
@@ -180,22 +117,31 @@ function FunctionBox({
         )}
         <Box
           borderStyle="round"
-          borderColor="magenta"
+          borderColor="#5948e7"
           flexDirection="column"
           paddingX={1}
         >
-          <Text bold color="magenta">
+          <Text bold color="#5948e7">
             {title}
           </Text>
-          {node.messages.length > 0 && <Text> </Text>}
-          {node.messages.map((msg, i) => (
-            <MessageLine key={i} message={msg} />
-          ))}
+          {node.done ? (
+            <>
+              <Text> </Text>
+              <Text color="#5948e7">Invention Complete</Text>
+            </>
+          ) : node.messages.length > 0 ? (
+            <>
+              <Text> </Text>
+              {node.messages.map((msg, i) => (
+                <MessageLine key={i} message={msg} />
+              ))}
+            </>
+          ) : null}
         </Box>
       </Box>
-      {children.map((child, i) => (
+      {children.map(([index, child], i) => (
         <FunctionBox
-          key={getChildKey(child)}
+          key={index}
           node={child}
           depth={depth + 1}
           isLast={i === children.length - 1}
@@ -203,13 +149,6 @@ function FunctionBox({
       ))}
     </Box>
   );
-}
-
-function getChildKey(node: FunctionNode): string {
-  if (node.parent !== undefined && node.taskIndex !== undefined) {
-    return `${node.parent}:${node.taskIndex}`;
-  }
-  return node.name ?? "__unknown__";
 }
 
 export function InventView({ tree }: { tree: FunctionNode }) {

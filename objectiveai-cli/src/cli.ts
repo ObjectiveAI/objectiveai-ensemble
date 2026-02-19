@@ -96,7 +96,6 @@ inventCommand.action(async (spec: string | undefined, opts) => {
       (notification) => listener?.(notification),
       spec !== undefined ? { inventSpec: spec, parameters } : undefined,
     );
-    await new Promise((resolve) => setTimeout(resolve, 20000));
   } finally {
     // sleep 5 seconds
     unmount();

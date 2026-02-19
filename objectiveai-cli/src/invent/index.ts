@@ -57,8 +57,7 @@ export async function invent(
   onNotification: (notification: Notification) => void,
   options?: InventOptions,
   continuation?: {
-    parent: string;
-    taskIndex: number;
+    path: number[];
     agent: AgentStepFn;
     gitHubBackend: GitHubBackend;
     gitHubToken: string;
@@ -105,12 +104,10 @@ export async function invent(
       gitHubToken,
       gitAuthorName,
       gitAuthorEmail,
-      continuation
-        ? { parent: continuation.parent, taskIndex: continuation.taskIndex }
-        : undefined,
+      continuation ? continuation.path : [],
     );
   }
-  await stage2(dir, onNotification, {
+  await stage2(dir, onNotification, continuation?.path ?? [], {
     agent,
     gitHubBackend,
     gitHubToken,
@@ -128,7 +125,7 @@ async function stage1(
   gitHubToken: string,
   gitAuthorName: string,
   gitAuthorEmail: string,
-  notificationOptions?: { parent: string; taskIndex: number },
+  path: number[],
 ): Promise<void> {
   // Starting from scratch for this branch — remove any stale sub_functions
   const subFunctionsDir = join(dir, "sub_functions");
@@ -144,10 +141,8 @@ async function stage1(
     gitHubBackend,
   );
 
-  let boundOnNotification = notificationOptions
-    ? (message: NotificationMessage) =>
-        onNotification({ ...notificationOptions, message })
-    : (message: NotificationMessage) => onNotification({ message });
+  let boundOnNotification = (message: NotificationMessage) =>
+    onNotification({ path, message });
   let agentState = await stepType(state, agent, boundOnNotification);
   agentState = await stepName(state, agent, boundOnNotification, agentState);
 
@@ -162,10 +157,8 @@ async function stage1(
     message: "initial commit",
   });
 
-  boundOnNotification = notificationOptions
-    ? (message: NotificationMessage) =>
-        onNotification({ ...notificationOptions, name, message })
-    : (message: NotificationMessage) => onNotification({ name, message });
+  boundOnNotification = (message: NotificationMessage) =>
+    onNotification({ path, name, message });
   agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
@@ -198,6 +191,7 @@ async function stage1(
 async function stage2(
   dir: string,
   onNotification: (notification: Notification) => void,
+  path: number[],
   continuation: {
     agent: AgentStepFn;
     gitHubBackend: GitHubBackend;
@@ -278,16 +272,15 @@ async function stage2(
         subFunctionDir,
       ))
     ) {
+      const childPath = [...path, i];
       subInvents.push(
         invent(subFunctionDir, onNotification, undefined, {
-          parent: qualityFn.name,
-          taskIndex: i,
+          path: childPath,
           ...continuation,
         }),
       );
       onNotification({
-        parent: qualityFn.name,
-        taskIndex: i,
+        path: childPath,
         name: childQualityFn.name,
         message: { role: "done" },
       });
@@ -305,7 +298,7 @@ async function stage2(
             input_split: task.input_split,
             input_merge: task.input_merge,
           },
-          { parent: qualityFn.name, taskIndex: i, ...continuation },
+          { path: [...path, i], ...continuation },
         ),
       );
     } else if (task.type === "placeholder.scalar.function") {
@@ -319,7 +312,7 @@ async function stage2(
             type: "scalar.function",
             input_schema: task.input_schema,
           },
-          { parent: qualityFn.name, taskIndex: i, ...continuation },
+          { path: [...path, i], ...continuation },
         ),
       );
     }
