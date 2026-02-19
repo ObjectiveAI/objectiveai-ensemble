@@ -26,7 +26,7 @@ enum FunctionType {
 /// Validates a single input: compiles tasks, checks all constraints, and
 /// returns the compiled tasks for further use (e.g. diversity tracking).
 pub(super) fn compile_and_validate_one_input(
-    i: usize,
+    input_label: &str,
     function: &RemoteFunction,
     input: &crate::functions::expression::Input,
     children: Option<&HashMap<String, RemoteFunction>>,
@@ -43,8 +43,8 @@ pub(super) fn compile_and_validate_one_input(
             let len =
                 output_length.clone().compile_one(&params).map_err(|e| {
                     format!(
-                        "CV02: Input [{}]: output_length compilation failed: {}",
-                        i, e
+                        "CV02: Input {}: output_length compilation failed: {}",
+                        input_label, e
                     )
                 })?;
             FunctionType::Vector { output_length: len }
@@ -55,12 +55,20 @@ pub(super) fn compile_and_validate_one_input(
     let func = Function::Remote(function.clone());
     let compiled_tasks = func.compile_tasks(input).map_err(|e| {
         format!(
-            "CV03: Input [{}]: task compilation failed: {}\n\nInput: {}",
-            i,
+            "CV03: Input {}: task compilation failed: {}\n\nInput: {}",
+            input_label,
             e,
-            serde_json::to_string_pretty(input).unwrap_or_default()
+            serde_json::to_string(input).unwrap_or_default()
         )
     })?;
+
+    // At least one task must not be skipped
+    if compiled_tasks.iter().all(|t| t.is_none()) {
+        return Err(format!(
+            "CV42: Input {}: all tasks were skipped — at least one task must run for every valid input",
+            input_label
+        ));
+    }
 
     // Validate each compiled task
     for (j, compiled_task) in compiled_tasks.iter().enumerate() {
@@ -71,9 +79,9 @@ pub(super) fn compile_and_validate_one_input(
 
         match compiled_task {
             CompiledTask::One(task) => {
-                validate_compiled_task(i, j, None, task, children)?;
+                validate_compiled_task(input_label, j, None, task, children)?;
                 validate_output_expression(
-                    i,
+                    input_label,
                     j,
                     input,
                     compiled_task,
@@ -84,13 +92,19 @@ pub(super) fn compile_and_validate_one_input(
             }
             CompiledTask::Many(tasks) => {
                 for (k, task) in tasks.iter().enumerate() {
-                    validate_compiled_task(i, j, Some(k), task, children)?;
+                    validate_compiled_task(
+                        input_label,
+                        j,
+                        Some(k),
+                        task,
+                        children,
+                    )?;
                 }
                 // Validate the mapped output expression using the first
                 // task as representative (all share the same output expr)
                 if let Some(first) = tasks.first() {
                     validate_output_expression(
-                        i,
+                        input_label,
                         j,
                         input,
                         compiled_task,
@@ -108,7 +122,7 @@ pub(super) fn compile_and_validate_one_input(
 
 /// Validates a single compiled task's inputs.
 fn validate_compiled_task(
-    input_index: usize,
+    input_label: &str,
     task_index: usize,
     map_index: Option<usize>,
     task: &Task,
@@ -116,9 +130,9 @@ fn validate_compiled_task(
 ) -> Result<(), String> {
     let location = match map_index {
         Some(k) => {
-            format!("Input [{}], task [{}][{}]", input_index, task_index, k)
+            format!("Input {}, task [{}][{}]", input_label, task_index, k)
         }
-        None => format!("Input [{}], task [{}]", input_index, task_index),
+        None => format!("Input {}, task [{}]", input_label, task_index),
     };
 
     match task {
@@ -127,9 +141,8 @@ fn validate_compiled_task(
                 return Err(format!(
                     "CV04: {}: compiled input does not match placeholder's input_schema\n\nInput: {}\n\nSchema: {}",
                     location,
-                    serde_json::to_string_pretty(&t.input).unwrap_or_default(),
-                    serde_json::to_string_pretty(&t.input_schema)
-                        .unwrap_or_default(),
+                    serde_json::to_string(&t.input).unwrap_or_default(),
+                    serde_json::to_string(&t.input_schema).unwrap_or_default(),
                 ));
             }
         }
@@ -138,9 +151,8 @@ fn validate_compiled_task(
                 return Err(format!(
                     "CV05: {}: compiled input does not match placeholder's input_schema\n\nInput: {}\n\nSchema: {}",
                     location,
-                    serde_json::to_string_pretty(&t.input).unwrap_or_default(),
-                    serde_json::to_string_pretty(&t.input_schema)
-                        .unwrap_or_default(),
+                    serde_json::to_string(&t.input).unwrap_or_default(),
+                    serde_json::to_string(&t.input_schema).unwrap_or_default(),
                 ));
             }
         }
@@ -161,9 +173,8 @@ fn validate_compiled_task(
                         "CV07: {}: compiled input does not match child function's input_schema ({})\n\nInput: {}\n\nSchema: {}",
                         location,
                         key,
-                        serde_json::to_string_pretty(&t.input)
-                            .unwrap_or_default(),
-                        serde_json::to_string_pretty(child.input_schema())
+                        serde_json::to_string(&t.input).unwrap_or_default(),
+                        serde_json::to_string(child.input_schema())
                             .unwrap_or_default(),
                     ));
                 }
@@ -183,9 +194,8 @@ fn validate_compiled_task(
                         "CV09: {}: compiled input does not match child function's input_schema ({})\n\nInput: {}\n\nSchema: {}",
                         location,
                         key,
-                        serde_json::to_string_pretty(&t.input)
-                            .unwrap_or_default(),
-                        serde_json::to_string_pretty(child.input_schema())
+                        serde_json::to_string(&t.input).unwrap_or_default(),
+                        serde_json::to_string(child.input_schema())
                             .unwrap_or_default(),
                     ));
                 }
@@ -201,7 +211,7 @@ fn validate_compiled_task(
 /// and checks that all results are distinct (ensuring the expression actually
 /// derives its output from the raw result, not returning a fixed value).
 fn validate_output_expression(
-    input_index: usize,
+    input_label: &str,
     task_index: usize,
     input: &crate::functions::expression::Input,
     compiled_task: &CompiledTask,
@@ -209,7 +219,7 @@ fn validate_output_expression(
     function_type: &FunctionType,
     children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
-    let location = format!("Input [{}], task [{}]", input_index, task_index);
+    let location = format!("Input {}, task [{}]", input_label, task_index);
 
     // Determine the output shape info we need for random generation
     // (returns None if we can't construct mocks, e.g. vector.function without children)
@@ -620,7 +630,7 @@ fn check_compiled_vector_completion(
     // At least 2 responses
     if vc.responses.len() < 2 {
         return Err(format!(
-            "CV28: {}: compiled task must have at least 2 responses, found {}",
+            "CV28: {}: compiled task must have at least 2 responses, found {}. Try setting `minItems` to 2 on the `input_schema`.",
             location,
             vc.responses.len()
         ));

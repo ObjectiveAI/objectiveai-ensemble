@@ -47,16 +47,17 @@ pub fn check_vector_fields(
     check_input_schema(&fields.input_schema)?;
 
     let mut count = 0usize;
-    for (i, ref input) in
-        example_inputs::generate(&fields.input_schema).enumerate()
-    {
+    for ref input in example_inputs::generate(&fields.input_schema) {
         count += 1;
-        check_vector_fields_for_input(&fields, i, input)?;
+        let input_label = serde_json::to_string(input).unwrap_or_default();
+        check_vector_fields_for_input(&fields, &input_label, input)?;
     }
 
     if count == 0 {
-        return Err("VF22: Failed to generate any example inputs from input_schema"
-            .to_string());
+        return Err(
+            "VF22: Failed to generate any example inputs from input_schema"
+                .to_string(),
+        );
     }
 
     Ok(())
@@ -70,7 +71,7 @@ pub fn check_vector_fields(
 /// 5. Merging random subsets must produce output_length = subset size
 pub(super) fn check_vector_fields_for_input(
     fields: &VectorFieldsValidation,
-    i: usize,
+    input_label: &str,
     input: &Input,
 ) -> Result<(), String> {
     // 1. Compile output_length
@@ -78,21 +79,19 @@ pub(super) fn check_vector_fields_for_input(
         .to_function()
         .compile_output_length(input)
         .map_err(|e| {
-            format!("VF01: Input [{}]: output_length compilation failed: {}", i, e)
+            format!("VF01: Input {}: output_length compilation failed: {}", input_label, e)
         })?
         .ok_or_else(|| {
             format!(
-                "VF02: Input [{}]: output_length returned None (not a vector function?)",
-                i
+                "VF02: Input {}: output_length returned None (not a vector function?)",
+                input_label
             )
         })?;
 
-    if output_length < 1 {
+    if output_length < 2 {
         return Err(format!(
-            "VF03: Input [{}]: output_length must be > 0 for vector functions, got {}.\n\nInput: {}",
-            i,
-            output_length,
-            serde_json::to_string_pretty(input).unwrap_or_default()
+            "VF03: Input {}: output_length must be > 1 for vector functions, got {}. Try setting `minItems` to 2 in the `input_schema`.",
+            input_label, output_length,
         ));
     }
 
@@ -101,19 +100,21 @@ pub(super) fn check_vector_fields_for_input(
         .to_function()
         .compile_input_split(input)
         .map_err(|e| {
-            format!("VF04: Input [{}]: input_split compilation failed: {}", i, e)
+            format!(
+                "VF04: Input {}: input_split compilation failed: {}",
+                input_label, e
+            )
         })?
         .ok_or_else(|| {
-            format!("VF05: Input [{}]: input_split returned None", i)
+            format!("VF05: Input {}: input_split returned None", input_label)
         })?;
 
     if splits.len() as u64 != output_length {
         return Err(format!(
-            "VF06: Input [{}]: input_split produced {} elements but output_length is {}.\n\nInput: {}",
-            i,
+            "VF06: Input {}: input_split produced {} elements but output_length is {}",
+            input_label,
             splits.len(),
             output_length,
-            serde_json::to_string_pretty(input).unwrap_or_default()
         ));
     }
 
@@ -124,24 +125,24 @@ pub(super) fn check_vector_fields_for_input(
             .compile_output_length(split)
             .map_err(|e| {
                 format!(
-                    "VF07: Input [{}]: output_length failed for split [{}]: {}",
-                    i, j, e
+                    "VF07: Input {}: output_length failed for split [{}]: {}",
+                    input_label, j, e
                 )
             })?
             .ok_or_else(|| {
                 format!(
-                    "VF08: Input [{}]: output_length returned None for split [{}]",
-                    i, j
+                    "VF08: Input {}: output_length returned None for split [{}]",
+                    input_label, j
                 )
             })?;
 
         if split_len != 1 {
             return Err(format!(
-                "VF09: Input [{}]: split [{}] output_length must be 1, got {}.\n\nSplit: {}",
-                i,
+                "VF09: Input {}: split [{}] output_length must be 1, got {}.\n\nSplit: {}",
+                input_label,
                 j,
                 split_len,
-                serde_json::to_string_pretty(split).unwrap_or_default()
+                serde_json::to_string(split).unwrap_or_default()
             ));
         }
     }
@@ -152,18 +153,21 @@ pub(super) fn check_vector_fields_for_input(
         .to_function()
         .compile_input_merge(&merge_input)
         .map_err(|e| {
-            format!("VF10: Input [{}]: input_merge compilation failed: {}", i, e)
+            format!(
+                "VF10: Input {}: input_merge compilation failed: {}",
+                input_label, e
+            )
         })?
         .ok_or_else(|| {
-            format!("VF11: Input [{}]: input_merge returned None", i)
+            format!("VF11: Input {}: input_merge returned None", input_label)
         })?;
 
     if !inputs_equal(input, &merged) {
         return Err(format!(
-            "VF12: Input [{}]: merged input does not match original.\n\nOriginal: {}\n\nMerged: {}",
-            i,
-            serde_json::to_string_pretty(input).unwrap_or_default(),
-            serde_json::to_string_pretty(&merged).unwrap_or_default()
+            "VF12: Input {}: merged input does not match original.\n\nOriginal: {}\n\nMerged: {}",
+            input_label,
+            serde_json::to_string(input).unwrap_or_default(),
+            serde_json::to_string(&merged).unwrap_or_default()
         ));
     }
 
@@ -173,21 +177,21 @@ pub(super) fn check_vector_fields_for_input(
         .compile_output_length(&merged)
         .map_err(|e| {
             format!(
-                "VF13: Input [{}]: output_length failed for merged input: {}",
-                i, e
+                "VF13: Input {}: output_length failed for merged input: {}",
+                input_label, e
             )
         })?
         .ok_or_else(|| {
             format!(
-                "VF14: Input [{}]: output_length returned None for merged input",
-                i
+                "VF14: Input {}: output_length returned None for merged input",
+                input_label
             )
         })?;
 
     if merged_len != output_length {
         return Err(format!(
-            "VF15: Input [{}]: merged output_length ({}) != original output_length ({})",
-            i, merged_len, output_length
+            "VF15: Input {}: merged output_length ({}) != original output_length ({})",
+            input_label, merged_len, output_length
         ));
     }
 
@@ -208,14 +212,14 @@ pub(super) fn check_vector_fields_for_input(
             .compile_input_merge(&sub_merge_input)
             .map_err(|e| {
                 format!(
-                    "VF16: Input [{}]: input_merge failed for subset {:?}: {}",
-                    i, subset, e
+                    "VF16: Input {}: input_merge failed for subset {:?}: {}",
+                    input_label, subset, e
                 )
             })?
             .ok_or_else(|| {
                 format!(
-                    "VF17: Input [{}]: input_merge returned None for subset {:?}",
-                    i, subset
+                    "VF17: Input {}: input_merge returned None for subset {:?}",
+                    input_label, subset
                 )
             })?;
 
@@ -224,21 +228,21 @@ pub(super) fn check_vector_fields_for_input(
             .compile_output_length(&sub_merged)
             .map_err(|e| {
                 format!(
-                    "VF18: Input [{}]: output_length failed for merged subset {:?}: {}",
-                    i, subset, e
+                    "VF18: Input {}: output_length failed for merged subset {:?}: {}",
+                    input_label, subset, e
                 )
             })?
             .ok_or_else(|| {
                 format!(
-                    "VF19: Input [{}]: output_length returned None for merged subset {:?}",
-                    i, subset
+                    "VF19: Input {}: output_length returned None for merged subset {:?}",
+                    input_label, subset
                 )
             })?;
 
         if sub_merged_len as usize != subset.len() {
             return Err(format!(
-                "VF20: Input [{}]: merged subset {:?} output_length is {}, expected {}",
-                i,
+                "VF20: Input {}: merged subset {:?} output_length is {}, expected {}",
+                input_label,
                 subset,
                 sub_merged_len,
                 subset.len()
@@ -255,8 +259,8 @@ pub(super) fn check_vector_fields_for_input(
         )
         .map_err(|e| {
             format!(
-                "VF21: Input [{}]: merged subset {:?} violates input_schema: {}",
-                i, subset, e
+                "VF21: Input {}: merged subset {:?} violates input_schema: {}",
+                input_label, subset, e
             )
         })?;
     }

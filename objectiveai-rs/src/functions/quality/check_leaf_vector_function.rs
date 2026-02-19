@@ -159,19 +159,20 @@ pub fn check_leaf_vector_function(
     let mut per_task_skipped = vec![false; task_count];
     let mut seen_dist_tasks: HashSet<(usize, usize)> = HashSet::new();
     let mut count = 0usize;
-    let mut merged_count = 0usize;
+
 
     // Multimodal coverage tracking
     let mut schema_modalities: ModalityFlags = [false; 4];
     collect_schema_modalities(input_schema, &mut schema_modalities);
     let mut task_modalities: ModalityFlags = [false; 4];
 
-    for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
+    for ref input in example_inputs::generate(input_schema) {
         count += 1;
+        let input_label = serde_json::to_string(input).unwrap_or_default();
 
         // Compile and validate
         let compiled_tasks =
-            compile_and_validate_one_input(i, function, input, None)?;
+            compile_and_validate_one_input(&input_label, function, input, None)?;
 
         // Output expression distribution check (once per task+response_count)
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {
@@ -235,7 +236,7 @@ pub fn check_leaf_vector_function(
         }
 
         // Vector fields validation
-        check_vector_fields_for_input(&vector_fields, i, input)?;
+        check_vector_fields_for_input(&vector_fields, &input_label, input)?;
 
         // Merged sub-inputs validation
         let splits = func_template
@@ -243,14 +244,14 @@ pub fn check_leaf_vector_function(
             .compile_input_split(input)
             .map_err(|e| {
                 format!(
-                    "LV09: Merged input validation, input [{}]: input_split failed: {}",
-                    i, e
+                    "LV09: Merged input validation, input {}: input_split failed: {}",
+                    input_label, e
                 )
             })?
             .ok_or_else(|| {
                 format!(
-                    "LV10: Merged input validation, input [{}]: input_split returned None",
-                    i
+                    "LV10: Merged input validation, input {}: input_split returned None",
+                    input_label
                 )
             })?;
 
@@ -265,22 +266,23 @@ pub fn check_leaf_vector_function(
                     .compile_input_merge(&merge_input)
                     .map_err(|e| {
                         format!(
-                            "LV11: Merged input validation, input [{}], subset {:?}: \
+                            "LV11: Merged input validation, input {}, subset {:?}: \
                              input_merge failed: {}",
-                            i, subset, e
+                            input_label, subset, e
                         )
                     })?
                     .ok_or_else(|| {
                         format!(
-                            "LV12: Merged input validation, input [{}], subset {:?}: \
+                            "LV12: Merged input validation, input {}, subset {:?}: \
                              input_merge returned None",
-                            i, subset
+                            input_label, subset
                         )
                     })?;
+                let merged_label =
+                    serde_json::to_string(&merged).unwrap_or_default();
                 compile_and_validate_one_input(
-                    merged_count, function, &merged, None,
+                    &merged_label, function, &merged, None,
                 )?;
-                merged_count += 1;
             }
         }
     }

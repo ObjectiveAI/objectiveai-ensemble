@@ -2273,3 +2273,87 @@ fn modality_pass_image_in_responses() {
     };
     test(&f);
 }
+
+#[test]
+fn all_tasks_skipped() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Yes".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("No".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            }),
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Good".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Bad".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            }),
+        ],
+    };
+    test_err(&f, "CV42");
+}

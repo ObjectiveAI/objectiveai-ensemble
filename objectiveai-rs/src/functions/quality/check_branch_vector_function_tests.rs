@@ -2060,6 +2060,58 @@ fn rejects_single_permutation_string_enum() {
 }
 
 #[test]
+fn all_tasks_skipped() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(2),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::VectorFunction(VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test2".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "CV42");
+}
+
+#[test]
 fn rejects_single_permutation_integer() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
@@ -2099,4 +2151,45 @@ fn rejects_single_permutation_integer() {
         )),
     };
     test_err(&f, "QI01");
+}
+
+#[test]
+fn output_length_less_than_2() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(1),
+            max_items: Some(3),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorFunction(
+            VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input)".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[[x] for x in input]".to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test_err(&f, "VF03");
 }

@@ -198,10 +198,11 @@ pub fn check_branch_vector_function(
     let mut per_task_skipped = vec![false; task_count];
     let mut seen_dist_tasks: HashSet<(usize, usize)> = HashSet::new();
     let mut count = 0usize;
-    let mut merged_count = 0usize;
 
-    for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
+
+    for ref input in example_inputs::generate(input_schema) {
         count += 1;
+        let input_label = serde_json::to_string(input).unwrap_or_default();
 
         // Input maps validation
         if has_input_maps {
@@ -210,8 +211,8 @@ pub fn check_branch_vector_function(
                 .compile_input_maps(input)
                 .map_err(|e| {
                     format!(
-                        "BV10: Input [{}]: input_maps compilation failed: {}",
-                        i, e
+                        "BV10: Input {}: input_maps compilation failed: {}",
+                        input_label, e
                     )
                 })?;
 
@@ -220,18 +221,18 @@ pub fn check_branch_vector_function(
                 for &idx in &task_map_indices {
                     if idx >= len {
                         return Err(format!(
-                            "BV11: Input [{}]: task has map index {} but compiled \
+                            "BV11: Input {}: task has map index {} but compiled \
                              input_maps has only {} sub-arrays",
-                            i, idx, len
+                            input_label, idx, len
                         ));
                     }
                 }
                 for idx in 0..len {
                     if !task_map_indices.contains(&idx) {
                         return Err(format!(
-                            "BV12: Input [{}]: compiled input_maps has {} sub-arrays \
+                            "BV12: Input {}: compiled input_maps has {} sub-arrays \
                              but index {} is not referenced by any task's map field",
-                            i, len, idx
+                            input_label, len, idx
                         ));
                     }
                 }
@@ -239,11 +240,11 @@ pub fn check_branch_vector_function(
         }
 
         // Vector fields validation
-        check_vector_fields_for_input(&vector_fields, i, input)?;
+        check_vector_fields_for_input(&vector_fields, &input_label, input)?;
 
         // Compile and validate
         let compiled_tasks =
-            compile_and_validate_one_input(i, function, input, children)?;
+            compile_and_validate_one_input(&input_label, function, input, children)?;
 
         // Output expression distribution check (once per task+length pair)
         {
@@ -355,14 +356,14 @@ pub fn check_branch_vector_function(
             .compile_input_split(input)
             .map_err(|e| {
                 format!(
-                    "BV13: Merged input validation, input [{}]: input_split failed: {}",
-                    i, e
+                    "BV13: Merged input validation, input {}: input_split failed: {}",
+                    input_label, e
                 )
             })?
             .ok_or_else(|| {
                 format!(
-                    "BV14: Merged input validation, input [{}]: input_split returned None",
-                    i
+                    "BV14: Merged input validation, input {}: input_split returned None",
+                    input_label
                 )
             })?;
 
@@ -377,22 +378,23 @@ pub fn check_branch_vector_function(
                     .compile_input_merge(&merge_input)
                     .map_err(|e| {
                         format!(
-                            "BV15: Merged input validation, input [{}], subset {:?}: \
+                            "BV15: Merged input validation, input {}, subset {:?}: \
                              input_merge failed: {}",
-                            i, subset, e
+                            input_label, subset, e
                         )
                     })?
                     .ok_or_else(|| {
                         format!(
-                            "BV16: Merged input validation, input [{}], subset {:?}: \
+                            "BV16: Merged input validation, input {}, subset {:?}: \
                              input_merge returned None",
-                            i, subset
+                            input_label, subset
                         )
                     })?;
+                let merged_label =
+                    serde_json::to_string(&merged).unwrap_or_default();
                 compile_and_validate_one_input(
-                    merged_count, function, &merged, children,
+                    &merged_label, function, &merged, children,
                 )?;
-                merged_count += 1;
             }
         }
     }

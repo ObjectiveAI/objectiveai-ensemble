@@ -127,10 +127,11 @@ pub fn check_leaf_scalar_function(
     collect_schema_modalities(input_schema, &mut schema_modalities);
     let mut task_modalities: ModalityFlags = [false; 4];
 
-    for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
+    for ref input in example_inputs::generate(input_schema) {
         count += 1;
+        let input_label = serde_json::to_string(input).unwrap_or_default();
         let compiled_tasks =
-            compile_and_validate_one_input(i, function, input, None)?;
+            compile_and_validate_one_input(&input_label, function, input, None)?;
 
         // Output expression distribution check (once per task+response_count)
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {

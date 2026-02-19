@@ -1091,3 +1091,41 @@ fn rejects_single_permutation_integer() {
     };
     test_err(&f, "QI01");
 }
+
+#[test]
+fn all_tasks_skipped() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test2".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+    };
+    test_err(&f, "CV42");
+}

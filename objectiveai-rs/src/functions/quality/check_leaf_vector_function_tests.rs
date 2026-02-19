@@ -4,7 +4,8 @@
 
 use crate::chat::completions::request::{
     MessageExpression, RichContentExpression, RichContentPartExpression,
-    UserMessageExpression,
+    SimpleContentExpression, SimpleContentPartExpression,
+    SystemMessageExpression, UserMessageExpression,
 };
 use crate::functions::expression::{
     ArrayInputSchema, BooleanInputSchema, Expression, ImageInputSchema,
@@ -2173,15 +2174,19 @@ fn rejects_single_permutation_string_enum() {
                 map: None,
                 messages: WithExpression::Value(vec![WithExpression::Value(
                     MessageExpression::User(UserMessageExpression {
-                        content: WithExpression::Value(RichContentExpression::Parts(
-                            vec![WithExpression::Value(
-                                RichContentPartExpression::Text {
-                                    text: WithExpression::Expression(Expression::Starlark(
-                                        "input[0]".to_string(),
-                                    )),
-                                },
-                            )],
-                        )),
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Expression(
+                                            Expression::Starlark(
+                                                "input[0]".to_string(),
+                                            ),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
                         name: None,
                     }),
                 )]),
@@ -2227,21 +2232,26 @@ fn rejects_single_permutation_integer() {
                 map: None,
                 messages: WithExpression::Value(vec![WithExpression::Value(
                     MessageExpression::User(UserMessageExpression {
-                        content: WithExpression::Value(RichContentExpression::Parts(
-                            vec![WithExpression::Value(
-                                RichContentPartExpression::Text {
-                                    text: WithExpression::Expression(Expression::Starlark(
-                                        "str(input[0])".to_string(),
-                                    )),
-                                },
-                            )],
-                        )),
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Expression(
+                                            Expression::Starlark(
+                                                "str(input[0])".to_string(),
+                                            ),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
                         name: None,
                     }),
                 )]),
                 tools: None,
                 responses: WithExpression::Expression(Expression::Starlark(
-                    "[{'type': 'text', 'text': str(x)} for x in input]".to_string(),
+                    "[{'type': 'text', 'text': str(x)} for x in input]"
+                        .to_string(),
                 )),
                 output: Expression::Starlark("output['scores']".to_string()),
             },
@@ -2291,19 +2301,24 @@ fn modality_fail_image_in_schema_but_text_only() {
                 map: None,
                 messages: WithExpression::Value(vec![WithExpression::Value(
                     MessageExpression::User(UserMessageExpression {
-                        content: WithExpression::Value(RichContentExpression::Parts(
-                            vec![WithExpression::Value(
-                                RichContentPartExpression::Text {
-                                    text: WithExpression::Value("rank these".to_string()),
-                                },
-                            )],
-                        )),
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "rank these".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
                         name: None,
                     }),
                 )]),
                 tools: None,
                 responses: WithExpression::Expression(Expression::Starlark(
-                    "[[{'type': 'text', 'text': x['name']}] for x in input]".to_string(),
+                    "[[{'type': 'text', 'text': x['name']}] for x in input]"
+                        .to_string(),
                 )),
                 output: Expression::Starlark("output['scores']".to_string()),
             },
@@ -2417,13 +2432,17 @@ fn modality_pass_image_in_responses() {
                 map: None,
                 messages: WithExpression::Value(vec![WithExpression::Value(
                     MessageExpression::User(UserMessageExpression {
-                        content: WithExpression::Value(RichContentExpression::Parts(
-                            vec![WithExpression::Value(
-                                RichContentPartExpression::Text {
-                                    text: WithExpression::Value("rank these photos".to_string()),
-                                },
-                            )],
-                        )),
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "rank these photos".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
                         name: None,
                     }),
                 )]),
@@ -2494,6 +2513,566 @@ fn modality_pass_image_in_messages() {
         )),
         input_merge: WithExpression::Expression(Expression::Starlark(
             "[x[0] for x in input]".to_string(),
+        )),
+    };
+    test(&f);
+}
+
+// fail due to all skipped tasks
+#[test]
+fn job_application_ranker_1() {
+    let f = RemoteFunction::Vector {
+        description: "Ranks job applications against a job description by evaluating six dimensions: relevance of experience, skills alignment, demonstrated impact, clarity of communication, career trajectory, and tailoring to the role. Produces a consistent, principled ordering that helps hiring teams prioritize the most promising candidates.".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: Some("An object containing job applications to rank and a job description".to_string()),
+            properties: index_map! {
+                "apps" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: None,
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "job_description" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["apps".to_string(), "job_description".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            // Task 1: skills alignment
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark(
+                    r#"len(input["apps"]) < 3"#.to_string(),
+                )),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""I am hiring for the following position:\n\n" + input["job_description"] + "\n\nDraft an application from a candidate who demonstrates strong alignment between their technical and interpersonal skills and the specific requirements listed in the job posting. The application should weave skills into a narrative of applied capability rather than simply listing them.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 2: skills alignment (skipped for single app)
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark(
+                    r#"len(input["apps"]) < 3"#.to_string(),
+                )),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""I am hiring for the following position:\n\n" + input["job_description"] + "\n\nDraft an application from a candidate who demonstrates strong alignment between their technical and interpersonal skills and the specific requirements listed in the job posting. The application should weave skills into a narrative of applied capability rather than simply listing them.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 3: demonstrated impact
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark(
+                    r#"len(input["apps"]) < 3"#.to_string(),
+                )),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""For this open role:\n\n" + input["job_description"] + "\n\nGenerate an application from a candidate who presents concrete, measurable accomplishments and tangible results from their prior work. The application should quantify achievements and describe specific outcomes the candidate has driven, such as growing revenue, reducing costs, improving processes, or shipping products.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 4: clarity of communication
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark(
+                    r#"len(input["apps"]) < 3"#.to_string(),
+                )),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "Write a well-structured, professionally articulated, and concise job application. The application should demonstrate excellent communication skills through clear organization, precise language, appropriate tone, grammatical correctness, and attention to detail.".to_string(),
+                                ),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 5: career trajectory (system + user message)
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark(
+                    r#"len(input["apps"]) < 3"#.to_string(),
+                )),
+                map: None,
+                messages: WithExpression::Value(vec![
+                    WithExpression::Value(MessageExpression::System(SystemMessageExpression {
+                        content: WithExpression::Value(SimpleContentExpression::Parts(vec![
+                            WithExpression::Value(SimpleContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "You are a career advisor helping a client present a compelling narrative of professional growth. You value candidates who show patterns of increasing responsibility, skill development, and intentional career progression.".to_string(),
+                                ),
+                            }),
+                        ])),
+                        name: None,
+                    })),
+                    WithExpression::Value(MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""Your client is applying for this role:\n\n" + input["job_description"] + "\n\nDraft their application, emphasizing a career trajectory of increasing responsibility and professional growth that naturally leads to this position. The application should convey upward momentum, broadening scope, and a capacity for continuous learning.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    })),
+                ]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 6: tailoring to the role
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: Some(Expression::Starlark(
+                    r#"len(input["apps"]) < 3"#.to_string(),
+                )),
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""Here is a job posting I want to apply for:\n\n" + input["job_description"] + "\n\nWrite my application, making sure to reference specific aspects of this role and draw direct connections between my background and what the employer is looking for. The application should clearly demonstrate that it was crafted specifically for this opportunity rather than being a generic submission.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            r#"len(input["apps"])"#.to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            r#"[{"apps": [app], "job_description": input["job_description"]} for app in input["apps"]]"#.to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            r#"{"apps": [app for sub in input for app in sub["apps"]], "job_description": input[0]["job_description"]}"#.to_string(),
+        )),
+    };
+    test_err(&f, "CV42");
+}
+
+#[test]
+fn job_application_ranker_2() {
+    let f = RemoteFunction::Vector {
+        description: "Ranks job applications against a job description by evaluating six dimensions: relevance of experience, skills alignment, demonstrated impact, clarity of communication, career trajectory, and tailoring to the role. Produces a consistent, principled ordering that helps hiring teams prioritize the most promising candidates.".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: Some("An object containing job applications to rank and a job description".to_string()),
+            properties: index_map! {
+                "apps" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(1),
+                    max_items: None,
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "job_description" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["apps".to_string(), "job_description".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            // Task 1: skills alignment
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""I am hiring for the following position:\n\n" + input["job_description"] + "\n\nDraft an application from a candidate who demonstrates strong alignment between their technical and interpersonal skills and the specific requirements listed in the job posting. The application should weave skills into a narrative of applied capability rather than simply listing them.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 2: skills alignment (skipped for single app)
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""I am hiring for the following position:\n\n" + input["job_description"] + "\n\nDraft an application from a candidate who demonstrates strong alignment between their technical and interpersonal skills and the specific requirements listed in the job posting. The application should weave skills into a narrative of applied capability rather than simply listing them.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 3: demonstrated impact
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""For this open role:\n\n" + input["job_description"] + "\n\nGenerate an application from a candidate who presents concrete, measurable accomplishments and tangible results from their prior work. The application should quantify achievements and describe specific outcomes the candidate has driven, such as growing revenue, reducing costs, improving processes, or shipping products.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 4: clarity of communication
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "Write a well-structured, professionally articulated, and concise job application. The application should demonstrate excellent communication skills through clear organization, precise language, appropriate tone, grammatical correctness, and attention to detail.".to_string(),
+                                ),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 5: career trajectory (system + user message)
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![
+                    WithExpression::Value(MessageExpression::System(SystemMessageExpression {
+                        content: WithExpression::Value(SimpleContentExpression::Parts(vec![
+                            WithExpression::Value(SimpleContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "You are a career advisor helping a client present a compelling narrative of professional growth. You value candidates who show patterns of increasing responsibility, skill development, and intentional career progression.".to_string(),
+                                ),
+                            }),
+                        ])),
+                        name: None,
+                    })),
+                    WithExpression::Value(MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""Your client is applying for this role:\n\n" + input["job_description"] + "\n\nDraft their application, emphasizing a career trajectory of increasing responsibility and professional growth that naturally leads to this position. The application should convey upward momentum, broadening scope, and a capacity for continuous learning.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    })),
+                ]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 6: tailoring to the role
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""Here is a job posting I want to apply for:\n\n" + input["job_description"] + "\n\nWrite my application, making sure to reference specific aspects of this role and draw direct connections between my background and what the employer is looking for. The application should clearly demonstrate that it was crafted specifically for this opportunity rather than being a generic submission.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            r#"len(input["apps"])"#.to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            r#"[{"apps": [app], "job_description": input["job_description"]} for app in input["apps"]]"#.to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            r#"{"apps": [app for sub in input for app in sub["apps"]], "job_description": input[0]["job_description"]}"#.to_string(),
+        )),
+    };
+    test_err(&f, "CV28");
+}
+
+// pass
+#[test]
+fn job_application_ranker_3() {
+    let f = RemoteFunction::Vector {
+        description: "Ranks job applications against a job description by evaluating six dimensions: relevance of experience, skills alignment, demonstrated impact, clarity of communication, career trajectory, and tailoring to the role. Produces a consistent, principled ordering that helps hiring teams prioritize the most promising candidates.".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: Some("An object containing job applications to rank and a job description".to_string()),
+            properties: index_map! {
+                "apps" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: None,
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "job_description" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["apps".to_string(), "job_description".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            // Task 1: skills alignment
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""I am hiring for the following position:\n\n" + input["job_description"] + "\n\nDraft an application from a candidate who demonstrates strong alignment between their technical and interpersonal skills and the specific requirements listed in the job posting. The application should weave skills into a narrative of applied capability rather than simply listing them.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 2: skills alignment (skipped for single app)
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""I am hiring for the following position:\n\n" + input["job_description"] + "\n\nDraft an application from a candidate who demonstrates strong alignment between their technical and interpersonal skills and the specific requirements listed in the job posting. The application should weave skills into a narrative of applied capability rather than simply listing them.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 3: demonstrated impact
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""For this open role:\n\n" + input["job_description"] + "\n\nGenerate an application from a candidate who presents concrete, measurable accomplishments and tangible results from their prior work. The application should quantify achievements and describe specific outcomes the candidate has driven, such as growing revenue, reducing costs, improving processes, or shipping products.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 4: clarity of communication
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "Write a well-structured, professionally articulated, and concise job application. The application should demonstrate excellent communication skills through clear organization, precise language, appropriate tone, grammatical correctness, and attention to detail.".to_string(),
+                                ),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 5: career trajectory (system + user message)
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![
+                    WithExpression::Value(MessageExpression::System(SystemMessageExpression {
+                        content: WithExpression::Value(SimpleContentExpression::Parts(vec![
+                            WithExpression::Value(SimpleContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "You are a career advisor helping a client present a compelling narrative of professional growth. You value candidates who show patterns of increasing responsibility, skill development, and intentional career progression.".to_string(),
+                                ),
+                            }),
+                        ])),
+                        name: None,
+                    })),
+                    WithExpression::Value(MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""Your client is applying for this role:\n\n" + input["job_description"] + "\n\nDraft their application, emphasizing a career trajectory of increasing responsibility and professional growth that naturally leads to this position. The application should convey upward momentum, broadening scope, and a capacity for continuous learning.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    })),
+                ]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+            // Task 6: tailoring to the role
+            TaskExpression::VectorCompletion(VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(RichContentExpression::Parts(vec![
+                            WithExpression::Value(RichContentPartExpression::Text {
+                                text: WithExpression::Expression(Expression::Starlark(
+                                    r#""Here is a job posting I want to apply for:\n\n" + input["job_description"] + "\n\nWrite my application, making sure to reference specific aspects of this role and draw direct connections between my background and what the employer is looking for. The application should clearly demonstrate that it was crafted specifically for this opportunity rather than being a generic submission.""#.to_string(),
+                                )),
+                            }),
+                        ])),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    r#"[[{"type": "text", "text": app}] for app in input["apps"]]"#.to_string(),
+                )),
+                output: Expression::Starlark(r#"output["scores"]"#.to_string()),
+            }),
+        ],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            r#"len(input["apps"])"#.to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            r#"[{"apps": [app], "job_description": input["job_description"]} for app in input["apps"]]"#.to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            r#"{"apps": [app for sub in input for app in sub["apps"]], "job_description": input[0]["job_description"]}"#.to_string(),
         )),
     };
     test(&f);

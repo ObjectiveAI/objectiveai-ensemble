@@ -115,10 +115,11 @@ pub fn check_branch_scalar_function(
     let mut seen_dist_tasks: HashSet<usize> = HashSet::new();
     let mut count = 0usize;
 
-    for (i, ref input) in example_inputs::generate(input_schema).enumerate() {
+    for ref input in example_inputs::generate(input_schema) {
         count += 1;
+        let input_label = serde_json::to_string(input).unwrap_or_default();
         let compiled_tasks =
-            compile_and_validate_one_input(i, function, input, children)?;
+            compile_and_validate_one_input(&input_label, function, input, children)?;
 
         // Output expression distribution check (once per task)
         for (j, compiled_task) in compiled_tasks.iter().enumerate() {

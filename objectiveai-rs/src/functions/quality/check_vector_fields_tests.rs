@@ -19,7 +19,10 @@ fn test(fields: VectorFieldsValidation) {
 
 fn test_err(fields: VectorFieldsValidation, expected: &str) {
     let err = check_vector_fields(fields).unwrap_err();
-    assert!(err.contains(expected), "expected '{expected}' in error, got: {err}");
+    assert!(
+        err.contains(expected),
+        "expected '{expected}' in error, got: {err}"
+    );
 }
 
 // ── random_subsets tests ─────────────────────────────────────────────
@@ -514,4 +517,38 @@ fn rejects_single_permutation_integer() {
         },
         "QI01",
     );
+}
+
+#[test]
+fn job_application_ranker_1() {
+    test_err(VectorFieldsValidation {
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: Some("An object containing job applications to rank and a job description".to_string()),
+            properties: index_map! {
+                "apps" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(1),
+                    max_items: None,
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "job_description" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["apps".to_string(), "job_description".to_string()]),
+        }),
+        output_length: WithExpression::Expression(Expression::Starlark(
+            r#"len(input["apps"])"#.to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            r#"[{"apps": [app], "job_description": input["job_description"]} for app in input["apps"]]"#.to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            r#"{"apps": [app for sub in input for app in sub["apps"]], "job_description": input[0]["job_description"]}"#.to_string(),
+        )),
+    }, "VF03")
 }
