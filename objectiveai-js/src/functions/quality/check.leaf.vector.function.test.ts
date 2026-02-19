@@ -137,7 +137,7 @@ describe("checkLeafVectorFunction", () => {
       tasks: [],
     };
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /Expected vector function/,
+      /LV01/,
     );
   });
 
@@ -145,7 +145,7 @@ describe("checkLeafVectorFunction", () => {
   it("rejects string input_schema", () => {
     const f = leafVector({ type: "string" }, []);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /must be an array, or an object/,
+      /LV14/,
     );
   });
 
@@ -157,7 +157,7 @@ describe("checkLeafVectorFunction", () => {
     };
     const f = leafVector(schema, []);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /must be an array, or an object/,
+      /LV13/,
     );
   });
 
@@ -165,28 +165,28 @@ describe("checkLeafVectorFunction", () => {
   it("rejects scalar.function task", () => {
     const f = leafVector(arrayOfStringsSchema, [scalarFunctionTask()]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /found scalar\.function/,
+      /LV05/,
     );
   });
 
   it("rejects vector.function task", () => {
     const f = leafVector(arrayOfStringsSchema, [vectorFunctionTask()]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /found vector\.function/,
+      /LV06/,
     );
   });
 
   it("rejects placeholder.scalar.function task", () => {
     const f = leafVector(arrayOfStringsSchema, [placeholderScalarTask()]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /found placeholder\.scalar\.function/,
+      /LV07/,
     );
   });
 
   it("rejects placeholder.vector.function task", () => {
     const f = leafVector(arrayOfStringsSchema, [placeholderVectorTask()]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /found placeholder\.vector\.function/,
+      /LV08/,
     );
   });
 
@@ -195,7 +195,7 @@ describe("checkLeafVectorFunction", () => {
     const task = { ...qualityVcTask(), map: 0 };
     const f = leafVector(arrayOfStringsSchema, [task]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /must not have map/,
+      /LV04/,
     );
   });
 
@@ -209,7 +209,7 @@ describe("checkLeafVectorFunction", () => {
     };
     const f = leafVector(arrayOfStringsSchema, [task]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /vector function responses must be a single expression/,
+      /LS12/,
     );
   });
 
@@ -235,7 +235,7 @@ describe("checkLeafVectorFunction", () => {
   it("rejects empty tasks", () => {
     const f = leafVector(arrayOfStringsSchema, []);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /at least one task/,
+      /LV03/,
     );
   });
 });

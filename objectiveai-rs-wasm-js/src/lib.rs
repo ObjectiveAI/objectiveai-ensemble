@@ -388,6 +388,23 @@ pub fn qualityCheckVectorFields(fields: JsValue) -> Result<(), JsValue> {
         .map_err(|e| JsValue::from_str(&e))
 }
 
+/// Quality check for scalar function fields (input_schema only).
+///
+/// # Arguments
+///
+/// * `fields` - JavaScript object with `input_schema`
+///
+/// # Returns
+///
+/// Nothing on success. Throws a descriptive error string on failure.
+#[wasm_bindgen]
+pub fn qualityCheckScalarFields(fields: JsValue) -> Result<(), JsValue> {
+    let fields: objectiveai::functions::quality::ScalarFieldsValidation =
+        serde_wasm_bindgen::from_value(fields)?;
+    objectiveai::functions::quality::check_scalar_fields(fields)
+        .map_err(|e| JsValue::from_str(&e))
+}
+
 /// Quality check for a leaf function (depth 0).
 ///
 /// Routes to leaf scalar or leaf vector checks based on the function type.

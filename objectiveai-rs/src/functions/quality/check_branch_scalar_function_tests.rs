@@ -2,409 +2,1130 @@
 
 #![cfg(test)]
 
-use crate::functions::expression::{
-    ArrayInputSchema, Expression, InputSchema, IntegerInputSchema,
-    ObjectInputSchema, StringInputSchema, WithExpression,
+use crate::chat::completions::request::{
+    RichContentExpression, RichContentPartExpression, UserMessageExpression,
 };
-use crate::functions::{
-    PlaceholderScalarFunctionTaskExpression, RemoteFunction,
-    ScalarFunctionTaskExpression, TaskExpression,
+use crate::functions::expression::{
+    ArrayInputSchema, BooleanInputSchema, Expression, InputSchema,
+    IntegerInputSchema, ObjectInputSchema, StringInputSchema, WithExpression,
 };
 use crate::functions::quality::check_branch_scalar_function;
-use indexmap::IndexMap;
+use crate::functions::{
+    PlaceholderScalarFunctionTaskExpression,
+    PlaceholderVectorFunctionTaskExpression, RemoteFunction,
+    ScalarFunctionTaskExpression, TaskExpression,
+    VectorCompletionTaskExpression, VectorFunctionTaskExpression,
+};
+use crate::util::index_map;
 
-use super::check_function_test_helpers::*;
+fn test(f: &RemoteFunction) {
+    check_branch_scalar_function(f, None).unwrap();
+}
+
+fn test_err(f: &RemoteFunction, expected: &str) {
+    let err = check_branch_scalar_function(f, None).unwrap_err();
+    assert!(err.contains(expected), "expected '{expected}' in error, got: {err}");
+}
 
 #[test]
 fn wrong_type_vector() {
-    let f = branch_vector(object_with_required_array_schema(), vec![]);
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("Expected scalar function, got vector function"));
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(10),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![],
+        output_length: WithExpression::Expression(Expression::Starlark(
+            "len(input['items'])".to_string(),
+        )),
+        input_split: WithExpression::Expression(Expression::Starlark(
+            "[{'items': [x], 'label': input['label']} for x in input['items']]"
+                .to_string(),
+        )),
+        input_merge: WithExpression::Expression(Expression::Starlark(
+            "{'items': [x['items'][0] for x in input], 'label': input[0]['label']}"
+                .to_string(),
+        )),
+    };
+    test_err(&f, "BS01");
 }
 
 #[test]
 fn has_input_maps() {
-    let f = branch_scalar(
-        Some(crate::functions::expression::InputMaps::One(
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: Some(crate::functions::expression::InputMaps::One(
             Expression::Starlark("input".to_string()),
         )),
-        vec![valid_scalar_function_task(None)],
-    );
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("must not have input_maps"));
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "BS02");
 }
 
 #[test]
 fn scalar_function_has_map() {
-    let f = branch_scalar(None, vec![valid_scalar_function_task(Some(0))]);
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("branch scalar function tasks must not have map"));
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: Some(0),
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark(
+                    "[x / sum(output) for x in output]".to_string(),
+                ),
+            },
+        )],
+    };
+    test_err(&f, "BS04");
 }
 
 #[test]
 fn placeholder_scalar_has_map() {
-    let f = branch_scalar(None, vec![valid_placeholder_scalar_task(Some(0))]);
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("branch scalar function tasks must not have map"));
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::PlaceholderScalarFunction(
+            PlaceholderScalarFunctionTaskExpression {
+                input_schema: InputSchema::Integer(IntegerInputSchema {
+                    description: None,
+                    minimum: Some(1),
+                    maximum: Some(10),
+                }),
+                skip: None,
+                map: Some(0),
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark(
+                    "[x / sum(output) for x in output]".to_string(),
+                ),
+            },
+        )],
+    };
+    test_err(&f, "BS05");
 }
 
 #[test]
 fn contains_vector_function() {
-    let f = branch_scalar(None, vec![valid_vector_function_task(None)]);
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("found vector.function"));
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorFunction(
+            VectorFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "BS06");
 }
 
 #[test]
 fn contains_placeholder_vector() {
-    let f = branch_scalar(
-        None,
-        vec![valid_placeholder_vector_task(
-            None,
-            array_of_strings_schema(),
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::PlaceholderVectorFunction(
+            PlaceholderVectorFunctionTaskExpression {
+                input_schema: InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(2),
+                    max_items: Some(10),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                output_length: WithExpression::Expression(
+                    Expression::Starlark("len(input['items'])".to_string()),
+                ),
+                input_split: WithExpression::Expression(Expression::Starlark(
+                    "[{'items': [x]} for x in input['items']]".to_string(),
+                )),
+                input_merge: WithExpression::Expression(Expression::Starlark(
+                    "{'items': [x['items'][0] for x in input]}".to_string(),
+                )),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
         )],
-    );
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("found placeholder.vector.function"));
+    };
+    test_err(&f, "BS07");
 }
 
 #[test]
 fn contains_vector_completion() {
-    let f = branch_scalar(None, vec![valid_vc_task()]);
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("must not contain vector.completion tasks"));
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    crate::chat::completions::request::MessageExpression::User(
+                        UserMessageExpression {
+                            content: WithExpression::Value(
+                                RichContentExpression::Parts(vec![
+                                    WithExpression::Value(
+                                        RichContentPartExpression::Text {
+                                            text: WithExpression::Value(
+                                                "Hello".to_string(),
+                                            ),
+                                        },
+                                    ),
+                                ]),
+                            ),
+                            name: None,
+                        },
+                    ),
+                )]),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(
+                            RichContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "Option A".to_string(),
+                                ),
+                            },
+                        ),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(
+                            RichContentPartExpression::Text {
+                                text: WithExpression::Value(
+                                    "Option A".to_string(),
+                                ),
+                            },
+                        ),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "BS08");
 }
 
 // --- Success cases ---
 
 #[test]
 fn valid_single_scalar_function() {
-    let f = branch_scalar(None, vec![valid_scalar_function_task(None)]);
-    check_branch_scalar_function(&f, None).unwrap();
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test(&f);
 }
 
 #[test]
 fn valid_single_placeholder_scalar() {
-    let f = branch_scalar(None, vec![valid_placeholder_scalar_task(None)]);
-    check_branch_scalar_function(&f, None).unwrap();
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::PlaceholderScalarFunction(
+            PlaceholderScalarFunctionTaskExpression {
+                input_schema: InputSchema::Integer(IntegerInputSchema {
+                    description: None,
+                    minimum: Some(1),
+                    maximum: Some(10),
+                }),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test(&f);
 }
 
 #[test]
 fn valid_multiple_tasks() {
-    let f = branch_scalar(
-        None,
-        vec![
-            valid_scalar_function_task(None),
-            valid_placeholder_scalar_task(None),
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::PlaceholderScalarFunction(
+                PlaceholderScalarFunctionTaskExpression {
+                    input_schema: InputSchema::Integer(IntegerInputSchema {
+                        description: None,
+                        minimum: Some(1),
+                        maximum: Some(10),
+                    }),
+                    skip: None,
+                    map: None,
+                    input: WithExpression::Expression(Expression::Starlark(
+                        "input".to_string(),
+                    )),
+                    output: Expression::Starlark("output".to_string()),
+                },
+            ),
         ],
-    );
-    check_branch_scalar_function(&f, None).unwrap();
+    };
+    test(&f);
 }
 
 #[test]
 fn rejects_no_tasks() {
-    let f = branch_scalar(None, vec![]);
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(err.contains("at least one task"));
-}
-
-// --- Full-function input diversity tests (inline RemoteFunction::Scalar) ---
-
-/// Helper: scalar function task with custom input expression.
-fn sf_task(input_expr: &str) -> TaskExpression {
-    TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
-        owner: "test".to_string(),
-        repository: "test".to_string(),
-        commit: "abc123".to_string(),
-        skip: None,
-        map: None,
-        input: WithExpression::Expression(Expression::Starlark(
-            input_expr.to_string(),
-        )),
-        output: Expression::Starlark("output".to_string()),
-    })
-}
-
-/// Helper: placeholder scalar function task with custom input expression.
-fn psf_task(input_expr: &str, child_schema: InputSchema) -> TaskExpression {
-    TaskExpression::PlaceholderScalarFunction(
-        PlaceholderScalarFunctionTaskExpression {
-            input_schema: child_schema,
-            skip: None,
-            map: None,
-            input: WithExpression::Expression(Expression::Starlark(
-                input_expr.to_string(),
-            )),
-            output: Expression::Starlark("output".to_string()),
-        },
-    )
-}
-
-fn inline_branch_scalar(
-    input_schema: InputSchema,
-    tasks: Vec<TaskExpression>,
-) -> RemoteFunction {
-    RemoteFunction::Scalar {
+    let f = RemoteFunction::Scalar {
         description: "test".to_string(),
         changelog: None,
-        input_schema,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
         input_maps: None,
-        tasks,
-    }
+        tasks: vec![],
+    };
+    test_err(&f, "BS03");
+}
+
+// --- Description tests ---
+
+#[test]
+fn description_too_long() {
+    let f = RemoteFunction::Scalar {
+        description: "a".repeat(351),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QD02");
+}
+
+#[test]
+fn description_empty() {
+    let f = RemoteFunction::Scalar {
+        description: "  ".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: None,
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QD01");
 }
 
 // --- Diversity failures ---
 
 #[test]
 fn scalar_diversity_fail_fixed_input() {
-    // Two tasks: task 0 passes input through, task 1 uses a fixed string.
-    let f = inline_branch_scalar(
-        InputSchema::String(StringInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
         }),
-        vec![
-            sf_task("input"),
-            sf_task("'always_the_same'"),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "'always_the_same'".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("Task [1]") && err.contains("fixed value"),
-        "expected Task [1] fixed value error, got: {err}"
-    );
+    };
+    test_err(&f, "BS10");
 }
 
 #[test]
 fn scalar_diversity_fail_fixed_integer() {
-    // Input is an integer, but both tasks ignore it.
-    let f = inline_branch_scalar(
-        InputSchema::Integer(IntegerInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
             maximum: Some(100),
         }),
-        vec![
-            sf_task("42"),
-            sf_task("99"),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "42".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "99".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("Task [0]") && err.contains("fixed value"),
-        "expected Task [0] fixed value error, got: {err}"
-    );
+    };
+    test_err(&f, "BS10");
 }
 
 #[test]
 fn scalar_diversity_fail_third_task_fixed_object() {
-    // Object input, 3 tasks. Tasks 0 and 1 use input, task 2 is fixed.
-    let schema = InputSchema::Object(ObjectInputSchema {
-        description: None,
-        properties: {
-            let mut m = IndexMap::new();
-            m.insert(
-                "name".to_string(),
-                InputSchema::String(StringInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "name" => InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
                 }),
-            );
-            m.insert(
-                "score".to_string(),
-                InputSchema::Integer(IntegerInputSchema {
+                "score" => InputSchema::Integer(IntegerInputSchema {
                     description: None,
                     minimum: Some(0),
                     maximum: Some(100),
-                }),
-            );
-            m
-        },
-        required: Some(vec!["name".to_string(), "score".to_string()]),
-    });
-    let f = inline_branch_scalar(
-        schema,
-        vec![
-            sf_task("input"),
-            sf_task("input['name']"),
-            sf_task("{'name': 'fixed', 'score': 50}"),
+                })
+            },
+            required: Some(vec!["name".to_string(), "score".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['name']".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "{'name': 'fixed', 'score': 50}".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    let err = check_branch_scalar_function(&f, None).unwrap_err();
-    assert!(
-        err.contains("Task [2]") && err.contains("fixed value"),
-        "expected Task [2] fixed value error, got: {err}"
-    );
+    };
+    test_err(&f, "BS10");
 }
 
 // --- Diversity passes ---
 
 #[test]
 fn scalar_diversity_pass_string_passthrough() {
-    // Simple string input, both tasks pass it through.
-    let f = inline_branch_scalar(
-        InputSchema::String(StringInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
         }),
-        vec![
-            sf_task("input"),
-            sf_task("input + ' suffix'"),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input + ' suffix'".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    check_branch_scalar_function(&f, None).unwrap();
+    };
+    test(&f);
 }
 
 #[test]
 fn scalar_diversity_pass_integer_derived() {
-    // Integer input, tasks derive from it.
-    let f = inline_branch_scalar(
-        InputSchema::Integer(IntegerInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
             maximum: Some(1000),
         }),
-        vec![
-            sf_task("input"),
-            sf_task("input + 1"),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input + 1".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    check_branch_scalar_function(&f, None).unwrap();
+    };
+    test(&f);
 }
 
 #[test]
 fn scalar_diversity_pass_object_extract_field() {
-    // Object input, each task extracts a different field.
-    let schema = InputSchema::Object(ObjectInputSchema {
-        description: None,
-        properties: {
-            let mut m = IndexMap::new();
-            m.insert(
-                "title".to_string(),
-                InputSchema::String(StringInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "title" => InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
                 }),
-            );
-            m.insert(
-                "author".to_string(),
-                InputSchema::String(StringInputSchema {
+                "author" => InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
-                }),
-            );
-            m
-        },
-        required: Some(vec!["title".to_string(), "author".to_string()]),
-    });
-    let f = inline_branch_scalar(
-        schema,
-        vec![
-            sf_task("input['title']"),
-            sf_task("input['author']"),
+                })
+            },
+            required: Some(vec!["title".to_string(), "author".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['title']".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['author']".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    check_branch_scalar_function(&f, None).unwrap();
+    };
+    test(&f);
 }
 
 #[test]
 fn scalar_diversity_pass_placeholder_with_transform() {
-    // Placeholder scalar tasks that transform the input.
-    let parent_schema = InputSchema::Object(ObjectInputSchema {
-        description: None,
-        properties: {
-            let mut m = IndexMap::new();
-            m.insert(
-                "text".to_string(),
-                InputSchema::String(StringInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "text" => InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
                 }),
-            );
-            m.insert(
-                "category".to_string(),
-                InputSchema::String(StringInputSchema {
+                "category" => InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
-                }),
-            );
-            m
-        },
-        required: Some(vec!["text".to_string(), "category".to_string()]),
-    });
-    let child_string = InputSchema::String(StringInputSchema {
-        description: None,
-        r#enum: None,
-    });
-    let f = inline_branch_scalar(
-        parent_schema,
-        vec![
-            psf_task("input['text']", child_string.clone()),
-            psf_task(
-                "input['text'] + ' [' + input['category'] + ']'",
-                child_string,
+                })
+            },
+            required: Some(vec!["text".to_string(), "category".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::PlaceholderScalarFunction(
+                PlaceholderScalarFunctionTaskExpression {
+                    input_schema: InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    }),
+                    skip: None,
+                    map: None,
+                    input: WithExpression::Expression(Expression::Starlark(
+                        "input['text']".to_string(),
+                    )),
+                    output: Expression::Starlark("output".to_string()),
+                },
+            ),
+            TaskExpression::PlaceholderScalarFunction(
+                PlaceholderScalarFunctionTaskExpression {
+                    input_schema: InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    }),
+                    skip: None,
+                    map: None,
+                    input: WithExpression::Expression(Expression::Starlark(
+                        "input['text'] + ' [' + input['category'] + ']'"
+                            .to_string(),
+                    )),
+                    output: Expression::Starlark("output".to_string()),
+                },
             ),
         ],
-    );
-    check_branch_scalar_function(&f, None).unwrap();
+    };
+    test(&f);
 }
 
 #[test]
 fn scalar_diversity_pass_optional_field_used() {
-    // Object with an optional "notes" field. Task extracts it.
-    // Even though "notes" is optional, diversity should pass
-    // because generated inputs will include variants with it.
-    let schema = InputSchema::Object(ObjectInputSchema {
-        description: None,
-        properties: {
-            let mut m = IndexMap::new();
-            m.insert(
-                "name".to_string(),
-                InputSchema::String(StringInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "name" => InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
                 }),
-            );
-            m.insert(
-                "notes".to_string(),
-                InputSchema::String(StringInputSchema {
+                "notes" => InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
-                }),
-            );
-            m
-        },
-        required: Some(vec!["name".to_string()]),
-    });
-    // Task passes the full input — diversity satisfied at root.
-    let f = inline_branch_scalar(
-        schema,
-        vec![
-            sf_task("input"),
-            sf_task("input['name']"),
+                })
+            },
+            required: Some(vec!["name".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['name']".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    check_branch_scalar_function(&f, None).unwrap();
+    };
+    test(&f);
 }
 
 #[test]
 fn scalar_diversity_pass_array_input() {
-    // Array input schema — tasks use the array.
-    let schema = InputSchema::Array(ArrayInputSchema {
-        description: None,
-        min_items: Some(2),
-        max_items: Some(5),
-        items: Box::new(InputSchema::String(StringInputSchema {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Array(ArrayInputSchema {
+            description: None,
+            min_items: Some(2),
+            max_items: Some(5),
+            items: Box::new(InputSchema::String(StringInputSchema {
+                description: None,
+                r#enum: None,
+            })),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input[0]".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+    };
+    test(&f);
+}
+
+// --- Skip expression tests ---
+
+#[test]
+fn valid_with_skip_last_task_boolean() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "text" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+                "skip_last_task" => InputSchema::Boolean(BooleanInputSchema {
+                    description: None,
+                })
+            },
+            required: Some(vec!["text".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("input.get('skip_last_task', False)".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['text']".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+    };
+    test(&f);
+}
+
+#[test]
+fn valid_with_skip_on_low_priority() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "text" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                }),
+                "priority" => InputSchema::Integer(IntegerInputSchema {
+                    description: None,
+                    minimum: Some(1),
+                    maximum: Some(10),
+                })
+            },
+            required: Some(vec!["text".to_string(), "priority".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("input['priority'] < 4".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input['text'] + ' [p=' + str(input['priority']) + ']'".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+        ],
+    };
+    test(&f);
+}
+
+// --- Output expression distribution tests ---
+
+#[test]
+fn output_distribution_fail_biased_output_expression() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark(
+                    "output * 0.1 + 0.45".to_string(),
+                ),
+            },
+        )],
+    };
+    test_err(&f, "OD02");
+}
+
+#[test]
+fn output_distribution_pass_identity() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test(&f);
+}
+
+#[test]
+fn rejects_single_permutation_string_enum() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
+            description: None,
+            r#enum: Some(vec!["only".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QI01");
+}
+
+#[test]
+fn rejects_single_permutation_integer() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(0),
+            maximum: Some(0),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QI01");
+}
+
+#[test]
+fn all_tasks_skipped() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
-        })),
-    });
-    let f = inline_branch_scalar(
-        schema,
-        vec![
-            sf_task("input"),
-            sf_task("input[0]"),
+        }),
+        input_maps: None,
+        tasks: vec![
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
+            TaskExpression::ScalarFunction(ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test2".to_string(),
+                commit: "abc123".to_string(),
+                skip: Some(Expression::Starlark("True".to_string())),
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            }),
         ],
-    );
-    check_branch_scalar_function(&f, None).unwrap();
+    };
+    test_err(&f, "CV42");
 }

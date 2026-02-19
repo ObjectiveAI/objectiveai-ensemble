@@ -1,23 +1,22 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { join, dirname, resolve } from "path";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { join } from "path";
 import { homedir } from "os";
+import { AgentUpstream, AgentUpstreamSchema } from "./agent";
+import type { Config as MockConfig } from "./agent/mock";
 
 export interface ConfigJson {
-  apiBase?: string;
-  apiKey?: string;
-  gitUserName?: string;
-  gitUserEmail?: string;
-  ghToken?: string;
-  agentUpstream?: string;
-  claudeSpecModel?: string;
-  claudeNameModel?: string;
-  claudeTypeModel?: string;
-  claudeInputSchemaModel?: string;
-  claudeEssayModel?: string;
-  claudeEssayTasksModel?: string;
-  claudePlanModel?: string;
-  claudeInventModel?: string;
-  claudeAmendModel?: string;
+  gitHubToken?: string;
+  gitAuthorName?: string;
+  gitAuthorEmail?: string;
+  agent?: string;
+  agentMockNotificationDelayMs?: number;
+  agentClaudeTypeModel?: string;
+  agentClaudeNameModel?: string;
+  agentClaudeEssayModel?: string;
+  agentClaudeFieldsModel?: string;
+  agentClaudeEssayTasksModel?: string;
+  agentClaudeBodyModel?: string;
+  agentClaudeDescriptionModel?: string;
 }
 
 function readConfigFile(dir: string): ConfigJson | undefined {
@@ -29,80 +28,119 @@ function readConfigFile(dir: string): ConfigJson | undefined {
   }
 }
 
-/**
- * Walk from CWD up to the root CWD (inclusive), collecting configs (closest first).
- * Root CWD is the original parent process's working directory, passed via
- * OBJECTIVEAI_ROOT_CWD. If not set, this is the root process and only CWD is checked.
- */
-function collectAncestorConfigs(): ConfigJson[] {
-  const configs: ConfigJson[] = [];
-  const cwd = resolve(process.cwd());
-  const rootCwd = process.env.OBJECTIVEAI_ROOT_CWD
-    ? resolve(process.env.OBJECTIVEAI_ROOT_CWD)
-    : cwd;
+function getValue<K extends keyof ConfigJson>(
+  env: string | undefined,
+  key: K,
+  deserialize?: (env: string) => NonNullable<ConfigJson[K]>,
+): NonNullable<ConfigJson[K]> | null {
+  if (env)
+    return deserialize ? deserialize(env) : (env as NonNullable<ConfigJson[K]>);
+  const project = readConfigFile(process.cwd());
+  if (project?.[key] !== undefined)
+    return project[key] as NonNullable<ConfigJson[K]>;
+  const user = readConfigFile(homedir());
+  if (user?.[key] !== undefined) return user[key] as NonNullable<ConfigJson[K]>;
+  return null;
+}
 
-  let dir = cwd;
-  const seen = new Set<string>();
-  while (!seen.has(dir)) {
-    seen.add(dir);
-    const cfg = readConfigFile(dir);
-    if (cfg) configs.push(cfg);
-    if (dir === rootCwd) break;
-    dir = dirname(dir);
+export function getGitHubToken(): string | null {
+  return getValue(process.env.OBJECTIVEAI_GITHUB_TOKEN, "gitHubToken");
+}
+
+export function getGitAuthorName(): string | null {
+  return getValue(process.env.OBJECTIVEAI_GIT_AUTHOR_NAME, "gitAuthorName");
+}
+
+export function getGitAuthorEmail(): string | null {
+  return getValue(process.env.OBJECTIVEAI_GIT_AUTHOR_EMAIL, "gitAuthorEmail");
+}
+
+export function getAgentUpstream(): AgentUpstream | null {
+  const raw = getValue(process.env.OBJECTIVEAI_AGENT, "agent");
+  if (raw === null) return null;
+  const parsed = AgentUpstreamSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return parsed.data;
+}
+
+export function getAgentMockConfig(): MockConfig | null {
+  const raw = getValue(
+    process.env.OBJECTIVEAI_AGENT_MOCK_NOTIFICATION_DELAY_MS,
+    "agentMockNotificationDelayMs",
+  );
+  if (raw === null) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return { notificationDelayMs: n };
+}
+
+export type ClaudeModel = "opus" | "sonnet" | "haiku";
+
+export interface AgentClaudeConfig {
+  typeModel?: ClaudeModel;
+  nameModel?: ClaudeModel;
+  essayModel?: ClaudeModel;
+  fieldsModel?: ClaudeModel;
+  essayTasksModel?: ClaudeModel;
+  bodyModel?: ClaudeModel;
+  descriptionModel?: ClaudeModel;
+}
+
+const CLAUDE_MODELS: ClaudeModel[] = ["opus", "sonnet", "haiku"];
+
+function parseClaudeModel(value: unknown): ClaudeModel | undefined {
+  if (typeof value === "string" && CLAUDE_MODELS.includes(value as ClaudeModel)) {
+    return value as ClaudeModel;
   }
-  return configs;
+  return undefined;
 }
 
-export interface MergedConfig {
-  merged: ConfigJson;
-  project: ConfigJson;
-  user: ConfigJson;
+export function getAgentClaudeConfig(): AgentClaudeConfig {
+  const config: ConfigJson = {
+    ...(readConfigFile(homedir()) ?? {}),
+    ...(readConfigFile(process.cwd()) ?? {}),
+  };
+  return {
+    typeModel: parseClaudeModel(config.agentClaudeTypeModel),
+    nameModel: parseClaudeModel(config.agentClaudeNameModel),
+    essayModel: parseClaudeModel(config.agentClaudeEssayModel),
+    fieldsModel: parseClaudeModel(config.agentClaudeFieldsModel),
+    essayTasksModel: parseClaudeModel(config.agentClaudeEssayTasksModel),
+    bodyModel: parseClaudeModel(config.agentClaudeBodyModel),
+    descriptionModel: parseClaudeModel(config.agentClaudeDescriptionModel),
+  };
 }
 
-let _merged: MergedConfig | undefined;
-let _configLoaded = false;
+// Home config file helpers (for the TUI config panel)
 
-export function getMergedConfig(): MergedConfig {
-  if (!_configLoaded) {
-    const ancestors = collectAncestorConfigs();
-    const user = readConfigFile(homedir()) ?? {};
-    // Project config: merge ancestors (farthest first so closest wins)
-    const project: ConfigJson = {};
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-      Object.assign(project, ancestors[i]);
-    }
-    // Final merge: user home is lowest priority, project is highest.
-    const merged = { ...user, ...project };
-    _merged = { merged, project, user };
-    _configLoaded = true;
-  }
-  return _merged!;
-}
+const homeConfigDir = () => join(homedir(), ".objectiveai");
+const homeConfigPath = () => join(homeConfigDir(), "config.json");
 
-export function getConfig(): ConfigJson {
-  return getMergedConfig().merged;
-}
-
-export function setConfigValue(key: keyof ConfigJson, value: string, project: boolean): string {
-  const dir = project ? process.cwd() : homedir();
-  const configDir = join(dir, ".objectiveai");
-  const configPath = join(configDir, "config.json");
-
-  let existing: ConfigJson = {};
+export function readHomeConfig(): ConfigJson {
   try {
-    existing = JSON.parse(readFileSync(configPath, "utf-8"));
-  } catch {}
-
-  existing[key] = value;
-
-  if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true });
+    return JSON.parse(readFileSync(homeConfigPath(), "utf-8"));
+  } catch {
+    return {};
   }
-  writeFileSync(configPath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
+}
 
-  // Invalidate cache
-  _configLoaded = false;
-  _merged = undefined;
+function writeHomeConfig(config: ConfigJson): void {
+  const dir = homeConfigDir();
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(homeConfigPath(), JSON.stringify(config, null, 2) + "\n");
+}
 
-  return configPath;
+export function setHomeConfigValue<K extends keyof ConfigJson>(
+  key: K,
+  value: NonNullable<ConfigJson[K]>,
+): void {
+  const config = readHomeConfig();
+  config[key] = value;
+  writeHomeConfig(config);
+}
+
+export function deleteHomeConfigValue(key: keyof ConfigJson): void {
+  const config = readHomeConfig();
+  delete config[key];
+  writeHomeConfig(config);
 }

@@ -115,7 +115,7 @@ describe("checkLeafScalarFunction", () => {
       tasks: [],
     };
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /Expected scalar function/,
+      /LS01/,
     );
   });
 
@@ -123,7 +123,7 @@ describe("checkLeafScalarFunction", () => {
   it("rejects input_maps", () => {
     const f = leafScalar([qualityVcTask()], [{ $starlark: "input" }]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /must not have input_maps/,
+      /LS02/,
     );
   });
 
@@ -132,7 +132,7 @@ describe("checkLeafScalarFunction", () => {
     const task = { ...qualityVcTask(), map: 0 };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /must not have map/,
+      /LS04/,
     );
   });
 
@@ -140,28 +140,28 @@ describe("checkLeafScalarFunction", () => {
   it("rejects scalar.function task", () => {
     const f = leafScalar([scalarFunctionTask()]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /found scalar\.function/,
+      /LS05/,
     );
   });
 
   it("rejects vector.function task", () => {
     const f = leafScalar([vectorFunctionTask()]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /found vector\.function/,
+      /LS06/,
     );
   });
 
   it("rejects placeholder.scalar.function task", () => {
     const f = leafScalar([placeholderScalarTask()]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /found placeholder\.scalar\.function/,
+      /LS07/,
     );
   });
 
   it("rejects placeholder.vector.function task", () => {
     const f = leafScalar([placeholderVectorTask()]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /found placeholder\.vector\.function/,
+      /LS08/,
     );
   });
 
@@ -170,7 +170,7 @@ describe("checkLeafScalarFunction", () => {
     const task = { ...fixedVcTask(), messages: [] };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /at least 1 message/,
+      /LS09/,
     );
   });
 
@@ -178,7 +178,7 @@ describe("checkLeafScalarFunction", () => {
     const task = { ...fixedVcTask(), responses: [contentParts] };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /at least 2 responses/,
+      /LS10/,
     );
   });
 
@@ -186,7 +186,7 @@ describe("checkLeafScalarFunction", () => {
     const task = { ...fixedVcTask(), responses: ["bad", contentParts] };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /response must be an array of content parts/,
+      /LS11/,
     );
   });
 
@@ -197,7 +197,7 @@ describe("checkLeafScalarFunction", () => {
     };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /content must be an array/,
+      /LS15/,
     );
   });
 
@@ -208,7 +208,7 @@ describe("checkLeafScalarFunction", () => {
     };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /content must be an array/,
+      /LS13/,
     );
   });
 
@@ -219,7 +219,7 @@ describe("checkLeafScalarFunction", () => {
     };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /content must be an array/,
+      /LS14/,
     );
   });
 
@@ -237,7 +237,7 @@ describe("checkLeafScalarFunction", () => {
   it("rejects empty tasks", () => {
     const f = leafScalar([]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
-      /at least one task/,
+      /LS03/,
     );
   });
 

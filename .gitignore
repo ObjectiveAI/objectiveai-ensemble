@@ -6,6 +6,7 @@ env
 .claude/
 **/.DS_Store
 coding-agent-scratch/package-lock.json
+objectiveai-cli-old/
 
 # Ignore markdown files at repository root (Claude working files)
 /*.md
