@@ -1,6 +1,8 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { Notification, NotificationMessage } from "../notification";
+import { ParametersBuilder } from "../parameters";
+import { invent } from "../invent";
 
 interface FunctionNode {
   name?: string;
@@ -193,7 +195,40 @@ function Scrollbar({
   );
 }
 
-export function InventView({ tree }: { tree: FunctionNode }) {
+export function InventFlow({
+  spec,
+  parameters,
+  onBack,
+}: {
+  spec: string;
+  parameters: ParametersBuilder;
+  onBack: () => void;
+}) {
+  const { tree, onNotification } = useInventNotifications();
+  const started = useRef(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
+    const dir = process.cwd();
+    invent(dir, onNotification, { inventSpec: spec, parameters })
+      .then(() => setDone(true))
+      .catch((err) => {
+        console.error(err);
+        setDone(true);
+      });
+  }, [spec, parameters, onNotification]);
+
+  useInput((_ch, key) => {
+    if (key.escape && done) onBack();
+  });
+
+  return <InventView tree={tree} done={done} />;
+}
+
+export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean }) {
   const { stdout } = useStdout();
   const [scrollOffset, setScrollOffset] = useState(0);
   const [autoFollow, setAutoFollow] = useState(true);
@@ -205,8 +240,11 @@ export function InventView({ tree }: { tree: FunctionNode }) {
     return () => { stdout.off("resize", onResize); };
   }, [stdout]);
 
+  const hintHeight = done ? 1 : 0;
+  const viewportHeight = termHeight - hintHeight;
+
   const lines = useMemo(() => flattenNode(tree, "", true, true), [tree]);
-  const maxOffset = Math.max(0, lines.length - termHeight);
+  const maxOffset = Math.max(0, lines.length - viewportHeight);
 
   // Auto-follow: scroll to bottom when new content arrives
   useEffect(() => {
@@ -227,30 +265,35 @@ export function InventView({ tree }: { tree: FunctionNode }) {
       });
     } else if (key.pageUp) {
       setAutoFollow(false);
-      setScrollOffset((prev) => Math.max(0, prev - Math.floor(termHeight / 2)));
+      setScrollOffset((prev) => Math.max(0, prev - Math.floor(viewportHeight / 2)));
     } else if (key.pageDown) {
       setScrollOffset((prev) => {
-        const next = Math.min(maxOffset, prev + Math.floor(termHeight / 2));
+        const next = Math.min(maxOffset, prev + Math.floor(viewportHeight / 2));
         if (next >= maxOffset) setAutoFollow(true);
         return next;
       });
     }
   });
 
-  const visible = lines.slice(scrollOffset, scrollOffset + termHeight);
+  const visible = lines.slice(scrollOffset, scrollOffset + viewportHeight);
 
   return (
-    <Box width="100%" height={termHeight}>
-      <Box flexDirection="column" flexGrow={1}>
-        {visible.map((line, i) => (
-          <RenderLine key={scrollOffset + i} line={line} />
-        ))}
+    <Box flexDirection="column" height={termHeight}>
+      <Box width="100%" flexGrow={1}>
+        <Box flexDirection="column" flexGrow={1}>
+          {visible.map((line, i) => (
+            <RenderLine key={scrollOffset + i} line={line} />
+          ))}
+        </Box>
+        <Scrollbar
+          totalLines={lines.length}
+          viewportHeight={viewportHeight}
+          scrollOffset={scrollOffset}
+        />
       </Box>
-      <Scrollbar
-        totalLines={lines.length}
-        viewportHeight={termHeight}
-        scrollOffset={scrollOffset}
-      />
+      {done && (
+        <Text dimColor>{"  press esc to go back"}</Text>
+      )}
     </Box>
   );
 }

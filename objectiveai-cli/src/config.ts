@@ -1,15 +1,22 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { AgentUpstream, AgentUpstreamSchema } from "./agent";
 import type { Config as MockConfig } from "./agent/mock";
 
-interface ConfigJson {
+export interface ConfigJson {
   gitHubToken?: string;
   gitAuthorName?: string;
   gitAuthorEmail?: string;
   agent?: string;
   agentMockNotificationDelayMs?: number;
+  agentClaudeTypeModel?: string;
+  agentClaudeNameModel?: string;
+  agentClaudeEssayModel?: string;
+  agentClaudeFieldsModel?: string;
+  agentClaudeEssayTasksModel?: string;
+  agentClaudeBodyModel?: string;
+  agentClaudeDescriptionModel?: string;
 }
 
 function readConfigFile(dir: string): ConfigJson | undefined {
@@ -65,4 +72,38 @@ export function getAgentMockConfig(): MockConfig | null {
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
   return { notificationDelayMs: n };
+}
+
+// Home config file helpers (for the TUI config panel)
+
+const homeConfigDir = () => join(homedir(), ".objectiveai");
+const homeConfigPath = () => join(homeConfigDir(), "config.json");
+
+export function readHomeConfig(): ConfigJson {
+  try {
+    return JSON.parse(readFileSync(homeConfigPath(), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeHomeConfig(config: ConfigJson): void {
+  const dir = homeConfigDir();
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(homeConfigPath(), JSON.stringify(config, null, 2) + "\n");
+}
+
+export function setHomeConfigValue<K extends keyof ConfigJson>(
+  key: K,
+  value: NonNullable<ConfigJson[K]>,
+): void {
+  const config = readHomeConfig();
+  config[key] = value;
+  writeHomeConfig(config);
+}
+
+export function deleteHomeConfigValue(key: keyof ConfigJson): void {
+  const config = readHomeConfig();
+  delete config[key];
+  writeHomeConfig(config);
 }
