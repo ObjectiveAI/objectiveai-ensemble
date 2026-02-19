@@ -7,8 +7,8 @@ use rust_decimal::Decimal;
 
 use crate::chat::completions::request::{Message, RichContent, SimpleContent};
 use crate::functions::expression::{
-    FunctionOutput, Params, ParamsRef, TaskOutput,
-    TaskOutputOwned, VectorCompletionOutput,
+    FunctionOutput, Params, ParamsRef, TaskOutput, TaskOutputOwned,
+    VectorCompletionOutput,
 };
 use crate::functions::{
     CompiledTask, Function, RemoteFunction, Task, VectorCompletionTask,
@@ -357,6 +357,7 @@ fn task_output_shape(
             let Some(n) = resolve_vector_function_output_length(
                 &t.owner,
                 &t.repository,
+                &t.commit,
                 &t.input,
                 children,
                 location,
@@ -392,7 +393,10 @@ fn mapped_task_output_shape(
     location: &str,
 ) -> Result<Option<OutputShape>, String> {
     if tasks.is_empty() {
-        return Err(format!("CV19: {}: mapped task has no instances", location));
+        return Err(format!(
+            "CV19: {}: mapped task has no instances",
+            location
+        ));
     }
 
     match &tasks[0] {
@@ -420,6 +424,7 @@ fn mapped_task_output_shape(
                         let Some(n) = resolve_vector_function_output_length(
                             &t.owner,
                             &t.repository,
+                            &t.commit,
                             &t.input,
                             children,
                             location,
@@ -552,11 +557,12 @@ fn random_scores(n: usize, rng: &mut impl Rng) -> Vec<Decimal> {
 fn resolve_vector_function_output_length(
     owner: &str,
     repository: &str,
+    commit: &str,
     task_input: &crate::functions::expression::Input,
     children: Option<&HashMap<String, RemoteFunction>>,
     location: &str,
 ) -> Result<Option<u64>, String> {
-    let key = format!("{}/{}", owner, repository);
+    let key = format!("{}/{}/{}", owner, repository, commit);
     let Some(children) = children else {
         return Ok(None); // skip output validation without children
     };
