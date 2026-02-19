@@ -6,15 +6,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes = [
     "",
     "/functions",
-    "/functions/create",
-    "/profiles",
-    "/profiles/train",
-    "/ensembles",
-    "/ensembles/create",
-    "/ensemble-llms",
-    "/ensemble-llms/create",
     "/people",
-    "/information",
+    "/docs",
     "/legal",
     "/account/keys",
     "/account/credits",
@@ -59,7 +52,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     if (route === "") return 1;
     if (route.startsWith("/docs/api/")) return 0.3;
     if (route.startsWith("/account/") || route.startsWith("/legal/")) return 0.3;
-    if (["/legal", "/people", "/information"].includes(route)) return 0.5;
+    if (["/legal", "/people", "/docs"].includes(route)) return 0.5;
     return 0.8;
   };
 

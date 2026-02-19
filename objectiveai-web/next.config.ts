@@ -43,27 +43,81 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/vibe-native',
-        destination: '/information',
+        destination: '/docs',
         permanent: false,
       },
       {
         source: '/faq',
-        destination: '/information',
+        destination: '/docs',
         permanent: false,
       },
       {
         source: '/sdk-first',
-        destination: '/information',
+        destination: '/docs',
         permanent: false,
       },
       {
         source: '/chat',
-        destination: '/information',
+        destination: '/docs',
         permanent: false,
       },
       {
         source: '/vector',
-        destination: '/information',
+        destination: '/docs',
+        permanent: false,
+      },
+      // #84: Remove Create Functions
+      {
+        source: '/functions/create',
+        destination: '/functions',
+        permanent: false,
+      },
+      // #88: Remove Profiles browse
+      {
+        source: '/profiles',
+        destination: '/functions',
+        permanent: false,
+      },
+      // #87: Remove Train Profile
+      {
+        source: '/profiles/train',
+        destination: '/functions',
+        permanent: false,
+      },
+      // #91: Remove Ensembles section
+      {
+        source: '/ensembles',
+        destination: '/docs',
+        permanent: false,
+      },
+      {
+        source: '/ensembles/create',
+        destination: '/docs',
+        permanent: false,
+      },
+      {
+        source: '/ensembles/:path*',
+        destination: '/docs',
+        permanent: false,
+      },
+      {
+        source: '/ensemble-llms',
+        destination: '/docs',
+        permanent: false,
+      },
+      {
+        source: '/ensemble-llms/create',
+        destination: '/docs',
+        permanent: false,
+      },
+      {
+        source: '/ensemble-llms/:path*',
+        destination: '/docs',
+        permanent: false,
+      },
+      {
+        source: '/information',
+        destination: '/docs',
         permanent: false,
       },
     ];
