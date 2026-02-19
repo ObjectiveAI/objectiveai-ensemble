@@ -218,7 +218,10 @@ async function* callTool(
 export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
   const { notificationDelayMs = 100 } = getAgentMockConfig() || {};
   const wait = () =>
-    new Promise((resolve) => setTimeout(resolve, notificationDelayMs));
+    new Promise((resolve) => {
+      const jitter = notificationDelayMs * (0.5 + Math.random());
+      setTimeout(resolve, jitter);
+    });
 
   const agent: AgentStepFn<unknown> = async function* (
     step: AgentStep,

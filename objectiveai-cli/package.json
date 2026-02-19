@@ -33,7 +33,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.29",
     "commander": "^14.0.3",
-    "ink": "^6.7.0",
+    "ink": "npm:@jrichman/ink@6.4.11",
     "objectiveai": "*",
     "react": "^19.2.4",
     "zod": "^4.3.5"

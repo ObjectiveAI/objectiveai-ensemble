@@ -56,10 +56,6 @@ const program = new Command();
 
 program.name("objectiveai").description("ObjectiveAI CLI");
 
-const exitFullScreen = () => {
-  process.stdout.write("\x1b[?1049l");
-};
-
 const inventCommand = program
   .command("invent")
   .description("Invent a new ObjectiveAI Function")
@@ -73,11 +69,6 @@ const inventCommand = program
   .option("--leaf-min-width <number>", "Leaf minimum task width")
   .option("--leaf-max-width <number>", "Leaf maximum task width");
 
-inventCommand.hook("preAction", () => {
-  process.stdout.write("\x1b[?1049h\x1b[H");
-  process.on("exit", exitFullScreen);
-});
-
 inventCommand.action(async (spec: string | undefined, opts) => {
   const parameters = parseParametersBuilder(opts);
 
@@ -88,7 +79,11 @@ inventCommand.action(async (spec: string | undefined, opts) => {
     listener = cb;
   };
 
-  const { unmount } = render(React.createElement(InventApp, { subscribe }));
+  const { unmount } = render(React.createElement(InventApp, { subscribe }), {
+    alternateBuffer: true,
+    incrementalRendering: true,
+    patchConsole: false,
+  });
 
   try {
     await invent(
@@ -97,10 +92,7 @@ inventCommand.action(async (spec: string | undefined, opts) => {
       spec !== undefined ? { inventSpec: spec, parameters } : undefined,
     );
   } finally {
-    // sleep 5 seconds
     unmount();
-    exitFullScreen();
-    process.removeListener("exit", exitFullScreen);
   }
 });
 
