@@ -3,7 +3,7 @@ import { Result } from "../result";
 import { NotificationMessage } from "../notification";
 import { Parameters } from "../parameters";
 import z from "zod";
-import { GitHubBackend } from "src/github";
+import { GitHubBackend } from "../github";
 import { mock } from "./mock";
 import { claude } from "./claude";
 
