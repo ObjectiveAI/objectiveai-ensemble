@@ -121,8 +121,12 @@ export function addRemote(dir: string, url: string): void {
   execSync(`git remote add origin ${url}`, { ...execOpts, cwd: dir });
 }
 
-export function push(dir: string): void {
-  execSync("git push -u origin main", { ...execOpts, cwd: dir });
+export function push(dir: string, gitHubToken: string): void {
+  // Use a per-invocation URL rewrite so the token is never persisted in config.
+  execSync(
+    `git -c "url.https://x-access-token:${gitHubToken}@github.com/.insteadOf=https://github.com/" push -u origin main`,
+    { ...execOpts, cwd: dir },
+  );
 }
 
 export function getHeadSha(dir: string): string {

@@ -5,6 +5,7 @@ import { Parameters } from "../parameters";
 import z from "zod";
 import { GitHubBackend } from "src/github";
 import { mock } from "./mock";
+import { claude } from "./claude";
 
 export const MockAgentUpstreamSchema = z.literal("mock");
 export type MockAgentUpstream = z.infer<typeof MockAgentUpstreamSchema>;
@@ -90,7 +91,7 @@ export function getAgentStepFn(
   if (agentUpstream === "mock") {
     return mock();
   } else if (agentUpstream === "claude") {
-    throw new Error("Not implemented yet");
+    return claude() as [AgentStepFn, null];
   } else {
     const _exhaustiveCheck: never = agentUpstream;
     return _exhaustiveCheck;

@@ -112,12 +112,24 @@ async function fetchRemoteFunctions(
 
 async function repoExists(name: string, gitHubToken: string): Promise<boolean> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${name}`, {
+    const userRes = await fetch("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${gitHubToken}`,
         Accept: "application/vnd.github.v3+json",
       },
     });
+    if (!userRes.ok) return false;
+    const user = (await userRes.json()) as { login: string };
+
+    const res = await fetch(
+      `https://api.github.com/repos/${user.login}/${name}`,
+      {
+        headers: {
+          Authorization: `Bearer ${gitHubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      },
+    );
     return res.ok;
   } catch {
     return false;
@@ -221,7 +233,7 @@ async function pushInitial(options: PushInitialOptions): Promise<void> {
 
   // Push
   addRemote(dir, `https://github.com/${owner}/${repository}.git`);
-  push(dir);
+  push(dir, gitHubToken);
 }
 
 export interface PushFinalOptions {
@@ -278,5 +290,5 @@ async function pushFinal(options: PushFinalOptions): Promise<void> {
   // Commit and push
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
-  push(dir);
+  push(dir, gitHubToken);
 }
