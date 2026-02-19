@@ -3,15 +3,21 @@ import { Functions } from "../../index.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-const outputExpr = { $starlark: "output['scores'][0]" };
+const outputExpr = { $starlark: "output['scores']" };
 const inputExpr = { $starlark: "input" };
 const contentParts = [{ type: "text" as const, text: "Hello" }];
 
+/** VC task valid for vector functions: expression responses, input-referencing messages. */
 function qualityVcTask() {
   return {
     type: "vector.completion" as const,
-    messages: [{ role: "user" as const, content: contentParts }],
-    responses: [contentParts, contentParts],
+    messages: [
+      {
+        role: "user" as const,
+        content: [{ type: "text" as const, text: { $starlark: "str(input)" } }],
+      },
+    ],
+    responses: { $starlark: "[[{'type': 'text', 'text': x}] for x in input]" },
     output: outputExpr,
   };
 }
@@ -62,6 +68,20 @@ function leafVectorObj(inputSchema: unknown, tasks: unknown[]) {
   };
 }
 
+function qualityVcTaskObj() {
+  return {
+    type: "vector.completion" as const,
+    messages: [
+      {
+        role: "user" as const,
+        content: [{ type: "text" as const, text: { $starlark: "str(input)" } }],
+      },
+    ],
+    responses: { $starlark: "[[{'type': 'text', 'text': x}] for x in input['items']]" },
+    output: outputExpr,
+  };
+}
+
 function scalarFunctionTask() {
   return {
     type: "scalar.function",
@@ -69,7 +89,7 @@ function scalarFunctionTask() {
     repository: "test",
     commit: "abc123",
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
   };
 }
 
@@ -80,7 +100,7 @@ function vectorFunctionTask() {
     repository: "test",
     commit: "abc123",
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
   };
 }
 
@@ -89,7 +109,7 @@ function placeholderScalarTask() {
     type: "placeholder.scalar.function",
     input_schema: { type: "integer", minimum: 1, maximum: 10 },
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
   };
 }
 
@@ -101,7 +121,7 @@ function placeholderVectorTask() {
     input_split: { $starlark: "[[x] for x in input]" },
     input_merge: { $starlark: "[x[0] for x in input]" },
     input: inputExpr,
-    output: outputExpr,
+    output: { $starlark: "output" },
   };
 }
 
@@ -179,12 +199,17 @@ describe("checkLeafVectorFunction", () => {
     );
   });
 
-  // content check (shared with scalar, just verify one triggers)
-  it("rejects plain string response", () => {
-    const task = { ...qualityVcTask(), responses: ["bad", contentParts] };
+  // vector function responses must be an expression
+  it("rejects fixed array responses", () => {
+    const task = {
+      type: "vector.completion" as const,
+      messages: [{ role: "user" as const, content: contentParts }],
+      responses: [contentParts, contentParts],
+      output: outputExpr,
+    };
     const f = leafVector(arrayOfStringsSchema, [task]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
-      /response must be an array of content parts/,
+      /vector function responses must be a single expression/,
     );
   });
 
@@ -195,7 +220,7 @@ describe("checkLeafVectorFunction", () => {
   });
 
   it("accepts valid object with required array", () => {
-    const f = leafVectorObj(objectWithRequiredArraySchema, [qualityVcTask()]);
+    const f = leafVectorObj(objectWithRequiredArraySchema, [qualityVcTaskObj()]);
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).not.toThrow();
   });
 
@@ -207,8 +232,10 @@ describe("checkLeafVectorFunction", () => {
     expect(() => Functions.Quality.checkLeafVectorFunction(f)).not.toThrow();
   });
 
-  it("accepts empty tasks", () => {
+  it("rejects empty tasks", () => {
     const f = leafVector(arrayOfStringsSchema, []);
-    expect(() => Functions.Quality.checkLeafVectorFunction(f)).not.toThrow();
+    expect(() => Functions.Quality.checkLeafVectorFunction(f)).toThrow(
+      /at least one task/,
+    );
   });
 });

@@ -16,18 +16,23 @@ import {
   ToolsSchema,
 } from "src/chat/completions/request/tool";
 import {
-  QualityVectorResponsesExpressionSchema,
-  QualityVectorResponsesSchema,
+  QualityScalarVectorResponsesExpressionSchema,
+  QualityScalarVectorResponsesSchema,
+  QualityVectorVectorResponsesExpressionSchema,
   VectorResponsesExpressionSchema,
   VectorResponsesSchema,
 } from "src/vector/completions/request/vector_response";
+import { convert, type JSONSchema } from "../json_schema";
 
 // Task Expression
 
 export const TaskExpressionSkipSchema = ExpressionSchema.describe(
   "An expression which evaluates to a boolean indicating whether to skip this task. Receives: `input`.",
-);
+).meta({ title: "Expression", wrapper: true });
 export type TaskExpressionSkip = z.infer<typeof TaskExpressionSkipSchema>;
+export const TaskExpressionSkipJsonSchema: JSONSchema = convert(
+  TaskExpressionSkipSchema,
+);
 
 export const TaskExpressionMapSchema = z
   .uint32()
@@ -37,6 +42,9 @@ export const TaskExpressionMapSchema = z
       "Each compiled instance's expressions receive the current element as `map`.",
   );
 export type TaskExpressionMap = z.infer<typeof TaskExpressionMapSchema>;
+export const TaskExpressionMapJsonSchema: JSONSchema = convert(
+  TaskExpressionMapSchema,
+);
 
 export const QualityTaskExpressionMapSchema = z
   .uint32()
@@ -44,6 +52,9 @@ export const QualityTaskExpressionMapSchema = z
 export type QualityTaskExpressionMap = z.infer<
   typeof QualityTaskExpressionMapSchema
 >;
+export const QualityTaskExpressionMapJsonSchema: JSONSchema = convert(
+  QualityTaskExpressionMapSchema,
+);
 
 export const TaskOutputExpressionSchema = ExpressionSchema.describe(
   "An expression which transforms the task result into a FunctionOutput. " +
@@ -54,8 +65,11 @@ export const TaskOutputExpressionSchema = ExpressionSchema.describe(
     "scalar functions require a number in [0,1], vector functions require an array of numbers summing to ~1. " +
     "The function's final output is the weighted average of all task outputs using profile weights. " +
     "Receives: `input`, `output`.",
-);
+).meta({ title: "Expression", wrapper: true });
 export type TaskOutputExpression = z.infer<typeof TaskOutputExpressionSchema>;
+export const TaskOutputExpressionJsonSchema: JSONSchema = convert(
+  TaskOutputExpressionSchema,
+);
 
 export const ScalarFunctionTaskExpressionSchema = z
   .object({
@@ -76,10 +90,14 @@ export const ScalarFunctionTaskExpressionSchema = z
     input: InputValueExpressionSchema,
     output: TaskOutputExpressionSchema,
   })
-  .describe("A scalar function task expression.");
+  .describe("A scalar function task expression.")
+  .meta({ title: "ScalarFunctionTaskExpression" });
 export type ScalarFunctionTaskExpression = z.infer<
   typeof ScalarFunctionTaskExpressionSchema
 >;
+export const ScalarFunctionTaskExpressionJsonSchema: JSONSchema = convert(
+  ScalarFunctionTaskExpressionSchema,
+);
 
 export const QualityScalarFunctionTaskExpressionSchema = z
   .object({
@@ -92,10 +110,13 @@ export const QualityScalarFunctionTaskExpressionSchema = z
     input: ScalarFunctionTaskExpressionSchema.shape.input,
     output: ScalarFunctionTaskExpressionSchema.shape.output,
   })
-  .describe(ScalarFunctionTaskExpressionSchema.description!);
+  .describe(ScalarFunctionTaskExpressionSchema.description!)
+  .meta({ title: "QualityScalarFunctionTaskExpression" });
 export type QualityScalarFunctionTaskExpression = z.infer<
   typeof QualityScalarFunctionTaskExpressionSchema
 >;
+export const QualityScalarFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityScalarFunctionTaskExpressionSchema);
 
 export const VectorFunctionTaskExpressionSchema = z
   .object({
@@ -116,10 +137,14 @@ export const VectorFunctionTaskExpressionSchema = z
     input: InputValueExpressionSchema,
     output: TaskOutputExpressionSchema,
   })
-  .describe("A vector function task expression.");
+  .describe("A vector function task expression.")
+  .meta({ title: "VectorFunctionTaskExpression" });
 export type VectorFunctionTaskExpression = z.infer<
   typeof VectorFunctionTaskExpressionSchema
 >;
+export const VectorFunctionTaskExpressionJsonSchema: JSONSchema = convert(
+  VectorFunctionTaskExpressionSchema,
+);
 
 export const QualityVectorFunctionTaskExpressionSchema = z
   .object({
@@ -132,10 +157,13 @@ export const QualityVectorFunctionTaskExpressionSchema = z
     input: VectorFunctionTaskExpressionSchema.shape.input,
     output: VectorFunctionTaskExpressionSchema.shape.output,
   })
-  .describe(VectorFunctionTaskExpressionSchema.description!);
+  .describe(VectorFunctionTaskExpressionSchema.description!)
+  .meta({ title: "QualityVectorFunctionTaskExpression" });
 export type QualityVectorFunctionTaskExpression = z.infer<
   typeof QualityVectorFunctionTaskExpressionSchema
 >;
+export const QualityVectorFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityVectorFunctionTaskExpressionSchema);
 
 export const VectorCompletionTaskExpressionSchema = z
   .object({
@@ -151,28 +179,56 @@ export const VectorCompletionTaskExpressionSchema = z
     responses: VectorResponsesExpressionSchema,
     output: TaskOutputExpressionSchema,
   })
-  .describe("A vector completion task expression.");
+  .describe("A vector completion task expression.")
+  .meta({ title: "VectorCompletionTaskExpression" });
 export type VectorCompletion = z.infer<
   typeof VectorCompletionTaskExpressionSchema
 >;
+export const VectorCompletionTaskExpressionJsonSchema: JSONSchema = convert(
+  VectorCompletionTaskExpressionSchema,
+);
 
-export const QualityVectorCompletionTaskExpressionSchema = z
+export const QualityScalarVectorCompletionTaskExpressionSchema = z
   .object({
     type: VectorCompletionTaskExpressionSchema.shape.type,
     skip: VectorCompletionTaskExpressionSchema.shape.skip,
     map: z.undefined(),
     messages: QualityMessagesExpressionSchema,
     tools: VectorCompletionTaskExpressionSchema.shape.tools,
-    responses: QualityVectorResponsesExpressionSchema,
+    responses: QualityScalarVectorResponsesExpressionSchema,
     output: VectorCompletionTaskExpressionSchema.shape.output,
   })
   .describe(
     VectorCompletionTaskExpressionSchema.description! +
       " Message content and responses must be arrays of content parts, not plain strings.",
-  );
-export type QualityVectorCompletionTaskExpression = z.infer<
-  typeof QualityVectorCompletionTaskExpressionSchema
+  )
+  .meta({ title: "QualityScalarVectorCompletionTaskExpression" });
+export type QualityScalarVectorCompletionTaskExpression = z.infer<
+  typeof QualityScalarVectorCompletionTaskExpressionSchema
 >;
+export const QualityScalarVectorCompletionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityScalarVectorCompletionTaskExpressionSchema);
+
+export const QualityVectorVectorCompletionTaskExpressionSchema = z
+  .object({
+    type: VectorCompletionTaskExpressionSchema.shape.type,
+    skip: VectorCompletionTaskExpressionSchema.shape.skip,
+    map: z.undefined(),
+    messages: QualityMessagesExpressionSchema,
+    tools: VectorCompletionTaskExpressionSchema.shape.tools,
+    responses: QualityVectorVectorResponsesExpressionSchema,
+    output: VectorCompletionTaskExpressionSchema.shape.output,
+  })
+  .describe(
+    VectorCompletionTaskExpressionSchema.description! +
+      " Responses must be a single expression for vector parent functions.",
+  )
+  .meta({ title: "QualityVectorVectorCompletionTaskExpression" });
+export type QualityVectorVectorCompletionTaskExpression = z.infer<
+  typeof QualityVectorVectorCompletionTaskExpressionSchema
+>;
+export const QualityVectorVectorCompletionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityVectorVectorCompletionTaskExpressionSchema);
 
 export const PlaceholderScalarFunctionTaskExpressionSchema = z
   .object({
@@ -185,10 +241,13 @@ export const PlaceholderScalarFunctionTaskExpressionSchema = z
   })
   .describe(
     "A placeholder scalar function task expression. Always outputs 0.5.",
-  );
+  )
+  .meta({ title: "PlaceholderScalarFunctionTaskExpression" });
 export type PlaceholderScalarFunctionTaskExpression = z.infer<
   typeof PlaceholderScalarFunctionTaskExpressionSchema
 >;
+export const PlaceholderScalarFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(PlaceholderScalarFunctionTaskExpressionSchema);
 
 export const PlaceholderVectorFunctionTaskExpressionSchema = z
   .object({
@@ -215,10 +274,13 @@ export const PlaceholderVectorFunctionTaskExpressionSchema = z
   })
   .describe(
     "A placeholder vector function task expression. Always outputs an equalized vector.",
-  );
+  )
+  .meta({ title: "PlaceholderVectorFunctionTaskExpression" });
 export type PlaceholderVectorFunctionTaskExpression = z.infer<
   typeof PlaceholderVectorFunctionTaskExpressionSchema
 >;
+export const PlaceholderVectorFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(PlaceholderVectorFunctionTaskExpressionSchema);
 
 export const TaskExpressionSchema = z
   .discriminatedUnion("type", [
@@ -230,39 +292,88 @@ export const TaskExpressionSchema = z
   ])
   .describe(
     "A task to be executed as part of the function. Will first be compiled using the parent function's input. May be skipped or mapped.",
-  );
+  )
+  .meta({ title: "TaskExpression" });
 export type TaskExpression = z.infer<typeof TaskExpressionSchema>;
+export const TaskExpressionJsonSchema: JSONSchema =
+  convert(TaskExpressionSchema);
 
 export const TaskExpressionsSchema = z
   .array(TaskExpressionSchema)
   .describe(
     "The list of tasks to be executed as part of the function. Each will first be compiled using the parent function's input.",
-  );
+  )
+  .meta({ title: "TaskExpressions" });
 export type TaskExpressions = z.infer<typeof TaskExpressionsSchema>;
+export const TaskExpressionsJsonSchema: JSONSchema = convert(
+  TaskExpressionsSchema,
+);
 
 // Quality task variants: unmapped (no map field) and mapped (map required)
 
-const QualityUnmappedScalarFunctionTaskExpressionSchema =
-  QualityScalarFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+export const QualityUnmappedScalarFunctionTaskExpressionSchema =
+  QualityScalarFunctionTaskExpressionSchema.extend({ map: z.undefined() })
+    .describe(QualityScalarFunctionTaskExpressionSchema.description!)
+    .meta({ title: "QualityUnmappedScalarFunctionTaskExpression" });
+export type QualityUnmappedScalarFunctionTaskExpression = z.infer<
+  typeof QualityUnmappedScalarFunctionTaskExpressionSchema
+>;
+export const QualityUnmappedScalarFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityUnmappedScalarFunctionTaskExpressionSchema);
 
-const QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema =
-  PlaceholderScalarFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+export const QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema =
+  PlaceholderScalarFunctionTaskExpressionSchema.extend({ map: z.undefined() })
+    .describe(PlaceholderScalarFunctionTaskExpressionSchema.description!)
+    .meta({ title: "QualityUnmappedPlaceholderScalarFunctionTaskExpression" });
+export type QualityUnmappedPlaceholderScalarFunctionTaskExpression = z.infer<
+  typeof QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema
+>;
+export const QualityUnmappedPlaceholderScalarFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityUnmappedPlaceholderScalarFunctionTaskExpressionSchema);
 
-const QualityMappedScalarFunctionTaskExpressionSchema =
+export const QualityMappedScalarFunctionTaskExpressionSchema =
   QualityScalarFunctionTaskExpressionSchema.extend({
     map: QualityTaskExpressionMapSchema,
-  });
+  })
+    .describe(QualityScalarFunctionTaskExpressionSchema.description!)
+    .meta({ title: "QualityMappedScalarFunctionTaskExpression" });
+export type QualityMappedScalarFunctionTaskExpression = z.infer<
+  typeof QualityMappedScalarFunctionTaskExpressionSchema
+>;
+export const QualityMappedScalarFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityMappedScalarFunctionTaskExpressionSchema);
 
-const QualityMappedPlaceholderScalarFunctionTaskExpressionSchema =
+export const QualityMappedPlaceholderScalarFunctionTaskExpressionSchema =
   PlaceholderScalarFunctionTaskExpressionSchema.extend({
     map: QualityTaskExpressionMapSchema,
-  });
+  })
+    .describe(PlaceholderScalarFunctionTaskExpressionSchema.description!)
+    .meta({ title: "QualityMappedPlaceholderScalarFunctionTaskExpression" });
+export type QualityMappedPlaceholderScalarFunctionTaskExpression = z.infer<
+  typeof QualityMappedPlaceholderScalarFunctionTaskExpressionSchema
+>;
+export const QualityMappedPlaceholderScalarFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityMappedPlaceholderScalarFunctionTaskExpressionSchema);
 
-const QualityUnmappedVectorFunctionTaskExpressionSchema =
-  QualityVectorFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+export const QualityUnmappedVectorFunctionTaskExpressionSchema =
+  QualityVectorFunctionTaskExpressionSchema.extend({ map: z.undefined() })
+    .describe(QualityVectorFunctionTaskExpressionSchema.description!)
+    .meta({ title: "QualityUnmappedVectorFunctionTaskExpression" });
+export type QualityUnmappedVectorFunctionTaskExpression = z.infer<
+  typeof QualityUnmappedVectorFunctionTaskExpressionSchema
+>;
+export const QualityUnmappedVectorFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityUnmappedVectorFunctionTaskExpressionSchema);
 
-const QualityUnmappedPlaceholderVectorFunctionTaskExpressionSchema =
-  PlaceholderVectorFunctionTaskExpressionSchema.extend({ map: z.undefined() });
+export const QualityUnmappedPlaceholderVectorFunctionTaskExpressionSchema =
+  PlaceholderVectorFunctionTaskExpressionSchema.extend({ map: z.undefined() })
+    .describe(PlaceholderVectorFunctionTaskExpressionSchema.description!)
+    .meta({ title: "QualityUnmappedPlaceholderVectorFunctionTaskExpression" });
+export type QualityUnmappedPlaceholderVectorFunctionTaskExpression = z.infer<
+  typeof QualityUnmappedPlaceholderVectorFunctionTaskExpressionSchema
+>;
+export const QualityUnmappedPlaceholderVectorFunctionTaskExpressionJsonSchema: JSONSchema =
+  convert(QualityUnmappedPlaceholderVectorFunctionTaskExpressionSchema);
 
 // Quality Branch Scalar Function Tasks: all unmapped scalar-like
 
@@ -278,10 +389,11 @@ export const QualityBranchScalarFunctionTasksExpressionSchema = z
 export type QualityBranchScalarFunctionTasksExpression = z.infer<
   typeof QualityBranchScalarFunctionTasksExpressionSchema
 >;
+export const QualityBranchScalarFunctionTasksExpressionJsonSchema: JSONSchema =
+  convert(QualityBranchScalarFunctionTasksExpressionSchema);
 
 export const QualityBranchScalarFunctionTasksExpressionsSchema = z
   .array(QualityBranchScalarFunctionTasksExpressionSchema)
-  .min(1)
   .describe(
     "Tasks for a scalar function. All tasks must be unmapped scalar-like (scalar.function or placeholder.scalar.function). " +
       "Must contain at least 1 task. Task count must be within min_width and max_width from parameters. " +
@@ -290,6 +402,8 @@ export const QualityBranchScalarFunctionTasksExpressionsSchema = z
 export type QualityBranchScalarFunctionTasksExpressions = z.infer<
   typeof QualityBranchScalarFunctionTasksExpressionsSchema
 >;
+export const QualityBranchScalarFunctionTasksExpressionsJsonSchema: JSONSchema =
+  convert(QualityBranchScalarFunctionTasksExpressionsSchema);
 
 // Quality Branch Vector Function Tasks: mapped scalar-like or unmapped vector-like
 
@@ -308,10 +422,11 @@ export const QualityBranchVectorFunctionTasksExpressionSchema = z
 export type QualityBranchVectorFunctionTasksExpression = z.infer<
   typeof QualityBranchVectorFunctionTasksExpressionSchema
 >;
+export const QualityBranchVectorFunctionTasksExpressionJsonSchema: JSONSchema =
+  convert(QualityBranchVectorFunctionTasksExpressionSchema);
 
 export const QualityBranchVectorFunctionTasksExpressionsSchema = z
   .array(QualityBranchVectorFunctionTasksExpressionSchema)
-  .min(1)
   .describe(
     "Tasks for a vector function. Each task must be either a mapped scalar-like task or an unmapped vector-like task. " +
       "Must contain at least 1 task. At most 50% of tasks may have a map index (unless there is only 1 task). " +
@@ -322,19 +437,38 @@ export const QualityBranchVectorFunctionTasksExpressionsSchema = z
 export type QualityBranchVectorFunctionTasksExpressions = z.infer<
   typeof QualityBranchVectorFunctionTasksExpressionsSchema
 >;
+export const QualityBranchVectorFunctionTasksExpressionsJsonSchema: JSONSchema =
+  convert(QualityBranchVectorFunctionTasksExpressionsSchema);
 
 // Quality Depth-0 Tasks: only vector.completion
 
-export const QualityLeafTasksExpressionsSchema = z
-  .array(QualityVectorCompletionTaskExpressionSchema)
-  .min(1)
+export const QualityLeafScalarTasksExpressionsSchema = z
+  .array(QualityScalarVectorCompletionTaskExpressionSchema)
   .describe(
-    "Tasks at depth 0. Only vector.completion tasks are allowed. " +
+    "Tasks at depth 0 of a scalar function. Only vector.completion tasks are allowed. " +
+      "Responses must be arrays of content parts. " +
       "Must contain at least 1 task. Task count must be within min_width and max_width from parameters.",
   );
-export type QualityLeafTasksExpressions = z.infer<
-  typeof QualityLeafTasksExpressionsSchema
+export type QualityLeafScalarTasksExpressions = z.infer<
+  typeof QualityLeafScalarTasksExpressionsSchema
 >;
+export const QualityLeafScalarTasksExpressionsJsonSchema: JSONSchema = convert(
+  QualityLeafScalarTasksExpressionsSchema,
+);
+
+export const QualityLeafVectorTasksExpressionsSchema = z
+  .array(QualityVectorVectorCompletionTaskExpressionSchema)
+  .describe(
+    "Tasks at depth 0 of a vector function. Only vector.completion tasks are allowed. " +
+      "Responses must be a single expression. " +
+      "Must contain at least 1 task. Task count must be within min_width and max_width from parameters.",
+  );
+export type QualityLeafVectorTasksExpressions = z.infer<
+  typeof QualityLeafVectorTasksExpressionsSchema
+>;
+export const QualityLeafVectorTasksExpressionsJsonSchema: JSONSchema = convert(
+  QualityLeafVectorTasksExpressionsSchema,
+);
 
 // Task
 
@@ -357,8 +491,12 @@ export const ScalarFunctionTaskSchema = z
       "Expression to transform the task result into a valid function output. Receives: `input`, `output` (the raw FunctionOutput from the nested function).",
     ),
   })
-  .describe("A scalar function task.");
+  .describe("A scalar function task.")
+  .meta({ title: "ScalarFunctionTask" });
 export type ScalarFunctionTask = z.infer<typeof ScalarFunctionTaskSchema>;
+export const ScalarFunctionTaskJsonSchema: JSONSchema = convert(
+  ScalarFunctionTaskSchema,
+);
 
 export const VectorFunctionTaskSchema = z
   .object({
@@ -379,8 +517,12 @@ export const VectorFunctionTaskSchema = z
       "Expression to transform the task result into a valid function output. Receives: `input`, `output` (the raw FunctionOutput from the nested function).",
     ),
   })
-  .describe("A vector function task.");
+  .describe("A vector function task.")
+  .meta({ title: "VectorFunctionTask" });
 export type VectorFunctionTask = z.infer<typeof VectorFunctionTaskSchema>;
+export const VectorFunctionTaskJsonSchema: JSONSchema = convert(
+  VectorFunctionTaskSchema,
+);
 
 export const VectorCompletionTaskSchema = z
   .object({
@@ -392,8 +534,12 @@ export const VectorCompletionTaskSchema = z
       "Expression to transform the task result into a valid function output. Receives: `input`, `output` (the raw VectorCompletionOutput).",
     ),
   })
-  .describe("A vector completion task.");
+  .describe("A vector completion task.")
+  .meta({ title: "VectorCompletionTask" });
 export type VectorCompletionTask = z.infer<typeof VectorCompletionTaskSchema>;
+export const VectorCompletionTaskJsonSchema: JSONSchema = convert(
+  VectorCompletionTaskSchema,
+);
 
 export const PlaceholderScalarFunctionTaskSchema = z
   .object({
@@ -404,10 +550,14 @@ export const PlaceholderScalarFunctionTaskSchema = z
       "Expression to transform the fixed 0.5 output. Receives: `input`, `output` (the raw FunctionOutput).",
     ),
   })
-  .describe("A placeholder scalar function task. Always outputs 0.5.");
+  .describe("A placeholder scalar function task. Always outputs 0.5.")
+  .meta({ title: "PlaceholderScalarFunctionTask" });
 export type PlaceholderScalarFunctionTask = z.infer<
   typeof PlaceholderScalarFunctionTaskSchema
 >;
+export const PlaceholderScalarFunctionTaskJsonSchema: JSONSchema = convert(
+  PlaceholderScalarFunctionTaskSchema,
+);
 
 export const PlaceholderVectorFunctionTaskSchema = z
   .object({
@@ -434,10 +584,14 @@ export const PlaceholderVectorFunctionTaskSchema = z
   })
   .describe(
     "A placeholder vector function task. Always outputs an equalized vector.",
-  );
+  )
+  .meta({ title: "PlaceholderVectorFunctionTask" });
 export type PlaceholderVectorFunctionTask = z.infer<
   typeof PlaceholderVectorFunctionTaskSchema
 >;
+export const PlaceholderVectorFunctionTaskJsonSchema: JSONSchema = convert(
+  PlaceholderVectorFunctionTaskSchema,
+);
 
 export const TaskSchema = z
   .discriminatedUnion("type", [
@@ -449,6 +603,7 @@ export const TaskSchema = z
   ])
   .describe("A task to be executed as part of the function.");
 export type Task = z.infer<typeof TaskSchema>;
+export const TaskJsonSchema: JSONSchema = convert(TaskSchema);
 
 export const CompiledTaskSchema = z
   .union([
@@ -460,6 +615,7 @@ export const CompiledTaskSchema = z
   ])
   .describe("A compiled task, which may be un-mapped, mapped, or skipped.");
 export type CompiledTask = z.infer<typeof CompiledTaskSchema>;
+export const CompiledTaskJsonSchema: JSONSchema = convert(CompiledTaskSchema);
 
 export const CompiledTasksSchema = z
   .array(CompiledTaskSchema)
@@ -467,6 +623,7 @@ export const CompiledTasksSchema = z
     "The compiled list of tasks to be executed as part of the function.",
   );
 export type CompiledTasks = z.infer<typeof CompiledTasksSchema>;
+export const CompiledTasksJsonSchema: JSONSchema = convert(CompiledTasksSchema);
 
 // Quality Compiled Tasks (message content and responses must be arrays of content parts, not plain strings)
 
@@ -475,7 +632,7 @@ export const QualityVectorCompletionTaskSchema = z
     type: z.literal("vector.completion"),
     messages: QualityMessagesSchema,
     tools: ToolsSchema.optional(),
-    responses: QualityVectorResponsesSchema,
+    responses: QualityScalarVectorResponsesSchema,
     output: VectorCompletionTaskSchema.shape.output,
   })
   .describe(
@@ -485,6 +642,9 @@ export const QualityVectorCompletionTaskSchema = z
 export type QualityVectorCompletionTask = z.infer<
   typeof QualityVectorCompletionTaskSchema
 >;
+export const QualityVectorCompletionTaskJsonSchema: JSONSchema = convert(
+  QualityVectorCompletionTaskSchema,
+);
 
 export const QualityTaskSchema = z
   .discriminatedUnion("type", [
@@ -499,6 +659,7 @@ export const QualityTaskSchema = z
       " Vector completion tasks require content parts arrays, not plain strings.",
   );
 export type QualityTask = z.infer<typeof QualityTaskSchema>;
+export const QualityTaskJsonSchema: JSONSchema = convert(QualityTaskSchema);
 
 export const QualityCompiledTaskSchema = z
   .union([
@@ -510,8 +671,14 @@ export const QualityCompiledTaskSchema = z
   ])
   .describe(CompiledTaskSchema.description!);
 export type QualityCompiledTask = z.infer<typeof QualityCompiledTaskSchema>;
+export const QualityCompiledTaskJsonSchema: JSONSchema = convert(
+  QualityCompiledTaskSchema,
+);
 
 export const QualityCompiledTasksSchema = z
   .array(QualityCompiledTaskSchema)
   .describe(CompiledTasksSchema.description!);
 export type QualityCompiledTasks = z.infer<typeof QualityCompiledTasksSchema>;
+export const QualityCompiledTasksJsonSchema: JSONSchema = convert(
+  QualityCompiledTasksSchema,
+);

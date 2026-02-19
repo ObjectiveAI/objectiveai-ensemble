@@ -1,6 +1,7 @@
 import z from "zod";
 import { InputSchemaSchema } from "../expression/input.js";
 import { ExpressionSchema } from "../expression/expression.js";
+import { convert, type JSONSchema } from "../../json_schema";
 
 /**
  * Zod schema for the 4 fields needed to validate a vector function's
@@ -34,3 +35,4 @@ export const VectorFieldsValidationSchema = z
   );
 
 export type VectorFieldsValidation = z.infer<typeof VectorFieldsValidationSchema>;
+export const VectorFieldsValidationJsonSchema: JSONSchema = convert(VectorFieldsValidationSchema);

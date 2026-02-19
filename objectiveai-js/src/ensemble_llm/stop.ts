@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../json_schema";
 
 export const StopSchema = z
   .union([
@@ -16,3 +17,4 @@ export const StopSchema = z
   )
   .meta({ title: "Stop" });
 export type Stop = z.infer<typeof StopSchema>;
+export const StopJsonSchema: JSONSchema = convert(StopSchema);

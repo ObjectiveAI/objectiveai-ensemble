@@ -1,22 +1,29 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../json_schema";
 
 export const ReasoningEffortSchema = z
   .enum(["none", "minimal", "low", "medium", "high", "xhigh"])
   .describe(
-    "Constrains effort on reasoning for supported reasoning models. Reducing reasoning effort can result in faster responses and fewer tokens used on reasoning in a response."
+    "Constrains effort on reasoning for supported reasoning models. Reducing reasoning effort can result in faster responses and fewer tokens used on reasoning in a response.",
   )
   .meta({ title: "ReasoningEffort" });
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+export const ReasoningEffortJsonSchema: JSONSchema = convert(
+  ReasoningEffortSchema,
+);
 
 export const ReasoningSummaryVerbositySchema = z
   .enum(["auto", "concise", "detailed"])
   .describe(
-    "Controls the verbosity of the reasoning summary for supported reasoning models."
+    "Controls the verbosity of the reasoning summary for supported reasoning models.",
   )
   .meta({ title: "ReasoningSummaryVerbosity" });
 export type ReasoningSummaryVerbosity = z.infer<
   typeof ReasoningSummaryVerbositySchema
 >;
+export const ReasoningSummaryVerbosityJsonSchema: JSONSchema = convert(
+  ReasoningSummaryVerbositySchema,
+);
 
 export const ReasoningSchema = z
   .object({
@@ -32,12 +39,12 @@ export const ReasoningSchema = z
       .optional()
       .nullable()
       .describe(
-        "The maximum number of tokens to use for reasoning in a response."
+        "The maximum number of tokens to use for reasoning in a response.",
       ),
     effort: ReasoningEffortSchema.optional().nullable(),
     summary_verbosity: ReasoningSummaryVerbositySchema.optional().nullable(),
   })
-  .optional()
-  .nullable()
-  .describe("Options for controlling reasoning behavior of the model.");
+  .describe("Options for controlling reasoning behavior of the model.")
+  .meta({ title: "EnsembleLlmReasoning" });
 export type Reasoning = z.infer<typeof ReasoningSchema>;
+export const ReasoningJsonSchema: JSONSchema = convert(ReasoningSchema);

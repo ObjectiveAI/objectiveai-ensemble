@@ -4,13 +4,28 @@ import { Functions } from "../../index.js";
 // ── helpers ──────────────────────────────────────────────────────────
 
 const outputExpr = { $starlark: "output['scores'][0]" };
-const inputExpr = { $starlark: "input" };
 const contentParts = [{ type: "text" as const, text: "Hello" }];
 
-function qualityVcTask() {
+/** VC task with fixed messages/responses — for rejection tests only. */
+function fixedVcTask() {
   return {
     type: "vector.completion" as const,
     messages: [{ role: "user" as const, content: contentParts }],
+    responses: [contentParts, contentParts],
+    output: outputExpr,
+  };
+}
+
+/** VC task that references input in messages — passes diversity checks. */
+function qualityVcTask() {
+  return {
+    type: "vector.completion" as const,
+    messages: [
+      {
+        role: "user" as const,
+        content: [{ type: "text" as const, text: { $starlark: "str(input)" } }],
+      },
+    ],
     responses: [contentParts, contentParts],
     output: outputExpr,
   };
@@ -35,8 +50,8 @@ function scalarFunctionTask(map?: number) {
     owner: "test",
     repository: "test",
     commit: "abc123",
-    input: inputExpr,
-    output: outputExpr,
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -47,8 +62,8 @@ function vectorFunctionTask(map?: number) {
     owner: "test",
     repository: "test",
     commit: "abc123",
-    input: inputExpr,
-    output: outputExpr,
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -57,8 +72,8 @@ function placeholderScalarTask(map?: number) {
   return {
     type: "placeholder.scalar.function",
     input_schema: { type: "integer", minimum: 1, maximum: 10 },
-    input: inputExpr,
-    output: outputExpr,
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -75,8 +90,8 @@ function placeholderVectorTask(map?: number) {
     output_length: { $starlark: "len(input)" },
     input_split: { $starlark: "[[x] for x in input]" },
     input_merge: { $starlark: "[x[0] for x in input]" },
-    input: inputExpr,
-    output: outputExpr,
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
     ...(map !== undefined ? { map } : {}),
   };
 }
@@ -150,9 +165,9 @@ describe("checkLeafScalarFunction", () => {
     );
   });
 
-  // message/response content checks
+  // message/response content checks (use fixedVcTask to trigger checks)
   it("rejects empty messages", () => {
-    const task = { ...qualityVcTask(), messages: [] };
+    const task = { ...fixedVcTask(), messages: [] };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
       /at least 1 message/,
@@ -160,7 +175,7 @@ describe("checkLeafScalarFunction", () => {
   });
 
   it("rejects one response", () => {
-    const task = { ...qualityVcTask(), responses: [contentParts] };
+    const task = { ...fixedVcTask(), responses: [contentParts] };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
       /at least 2 responses/,
@@ -168,7 +183,7 @@ describe("checkLeafScalarFunction", () => {
   });
 
   it("rejects plain string response", () => {
-    const task = { ...qualityVcTask(), responses: ["bad", contentParts] };
+    const task = { ...fixedVcTask(), responses: ["bad", contentParts] };
     const f = leafScalar([task]);
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
       /response must be an array of content parts/,
@@ -177,7 +192,7 @@ describe("checkLeafScalarFunction", () => {
 
   it("rejects plain string user message content", () => {
     const task = {
-      ...qualityVcTask(),
+      ...fixedVcTask(),
       messages: [{ role: "user", content: "bad" }],
     };
     const f = leafScalar([task]);
@@ -188,7 +203,7 @@ describe("checkLeafScalarFunction", () => {
 
   it("rejects plain string developer message content", () => {
     const task = {
-      ...qualityVcTask(),
+      ...fixedVcTask(),
       messages: [{ role: "developer", content: "bad" }],
     };
     const f = leafScalar([task]);
@@ -199,7 +214,7 @@ describe("checkLeafScalarFunction", () => {
 
   it("rejects plain string system message content", () => {
     const task = {
-      ...qualityVcTask(),
+      ...fixedVcTask(),
       messages: [{ role: "system", content: "bad" }],
     };
     const f = leafScalar([task]);
@@ -219,16 +234,18 @@ describe("checkLeafScalarFunction", () => {
     expect(() => Functions.Quality.checkLeafScalarFunction(f)).not.toThrow();
   });
 
-  it("accepts empty tasks", () => {
+  it("rejects empty tasks", () => {
     const f = leafScalar([]);
-    expect(() => Functions.Quality.checkLeafScalarFunction(f)).not.toThrow();
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /at least one task/,
+    );
   });
 
   it("accepts expression messages (skips content check)", () => {
     const task = {
       type: "vector.completion",
-      messages: { $starlark: "input['messages']" },
-      responses: { $starlark: "input['responses']" },
+      messages: { $starlark: "[{'role': 'user', 'content': [{'type': 'text', 'text': str(input)}]}]" },
+      responses: { $starlark: "[[{'type': 'text', 'text': 'A'}], [{'type': 'text', 'text': 'B'}]]" },
       output: outputExpr,
     };
     const f = leafScalar([task]);

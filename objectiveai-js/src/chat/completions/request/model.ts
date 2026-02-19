@@ -1,5 +1,6 @@
 import { EnsembleLlmBaseSchema } from "src/ensemble_llm/ensemble_llm";
 import z from "zod";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const ModelSchema = z
   .union([
@@ -13,8 +14,10 @@ export const ModelSchema = z
     "The Ensemble LLM to use for this completion. May be a unique ID or an inline definition."
   );
 export type Model = z.infer<typeof ModelSchema>;
+export const ModelJsonSchema: JSONSchema = convert(ModelSchema);
 
 export const FallbackModelsSchema = z
   .array(ModelSchema)
   .describe("Fallback Ensemble LLMs to use if the primary Ensemble LLM fails.");
 export type FallbackModels = z.infer<typeof FallbackModelsSchema>;
+export const FallbackModelsJsonSchema: JSONSchema = convert(FallbackModelsSchema);

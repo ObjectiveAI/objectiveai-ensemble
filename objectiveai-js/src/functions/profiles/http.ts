@@ -1,6 +1,7 @@
 import z from "zod";
 import { ObjectiveAI, RequestOptions } from "../../client";
 import { RemoteProfileSchema } from "../profile";
+import { convert, type JSONSchema } from "../../json_schema";
 
 export const ListItemSchema = z.object({
   owner: z
@@ -16,11 +17,13 @@ export const ListItemSchema = z.object({
     ),
 });
 export type ListItem = z.infer<typeof ListItemSchema>;
+export const ListItemJsonSchema: JSONSchema = convert(ListItemSchema);
 
 export const ListSchema = z.object({
   data: z.array(ListItemSchema).describe("A list of Functions."),
 });
 export type List = z.infer<typeof ListSchema>;
+export const ListJsonSchema: JSONSchema = convert(ListSchema);
 
 export function list(
   client: ObjectiveAI,
@@ -50,6 +53,7 @@ export const HistoricalUsageSchema = z.object({
     .describe("The total cost incurred by using this Profile."),
 });
 export type HistoricalUsage = z.infer<typeof HistoricalUsageSchema>;
+export const HistoricalUsageJsonSchema: JSONSchema = convert(HistoricalUsageSchema);
 
 export function retrieveUsage(
   client: ObjectiveAI,
@@ -67,6 +71,7 @@ export function retrieveUsage(
 
 export const RetrieveSchema = ListItemSchema.merge(RemoteProfileSchema);
 export type Retrieve = z.infer<typeof RetrieveSchema>;
+export const RetrieveJsonSchema: JSONSchema = convert(RetrieveSchema);
 
 export function retrieve(
   client: ObjectiveAI,

@@ -3,15 +3,37 @@ import { Functions } from "../../index.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-const outputExpr = { $starlark: "output['scores'][0]" };
+const scalarOutputExpr = { $starlark: "output['scores'][0]" };
+const vectorOutputExpr = { $starlark: "output['scores']" };
 const contentParts = [{ type: "text" as const, text: "Hello" }];
 
-function qualityVcTask() {
+/** Scalar-valid VC task: input-referencing messages, fixed content-part responses. */
+function scalarVcTask() {
   return {
     type: "vector.completion" as const,
-    messages: [{ role: "user" as const, content: contentParts }],
+    messages: [
+      {
+        role: "user" as const,
+        content: [{ type: "text" as const, text: { $starlark: "str(input)" } }],
+      },
+    ],
     responses: [contentParts, contentParts],
-    output: outputExpr,
+    output: scalarOutputExpr,
+  };
+}
+
+/** Vector-valid VC task: input-referencing messages, expression responses. */
+function vectorVcTask() {
+  return {
+    type: "vector.completion" as const,
+    messages: [
+      {
+        role: "user" as const,
+        content: [{ type: "text" as const, text: { $starlark: "str(input)" } }],
+      },
+    ],
+    responses: { $starlark: "[[{'type': 'text', 'text': x}] for x in input]" },
+    output: vectorOutputExpr,
   };
 }
 
@@ -23,7 +45,7 @@ describe("checkLeafFunction", () => {
       type: "scalar.function",
       description: "test",
       input_schema: { type: "string" },
-      tasks: [qualityVcTask()],
+      tasks: [scalarVcTask()],
     };
     expect(() => Functions.Quality.checkLeafFunction(f)).not.toThrow();
   });
@@ -40,7 +62,7 @@ describe("checkLeafFunction", () => {
       output_length: { $starlark: "len(input)" },
       input_split: { $starlark: "[[x] for x in input]" },
       input_merge: { $starlark: "[x[0] for x in input]" },
-      tasks: [qualityVcTask()],
+      tasks: [vectorVcTask()],
     };
     expect(() => Functions.Quality.checkLeafFunction(f)).not.toThrow();
   });
@@ -51,7 +73,7 @@ describe("checkLeafFunction", () => {
       description: "test",
       input_schema: { type: "string" },
       input_maps: [{ $starlark: "input" }],
-      tasks: [qualityVcTask()],
+      tasks: [scalarVcTask()],
     };
     expect(() => Functions.Quality.checkLeafFunction(f)).toThrow(
       /must not have input_maps/,

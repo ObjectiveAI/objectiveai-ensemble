@@ -6,6 +6,7 @@ import { VotesSchema } from "src/vector/completions/response/vote";
 import { WeightsSchema } from "src/vector/completions/response/weights";
 import z from "zod";
 import { InputValueSchema } from "./input";
+import { convert, type JSONSchema } from "../../json_schema";
 
 export const InputMapsAsParameterSchema = z
   .array(InputValueSchema)
@@ -15,6 +16,7 @@ export const InputMapsAsParameterSchema = z
       "Each compiled instance receives the current element as `map`.",
   );
 export type InputMapsAsParameter = z.infer<typeof InputMapsAsParameterSchema>;
+export const InputMapsAsParameterJsonSchema: JSONSchema = convert(InputMapsAsParameterSchema);
 
 export const VectorCompletionOutputSchema = z
   .object({
@@ -26,6 +28,7 @@ export const VectorCompletionOutputSchema = z
 export type VectorCompletionOutput = z.infer<
   typeof VectorCompletionOutputSchema
 >;
+export const VectorCompletionOutputJsonSchema: JSONSchema = convert(VectorCompletionOutputSchema);
 
 export const MapVectorCompletionOutputSchema = z
   .array(VectorCompletionOutputSchema)
@@ -33,6 +36,7 @@ export const MapVectorCompletionOutputSchema = z
 export type MapVectorCompletionOutput = z.infer<
   typeof MapVectorCompletionOutputSchema
 >;
+export const MapVectorCompletionOutputJsonSchema: JSONSchema = convert(MapVectorCompletionOutputSchema);
 
 export function compileVectorCompletionOutput(
   completion: VectorCompletion | VectorCompletionChunk,
@@ -54,11 +58,13 @@ export const FunctionOutputSchema = z
   ])
   .describe("The output of a function execution / function execution task.");
 export type FunctionOutput = z.infer<typeof FunctionOutputSchema>;
+export const FunctionOutputJsonSchema: JSONSchema = convert(FunctionOutputSchema);
 
 export const MapFunctionOutputSchema = z
   .array(FunctionOutputSchema)
   .describe("The output of a mapped function execution task.");
 export type MapFunctionOutput = z.infer<typeof MapFunctionOutputSchema>;
+export const MapFunctionOutputJsonSchema: JSONSchema = convert(MapFunctionOutputSchema);
 
 // export const CompiledFunctionOutputSchema = z
 //   .object({
@@ -80,8 +86,10 @@ export const TaskOutputSchema = z
   ])
   .describe("The output of a task.");
 export type TaskOutput = z.infer<typeof TaskOutputSchema>;
+export const TaskOutputJsonSchema: JSONSchema = convert(TaskOutputSchema);
 
 export const TaskOutputsSchema = z
   .array(TaskOutputSchema)
   .describe("The outputs of all tasks in a function.");
 export type TaskOutputs = z.infer<typeof TaskOutputsSchema>;
+export const TaskOutputsJsonSchema: JSONSchema = convert(TaskOutputsSchema);

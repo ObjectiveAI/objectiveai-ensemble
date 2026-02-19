@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const FunctionToolChoiceFunctionSchema = z
   .object({
@@ -10,6 +11,9 @@ export const FunctionToolChoiceFunctionSchema = z
 export type FunctionToolChoiceFunction = z.infer<
   typeof FunctionToolChoiceFunctionSchema
 >;
+export const FunctionToolChoiceFunctionJsonSchema: JSONSchema = convert(
+  FunctionToolChoiceFunctionSchema,
+);
 
 export const FunctionToolChoiceSchema = z
   .object({
@@ -19,6 +23,9 @@ export const FunctionToolChoiceSchema = z
   .describe("Specify a function tool for the assistant to call.")
   .meta({ title: "ToolChoiceFunction" });
 export type FunctionToolChoice = z.infer<typeof FunctionToolChoiceSchema>;
+export const FunctionToolChoiceJsonSchema: JSONSchema = convert(
+  FunctionToolChoiceSchema,
+);
 
 export const ToolChoiceSchema = z
   .union([
@@ -30,3 +37,4 @@ export const ToolChoiceSchema = z
   .describe("Specifies tool call behavior for the assistant.")
   .meta({ title: "ToolChoice" });
 export type ToolChoice = z.infer<typeof ToolChoiceSchema>;
+export const ToolChoiceJsonSchema: JSONSchema = convert(ToolChoiceSchema);

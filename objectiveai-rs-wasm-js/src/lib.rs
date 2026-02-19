@@ -404,11 +404,20 @@ pub fn qualityCheckLeafFunction(function: JsValue) -> Result<(), JsValue> {
 ///
 /// Routes to branch scalar or branch vector checks based on the function type.
 /// Branch functions contain only function/placeholder tasks.
+///
+/// `children` is an optional map of `"owner/repository"` → RemoteFunction for
+/// validating compiled task inputs against child function input schemas.
 #[wasm_bindgen]
-pub fn qualityCheckBranchFunction(function: JsValue) -> Result<(), JsValue> {
+pub fn qualityCheckBranchFunction(function: JsValue, children: JsValue) -> Result<(), JsValue> {
     let function: objectiveai::functions::RemoteFunction =
         serde_wasm_bindgen::from_value(function)?;
-    objectiveai::functions::quality::check_branch_function(&function)
+    let children: Option<std::collections::HashMap<String, objectiveai::functions::RemoteFunction>> =
+        if children.is_undefined() || children.is_null() {
+            None
+        } else {
+            Some(serde_wasm_bindgen::from_value(children)?)
+        };
+    objectiveai::functions::quality::check_branch_function(&function, children.as_ref())
         .map_err(|e| JsValue::from_str(&e))
 }
 
@@ -441,10 +450,16 @@ pub fn qualityCheckLeafVectorFunction(function: JsValue) -> Result<(), JsValue> 
 /// Validates: no input_maps, only scalar-like tasks, no map, no vector.completion,
 /// example inputs compile and placeholder inputs match schemas.
 #[wasm_bindgen]
-pub fn qualityCheckBranchScalarFunction(function: JsValue) -> Result<(), JsValue> {
+pub fn qualityCheckBranchScalarFunction(function: JsValue, children: JsValue) -> Result<(), JsValue> {
     let function: objectiveai::functions::RemoteFunction =
         serde_wasm_bindgen::from_value(function)?;
-    objectiveai::functions::quality::check_branch_scalar_function(&function)
+    let children: Option<std::collections::HashMap<String, objectiveai::functions::RemoteFunction>> =
+        if children.is_undefined() || children.is_null() {
+            None
+        } else {
+            Some(serde_wasm_bindgen::from_value(children)?)
+        };
+    objectiveai::functions::quality::check_branch_scalar_function(&function, children.as_ref())
         .map_err(|e| JsValue::from_str(&e))
 }
 
@@ -453,10 +468,16 @@ pub fn qualityCheckBranchScalarFunction(function: JsValue) -> Result<(), JsValue
 /// Validates: vector input schema, task type/map constraints, single-task-must-be-vector,
 /// <= 50% mapped scalar, vector field round-trip, example input compilation.
 #[wasm_bindgen]
-pub fn qualityCheckBranchVectorFunction(function: JsValue) -> Result<(), JsValue> {
+pub fn qualityCheckBranchVectorFunction(function: JsValue, children: JsValue) -> Result<(), JsValue> {
     let function: objectiveai::functions::RemoteFunction =
         serde_wasm_bindgen::from_value(function)?;
-    objectiveai::functions::quality::check_branch_vector_function(&function)
+    let children: Option<std::collections::HashMap<String, objectiveai::functions::RemoteFunction>> =
+        if children.is_undefined() || children.is_null() {
+            None
+        } else {
+            Some(serde_wasm_bindgen::from_value(children)?)
+        };
+    objectiveai::functions::quality::check_branch_vector_function(&function, children.as_ref())
         .map_err(|e| JsValue::from_str(&e))
 }
 

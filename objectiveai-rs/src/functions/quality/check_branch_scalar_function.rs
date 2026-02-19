@@ -4,7 +4,9 @@ use std::collections::HashMap;
 
 use crate::functions::{RemoteFunction, TaskExpression};
 
-use super::compile_and_validate::compile_and_validate_task_inputs;
+use super::compile_and_validate::{
+    compile_and_validate_task_inputs, validate_scalar_function_input_diversity,
+};
 
 /// Validates quality requirements for a branch scalar function.
 ///
@@ -90,6 +92,9 @@ pub fn check_branch_scalar_function(
 
     // 6. Compile tasks with example inputs and validate placeholder inputs
     compile_and_validate_task_inputs(function, children)?;
+
+    // 7. Function input diversity — compiled inputs must vary with parent input
+    validate_scalar_function_input_diversity(function)?;
 
     Ok(())
 }
