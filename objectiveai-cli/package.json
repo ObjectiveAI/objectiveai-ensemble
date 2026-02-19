@@ -35,7 +35,7 @@
     "commander": "^14.0.3",
     "ink": "^6.7.0",
     "objectiveai": "*",
-    "react": "^19.2.1",
+    "react": "^19.2.4",
     "zod": "^4.3.5"
   },
   "devDependencies": {
