@@ -74,6 +74,43 @@ export function getAgentMockConfig(): MockConfig | null {
   return { notificationDelayMs: n };
 }
 
+export type ClaudeModel = "opus" | "sonnet" | "haiku";
+
+export interface AgentClaudeConfig {
+  typeModel?: ClaudeModel;
+  nameModel?: ClaudeModel;
+  essayModel?: ClaudeModel;
+  fieldsModel?: ClaudeModel;
+  essayTasksModel?: ClaudeModel;
+  bodyModel?: ClaudeModel;
+  descriptionModel?: ClaudeModel;
+}
+
+const CLAUDE_MODELS: ClaudeModel[] = ["opus", "sonnet", "haiku"];
+
+function parseClaudeModel(value: unknown): ClaudeModel | undefined {
+  if (typeof value === "string" && CLAUDE_MODELS.includes(value as ClaudeModel)) {
+    return value as ClaudeModel;
+  }
+  return undefined;
+}
+
+export function getAgentClaudeConfig(): AgentClaudeConfig {
+  const config: ConfigJson = {
+    ...(readConfigFile(homedir()) ?? {}),
+    ...(readConfigFile(process.cwd()) ?? {}),
+  };
+  return {
+    typeModel: parseClaudeModel(config.agentClaudeTypeModel),
+    nameModel: parseClaudeModel(config.agentClaudeNameModel),
+    essayModel: parseClaudeModel(config.agentClaudeEssayModel),
+    fieldsModel: parseClaudeModel(config.agentClaudeFieldsModel),
+    essayTasksModel: parseClaudeModel(config.agentClaudeEssayTasksModel),
+    bodyModel: parseClaudeModel(config.agentClaudeBodyModel),
+    descriptionModel: parseClaudeModel(config.agentClaudeDescriptionModel),
+  };
+}
+
 // Home config file helpers (for the TUI config panel)
 
 const homeConfigDir = () => join(homedir(), ".objectiveai");
