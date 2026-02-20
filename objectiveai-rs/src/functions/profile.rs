@@ -20,12 +20,32 @@ pub enum Profile {
     Inline(InlineProfile),
 }
 
-/// A GitHub-hosted profile with full metadata.
+/// A GitHub-hosted profile, either tasks-based or auto.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RemoteProfile {
+    /// Tasks-based profile with per-task configuration.
+    Tasks(RemoteTasksProfile),
+    /// Auto profile that applies a single ensemble+weights to all vector completion tasks.
+    Auto(RemoteAutoProfile),
+}
+
+/// An inline profile, either tasks-based or auto.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum InlineProfile {
+    /// Tasks-based profile with per-task configuration.
+    Tasks(InlineTasksProfile),
+    /// Auto profile that applies a single ensemble+weights to all vector completion tasks.
+    Auto(InlineAutoProfile),
+}
+
+/// A GitHub-hosted tasks-based profile with full metadata.
 ///
 /// Stored as `profile.json` in GitHub repositories and referenced by
 /// `owner/repository`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RemoteProfile {
+pub struct RemoteTasksProfile {
     /// Human-readable description of the profile.
     pub description: String,
     /// Version history and changes for this profile.
@@ -41,9 +61,26 @@ pub struct RemoteProfile {
     pub profile: crate::vector::completions::request::Profile,
 }
 
-/// An inline profile definition without metadata.
+/// A GitHub-hosted auto profile with full metadata.
+///
+/// Applies a single ensemble and weights to every vector completion task
+/// in the function, with equal task weights.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InlineProfile {
+pub struct RemoteAutoProfile {
+    /// Human-readable description of the profile.
+    pub description: String,
+    /// Version history and changes for this profile.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub changelog: Option<String>,
+    /// The ensemble to use for all vector completion tasks.
+    pub ensemble: vector::completions::request::Ensemble,
+    /// Weights for each LLM in the ensemble.
+    pub profile: crate::vector::completions::request::Profile,
+}
+
+/// An inline tasks-based profile definition without metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InlineTasksProfile {
     /// Configuration for each task in the corresponding Function.
     pub tasks: Vec<TaskProfile>,
     /// Weights for each Task in the corresponding Function.
@@ -51,6 +88,18 @@ pub struct InlineProfile {
     /// Must have the same length as `tasks`. Can be either:
     /// - A vector of decimals (legacy representation), or
     /// - A vector of objects with `weight` and optional `invert` fields.
+    pub profile: crate::vector::completions::request::Profile,
+}
+
+/// An inline auto profile definition without metadata.
+///
+/// Applies a single ensemble and weights to every vector completion task
+/// in the function, with equal task weights.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InlineAutoProfile {
+    /// The ensemble to use for all vector completion tasks.
+    pub ensemble: vector::completions::request::Ensemble,
+    /// Weights for each LLM in the ensemble.
     pub profile: crate::vector::completions::request::Profile,
 }
 
@@ -97,10 +146,11 @@ impl TaskProfile {
     pub fn validate_commit_required(&self) -> bool {
         match self {
             TaskProfile::RemoteFunction { commit, .. } => commit.is_some(),
-            TaskProfile::InlineFunction(inline) => inline
+            TaskProfile::InlineFunction(InlineProfile::Tasks(inline)) => inline
                 .tasks
                 .iter()
                 .all(TaskProfile::validate_commit_required),
+            TaskProfile::InlineFunction(InlineProfile::Auto(_)) => true,
             TaskProfile::VectorCompletion { .. } => true,
             TaskProfile::Placeholder {} => true,
         }

@@ -607,43 +607,86 @@ where
         }
     }
 
-    // validate profile tasks length matches function tasks length
+    // extract profile data based on profile type (tasks-based or auto)
+    struct AutoConfig {
+        ensemble: objectiveai::vector::completions::request::Ensemble,
+        vc_profile: objectiveai::vector::completions::request::Profile,
+    }
+
     let function_tasks_len = function.tasks().len();
-    let profile_tasks_len = match &profile {
-        objectiveai::functions::Profile::Remote(rp) => rp.tasks.len(),
-        objectiveai::functions::Profile::Inline(ip) => ip.tasks.len(),
-    };
-    if profile_tasks_len != function_tasks_len {
-        return Err(super::executions::Error::InvalidProfile(format!(
-            "profile tasks length ({}) does not match function tasks length ({})",
-            profile_tasks_len, function_tasks_len
-        )));
-    }
+    let mut profile_weights: Vec<rust_decimal::Decimal>;
+    let mut profile_invert_flags: Vec<bool>;
+    let task_profiles: Option<Vec<objectiveai::functions::TaskProfile>>;
+    let auto_config: Option<AutoConfig>;
 
-    // normalize profile into (weight, invert) pairs
-    let profile_pairs: Vec<(rust_decimal::Decimal, bool)> = match &profile {
-        objectiveai::functions::Profile::Remote(rp) => {
-            rp.profile.to_weights_and_invert()
+    match profile {
+        objectiveai::functions::Profile::Remote(
+            objectiveai::functions::RemoteProfile::Tasks(rp),
+        ) => {
+            if rp.tasks.len() != function_tasks_len {
+                return Err(super::executions::Error::InvalidProfile(format!(
+                    "profile tasks length ({}) does not match function tasks length ({})",
+                    rp.tasks.len(), function_tasks_len
+                )));
+            }
+            let pairs = rp.profile.to_weights_and_invert();
+            if pairs.len() != function_tasks_len {
+                return Err(super::executions::Error::InvalidProfile(format!(
+                    "profile weights length ({}) does not match function tasks length ({})",
+                    pairs.len(), function_tasks_len
+                )));
+            }
+            let (w, i) = pairs.into_iter().unzip();
+            profile_weights = w;
+            profile_invert_flags = i;
+            task_profiles = Some(rp.tasks);
+            auto_config = None;
         }
-        objectiveai::functions::Profile::Inline(ip) => {
-            ip.profile.to_weights_and_invert()
+        objectiveai::functions::Profile::Inline(
+            objectiveai::functions::InlineProfile::Tasks(ip),
+        ) => {
+            if ip.tasks.len() != function_tasks_len {
+                return Err(super::executions::Error::InvalidProfile(format!(
+                    "profile tasks length ({}) does not match function tasks length ({})",
+                    ip.tasks.len(), function_tasks_len
+                )));
+            }
+            let pairs = ip.profile.to_weights_and_invert();
+            if pairs.len() != function_tasks_len {
+                return Err(super::executions::Error::InvalidProfile(format!(
+                    "profile weights length ({}) does not match function tasks length ({})",
+                    pairs.len(), function_tasks_len
+                )));
+            }
+            let (w, i) = pairs.into_iter().unzip();
+            profile_weights = w;
+            profile_invert_flags = i;
+            task_profiles = Some(ip.tasks);
+            auto_config = None;
         }
-    };
-
-    // validate profile weights length matches function tasks length
-    if profile_pairs.len() != function_tasks_len {
-        return Err(super::executions::Error::InvalidProfile(format!(
-            "profile weights length ({}) does not match function tasks length ({})",
-            profile_pairs.len(),
-            function_tasks_len
-        )));
+        objectiveai::functions::Profile::Remote(
+            objectiveai::functions::RemoteProfile::Auto(rp),
+        ) => {
+            profile_weights = Vec::new();
+            profile_invert_flags = Vec::new();
+            task_profiles = None;
+            auto_config = Some(AutoConfig {
+                ensemble: rp.ensemble,
+                vc_profile: rp.profile,
+            });
+        }
+        objectiveai::functions::Profile::Inline(
+            objectiveai::functions::InlineProfile::Auto(ip),
+        ) => {
+            profile_weights = Vec::new();
+            profile_invert_flags = Vec::new();
+            task_profiles = None;
+            auto_config = Some(AutoConfig {
+                ensemble: ip.ensemble,
+                vc_profile: ip.profile,
+            });
+        }
     }
-
-    // split into weights and invert flags
-    let (profile_weights, profile_invert_flags): (
-        Vec<rust_decimal::Decimal>,
-        Vec<bool>,
-    ) = profile_pairs.into_iter().unzip();
 
     // take description
     let description = function.description().map(str::to_owned);
@@ -695,22 +738,29 @@ where
     // compile function tasks
     let tasks = function.compile_tasks(&input)?;
 
+    // for auto profiles, compute equal weights after task compilation
+    if auto_config.is_some() {
+        let num_tasks = tasks.len();
+        let weight = if num_tasks > 0 {
+            rust_decimal::Decimal::ONE / rust_decimal::Decimal::from(num_tasks as u64)
+        } else {
+            rust_decimal::Decimal::ZERO
+        };
+        profile_weights = vec![weight; num_tasks];
+        profile_invert_flags = vec![false; num_tasks];
+    }
+
     // initialize flat tasks / futs vector
     let mut flat_tasks_or_futs = Vec::with_capacity(tasks.len());
 
+    // set up task profile iterator (only for tasks-based profiles)
+    let mut task_profiles_iter = task_profiles.map(|tp| tp.into_iter());
+
     // iterate through tasks
-    for (i, (task, profile)) in tasks
-        .into_iter()
-        .zip(match profile {
-            objectiveai::functions::Profile::Remote(rp) => {
-                either::Either::Left(rp.tasks.into_iter())
-            }
-            objectiveai::functions::Profile::Inline(ip) => {
-                either::Either::Right(ip.tasks.into_iter())
-            }
-        })
-        .enumerate()
+    for (i, task) in tasks.into_iter().enumerate()
     {
+        // get task profile if in tasks-based mode
+        let task_profile = task_profiles_iter.as_mut().map(|iter| iter.next().unwrap());
         // if skip, push None to flat tasks
         let task = match task {
             Some(task) => task,
@@ -753,6 +803,43 @@ where
                 ),
             ) => {
                 let effective_invert_output = profile_invert_flags[i];
+                let profile_param = if let Some(task_profile) = task_profile {
+                    match task_profile {
+                        objectiveai::functions::TaskProfile::RemoteFunction {
+                            owner,
+                            repository,
+                            commit,
+                        } => ProfileParam::Remote {
+                            owner,
+                            repository,
+                            commit,
+                        },
+                        objectiveai::functions::TaskProfile::InlineFunction(
+                            profile,
+                        ) => ProfileParam::FetchedOrInline {
+                            full_id: None,
+                            profile: objectiveai::functions::Profile::Inline(
+                                profile,
+                            ),
+                        },
+                        _ => return Err(super::executions::Error::InvalidProfile(
+                            "expected function profile (RemoteFunction or InlineFunction) for function task".to_string()
+                        )),
+                    }
+                } else {
+                    let auto = auto_config.as_ref().unwrap();
+                    ProfileParam::FetchedOrInline {
+                        full_id: None,
+                        profile: objectiveai::functions::Profile::Inline(
+                            objectiveai::functions::InlineProfile::Auto(
+                                objectiveai::functions::InlineAutoProfile {
+                                    ensemble: auto.ensemble.clone(),
+                                    profile: auto.vc_profile.clone(),
+                                },
+                            ),
+                        ),
+                    }
+                };
                 flat_tasks_or_futs.push(TaskFut::FunctionTaskFut(Box::pin(
                     get_flat_task_profile(
                         ctx.clone(),
@@ -762,28 +849,7 @@ where
                             repository,
                             commit: Some(commit),
                         },
-                        match profile {
-                            objectiveai::functions::TaskProfile::RemoteFunction {
-                                owner,
-                                repository,
-                                commit,
-                            } => ProfileParam::Remote {
-                                owner,
-                                repository,
-                                commit,
-                            },
-                            objectiveai::functions::TaskProfile::InlineFunction(
-                                profile,
-                            ) => ProfileParam::FetchedOrInline {
-                                full_id: None,
-                                profile: objectiveai::functions::Profile::Inline(
-                                    profile,
-                                ),
-                            },
-                            _ => return Err(super::executions::Error::InvalidProfile(
-                                "expected function profile (RemoteFunction or InlineFunction) for function task".to_string()
-                            )),
-                        },
+                        profile_param,
                         input,
                         Some(output),
                         effective_invert_output,
@@ -796,14 +862,19 @@ where
             objectiveai::functions::CompiledTask::One(
                 objectiveai::functions::Task::VectorCompletion(task),
             ) => {
-                let (ensemble, profile) = match profile {
-                    objectiveai::functions::TaskProfile::VectorCompletion {
-                        ensemble,
-                        profile,
-                    } => (ensemble, profile),
-                    _ => return Err(super::executions::Error::InvalidProfile(
-                        "expected VectorCompletion profile for vector completion task".to_string()
-                    )),
+                let (ensemble, vc_profile) = if let Some(task_profile) = task_profile {
+                    match task_profile {
+                        objectiveai::functions::TaskProfile::VectorCompletion {
+                            ensemble,
+                            profile,
+                        } => (ensemble, profile),
+                        _ => return Err(super::executions::Error::InvalidProfile(
+                            "expected VectorCompletion profile for vector completion task".to_string()
+                        )),
+                    }
+                } else {
+                    let auto = auto_config.as_ref().unwrap();
+                    (auto.ensemble.clone(), auto.vc_profile.clone())
                 };
                 let effective_invert_output = profile_invert_flags[i];
                 flat_tasks_or_futs.push(TaskFut::VectorTaskFut(Box::pin(
@@ -812,7 +883,7 @@ where
                         task_path,
                         task,
                         ensemble,
-                        profile,
+                        vc_profile,
                         effective_invert_output,
                         ensemble_fetcher.clone(),
                     ),
@@ -821,12 +892,14 @@ where
             objectiveai::functions::CompiledTask::One(
                 objectiveai::functions::Task::PlaceholderScalarFunction(task),
             ) => {
-                match profile {
-                    objectiveai::functions::TaskProfile::Placeholder {} => {}
-                    _ => return Err(super::executions::Error::InvalidProfile(
-                        "expected Placeholder profile for placeholder scalar function task".to_string()
-                    )),
-                };
+                if let Some(task_profile) = task_profile {
+                    match task_profile {
+                        objectiveai::functions::TaskProfile::Placeholder {} => {}
+                        _ => return Err(super::executions::Error::InvalidProfile(
+                            "expected Placeholder profile for placeholder scalar function task".to_string()
+                        )),
+                    }
+                }
                 let effective_invert_output = profile_invert_flags[i];
                 flat_tasks_or_futs.push(TaskFut::Task(Some(
                     FlatTaskProfile::PlaceholderScalarFunction(
@@ -842,12 +915,14 @@ where
             objectiveai::functions::CompiledTask::One(
                 objectiveai::functions::Task::PlaceholderVectorFunction(task),
             ) => {
-                match profile {
-                    objectiveai::functions::TaskProfile::Placeholder {} => {}
-                    _ => return Err(super::executions::Error::InvalidProfile(
-                        "expected Placeholder profile for placeholder vector function task".to_string()
-                    )),
-                };
+                if let Some(task_profile) = task_profile {
+                    match task_profile {
+                        objectiveai::functions::TaskProfile::Placeholder {} => {}
+                        _ => return Err(super::executions::Error::InvalidProfile(
+                            "expected Placeholder profile for placeholder vector function task".to_string()
+                        )),
+                    }
+                }
                 let effective_invert_output = profile_invert_flags[i];
                 // compile output_length using the task's input as params context
                 let params = objectiveai::functions::expression::Params::Ref(
@@ -914,14 +989,19 @@ where
                         for (j, task) in tasks.into_iter().enumerate() {
                             let mut task_path = task_path.clone();
                             task_path.push(j as u64);
-                            let (ensemble, profile) = match &profile {
-                                objectiveai::functions::TaskProfile::VectorCompletion {
-                                    ensemble,
-                                    profile,
-                                } => (ensemble.clone(), profile.clone()),
-                                _ => return Err(super::executions::Error::InvalidProfile(
-                                    "expected VectorCompletion profile for mapped vector completion task".to_string()
-                                )),
+                            let (ensemble, vc_profile) = if let Some(ref task_profile) = task_profile {
+                                match task_profile {
+                                    objectiveai::functions::TaskProfile::VectorCompletion {
+                                        ensemble,
+                                        profile,
+                                    } => (ensemble.clone(), profile.clone()),
+                                    _ => return Err(super::executions::Error::InvalidProfile(
+                                        "expected VectorCompletion profile for mapped vector completion task".to_string()
+                                    )),
+                                }
+                            } else {
+                                let auto = auto_config.as_ref().unwrap();
+                                (auto.ensemble.clone(), auto.vc_profile.clone())
                             };
                             futs.push(get_vector_completion_flat_task_profile(
                                 ctx.clone(),
@@ -933,7 +1013,7 @@ where
                                     _ => unreachable!(),
                                 },
                                 ensemble,
-                                profile,
+                                vc_profile,
                                 map_invert_output,
                                 ensemble_fetcher.clone(),
                             ));
@@ -982,27 +1062,42 @@ where
                                         _ => unreachable!(),
                                     }),
                                 },
-                                match &profile {
-                                    objectiveai::functions::TaskProfile::RemoteFunction {
-                                        owner,
-                                        repository,
-                                        commit,
-                                    } => ProfileParam::Remote {
-                                        owner: owner.clone(),
-                                        repository: repository.clone(),
-                                        commit: commit.clone(),
-                                    },
-                                    objectiveai::functions::TaskProfile::InlineFunction(
-                                        profile,
-                                    ) => ProfileParam::FetchedOrInline {
+                                if let Some(ref task_profile) = task_profile {
+                                    match task_profile {
+                                        objectiveai::functions::TaskProfile::RemoteFunction {
+                                            owner,
+                                            repository,
+                                            commit,
+                                        } => ProfileParam::Remote {
+                                            owner: owner.clone(),
+                                            repository: repository.clone(),
+                                            commit: commit.clone(),
+                                        },
+                                        objectiveai::functions::TaskProfile::InlineFunction(
+                                            profile,
+                                        ) => ProfileParam::FetchedOrInline {
+                                            full_id: None,
+                                            profile: objectiveai::functions::Profile::Inline(
+                                                profile.clone(),
+                                            ),
+                                        },
+                                        _ => return Err(super::executions::Error::InvalidProfile(
+                                            "expected function profile (RemoteFunction or InlineFunction) for mapped function task".to_string()
+                                        )),
+                                    }
+                                } else {
+                                    let auto = auto_config.as_ref().unwrap();
+                                    ProfileParam::FetchedOrInline {
                                         full_id: None,
                                         profile: objectiveai::functions::Profile::Inline(
-                                            profile.clone(),
+                                            objectiveai::functions::InlineProfile::Auto(
+                                                objectiveai::functions::InlineAutoProfile {
+                                                    ensemble: auto.ensemble.clone(),
+                                                    profile: auto.vc_profile.clone(),
+                                                },
+                                            ),
                                         ),
-                                    },
-                                    _ => return Err(super::executions::Error::InvalidProfile(
-                                        "expected function profile (RemoteFunction or InlineFunction) for mapped function task".to_string()
-                                    )),
+                                    }
                                 },
                                 match &task {
                                     objectiveai::functions::Task::ScalarFunction(
@@ -1029,12 +1124,14 @@ where
                         )));
                     }
                     MapTaskType::PlaceholderScalar => {
-                        match profile {
-                            objectiveai::functions::TaskProfile::Placeholder {} => {}
-                            _ => return Err(super::executions::Error::InvalidProfile(
-                                "expected Placeholder profile for mapped placeholder scalar function task".to_string()
-                            )),
-                        };
+                        if let Some(ref task_profile) = task_profile {
+                            match task_profile {
+                                objectiveai::functions::TaskProfile::Placeholder {} => {}
+                                _ => return Err(super::executions::Error::InvalidProfile(
+                                    "expected Placeholder profile for mapped placeholder scalar function task".to_string()
+                                )),
+                            }
+                        }
                         let mut placeholders = Vec::with_capacity(tasks.len());
                         for (j, task) in tasks.into_iter().enumerate() {
                             let mut tp = task_path.clone();
@@ -1062,12 +1159,14 @@ where
                         )));
                     }
                     MapTaskType::PlaceholderVector => {
-                        match profile {
-                            objectiveai::functions::TaskProfile::Placeholder {} => {}
-                            _ => return Err(super::executions::Error::InvalidProfile(
-                                "expected Placeholder profile for mapped placeholder vector function task".to_string()
-                            )),
-                        };
+                        if let Some(ref task_profile) = task_profile {
+                            match task_profile {
+                                objectiveai::functions::TaskProfile::Placeholder {} => {}
+                                _ => return Err(super::executions::Error::InvalidProfile(
+                                    "expected Placeholder profile for mapped placeholder vector function task".to_string()
+                                )),
+                            }
+                        }
                         let mut placeholders = Vec::with_capacity(tasks.len());
                         for (j, task) in tasks.into_iter().enumerate() {
                             let mut tp = task_path.clone();

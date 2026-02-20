@@ -11,7 +11,7 @@ pub struct FunctionProfileComputationChunk {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub executions_errors: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub profile: Option<functions::InlineProfile>,
+    pub profile: Option<functions::InlineTasksProfile>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fitting_stats: Option<response::FittingStats>,
     #[serde(skip_serializing_if = "Option::is_none")]
