@@ -116,17 +116,19 @@ impl Expression {
         params: &super::Params,
     ) -> Result<OneOrMany<T>, super::ExpressionError>
     where
-        T: DeserializeOwned,
+        T: DeserializeOwned + super::starlark::FromStarlarkValue,
     {
-        let value = match self {
+        match self {
             Expression::JMESPath(jmespath) => {
                 let expr = super::JMESPATH_RUNTIME.compile(jmespath)?;
                 let value = expr.search(params)?;
-                serde_json::to_value(value)?
+                let json = serde_json::to_value(value)?;
+                Self::deserialize_result(json)
             }
-            Expression::Starlark(starlark) => super::starlark_eval(starlark, params)?,
-        };
-        Self::deserialize_result(value)
+            Expression::Starlark(starlark) => {
+                super::starlark::starlark_eval_one_or_many::<T>(starlark, params)
+            }
+        }
     }
 
     /// Deserialize expression result to the expected type.
@@ -163,7 +165,7 @@ impl Expression {
         params: &super::Params,
     ) -> Result<T, super::ExpressionError>
     where
-        T: DeserializeOwned,
+        T: DeserializeOwned + super::starlark::FromStarlarkValue,
     {
         let result = self.compile_one_or_many(params)?;
         match result {
@@ -215,7 +217,7 @@ where
 
 impl<T> WithExpression<T>
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + super::starlark::FromStarlarkValue,
 {
     /// Compiles the value, allowing array results from expressions.
     ///
@@ -248,6 +250,16 @@ where
     }
 }
 
+impl<T: super::starlark::FromStarlarkValue> super::starlark::FromStarlarkValue
+    for WithExpression<T>
+{
+    fn from_starlark_value(
+        value: &starlark::values::Value,
+    ) -> Result<Self, super::ExpressionError> {
+        T::from_starlark_value(value).map(WithExpression::Value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,7 +282,7 @@ mod tests {
         })
     }
 
-    fn starlark_one<T: serde::de::DeserializeOwned>(
+    fn starlark_one<T: serde::de::DeserializeOwned + crate::functions::expression::starlark::FromStarlarkValue>(
         code: &str,
         params: &Params,
     ) -> T {

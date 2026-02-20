@@ -35,4 +35,4 @@ pub use expression::*;
 pub use input::*;
 pub use params::*;
 pub use runtime::*;
-pub(crate) use starlark::starlark_eval;
+pub use starlark::{FromStarlarkValue, ToStarlarkValue};

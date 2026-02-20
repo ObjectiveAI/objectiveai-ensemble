@@ -1,6 +1,9 @@
 //! Vote type representing a single LLM's selection in a vector completion.
 
+use crate::functions::expression::ToStarlarkValue;
 use serde::{Deserialize, Serialize};
+use starlark::values::dict::AllocDict as StarlarkAllocDict;
+use starlark::values::{Heap as StarlarkHeap, Value as StarlarkValue};
 
 /// A single LLM's vote in a vector completion.
 ///
@@ -61,4 +64,22 @@ pub struct Vote {
     /// Internal index for correlating with completions. Not serialized.
     #[serde(skip)]
     pub completion_index: Option<u64>,
+}
+
+impl ToStarlarkValue for Vote {
+    fn to_starlark_value<'v>(&self, heap: &'v StarlarkHeap) -> StarlarkValue<'v> {
+        heap.alloc(StarlarkAllocDict([
+            ("model", self.model.to_starlark_value(heap)),
+            ("ensemble_index", self.ensemble_index.to_starlark_value(heap)),
+            ("flat_ensemble_index", self.flat_ensemble_index.to_starlark_value(heap)),
+            ("prompt_id", self.prompt_id.to_starlark_value(heap)),
+            ("tools_id", self.tools_id.to_starlark_value(heap)),
+            ("responses_ids", self.responses_ids.to_starlark_value(heap)),
+            ("vote", self.vote.to_starlark_value(heap)),
+            ("weight", self.weight.to_starlark_value(heap)),
+            ("retry", self.retry.to_starlark_value(heap)),
+            ("from_cache", self.from_cache.to_starlark_value(heap)),
+            ("from_rng", self.from_rng.to_starlark_value(heap)),
+        ]))
+    }
 }

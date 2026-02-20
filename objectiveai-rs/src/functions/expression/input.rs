@@ -7,6 +7,10 @@ use crate::chat;
 use indexmap::IndexMap;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use starlark::values::dict::DictRef as StarlarkDictRef;
+use starlark::values::float::UnpackFloat;
+use starlark::values::list::ListRef as StarlarkListRef;
+use starlark::values::{Heap as StarlarkHeap, UnpackValue, Value as StarlarkValue};
 
 /// Expressions that produce the 2D array used for mapped tasks.
 ///
@@ -75,6 +79,75 @@ pub enum Input {
     Number(f64),
     /// A boolean value.
     Boolean(bool),
+}
+
+impl super::ToStarlarkValue for Input {
+    fn to_starlark_value<'v>(&self, heap: &'v StarlarkHeap) -> StarlarkValue<'v> {
+        match self {
+            Input::String(s) => s.to_starlark_value(heap),
+            Input::Integer(i) => i.to_starlark_value(heap),
+            Input::Number(f) => f.to_starlark_value(heap),
+            Input::Boolean(b) => b.to_starlark_value(heap),
+            Input::Object(map) => map.to_starlark_value(heap),
+            Input::Array(arr) => arr.to_starlark_value(heap),
+            Input::RichContentPart(part) => part.to_starlark_value(heap),
+        }
+    }
+}
+
+impl super::FromStarlarkValue for Input {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, super::ExpressionError> {
+        if value.is_none() {
+            return Err(super::ExpressionError::StarlarkConversionError("Input: expected value".into()));
+        }
+        if let Ok(Some(b)) = bool::unpack_value(*value) {
+            return Ok(Input::Boolean(b));
+        }
+        if let Ok(Some(i)) = i64::unpack_value(*value) {
+            return Ok(Input::Integer(i));
+        }
+        if let Ok(Some(UnpackFloat(f))) = UnpackFloat::unpack_value(*value) {
+            return Ok(Input::Number(f));
+        }
+        if let Ok(Some(s)) = <&str as UnpackValue>::unpack_value(*value) {
+            return Ok(Input::String(s.to_owned()));
+        }
+        if let Some(list) = StarlarkListRef::from_value(*value) {
+            let mut items = Vec::with_capacity(list.len());
+            for v in list.iter() {
+                items.push(Input::from_starlark_value(&v)?);
+            }
+            return Ok(Input::Array(items));
+        }
+        if let Some(dict) = StarlarkDictRef::from_value(*value) {
+            // Try RichContentPart first if "type" matches a known variant
+            let mut type_value = None;
+            for (k, v) in dict.iter() {
+                if let Ok(Some("type")) = <&str as UnpackValue>::unpack_value(k) {
+                    type_value = <&str as UnpackValue>::unpack_value(v).ok().flatten();
+                    break;
+                }
+            }
+            if matches!(type_value, Some("text" | "image_url" | "input_audio" | "input_video" | "video_url" | "file")) {
+                if let Ok(part) = chat::completions::request::RichContentPart::from_starlark_value(value) {
+                    return Ok(Input::RichContentPart(part));
+                }
+            }
+            let mut map = IndexMap::with_capacity(dict.len());
+            for (k, v) in dict.iter() {
+                let key = <&str as UnpackValue>::unpack_value(k)
+                    .map_err(|e| super::ExpressionError::StarlarkConversionError(e.to_string()))?
+                    .ok_or_else(|| super::ExpressionError::StarlarkConversionError("Input: expected string key".into()))?
+                    .to_owned();
+                map.insert(key, Input::from_starlark_value(&v)?);
+            }
+            return Ok(Input::Object(map));
+        }
+        Err(super::ExpressionError::StarlarkConversionError(format!(
+            "Input: unsupported type: {}",
+            value.get_type()
+        )))
+    }
 }
 
 impl Eq for Input {}
@@ -400,6 +473,61 @@ impl InputExpression {
             InputExpression::Number(number) => Ok(Input::Number(number)),
             InputExpression::Boolean(boolean) => Ok(Input::Boolean(boolean)),
         }
+    }
+}
+
+impl super::FromStarlarkValue for InputExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, super::ExpressionError> {
+        if value.is_none() {
+            return Err(super::ExpressionError::StarlarkConversionError("InputExpression: expected value".into()));
+        }
+        if let Ok(Some(b)) = bool::unpack_value(*value) {
+            return Ok(InputExpression::Boolean(b));
+        }
+        if let Ok(Some(i)) = i64::unpack_value(*value) {
+            return Ok(InputExpression::Integer(i));
+        }
+        if let Ok(Some(UnpackFloat(f))) = UnpackFloat::unpack_value(*value) {
+            return Ok(InputExpression::Number(f));
+        }
+        if let Ok(Some(s)) = <&str as UnpackValue>::unpack_value(*value) {
+            return Ok(InputExpression::String(s.to_owned()));
+        }
+        if let Some(list) = StarlarkListRef::from_value(*value) {
+            let mut items = Vec::with_capacity(list.len());
+            for v in list.iter() {
+                items.push(super::WithExpression::Value(InputExpression::from_starlark_value(&v)?));
+            }
+            return Ok(InputExpression::Array(items));
+        }
+        if let Some(dict) = StarlarkDictRef::from_value(*value) {
+            // Try RichContentPart first if "type" matches a known variant
+            let mut type_value = None;
+            for (k, v) in dict.iter() {
+                if let Ok(Some("type")) = <&str as UnpackValue>::unpack_value(k) {
+                    type_value = <&str as UnpackValue>::unpack_value(v).ok().flatten();
+                    break;
+                }
+            }
+            if matches!(type_value, Some("text" | "image_url" | "input_audio" | "input_video" | "video_url" | "file")) {
+                if let Ok(part) = chat::completions::request::RichContentPart::from_starlark_value(value) {
+                    return Ok(InputExpression::RichContentPart(part));
+                }
+            }
+            let mut map = IndexMap::with_capacity(dict.len());
+            for (k, v) in dict.iter() {
+                let key = <&str as UnpackValue>::unpack_value(k)
+                    .map_err(|e| super::ExpressionError::StarlarkConversionError(e.to_string()))?
+                    .ok_or_else(|| super::ExpressionError::StarlarkConversionError("InputExpression: expected string key".into()))?
+                    .to_owned();
+                map.insert(key, super::WithExpression::Value(InputExpression::from_starlark_value(&v)?));
+            }
+            return Ok(InputExpression::Object(map));
+        }
+        Err(super::ExpressionError::StarlarkConversionError(format!(
+            "InputExpression: unsupported type: {}",
+            value.get_type()
+        )))
     }
 }
 

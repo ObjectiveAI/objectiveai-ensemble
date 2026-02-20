@@ -4,7 +4,10 @@
 //! has a role (system, user, assistant, tool, or developer) and content.
 
 use crate::functions;
+use functions::expression::{ExpressionError, FromStarlarkValue, ToStarlarkValue, WithExpression};
 use serde::{Deserialize, Serialize};
+use starlark::values::dict::{AllocDict as StarlarkAllocDict, DictRef as StarlarkDictRef};
+use starlark::values::{Heap as StarlarkHeap, UnpackValue, Value as StarlarkValue};
 
 /// Utilities for working with message prompts.
 pub mod prompt {
@@ -54,6 +57,32 @@ impl Message {
             Message::User(msg) => msg.prepare(),
             Message::Assistant(msg) => msg.prepare(),
             Message::Tool(msg) => msg.prepare(),
+        }
+    }
+}
+
+impl FromStarlarkValue for Message {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("Message: expected dict".into()))?;
+        // First pass: find the role
+        let mut role = None;
+        for (k, v) in dict.iter() {
+            if let Ok(Some("role")) = <&str as UnpackValue>::unpack_value(k) {
+                role = Some(<&str as UnpackValue>::unpack_value(v)
+                    .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                    .ok_or_else(|| ExpressionError::StarlarkConversionError("Message: expected string role".into()))?);
+                break;
+            }
+        }
+        let role = role.ok_or_else(|| ExpressionError::StarlarkConversionError("Message: missing role".into()))?;
+        match role {
+            "developer" => DeveloperMessage::from_starlark_value(value).map(Message::Developer),
+            "system" => SystemMessage::from_starlark_value(value).map(Message::System),
+            "user" => UserMessage::from_starlark_value(value).map(Message::User),
+            "assistant" => AssistantMessage::from_starlark_value(value).map(Message::Assistant),
+            "tool" => ToolMessage::from_starlark_value(value).map(Message::Tool),
+            _ => Err(ExpressionError::StarlarkConversionError(format!("Message: unknown role: {}", role))),
         }
     }
 }
@@ -111,6 +140,32 @@ impl MessageExpression {
     }
 }
 
+impl FromStarlarkValue for MessageExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("MessageExpression: expected dict".into()))?;
+        // First pass: find the role
+        let mut role = None;
+        for (k, v) in dict.iter() {
+            if let Ok(Some("role")) = <&str as UnpackValue>::unpack_value(k) {
+                role = Some(<&str as UnpackValue>::unpack_value(v)
+                    .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                    .ok_or_else(|| ExpressionError::StarlarkConversionError("MessageExpression: expected string role".into()))?);
+                break;
+            }
+        }
+        let role = role.ok_or_else(|| ExpressionError::StarlarkConversionError("MessageExpression: missing role".into()))?;
+        match role {
+            "developer" => DeveloperMessageExpression::from_starlark_value(value).map(MessageExpression::Developer),
+            "system" => SystemMessageExpression::from_starlark_value(value).map(MessageExpression::System),
+            "user" => UserMessageExpression::from_starlark_value(value).map(MessageExpression::User),
+            "assistant" => AssistantMessageExpression::from_starlark_value(value).map(MessageExpression::Assistant),
+            "tool" => ToolMessageExpression::from_starlark_value(value).map(MessageExpression::Tool),
+            _ => Err(ExpressionError::StarlarkConversionError(format!("MessageExpression: unknown role: {}", role))),
+        }
+    }
+}
+
 /// A developer message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeveloperMessage {
@@ -128,6 +183,29 @@ impl DeveloperMessage {
         if self.name.as_ref().is_some_and(String::is_empty) {
             self.name = None;
         }
+    }
+}
+
+impl FromStarlarkValue for DeveloperMessage {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("DeveloperMessage: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("DeveloperMessage: expected string key".into()))?;
+            match key {
+                "content" => content = Some(SimpleContent::from_starlark_value(&v)?),
+                "name" => name = Option::<String>::from_starlark_value(&v)?,
+                _ => {}
+            }
+        }
+        Ok(DeveloperMessage {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("DeveloperMessage: missing content".into()))?,
+            name,
+        })
     }
 }
 
@@ -157,6 +235,33 @@ impl DeveloperMessageExpression {
     }
 }
 
+impl FromStarlarkValue for DeveloperMessageExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("DeveloperMessageExpression: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("DeveloperMessageExpression: expected string key".into()))?;
+            match key {
+                "content" => content = Some(WithExpression::Value(SimpleContentExpression::from_starlark_value(&v)?)),
+                "name" => {
+                    name = Some(WithExpression::Value(
+                        if v.is_none() { None } else { Some(String::from_starlark_value(&v)?) }
+                    ));
+                }
+                _ => {}
+            }
+        }
+        Ok(DeveloperMessageExpression {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("DeveloperMessageExpression: missing content".into()))?,
+            name,
+        })
+    }
+}
+
 /// A system message setting context or instructions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SystemMessage {
@@ -174,6 +279,29 @@ impl SystemMessage {
         if self.name.as_ref().is_some_and(String::is_empty) {
             self.name = None;
         }
+    }
+}
+
+impl FromStarlarkValue for SystemMessage {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("SystemMessage: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("SystemMessage: expected string key".into()))?;
+            match key {
+                "content" => content = Some(SimpleContent::from_starlark_value(&v)?),
+                "name" => name = Option::<String>::from_starlark_value(&v)?,
+                _ => {}
+            }
+        }
+        Ok(SystemMessage {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("SystemMessage: missing content".into()))?,
+            name,
+        })
     }
 }
 
@@ -203,6 +331,33 @@ impl SystemMessageExpression {
     }
 }
 
+impl FromStarlarkValue for SystemMessageExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("SystemMessageExpression: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("SystemMessageExpression: expected string key".into()))?;
+            match key {
+                "content" => content = Some(WithExpression::Value(SimpleContentExpression::from_starlark_value(&v)?)),
+                "name" => {
+                    name = Some(WithExpression::Value(
+                        if v.is_none() { None } else { Some(String::from_starlark_value(&v)?) }
+                    ));
+                }
+                _ => {}
+            }
+        }
+        Ok(SystemMessageExpression {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("SystemMessageExpression: missing content".into()))?,
+            name,
+        })
+    }
+}
+
 /// A user message from the end user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserMessage {
@@ -220,6 +375,29 @@ impl UserMessage {
         if self.name.as_ref().is_some_and(String::is_empty) {
             self.name = None;
         }
+    }
+}
+
+impl FromStarlarkValue for UserMessage {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("UserMessage: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("UserMessage: expected string key".into()))?;
+            match key {
+                "content" => content = Some(RichContent::from_starlark_value(&v)?),
+                "name" => name = Option::<String>::from_starlark_value(&v)?,
+                _ => {}
+            }
+        }
+        Ok(UserMessage {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("UserMessage: missing content".into()))?,
+            name,
+        })
     }
 }
 
@@ -249,6 +427,33 @@ impl UserMessageExpression {
     }
 }
 
+impl FromStarlarkValue for UserMessageExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("UserMessageExpression: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("UserMessageExpression: expected string key".into()))?;
+            match key {
+                "content" => content = Some(WithExpression::Value(RichContentExpression::from_starlark_value(&v)?)),
+                "name" => {
+                    name = Some(WithExpression::Value(
+                        if v.is_none() { None } else { Some(String::from_starlark_value(&v)?) }
+                    ));
+                }
+                _ => {}
+            }
+        }
+        Ok(UserMessageExpression {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("UserMessageExpression: missing content".into()))?,
+            name,
+        })
+    }
+}
+
 /// A tool message containing the result of a tool call.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolMessage {
@@ -262,6 +467,32 @@ impl ToolMessage {
     /// Prepares the message by normalizing its content.
     pub fn prepare(&mut self) {
         self.content.prepare();
+    }
+}
+
+impl FromStarlarkValue for ToolMessage {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessage: expected dict".into()))?;
+        let mut content = None;
+        let mut tool_call_id = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessage: expected string key".into()))?;
+            match key {
+                "content" => content = Some(RichContent::from_starlark_value(&v)?),
+                "tool_call_id" => tool_call_id = Some(String::from_starlark_value(&v)?),
+                _ => {}
+            }
+            if content.is_some() && tool_call_id.is_some() {
+                break;
+            }
+        }
+        Ok(ToolMessage {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessage: missing content".into()))?,
+            tool_call_id: tool_call_id.ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessage: missing tool_call_id".into()))?,
+        })
     }
 }
 
@@ -285,6 +516,32 @@ impl ToolMessageExpression {
         Ok(ToolMessage {
             content,
             tool_call_id,
+        })
+    }
+}
+
+impl FromStarlarkValue for ToolMessageExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessageExpression: expected dict".into()))?;
+        let mut content = None;
+        let mut tool_call_id = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessageExpression: expected string key".into()))?;
+            match key {
+                "content" => content = Some(WithExpression::Value(RichContentExpression::from_starlark_value(&v)?)),
+                "tool_call_id" => tool_call_id = Some(WithExpression::Value(String::from_starlark_value(&v)?)),
+                _ => {}
+            }
+            if content.is_some() && tool_call_id.is_some() {
+                break;
+            }
+        }
+        Ok(ToolMessageExpression {
+            content: content.ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessageExpression: missing content".into()))?,
+            tool_call_id: tool_call_id.ok_or_else(|| ExpressionError::StarlarkConversionError("ToolMessageExpression: missing tool_call_id".into()))?,
         })
     }
 }
@@ -333,6 +590,32 @@ impl AssistantMessage {
         if self.reasoning.as_ref().is_some_and(String::is_empty) {
             self.reasoning = None;
         }
+    }
+}
+
+impl FromStarlarkValue for AssistantMessage {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantMessage: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        let mut refusal = None;
+        let mut tool_calls = None;
+        let mut reasoning = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantMessage: expected string key".into()))?;
+            match key {
+                "content" => content = Option::<RichContent>::from_starlark_value(&v)?,
+                "name" => name = Option::<String>::from_starlark_value(&v)?,
+                "refusal" => refusal = Option::<String>::from_starlark_value(&v)?,
+                "tool_calls" => tool_calls = Option::<Vec<AssistantToolCall>>::from_starlark_value(&v)?,
+                "reasoning" => reasoning = Option::<String>::from_starlark_value(&v)?,
+                _ => {}
+            }
+        }
+        Ok(AssistantMessage { content, name, refusal, tool_calls, reasoning })
     }
 }
 
@@ -438,6 +721,54 @@ impl AssistantMessageExpression {
     }
 }
 
+impl FromStarlarkValue for AssistantMessageExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantMessageExpression: expected dict".into()))?;
+        let mut content = None;
+        let mut name = None;
+        let mut refusal = None;
+        let mut tool_calls = None;
+        let mut reasoning = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantMessageExpression: expected string key".into()))?;
+            match key {
+                "content" => {
+                    content = Some(WithExpression::Value(
+                        if v.is_none() { None } else { Some(RichContentExpression::from_starlark_value(&v)?) }
+                    ));
+                }
+                "name" => {
+                    name = Some(WithExpression::Value(
+                        if v.is_none() { None } else { Some(String::from_starlark_value(&v)?) }
+                    ));
+                }
+                "refusal" => {
+                    refusal = Some(WithExpression::Value(
+                        if v.is_none() { None } else { Some(String::from_starlark_value(&v)?) }
+                    ));
+                }
+                "tool_calls" => {
+                    tool_calls = Some(WithExpression::Value(
+                        if v.is_none() { None } else {
+                            Some(Vec::<WithExpression<AssistantToolCallExpression>>::from_starlark_value(&v)?)
+                        }
+                    ));
+                }
+                "reasoning" => {
+                    reasoning = Some(WithExpression::Value(
+                        if v.is_none() { None } else { Some(String::from_starlark_value(&v)?) }
+                    ));
+                }
+                _ => {}
+            }
+        }
+        Ok(AssistantMessageExpression { content, name, refusal, tool_calls, reasoning })
+    }
+}
+
 /// A tool call made by the assistant.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -459,6 +790,32 @@ impl AssistantToolCall {
                 id.is_empty() && function.is_empty()
             }
         }
+    }
+}
+
+impl FromStarlarkValue for AssistantToolCall {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantToolCall: expected dict".into()))?;
+        let mut id = None;
+        let mut function = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantToolCall: expected string key".into()))?;
+            match key {
+                "id" => id = Some(String::from_starlark_value(&v)?),
+                "function" => function = Some(AssistantToolCallFunction::from_starlark_value(&v)?),
+                _ => {}
+            }
+            if id.is_some() && function.is_some() {
+                break;
+            }
+        }
+        Ok(AssistantToolCall::Function {
+            id: id.unwrap_or_default(),
+            function: function.ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantToolCall: missing function".into()))?,
+        })
     }
 }
 
@@ -493,6 +850,23 @@ impl AssistantToolCallExpression {
     }
 }
 
+impl FromStarlarkValue for AssistantToolCallExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let call = AssistantToolCall::from_starlark_value(value)?;
+        match call {
+            AssistantToolCall::Function { id, function } => {
+                Ok(AssistantToolCallExpression::Function {
+                    id: WithExpression::Value(id),
+                    function: WithExpression::Value(AssistantToolCallFunctionExpression {
+                        name: WithExpression::Value(function.name),
+                        arguments: WithExpression::Value(function.arguments),
+                    }),
+                })
+            }
+        }
+    }
+}
+
 /// Details of a function call made by the assistant.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantToolCallFunction {
@@ -506,6 +880,32 @@ impl AssistantToolCallFunction {
     /// Returns `true` if both name and arguments are empty.
     pub fn is_empty(&self) -> bool {
         self.name.is_empty() && self.arguments.is_empty()
+    }
+}
+
+impl FromStarlarkValue for AssistantToolCallFunction {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantToolCallFunction: expected dict".into()))?;
+        let mut name = None;
+        let mut arguments = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantToolCallFunction: expected string key".into()))?;
+            match key {
+                "name" => name = Some(String::from_starlark_value(&v)?),
+                "arguments" => arguments = Some(String::from_starlark_value(&v)?),
+                _ => {}
+            }
+            if name.is_some() && arguments.is_some() {
+                break;
+            }
+        }
+        Ok(AssistantToolCallFunction {
+            name: name.ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantToolCallFunction: missing name".into()))?,
+            arguments: arguments.ok_or_else(|| ExpressionError::StarlarkConversionError("AssistantToolCallFunction: missing arguments".into()))?,
+        })
     }
 }
 
@@ -528,6 +928,16 @@ impl AssistantToolCallFunctionExpression {
         let name = self.name.compile_one(params)?;
         let arguments = self.arguments.compile_one(params)?;
         Ok(AssistantToolCallFunction { name, arguments })
+    }
+}
+
+impl FromStarlarkValue for AssistantToolCallFunctionExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let f = AssistantToolCallFunction::from_starlark_value(value)?;
+        Ok(AssistantToolCallFunctionExpression {
+            name: WithExpression::Value(f.name),
+            arguments: WithExpression::Value(f.arguments),
+        })
     }
 }
 
@@ -564,6 +974,16 @@ impl SimpleContent {
                 *self = SimpleContent::Text(text)
             }
         }
+    }
+}
+
+impl FromStarlarkValue for SimpleContent {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        if let Ok(Some(s)) = <&str as UnpackValue>::unpack_value(*value) {
+            return Ok(SimpleContent::Text(s.to_owned()));
+        }
+        let parts = Vec::<SimpleContentPart>::from_starlark_value(value)?;
+        Ok(SimpleContent::Parts(parts))
     }
 }
 
@@ -609,6 +1029,16 @@ impl SimpleContentExpression {
     }
 }
 
+impl FromStarlarkValue for SimpleContentExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        if let Ok(Some(s)) = <&str as UnpackValue>::unpack_value(*value) {
+            return Ok(SimpleContentExpression::Text(s.to_owned()));
+        }
+        let parts = Vec::<WithExpression<SimpleContentPartExpression>>::from_starlark_value(value)?;
+        Ok(SimpleContentExpression::Parts(parts))
+    }
+}
+
 /// A part of simple text content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -618,6 +1048,21 @@ pub enum SimpleContentPart {
         /// The text content.
         text: String,
     },
+}
+
+impl FromStarlarkValue for SimpleContentPart {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("SimpleContentPart: expected dict".into()))?;
+        for (k, v) in dict.iter() {
+            if let Ok(Some("text")) = <&str as UnpackValue>::unpack_value(k) {
+                return Ok(SimpleContentPart::Text {
+                    text: String::from_starlark_value(&v)?,
+                });
+            }
+        }
+        Err(ExpressionError::StarlarkConversionError("SimpleContentPart: missing text".into()))
+    }
 }
 
 /// Expression variant of [`SimpleContentPart`] for dynamic content.
@@ -642,6 +1087,17 @@ impl SimpleContentPartExpression {
                 let text = text.compile_one(params)?;
                 Ok(SimpleContentPart::Text { text })
             }
+        }
+    }
+}
+
+impl FromStarlarkValue for SimpleContentPartExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let part = SimpleContentPart::from_starlark_value(value)?;
+        match part {
+            SimpleContentPart::Text { text } => Ok(SimpleContentPartExpression::Text {
+                text: WithExpression::Value(text),
+            }),
         }
     }
 }
@@ -728,6 +1184,16 @@ impl RichContent {
     }
 }
 
+impl FromStarlarkValue for RichContent {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        if let Ok(Some(s)) = <&str as UnpackValue>::unpack_value(*value) {
+            return Ok(RichContent::Text(s.to_owned()));
+        }
+        let parts = Vec::<RichContentPart>::from_starlark_value(value)?;
+        Ok(RichContent::Parts(parts))
+    }
+}
+
 /// Expression variant of [`RichContent`] for dynamic content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -765,6 +1231,16 @@ impl RichContentExpression {
                 Ok(RichContent::Parts(compiled_parts))
             }
         }
+    }
+}
+
+impl FromStarlarkValue for RichContentExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        if let Ok(Some(s)) = <&str as UnpackValue>::unpack_value(*value) {
+            return Ok(RichContentExpression::Text(s.to_owned()));
+        }
+        let parts = Vec::<WithExpression<RichContentPartExpression>>::from_starlark_value(value)?;
+        Ok(RichContentExpression::Parts(parts))
     }
 }
 
@@ -814,6 +1290,94 @@ impl RichContentPart {
             RichContentPart::InputVideo { video_url } => video_url.is_empty(),
             RichContentPart::VideoUrl { video_url } => video_url.is_empty(),
             RichContentPart::File { file } => file.is_empty(),
+        }
+    }
+}
+
+impl ToStarlarkValue for RichContentPart {
+    fn to_starlark_value<'v>(
+        &self,
+        heap: &'v StarlarkHeap,
+    ) -> StarlarkValue<'v> {
+        match self {
+            RichContentPart::Text { text } => heap.alloc(StarlarkAllocDict([
+                ("type", "text".to_starlark_value(heap)),
+                ("text", text.to_starlark_value(heap)),
+            ])),
+            RichContentPart::ImageUrl { image_url } => {
+                heap.alloc(StarlarkAllocDict([
+                    ("type", "image_url".to_starlark_value(heap)),
+                    ("image_url", image_url.to_starlark_value(heap)),
+                ]))
+            }
+            RichContentPart::InputAudio { input_audio } => {
+                heap.alloc(StarlarkAllocDict([
+                    ("type", "input_audio".to_starlark_value(heap)),
+                    ("input_audio", input_audio.to_starlark_value(heap)),
+                ]))
+            }
+            RichContentPart::InputVideo { video_url } => {
+                heap.alloc(StarlarkAllocDict([
+                    ("type", "input_video".to_starlark_value(heap)),
+                    ("video_url", video_url.to_starlark_value(heap)),
+                ]))
+            }
+            RichContentPart::VideoUrl { video_url } => {
+                heap.alloc(StarlarkAllocDict([
+                    ("type", "video_url".to_starlark_value(heap)),
+                    ("video_url", video_url.to_starlark_value(heap)),
+                ]))
+            }
+            RichContentPart::File { file } => heap.alloc(StarlarkAllocDict([
+                ("type", "file".to_starlark_value(heap)),
+                ("file", file.to_starlark_value(heap)),
+            ])),
+        }
+    }
+}
+
+impl FromStarlarkValue for RichContentPart {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("RichContentPart: expected dict".into()))?;
+        // First pass: find the type
+        let mut typ = None;
+        for (k, v) in dict.iter() {
+            if let Ok(Some("type")) = <&str as UnpackValue>::unpack_value(k) {
+                typ = Some(<&str as UnpackValue>::unpack_value(v)
+                    .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                    .ok_or_else(|| ExpressionError::StarlarkConversionError("RichContentPart: expected string type".into()))?);
+                break;
+            }
+        }
+        let typ = typ.ok_or_else(|| ExpressionError::StarlarkConversionError("RichContentPart: missing type".into()))?;
+        // Second pass: find the payload by expected key
+        let payload_key = match typ {
+            "text" => "text",
+            "image_url" => "image_url",
+            "input_audio" => "input_audio",
+            "input_video" | "video_url" => "video_url",
+            "file" => "file",
+            _ => return Err(ExpressionError::StarlarkConversionError(format!("RichContentPart: unknown type: {}", typ))),
+        };
+        let mut payload = None;
+        for (k, v) in dict.iter() {
+            if let Ok(Some(key)) = <&str as UnpackValue>::unpack_value(k) {
+                if key == payload_key {
+                    payload = Some(v);
+                    break;
+                }
+            }
+        }
+        let v = payload.ok_or_else(|| ExpressionError::StarlarkConversionError(format!("RichContentPart: missing {}", payload_key)))?;
+        match typ {
+            "text" => Ok(RichContentPart::Text { text: String::from_starlark_value(&v)? }),
+            "image_url" => Ok(RichContentPart::ImageUrl { image_url: ImageUrl::from_starlark_value(&v)? }),
+            "input_audio" => Ok(RichContentPart::InputAudio { input_audio: InputAudio::from_starlark_value(&v)? }),
+            "input_video" => Ok(RichContentPart::InputVideo { video_url: VideoUrl::from_starlark_value(&v)? }),
+            "video_url" => Ok(RichContentPart::VideoUrl { video_url: VideoUrl::from_starlark_value(&v)? }),
+            "file" => Ok(RichContentPart::File { file: File::from_starlark_value(&v)? }),
+            _ => unreachable!(),
         }
     }
 }
@@ -877,6 +1441,32 @@ impl RichContentPartExpression {
     }
 }
 
+impl FromStarlarkValue for RichContentPartExpression {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let part = RichContentPart::from_starlark_value(value)?;
+        match part {
+            RichContentPart::Text { text } => Ok(RichContentPartExpression::Text {
+                text: WithExpression::Value(text),
+            }),
+            RichContentPart::ImageUrl { image_url } => Ok(RichContentPartExpression::ImageUrl {
+                image_url: WithExpression::Value(image_url),
+            }),
+            RichContentPart::InputAudio { input_audio } => Ok(RichContentPartExpression::InputAudio {
+                input_audio: WithExpression::Value(input_audio),
+            }),
+            RichContentPart::InputVideo { video_url } => Ok(RichContentPartExpression::InputVideo {
+                video_url: WithExpression::Value(video_url),
+            }),
+            RichContentPart::VideoUrl { video_url } => Ok(RichContentPartExpression::VideoUrl {
+                video_url: WithExpression::Value(video_url),
+            }),
+            RichContentPart::File { file } => Ok(RichContentPartExpression::File {
+                file: WithExpression::Value(file),
+            }),
+        }
+    }
+}
+
 /// An image URL for multimodal input.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImageUrl {
@@ -901,6 +1491,44 @@ impl ImageUrl {
     }
 }
 
+impl ToStarlarkValue for ImageUrl {
+    fn to_starlark_value<'v>(
+        &self,
+        heap: &'v StarlarkHeap,
+    ) -> StarlarkValue<'v> {
+        heap.alloc(StarlarkAllocDict([
+            ("url", self.url.to_starlark_value(heap)),
+            ("detail", self.detail.to_starlark_value(heap)),
+        ]))
+    }
+}
+
+impl FromStarlarkValue for ImageUrl {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("ImageUrl: expected dict".into()))?;
+        let mut url = None;
+        let mut detail = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("ImageUrl: expected string key".into()))?;
+            match key {
+                "url" => url = Some(String::from_starlark_value(&v)?),
+                "detail" => detail = Option::<ImageUrlDetail>::from_starlark_value(&v)?,
+                _ => {}
+            }
+            if url.is_some() && detail.is_some() {
+                break;
+            }
+        }
+        Ok(ImageUrl {
+            url: url.ok_or_else(|| ExpressionError::StarlarkConversionError("ImageUrl: missing url".into()))?,
+            detail,
+        })
+    }
+}
+
 /// Detail level for image processing.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ImageUrlDetail {
@@ -913,6 +1541,33 @@ pub enum ImageUrlDetail {
     /// High detail mode (more accurate, more tokens).
     #[serde(rename = "high")]
     High,
+}
+
+impl ToStarlarkValue for ImageUrlDetail {
+    fn to_starlark_value<'v>(
+        &self,
+        heap: &'v StarlarkHeap,
+    ) -> StarlarkValue<'v> {
+        match self {
+            ImageUrlDetail::Auto => "auto".to_starlark_value(heap),
+            ImageUrlDetail::Low => "low".to_starlark_value(heap),
+            ImageUrlDetail::High => "high".to_starlark_value(heap),
+        }
+    }
+}
+
+impl FromStarlarkValue for ImageUrlDetail {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let s = <&str as UnpackValue>::unpack_value(*value)
+            .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("ImageUrlDetail: expected string".into()))?;
+        match s {
+            "auto" => Ok(ImageUrlDetail::Auto),
+            "low" => Ok(ImageUrlDetail::Low),
+            "high" => Ok(ImageUrlDetail::High),
+            _ => Err(ExpressionError::StarlarkConversionError(format!("ImageUrlDetail: unknown value: {}", s))),
+        }
+    }
 }
 
 /// Audio input for multimodal messages.
@@ -931,6 +1586,44 @@ impl InputAudio {
     }
 }
 
+impl ToStarlarkValue for InputAudio {
+    fn to_starlark_value<'v>(
+        &self,
+        heap: &'v StarlarkHeap,
+    ) -> StarlarkValue<'v> {
+        heap.alloc(StarlarkAllocDict([
+            ("data", self.data.to_starlark_value(heap)),
+            ("format", self.format.to_starlark_value(heap)),
+        ]))
+    }
+}
+
+impl FromStarlarkValue for InputAudio {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("InputAudio: expected dict".into()))?;
+        let mut data = None;
+        let mut format = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("InputAudio: expected string key".into()))?;
+            match key {
+                "data" => data = Some(String::from_starlark_value(&v)?),
+                "format" => format = Some(String::from_starlark_value(&v)?),
+                _ => {}
+            }
+            if data.is_some() && format.is_some() {
+                break;
+            }
+        }
+        Ok(InputAudio {
+            data: data.unwrap_or_default(),
+            format: format.unwrap_or_default(),
+        })
+    }
+}
+
 /// A video URL for multimodal input.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VideoUrl {
@@ -942,6 +1635,37 @@ impl VideoUrl {
     /// Returns `true` if the URL is empty.
     pub fn is_empty(&self) -> bool {
         self.url.is_empty()
+    }
+}
+
+impl ToStarlarkValue for VideoUrl {
+    fn to_starlark_value<'v>(
+        &self,
+        heap: &'v StarlarkHeap,
+    ) -> StarlarkValue<'v> {
+        heap.alloc(StarlarkAllocDict([(
+            "url",
+            self.url.to_starlark_value(heap),
+        )]))
+    }
+}
+
+impl FromStarlarkValue for VideoUrl {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("VideoUrl: expected dict".into()))?;
+        let mut url = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("VideoUrl: expected string key".into()))?;
+            if key == "url" {
+                url = Some(String::from_starlark_value(&v)?);
+            }
+        }
+        Ok(VideoUrl {
+            url: url.ok_or_else(|| ExpressionError::StarlarkConversionError("VideoUrl: missing url".into()))?,
+        })
     }
 }
 
@@ -985,5 +1709,43 @@ impl File {
             && self.file_id.is_none()
             && self.filename.is_none()
             && self.file_url.is_none()
+    }
+}
+
+impl ToStarlarkValue for File {
+    fn to_starlark_value<'v>(
+        &self,
+        heap: &'v StarlarkHeap,
+    ) -> StarlarkValue<'v> {
+        heap.alloc(StarlarkAllocDict([
+            ("file_data", self.file_data.to_starlark_value(heap)),
+            ("file_id", self.file_id.to_starlark_value(heap)),
+            ("filename", self.filename.to_starlark_value(heap)),
+            ("file_url", self.file_url.to_starlark_value(heap)),
+        ]))
+    }
+}
+
+impl FromStarlarkValue for File {
+    fn from_starlark_value(value: &StarlarkValue) -> Result<Self, ExpressionError> {
+        let dict = StarlarkDictRef::from_value(*value)
+            .ok_or_else(|| ExpressionError::StarlarkConversionError("File: expected dict".into()))?;
+        let mut file_data = None;
+        let mut file_id = None;
+        let mut filename = None;
+        let mut file_url = None;
+        for (k, v) in dict.iter() {
+            let key = <&str as UnpackValue>::unpack_value(k)
+                .map_err(|e| ExpressionError::StarlarkConversionError(e.to_string()))?
+                .ok_or_else(|| ExpressionError::StarlarkConversionError("File: expected string key".into()))?;
+            match key {
+                "file_data" => file_data = Option::<String>::from_starlark_value(&v)?,
+                "file_id" => file_id = Option::<String>::from_starlark_value(&v)?,
+                "filename" => filename = Option::<String>::from_starlark_value(&v)?,
+                "file_url" => file_url = Option::<String>::from_starlark_value(&v)?,
+                _ => {}
+            }
+        }
+        Ok(File { file_data, file_id, filename, file_url })
     }
 }
