@@ -1,38 +1,52 @@
-## Trigger CI/CD by Editing this File
+# ObjectiveAI Web
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+The [objective-ai.io](https://objective-ai.io) web interface — a Next.js application for browsing, executing, and creating ObjectiveAI Functions.
 
-## Getting Started
+[Live Site](https://objective-ai.io) | [GitHub](https://github.com/ObjectiveAI/objectiveai) | [Discord](https://discord.gg/gbNFHensby)
 
-First, run the development server:
+## What's here
+
+| Page | Description |
+|------|-------------|
+| `/functions` | Browse all indexed Functions with search and filter |
+| `/functions/[slug]` | Execute a Function, select a Profile, view scores and reasoning |
+| `/functions/create` | JSON builder for creating `function.json` files |
+| `/profiles/train` | Train a Profile on labeled data |
+| `/ensembles` / `/ensemble-llms` | Browse Ensembles and individual LLM configurations |
+| `/ensembles/create` | Build and validate an Ensemble with real-time ID computation |
+| `/chat` | Direct chat completions with any Ensemble LLM |
+| `/vector` | Direct vector completions for testing scoring logic |
+| `/account/keys` | API key management |
+| `/account/credits` | Credit balance and Stripe purchase flow |
+| `/docs/api/**` | 32-page API reference with request/response schemas |
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Install dependencies from the workspace root
+npm install
+
+# Start the dev server
+npm run dev --workspace=objectiveai-web
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Next.js 15** (App Router, RSC, ISR)
+- **TypeScript** throughout
+- **ObjectiveAI JS SDK** for all API calls (no server-side proxy routes)
+- **NextAuth** for OAuth (Google, GitHub, X, Reddit)
+- **Stripe** for credit purchases
+- **WASM** (via `objectiveai-rs-wasm-js`) for client-side Ensemble validation
 
-## Learn More
+## Architecture notes
 
-To learn more about Next.js, take a look at the following resources:
+All API calls use the JS SDK directly from the client — there are no server-side API proxy routes. Browse pages use ISR with a 2-minute revalidation window. Authentication uses OAuth tokens stored in NextAuth sessions.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+See [CLAUDE.md](CLAUDE.md) for detailed development guidelines.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
