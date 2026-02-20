@@ -5,6 +5,7 @@ import { ScoresSchema } from "../scores";
 import { WeightsSchema } from "../weights";
 import { EnsembleSchema } from "../ensemble";
 import { UsageSchema } from "../usage";
+import { convert, type JSONSchema } from "../../../../json_schema";
 
 export const VectorCompletionSchema = z
   .object({
@@ -28,3 +29,4 @@ export const VectorCompletionSchema = z
   })
   .describe("A unary vector completion response.");
 export type VectorCompletion = z.infer<typeof VectorCompletionSchema>;
+export const VectorCompletionJsonSchema: JSONSchema = convert(VectorCompletionSchema);

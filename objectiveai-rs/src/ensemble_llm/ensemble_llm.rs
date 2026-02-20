@@ -26,16 +26,6 @@ pub struct EnsembleLlmBase {
     #[serde(default)]
     pub output_mode: super::OutputMode,
 
-    /// If true, invert this LLM's **vector-completion** vote distribution.
-    ///
-    /// This is useful when an LLM is prompted to "choose the worst response":
-    /// its vote can be inverted as \(1 - v\) and then L1-normalized so the
-    /// overall scoring still represents preference for the best response.
-    ///
-    /// **Vector completions only.** Ignored for chat completions.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub invert_vote: Option<bool>,
-
     /// Enable synthetic reasoning for non-reasoning LLMs.
     ///
     /// **Vector completions only.** Ignored for chat completions.
@@ -118,7 +108,6 @@ impl Default for EnsembleLlmBase {
         Self {
             model: String::new(),
             output_mode: super::OutputMode::default(),
-            invert_vote: None,
             synthetic_reasoning: None,
             top_logprobs: None,
             prefix_messages: None,
@@ -148,10 +137,6 @@ impl EnsembleLlmBase {
     /// This method removes default values, empty collections, and sorts
     /// collections to ensure identical configurations produce identical IDs.
     pub fn prepare(&mut self) {
-        self.invert_vote = match self.invert_vote {
-            Some(false) => None,
-            other => other,
-        };
         self.synthetic_reasoning = match self.synthetic_reasoning {
             Some(false) => None,
             other => other,

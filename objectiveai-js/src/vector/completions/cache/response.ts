@@ -1,5 +1,6 @@
 import z from "zod";
 import { VoteSchema } from "../response/vote";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const CacheVoteSchema = z
   .object({
@@ -7,3 +8,4 @@ export const CacheVoteSchema = z
   })
   .describe("Response containing a cached vote if one was found.");
 export type CacheVote = z.infer<typeof CacheVoteSchema>;
+export const CacheVoteJsonSchema: JSONSchema = convert(CacheVoteSchema);

@@ -8,6 +8,7 @@ import {
 } from "src/chat/completions/response/usage";
 import { numberIsEmpty } from "src/isEmpty";
 import z from "zod";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const UsageSchema = z
   .object({
@@ -32,6 +33,7 @@ export const UsageSchema = z
   })
   .describe("Token and cost usage statistics for the completion.");
 export type Usage = z.infer<typeof UsageSchema>;
+export const UsageJsonSchema: JSONSchema = convert(UsageSchema);
 
 export namespace Usage {
   export function isEmpty({

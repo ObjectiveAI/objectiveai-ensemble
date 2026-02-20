@@ -34,6 +34,7 @@ export const FunctionExecutionTaskSchema: z.ZodType<FunctionExecutionTask> = z
           recursive: true,
         })
         .describe("The tasks executed as part of the function execution."),
-    })
+    }),
   )
-  .describe("A function execution task.");
+  .describe("A function execution task.")
+  .meta({ title: "FunctionExecutionTask" });

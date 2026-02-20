@@ -10,6 +10,7 @@ import {
 } from "src/chat/completions/request/message";
 import z from "zod";
 import { Expression, ExpressionSchema } from "./expression";
+import { convert, type JSONSchema } from "../../json_schema";
 
 // Input Schema
 
@@ -46,6 +47,9 @@ export const ObjectInputSchemaSchema: z.ZodType<ObjectInputSchema> = z
   })
   .describe("An object input schema.")
   .meta({ title: "ObjectInputSchema" });
+export const ObjectInputSchemaJsonSchema: JSONSchema = convert(
+  ObjectInputSchemaSchema,
+);
 export type ObjectInputSchemaToZodSchema = z.ZodObject<
   Record<string, z.ZodOptional<z.ZodType<InputValue>> | z.ZodType<InputValue>>
 >;
@@ -106,6 +110,9 @@ export const ArrayInputSchemaSchema: z.ZodType<ArrayInputSchema> = z
   })
   .describe("An array input schema.")
   .meta({ title: "ArrayInputSchema" });
+export const ArrayInputSchemaJsonSchema: JSONSchema = convert(
+  ArrayInputSchemaSchema,
+);
 export type ArrayInputSchemaToZodSchema = z.ZodArray<z.ZodType<InputValue>>;
 
 export namespace ArrayInputSchemaExt {
@@ -143,6 +150,9 @@ export const StringInputSchemaSchema = z
   .describe("A string input schema.")
   .meta({ title: "StringInputSchema" });
 export type StringInputSchema = z.infer<typeof StringInputSchemaSchema>;
+export const StringInputSchemaJsonSchema: JSONSchema = convert(
+  StringInputSchemaSchema,
+);
 export type StringInputSchemaToZodSchema =
   | z.ZodString
   | z.ZodEnum<{
@@ -183,6 +193,9 @@ export const NumberInputSchemaSchema = z
   .describe("A number input schema.")
   .meta({ title: "NumberInputSchema" });
 export type NumberInputSchema = z.infer<typeof NumberInputSchemaSchema>;
+export const NumberInputSchemaJsonSchema: JSONSchema = convert(
+  NumberInputSchemaSchema,
+);
 export type NumberInputSchemaToZodSchema = z.ZodNumber;
 
 export namespace NumberInputSchemaExt {
@@ -225,6 +238,9 @@ export const IntegerInputSchemaSchema = z
   .describe("An integer input schema.")
   .meta({ title: "IntegerInputSchema" });
 export type IntegerInputSchema = z.infer<typeof IntegerInputSchemaSchema>;
+export const IntegerInputSchemaJsonSchema: JSONSchema = convert(
+  IntegerInputSchemaSchema,
+);
 export type IntegerInputSchemaToZodSchema = z.ZodInt;
 
 export namespace IntegerInputSchemaExt {
@@ -257,6 +273,9 @@ export const BooleanInputSchemaSchema = z
   .describe("A boolean input schema.")
   .meta({ title: "BooleanInputSchema" });
 export type BooleanInputSchema = z.infer<typeof BooleanInputSchemaSchema>;
+export const BooleanInputSchemaJsonSchema: JSONSchema = convert(
+  BooleanInputSchemaSchema,
+);
 export type BooleanInputSchemaToZodSchema = z.ZodBoolean;
 
 export namespace BooleanInputSchemaExt {
@@ -283,6 +302,9 @@ export const ImageInputSchemaSchema = z
   .describe("An image input schema.")
   .meta({ title: "ImageInputSchema" });
 export type ImageInputSchema = z.infer<typeof ImageInputSchemaSchema>;
+export const ImageInputSchemaJsonSchema: JSONSchema = convert(
+  ImageInputSchemaSchema,
+);
 export type ImageInputSchemaToZodSchema = typeof ImageRichContentPartSchema;
 
 export namespace ImageInputSchemaExt {
@@ -309,6 +331,9 @@ export const AudioInputSchemaSchema = z
   .describe("An audio input schema.")
   .meta({ title: "AudioInputSchema" });
 export type AudioInputSchema = z.infer<typeof AudioInputSchemaSchema>;
+export const AudioInputSchemaJsonSchema: JSONSchema = convert(
+  AudioInputSchemaSchema,
+);
 export type AudioInputSchemaToZodSchema = typeof AudioRichContentPartSchema;
 
 export namespace AudioInputSchemaExt {
@@ -335,6 +360,9 @@ export const VideoInputSchemaSchema = z
   .describe("A video input schema.")
   .meta({ title: "VideoInputSchema" });
 export type VideoInputSchema = z.infer<typeof VideoInputSchemaSchema>;
+export const VideoInputSchemaJsonSchema: JSONSchema = convert(
+  VideoInputSchemaSchema,
+);
 export type VideoInputSchemaToZodSchema = typeof VideoRichContentPartSchema;
 
 export namespace VideoInputSchemaExt {
@@ -361,6 +389,9 @@ export const FileInputSchemaSchema = z
   .describe("A file input schema.")
   .meta({ title: "FileInputSchema" });
 export type FileInputSchema = z.infer<typeof FileInputSchemaSchema>;
+export const FileInputSchemaJsonSchema: JSONSchema = convert(
+  FileInputSchemaSchema,
+);
 export type FileInputSchemaToZodSchema = typeof FileRichContentPartSchema;
 
 export namespace FileInputSchemaExt {
@@ -393,13 +424,18 @@ export const AnyOfInputSchemaSchema: z.ZodType<AnyOfInputSchema> = z
   })
   .describe("A union of schemas - input must match at least one.")
   .meta({ title: "AnyOfInputSchema" });
+export const AnyOfInputSchemaJsonSchema: JSONSchema = convert(
+  AnyOfInputSchemaSchema,
+);
 export type AnyOfInputSchemaToZodSchema = z.ZodUnion<z.ZodType<InputValue>[]>;
 
 export namespace AnyOfInputSchemaExt {
   export function toZodSchema(
     self: AnyOfInputSchema,
   ): AnyOfInputSchemaToZodSchema {
-    return z.union(self.anyOf.map((schema) => InputSchemaExt.toZodSchema(schema)));
+    return z.union(
+      self.anyOf.map((schema) => InputSchemaExt.toZodSchema(schema)),
+    );
   }
 }
 
@@ -420,6 +456,32 @@ export const InputSchemaSchema = z
   .describe("An input schema defining the structure of function inputs.")
   .meta({ title: "InputSchema" });
 export type InputSchema = z.infer<typeof InputSchemaSchema>;
+export const InputSchemaJsonSchema: JSONSchema = convert(InputSchemaSchema);
+
+export const QualityVectorFunctionObjectInputSchemaSchema =
+  ObjectInputSchemaSchema.describe(
+    ObjectInputSchemaSchema.description! +
+      " At least one property must be a required array.",
+  ).meta({ title: "ObjectInputSchema", wrapper: true });
+export type QualityVectorFunctionObjectInputSchema = z.infer<
+  typeof QualityVectorFunctionObjectInputSchemaSchema
+>;
+export const QualityVectorFunctionObjectInputSchemaJsonSchema: JSONSchema =
+  convert(QualityVectorFunctionObjectInputSchemaSchema);
+
+export const QualityVectorFunctionInputSchemaSchema = z
+  .union([ArrayInputSchemaSchema, QualityVectorFunctionObjectInputSchemaSchema])
+  .describe(
+    "Input schema for a vector function. Must be an array or an object with at least one required array property.",
+  )
+  .meta({ title: "QualityVectorFunctionInputSchema" });
+export type QualityVectorFunctionInputSchema = z.infer<
+  typeof QualityVectorFunctionInputSchemaSchema
+>;
+export const QualityVectorFunctionInputSchemaJsonSchema: JSONSchema = convert(
+  QualityVectorFunctionInputSchemaSchema,
+);
+
 export type InputSchemaToZodSchema =
   | ObjectInputSchemaToZodSchema
   | ArrayInputSchemaToZodSchema
@@ -505,6 +567,7 @@ export const InputValueSchema: z.ZodType<InputValue> = z
   ])
   .describe("A value provided as input to a function.")
   .meta({ title: "InputValue" });
+export const InputValueJsonSchema: JSONSchema = convert(InputValueSchema);
 
 export type InputValueExpression =
   | ImageRichContentPart
@@ -549,23 +612,32 @@ export const InputValueExpressionSchema: z.ZodType<InputValueExpression> = z
   ])
   .describe(InputValueSchema.description!)
   .meta({ title: "InputValueExpression" });
+export const InputValueExpressionJsonSchema: JSONSchema = convert(
+  InputValueExpressionSchema,
+);
 
 // Input Maps
+
+export const InputMapExpressionsSchema = z
+  .array(
+    ExpressionSchema.describe(
+      "An expression evaluating to a 1D array of Inputs. This becomes one sub-array in the input maps, referenced by its position index. Receives: `input`.",
+    ),
+  )
+  .describe(
+    "A list of expressions, each evaluating to a 1D array of Inputs. The i-th expression produces the i-th sub-array.",
+  );
+export type InputMapExpressions = z.infer<typeof InputMapExpressionsSchema>;
+export const InputMapExpressionsJsonSchema: JSONSchema = convert(
+  InputMapExpressionsSchema,
+);
 
 export const InputMapsExpressionSchema = z
   .union([
     ExpressionSchema.describe(
       "A single expression evaluating to a 2D array (array of arrays) of Inputs. Each inner array is a separate sub-array that mapped tasks can reference by index. Receives: `input`.",
     ),
-    z
-      .array(
-        ExpressionSchema.describe(
-          "An expression evaluating to a 1D array of Inputs. This becomes one sub-array in the input maps, referenced by its position index. Receives: `input`.",
-        ),
-      )
-      .describe(
-        "A list of expressions, each evaluating to a 1D array of Inputs. The i-th expression produces the i-th sub-array.",
-      ),
+    InputMapExpressionsSchema,
   ])
   .describe(
     "Defines arrays used by mapped tasks. A task with `map: i` references the i-th sub-array. " +
@@ -575,3 +647,15 @@ export const InputMapsExpressionSchema = z
       "Receives: `input`.",
   );
 export type InputMapsExpression = z.infer<typeof InputMapsExpressionSchema>;
+export const InputMapsExpressionJsonSchema: JSONSchema = convert(
+  InputMapsExpressionSchema,
+);
+
+export const QualityInputMapsExpressionSchema =
+  InputMapExpressionsSchema.describe(InputMapsExpressionSchema.description!);
+export type QualityInputMapsExpression = z.infer<
+  typeof QualityInputMapsExpressionSchema
+>;
+export const QualityInputMapsExpressionJsonSchema: JSONSchema = convert(
+  QualityInputMapsExpressionSchema,
+);

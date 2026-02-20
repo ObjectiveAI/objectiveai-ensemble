@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "./json_schema";
 import {
   Expression,
   ExpressionSchema,
@@ -41,6 +42,7 @@ export const JsonValueSchema: z.ZodType<JsonValue> = z
   )
   .describe("A JSON value.")
   .meta({ title: "JsonValue" });
+export const JsonValueJsonSchema: JSONSchema = convert(JsonValueSchema);
 
 export type JsonValueExpression =
   | null
@@ -83,3 +85,4 @@ export const JsonValueExpressionSchema: z.ZodType<JsonValueExpression> = z
   )
   .describe(JsonValueSchema.description!)
   .meta({ title: "JsonValueExpression" });
+export const JsonValueExpressionJsonSchema: JSONSchema = convert(JsonValueExpressionSchema);

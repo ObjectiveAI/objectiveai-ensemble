@@ -1,6 +1,7 @@
 import { ChatCompletionSchema as SuperChatCompletionSchema } from "src/chat/completions/response/unary/chat_completion";
 import { ObjectiveAIErrorSchema } from "src/error";
 import z from "zod";
+import { convert, type JSONSchema } from "../../../../json_schema";
 
 export const ChatCompletionSchema = SuperChatCompletionSchema.extend({
   index: z
@@ -13,3 +14,4 @@ export const ChatCompletionSchema = SuperChatCompletionSchema.extend({
   "A chat completion generated in the pursuit of a vector completion."
 );
 export type ChatCompletion = z.infer<typeof ChatCompletionSchema>;
+export const ChatCompletionJsonSchema: JSONSchema = convert(ChatCompletionSchema);

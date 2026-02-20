@@ -1245,7 +1245,7 @@ impl FromStarlarkValue for RichContentExpression {
 }
 
 /// A part of rich content.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RichContentPart {
     /// Text content.
@@ -1468,7 +1468,7 @@ impl FromStarlarkValue for RichContentPartExpression {
 }
 
 /// An image URL for multimodal input.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImageUrl {
     /// The URL of the image (can be a data URL or HTTP URL).
     pub url: String,
@@ -1530,7 +1530,7 @@ impl FromStarlarkValue for ImageUrl {
 }
 
 /// Detail level for image processing.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ImageUrlDetail {
     /// Let the model decide the detail level.
     #[serde(rename = "auto")]
@@ -1571,7 +1571,7 @@ impl FromStarlarkValue for ImageUrlDetail {
 }
 
 /// Audio input for multimodal messages.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputAudio {
     /// Base64-encoded audio data.
     pub data: String,
@@ -1625,7 +1625,7 @@ impl FromStarlarkValue for InputAudio {
 }
 
 /// A video URL for multimodal input.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VideoUrl {
     /// The URL of the video.
     pub url: String,
@@ -1670,7 +1670,7 @@ impl FromStarlarkValue for VideoUrl {
 }
 
 /// A file attachment for multimodal input.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct File {
     /// Base64-encoded file data.
     #[serde(skip_serializing_if = "Option::is_none")]

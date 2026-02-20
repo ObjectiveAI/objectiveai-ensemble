@@ -1,0 +1,254 @@
+import { describe, it, expect } from "vitest";
+import { Functions } from "../../index.js";
+
+// ── helpers ──────────────────────────────────────────────────────────
+
+const outputExpr = { $starlark: "output['scores'][0]" };
+const contentParts = [{ type: "text" as const, text: "Hello" }];
+
+/** VC task with fixed messages/responses — for rejection tests only. */
+function fixedVcTask() {
+  return {
+    type: "vector.completion" as const,
+    messages: [{ role: "user" as const, content: contentParts }],
+    responses: [contentParts, contentParts],
+    output: outputExpr,
+  };
+}
+
+/** VC task that references input in messages — passes diversity checks. */
+function qualityVcTask() {
+  return {
+    type: "vector.completion" as const,
+    messages: [
+      {
+        role: "user" as const,
+        content: [{ type: "text" as const, text: { $starlark: "str(input)" } }],
+      },
+    ],
+    responses: [contentParts, contentParts],
+    output: outputExpr,
+  };
+}
+
+function leafScalar(
+  tasks: unknown[],
+  inputMaps?: unknown,
+) {
+  return {
+    type: "scalar.function",
+    description: "test",
+    input_schema: { type: "string" },
+    tasks,
+    ...(inputMaps !== undefined ? { input_maps: inputMaps } : {}),
+  };
+}
+
+function scalarFunctionTask(map?: number) {
+  return {
+    type: "scalar.function",
+    owner: "test",
+    repository: "test",
+    commit: "abc123",
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
+    ...(map !== undefined ? { map } : {}),
+  };
+}
+
+function vectorFunctionTask(map?: number) {
+  return {
+    type: "vector.function",
+    owner: "test",
+    repository: "test",
+    commit: "abc123",
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
+    ...(map !== undefined ? { map } : {}),
+  };
+}
+
+function placeholderScalarTask(map?: number) {
+  return {
+    type: "placeholder.scalar.function",
+    input_schema: { type: "integer", minimum: 1, maximum: 10 },
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
+    ...(map !== undefined ? { map } : {}),
+  };
+}
+
+function placeholderVectorTask(map?: number) {
+  return {
+    type: "placeholder.vector.function",
+    input_schema: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 2,
+      maxItems: 10,
+    },
+    output_length: { $starlark: "len(input)" },
+    input_split: { $starlark: "[[x] for x in input]" },
+    input_merge: { $starlark: "[x[0] for x in input]" },
+    input: { $starlark: "input" },
+    output: { $starlark: "output" },
+    ...(map !== undefined ? { map } : {}),
+  };
+}
+
+// ── tests ────────────────────────────────────────────────────────────
+
+describe("checkLeafScalarFunction", () => {
+  // wrong type
+  it("rejects vector function", () => {
+    const f = {
+      type: "vector.function",
+      description: "test",
+      input_schema: {
+        type: "array",
+        items: { type: "string" },
+        minItems: 2,
+      },
+      output_length: { $starlark: "len(input)" },
+      input_split: { $starlark: "[[x] for x in input]" },
+      input_merge: { $starlark: "[x[0] for x in input]" },
+      tasks: [],
+    };
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS01/,
+    );
+  });
+
+  // input_maps
+  it("rejects input_maps", () => {
+    const f = leafScalar([qualityVcTask()], [{ $starlark: "input" }]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS02/,
+    );
+  });
+
+  // map on vc task
+  it("rejects vc task with map", () => {
+    const task = { ...qualityVcTask(), map: 0 };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS04/,
+    );
+  });
+
+  // wrong task types
+  it("rejects scalar.function task", () => {
+    const f = leafScalar([scalarFunctionTask()]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS05/,
+    );
+  });
+
+  it("rejects vector.function task", () => {
+    const f = leafScalar([vectorFunctionTask()]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS06/,
+    );
+  });
+
+  it("rejects placeholder.scalar.function task", () => {
+    const f = leafScalar([placeholderScalarTask()]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS07/,
+    );
+  });
+
+  it("rejects placeholder.vector.function task", () => {
+    const f = leafScalar([placeholderVectorTask()]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS08/,
+    );
+  });
+
+  // message/response content checks (use fixedVcTask to trigger checks)
+  it("rejects empty messages", () => {
+    const task = { ...fixedVcTask(), messages: [] };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS09/,
+    );
+  });
+
+  it("rejects one response", () => {
+    const task = { ...fixedVcTask(), responses: [contentParts] };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS10/,
+    );
+  });
+
+  it("rejects plain string response", () => {
+    const task = { ...fixedVcTask(), responses: ["bad", contentParts] };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS11/,
+    );
+  });
+
+  it("rejects plain string user message content", () => {
+    const task = {
+      ...fixedVcTask(),
+      messages: [{ role: "user", content: "bad" }],
+    };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS15/,
+    );
+  });
+
+  it("rejects plain string developer message content", () => {
+    const task = {
+      ...fixedVcTask(),
+      messages: [{ role: "developer", content: "bad" }],
+    };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS13/,
+    );
+  });
+
+  it("rejects plain string system message content", () => {
+    const task = {
+      ...fixedVcTask(),
+      messages: [{ role: "system", content: "bad" }],
+    };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS14/,
+    );
+  });
+
+  // success cases
+  it("accepts valid single task", () => {
+    const f = leafScalar([qualityVcTask()]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).not.toThrow();
+  });
+
+  it("accepts valid multiple tasks", () => {
+    const f = leafScalar([qualityVcTask(), qualityVcTask(), qualityVcTask()]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).not.toThrow();
+  });
+
+  it("rejects empty tasks", () => {
+    const f = leafScalar([]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).toThrow(
+      /LS03/,
+    );
+  });
+
+  it("accepts expression messages (skips content check)", () => {
+    const task = {
+      type: "vector.completion",
+      messages: { $starlark: "[{'role': 'user', 'content': [{'type': 'text', 'text': str(input)}]}]" },
+      responses: { $starlark: "[[{'type': 'text', 'text': 'A'}], [{'type': 'text', 'text': 'B'}]]" },
+      output: outputExpr,
+    };
+    const f = leafScalar([task]);
+    expect(() => Functions.Quality.checkLeafScalarFunction(f)).not.toThrow();
+  });
+});

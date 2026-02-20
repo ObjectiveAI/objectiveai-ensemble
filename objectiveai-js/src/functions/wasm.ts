@@ -80,3 +80,4 @@ export function compileFunctionInputMerge(
   const unmapped = mapsToRecords(result);
   return unmapped as InputValue;
 }
+

@@ -3,6 +3,7 @@ import {
   EnsembleLlmWithFallbacksAndCountSchema,
 } from "src/ensemble_llm/ensemble_llm";
 import z from "zod";
+import { convert, type JSONSchema } from "../json_schema";
 
 export const EnsembleBaseSchema = z
   .object({
@@ -13,6 +14,7 @@ export const EnsembleBaseSchema = z
   .describe("An ensemble of LLMs.")
   .meta({ title: "EnsembleBase" });
 export type EnsembleBase = z.infer<typeof EnsembleBaseSchema>;
+export const EnsembleBaseJsonSchema: JSONSchema = convert(EnsembleBaseSchema);
 
 export const EnsembleSchema = z
   .object({
@@ -24,3 +26,4 @@ export const EnsembleSchema = z
   .describe("An ensemble of LLMs with a unique identifier.")
   .meta({ title: "Ensemble" });
 export type Ensemble = z.infer<typeof EnsembleSchema>;
+export const EnsembleJsonSchema: JSONSchema = convert(EnsembleSchema);

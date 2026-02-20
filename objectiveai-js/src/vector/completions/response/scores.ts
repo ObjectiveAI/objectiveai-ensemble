@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const ScoresSchema = z
   .array(z.number())
@@ -6,6 +7,7 @@ export const ScoresSchema = z
     "The scores for each response in the request, aggregated from the votes of the Ensemble LLMs."
   );
 export type Scores = z.infer<typeof ScoresSchema>;
+export const ScoresJsonSchema: JSONSchema = convert(ScoresSchema);
 
 export namespace Scores {
   export function merged(a: Scores, b: Scores): [Scores, boolean] {

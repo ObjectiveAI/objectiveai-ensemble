@@ -36,14 +36,15 @@ export const FunctionExecutionTaskChunkSchema: z.ZodType<FunctionExecutionTaskCh
             recursive: true,
           })
           .describe("The tasks executed as part of the function execution."),
-      })
+      }),
     )
-    .describe("A chunk of a function execution task.");
+    .describe("A chunk of a function execution task.")
+    .meta({ title: "FunctionExecutionTaskChunk" });
 
 export namespace FunctionExecutionTaskChunk {
   export function merged(
     a: FunctionExecutionTaskChunk,
-    b: FunctionExecutionTaskChunk
+    b: FunctionExecutionTaskChunk,
   ): [FunctionExecutionTaskChunk, boolean] {
     const index = a.index;
     const task_index = a.task_index;

@@ -6,6 +6,7 @@ import {
 import { MessagesSchema } from "src/chat/completions/request/message";
 import { ToolsSchema } from "src/chat/completions/request/tool";
 import { VectorResponsesSchema } from "../request/vector_response";
+import { convert, type JSONSchema } from "../../../json_schema";
 
 export const CacheVoteRequestSchema = z
   .object({
@@ -19,3 +20,4 @@ export const CacheVoteRequestSchema = z
     "Parameters for requesting a cached vote from the ObjectiveAI votes cache.",
   );
 export type CacheVoteRequest = z.infer<typeof CacheVoteRequestSchema>;
+export const CacheVoteRequestJsonSchema: JSONSchema = convert(CacheVoteRequestSchema);

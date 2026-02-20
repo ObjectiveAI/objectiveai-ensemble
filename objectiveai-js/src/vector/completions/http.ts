@@ -1,4 +1,5 @@
 import z from "zod";
+import { convert, type JSONSchema } from "../../json_schema";
 import { ObjectiveAI, RequestOptions } from "../../client";
 import { Stream } from "../../stream";
 import { VectorCompletion } from "./response/unary/vector_completion";
@@ -45,6 +46,7 @@ export const RetrieveSchema = z
   })
   .describe("Response containing votes from a historical vector completion.");
 export type Retrieve = z.infer<typeof RetrieveSchema>;
+export const RetrieveJsonSchema: JSONSchema = convert(RetrieveSchema);
 
 export function retrieve(
   client: ObjectiveAI,

@@ -62,7 +62,7 @@ impl InputMaps {
 ///
 /// Represents any JSON-like value that can be passed to a Function,
 /// including rich content types (images, audio, video, files).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Input {
     /// Rich content (image, audio, video, file).

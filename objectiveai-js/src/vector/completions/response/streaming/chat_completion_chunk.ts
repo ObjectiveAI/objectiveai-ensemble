@@ -5,6 +5,7 @@ import {
 import { ObjectiveAIErrorSchema } from "src/error";
 import { merge } from "src/merge";
 import z from "zod";
+import { convert, type JSONSchema } from "../../../../json_schema";
 
 export const ChatCompletionChunkSchema = SuperChatCompletionChunkSchema.extend({
   index: z
@@ -17,6 +18,7 @@ export const ChatCompletionChunkSchema = SuperChatCompletionChunkSchema.extend({
   "A chat completion chunk generated in the pursuit of a vector completion."
 );
 export type ChatCompletionChunk = z.infer<typeof ChatCompletionChunkSchema>;
+export const ChatCompletionChunkJsonSchema: JSONSchema = convert(ChatCompletionChunkSchema);
 
 export namespace ChatCompletionChunk {
   export function merged(
