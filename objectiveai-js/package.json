@@ -10,7 +10,7 @@
   },
   "type": "module",
   "scripts": {
-    "build": "shx rm -f .schema-cache.json && shx rm -rf dist && node ./scripts/install-wasm.cjs && npx tsx scripts/precompute-schemas.ts && tsup && shx rm -f dist/*.d.mts && shx rm -f dist/*.d.cts && shx rm -f .schema-cache.json",
+    "build": "shx rm -f .schema-cache.json && shx rm -rf dist && node ./scripts/install-wasm.cjs && npx tsx scripts/precompute-schemas.ts && tsup && shx rm -f .schema-cache.json",
     "test": "node test/test-cjs.cjs && node test/test-esm.mjs && vitest run",
     "start": "node dist/index.js"
   },
@@ -57,6 +57,106 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "import": "./dist/auth/index.js",
+      "require": "./dist/auth/index.cjs"
+    },
+    "./chat": {
+      "types": "./dist/chat/index.d.ts",
+      "import": "./dist/chat/index.js",
+      "require": "./dist/chat/index.cjs"
+    },
+    "./chat/completions": {
+      "types": "./dist/chat/completions/index.d.ts",
+      "import": "./dist/chat/completions/index.js",
+      "require": "./dist/chat/completions/index.cjs"
+    },
+    "./ensemble": {
+      "types": "./dist/ensemble/index.d.ts",
+      "import": "./dist/ensemble/index.js",
+      "require": "./dist/ensemble/index.cjs"
+    },
+    "./ensemble_llm": {
+      "types": "./dist/ensemble_llm/index.d.ts",
+      "import": "./dist/ensemble_llm/index.js",
+      "require": "./dist/ensemble_llm/index.cjs"
+    },
+    "./functions": {
+      "types": "./dist/functions/index.d.ts",
+      "import": "./dist/functions/index.js",
+      "require": "./dist/functions/index.cjs"
+    },
+    "./functions/expression": {
+      "types": "./dist/functions/expression/index.d.ts",
+      "import": "./dist/functions/expression/index.js",
+      "require": "./dist/functions/expression/index.cjs"
+    },
+    "./functions/executions": {
+      "types": "./dist/functions/executions/index.d.ts",
+      "import": "./dist/functions/executions/index.js",
+      "require": "./dist/functions/executions/index.cjs"
+    },
+    "./functions/profiles": {
+      "types": "./dist/functions/profiles/index.d.ts",
+      "import": "./dist/functions/profiles/index.js",
+      "require": "./dist/functions/profiles/index.cjs"
+    },
+    "./functions/quality": {
+      "types": "./dist/functions/quality/index.d.ts",
+      "import": "./dist/functions/quality/index.js",
+      "require": "./dist/functions/quality/index.cjs"
+    },
+    "./vector": {
+      "types": "./dist/vector/index.d.ts",
+      "import": "./dist/vector/index.js",
+      "require": "./dist/vector/index.cjs"
+    },
+    "./vector/completions": {
+      "types": "./dist/vector/completions/index.d.ts",
+      "import": "./dist/vector/completions/index.js",
+      "require": "./dist/vector/completions/index.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "auth": [
+        "dist/auth/index.d.ts"
+      ],
+      "chat": [
+        "dist/chat/index.d.ts"
+      ],
+      "chat/completions": [
+        "dist/chat/completions/index.d.ts"
+      ],
+      "ensemble": [
+        "dist/ensemble/index.d.ts"
+      ],
+      "ensemble_llm": [
+        "dist/ensemble_llm/index.d.ts"
+      ],
+      "functions": [
+        "dist/functions/index.d.ts"
+      ],
+      "functions/expression": [
+        "dist/functions/expression/index.d.ts"
+      ],
+      "functions/executions": [
+        "dist/functions/executions/index.d.ts"
+      ],
+      "functions/profiles": [
+        "dist/functions/profiles/index.d.ts"
+      ],
+      "functions/quality": [
+        "dist/functions/quality/index.d.ts"
+      ],
+      "vector": [
+        "dist/vector/index.d.ts"
+      ],
+      "vector/completions": [
+        "dist/vector/completions/index.d.ts"
+      ]
     }
   },
   "files": [
