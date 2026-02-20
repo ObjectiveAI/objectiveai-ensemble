@@ -819,7 +819,7 @@ where
                         ) => ProfileParam::FetchedOrInline {
                             full_id: None,
                             profile: objectiveai::functions::Profile::Inline(
-                                objectiveai::functions::InlineProfile::Tasks(profile),
+                                profile,
                             ),
                         },
                         _ => return Err(super::executions::Error::InvalidProfile(
@@ -1078,9 +1078,7 @@ where
                                         ) => ProfileParam::FetchedOrInline {
                                             full_id: None,
                                             profile: objectiveai::functions::Profile::Inline(
-                                                objectiveai::functions::InlineProfile::Tasks(
-                                                    profile.clone(),
-                                                ),
+                                                profile.clone(),
                                             ),
                                         },
                                         _ => return Err(super::executions::Error::InvalidProfile(

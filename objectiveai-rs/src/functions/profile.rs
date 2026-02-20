@@ -120,7 +120,7 @@ pub enum TaskProfile {
         commit: Option<String>,
     },
     /// Inline profile for a nested function task.
-    InlineFunction(InlineTasksProfile),
+    InlineFunction(InlineProfile),
     /// Configuration for a vector completion task.
     VectorCompletion {
         /// The ensemble to use for voting.
@@ -146,10 +146,11 @@ impl TaskProfile {
     pub fn validate_commit_required(&self) -> bool {
         match self {
             TaskProfile::RemoteFunction { commit, .. } => commit.is_some(),
-            TaskProfile::InlineFunction(inline) => inline
+            TaskProfile::InlineFunction(InlineProfile::Tasks(inline)) => inline
                 .tasks
                 .iter()
                 .all(TaskProfile::validate_commit_required),
+            TaskProfile::InlineFunction(InlineProfile::Auto(_)) => true,
             TaskProfile::VectorCompletion { .. } => true,
             TaskProfile::Placeholder {} => true,
         }

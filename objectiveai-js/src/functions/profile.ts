@@ -30,26 +30,20 @@ export const RemoteFunctionTaskProfileJsonSchema: JSONSchema = convert(
   RemoteFunctionTaskProfileSchema,
 );
 
-export interface InlineFunctionTaskProfile {
+export interface InlineTasksFunctionTaskProfile {
   tasks: TaskProfile[];
   profile: z.infer<typeof VectorProfileSchema>;
 }
+export interface InlineAutoFunctionTaskProfile {
+  ensemble: z.infer<typeof EnsembleSchema>;
+  profile: z.infer<typeof VectorProfileSchema>;
+}
+export type InlineFunctionTaskProfile = InlineTasksFunctionTaskProfile | InlineAutoFunctionTaskProfile;
 export const InlineFunctionTaskProfileSchema: z.ZodType<InlineFunctionTaskProfile> =
   z
-    .object({
-      tasks: z
-        .array(
-          z
-            .lazy(() => TaskProfileSchema)
-            .meta({ title: "TaskProfile", recursive: true }),
-        )
-        .describe("The list of task profiles."),
-      profile: VectorProfileSchema.describe(
-        "The weights for each task used in weighted averaging of task outputs. Can be either a list of weights or a list of objects with `weight` and optional `invert`.",
-      ),
-    })
-    .describe("A function profile defined inline.")
-    .meta({ title: "InlineFunctionTaskProfile" });
+    .lazy(() => InlineProfileSchema)
+    .describe("An inline function profile (tasks-based or auto).")
+    .meta({ title: "InlineFunctionTaskProfile", recursive: true });
 export const InlineFunctionTaskProfileJsonSchema: JSONSchema = convert(
   InlineFunctionTaskProfileSchema,
 );
