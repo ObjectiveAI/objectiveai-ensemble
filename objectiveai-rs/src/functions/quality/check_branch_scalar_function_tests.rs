@@ -6,8 +6,9 @@ use crate::chat::completions::request::{
     RichContentExpression, RichContentPartExpression, UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, BooleanInputSchema, Expression, InputSchema,
-    IntegerInputSchema, ObjectInputSchema, StringInputSchema, WithExpression,
+    AnyOfInputSchema, ArrayInputSchema, BooleanInputSchema, Expression,
+    InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
+    WithExpression,
 };
 use crate::functions::quality::check_branch_scalar_function;
 use crate::functions::{
@@ -1128,4 +1129,53 @@ fn all_tasks_skipped() {
         ],
     };
     test_err(&f, "CV42");
+}
+#[test]
+fn no_example_inputs() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
+        input_maps: None,
+        tasks: vec![TaskExpression::ScalarFunction(
+            ScalarFunctionTaskExpression {
+                owner: "test".to_string(),
+                repository: "test".to_string(),
+                commit: "abc123".to_string(),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "BS09");
+}
+
+#[test]
+fn placeholder_scalar_field_validation_fails() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Integer(IntegerInputSchema {
+            description: None,
+            minimum: Some(1),
+            maximum: Some(10),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::PlaceholderScalarFunction(
+            PlaceholderScalarFunctionTaskExpression {
+                input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
+                skip: None,
+                map: None,
+                input: WithExpression::Expression(Expression::Starlark(
+                    "input".to_string(),
+                )),
+                output: Expression::Starlark("output".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "BS11");
 }

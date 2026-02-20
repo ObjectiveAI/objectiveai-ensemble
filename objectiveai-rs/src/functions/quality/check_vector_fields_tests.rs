@@ -6,7 +6,7 @@ use super::check_vector_fields::{
     VectorFieldsValidation, check_vector_fields, inputs_equal, random_subsets,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, Expression, Input, InputSchema, IntegerInputSchema,
+    AnyOfInputSchema, ArrayInputSchema, Expression, Input, InputSchema, IntegerInputSchema,
     ObjectInputSchema, StringInputSchema, WithExpression,
 };
 use crate::util::index_map;
@@ -551,4 +551,187 @@ fn job_application_ranker_1() {
             r#"{"apps": [app for sub in input for app in sub["apps"]], "job_description": input[0]["job_description"]}"#.to_string(),
         )),
     }, "VF03")
+}
+
+#[test]
+fn output_length_fails_for_split() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(2),
+                max_items: Some(5),
+                items: Box::new(InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input) if len(input) > 1 else 1/0".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input]".to_string(),
+            )),
+        },
+        "VF07",
+    );
+}
+
+#[test]
+fn input_merge_fails_for_subset() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(3),
+                max_items: Some(3),
+                items: Box::new(InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input)".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input] if len(input) == 3 else 1/0".to_string(),
+            )),
+        },
+        "VF16",
+    );
+}
+
+#[test]
+fn output_length_fails_for_merged_subset() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(3),
+                max_items: Some(3),
+                items: Box::new(InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input) if len(input) == 3 or len(input) == 1 else 1/0".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input]".to_string(),
+            )),
+        },
+        "VF18",
+    );
+}
+
+#[test]
+fn output_length_wrong_for_merged_subset() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(3),
+                max_items: Some(3),
+                items: Box::new(InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input) if len(input) == 3 or len(input) == 1 else 999".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input]".to_string(),
+            )),
+        },
+        "VF20",
+    );
+}
+
+#[test]
+fn no_example_inputs() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input)".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input]".to_string(),
+            )),
+        },
+        "VF22",
+    );
+}
+
+#[test]
+fn array_violates_min_items() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(3),
+                max_items: Some(3),
+                // Needs to be an array of objects to avoid VF21 (Wait, no, VF23 triggers when checking array length manually)
+                items: Box::new(InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input)".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input]".to_string(),
+            )),
+        },
+        "VF23",
+    );
+}
+
+#[test]
+fn array_violates_max_items() {
+    test_err(
+        VectorFieldsValidation {
+            input_schema: InputSchema::Array(ArrayInputSchema {
+                description: None,
+                min_items: Some(2),
+                max_items: Some(3), // subset can never be > 3 if original is 3, wait.
+                items: Box::new(InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })),
+            }),
+            output_length: WithExpression::Expression(Expression::Starlark(
+                "len(input)".to_string(),
+            )),
+            input_split: WithExpression::Expression(Expression::Starlark(
+                "[[x] for x in input]".to_string(),
+            )),
+            // If we double the items in the merge!
+            input_merge: WithExpression::Expression(Expression::Starlark(
+                "[x[0] for x in input] if len(input) == 3 else [x[0] for x in input] + [x[0] for x in input]".to_string(),
+            )),
+        },
+        "VF24",
+    );
 }

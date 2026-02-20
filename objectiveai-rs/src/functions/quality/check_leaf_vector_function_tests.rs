@@ -8,7 +8,7 @@ use crate::chat::completions::request::{
     SystemMessageExpression, UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, BooleanInputSchema, Expression, ImageInputSchema,
+    AnyOfInputSchema, ArrayInputSchema, BooleanInputSchema, Expression, ImageInputSchema,
     InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
     WithExpression,
 };
@@ -3076,4 +3076,106 @@ fn job_application_ranker_3() {
         )),
     };
     test(&f);
+}
+
+#[test]
+fn input_merge_fails_on_subset() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::Object(ObjectInputSchema {
+            description: None,
+            properties: index_map! {
+                "items" => InputSchema::Array(ArrayInputSchema {
+                    description: None,
+                    min_items: Some(3),
+                    max_items: Some(3),
+                    items: Box::new(InputSchema::String(StringInputSchema {
+                        description: None,
+                        r#enum: None,
+                    })),
+                }),
+                "label" => InputSchema::String(StringInputSchema {
+                    description: None,
+                    r#enum: None,
+                })
+            },
+            required: Some(vec!["items".to_string(), "label".to_string()]),
+        }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x}] for x in input]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label'] if len(input) == 3 else 1/0}".to_string())),
+    };
+    test_err(&f, "LV11");
+}
+
+#[test]
+fn no_example_inputs() {
+    let f = RemoteFunction::Vector {
+        description: "test".to_string(),
+        changelog: None,
+        input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Expression(Expression::Starlark(
+                    "[[{'type': 'text', 'text': x}] for x in input]"
+                        .to_string(),
+                )),
+                output: Expression::Starlark("output['scores']".to_string()),
+            },
+        )],
+        output_length: WithExpression::Expression(Expression::Starlark("1".to_string())),
+        input_split: WithExpression::Expression(Expression::Starlark("[input]".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("input[0]".to_string())),
+    };
+    test_err(&f, "LV15");
 }
