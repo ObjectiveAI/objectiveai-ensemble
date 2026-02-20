@@ -54,7 +54,7 @@ export default function Home() {
 
         const functionItems: FeaturedFunction[] = await Promise.all(
           limitedFunctions.map(async (fn) => {
-            const slug = `${fn.owner}--${fn.repository}`;
+            const slug = `${fn.owner}/${fn.repository}`;
             // Fetch full function details via SDK
             const details = await Functions.retrieve(client, fn.owner, fn.repository, fn.commit);
 
@@ -317,6 +317,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+
     </div>
   );
 }

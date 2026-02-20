@@ -11,5 +11,8 @@
     "build:js": "npm run build -w objectiveai-js",
     "build:web": "npm run build -w objectiveai-web",
     "build": "npm run build:js && npm run build:web"
+  },
+  "dependencies": {
+    "lightningcss-darwin-arm64": "^1.31.1"
   }
 }

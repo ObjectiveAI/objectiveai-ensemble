@@ -1,4 +1,5 @@
 import { ReactElement } from "react";
+import Link from "next/link";
 import z from "zod";
 
 export function EndpointDocs({
@@ -17,7 +18,22 @@ export function EndpointDocs({
   responseBodyStreaming?: z.ZodType;
 }): ReactElement {
   return (
-    <div className="docsContent">
+    <div className="docsContent container">
+      <Link
+        href="/docs"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          fontSize: '13px',
+          fontWeight: 500,
+          color: 'var(--accent)',
+          textDecoration: 'none',
+          marginBottom: '24px',
+        }}
+      >
+        <span>←</span> All Endpoints
+      </Link>
       <div className="docsSections">
         {requestHeaders && (
           <Section title="Request Headers" schema={requestHeaders} />

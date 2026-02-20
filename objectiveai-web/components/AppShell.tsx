@@ -82,38 +82,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isActive = (path: string) => pathname.startsWith(path);
 
   const navLinks = [
-    {
-      href: "/functions",
-      label: "Functions",
-      subLinks: [
-        { href: "/functions", label: "Browse" },
-        { href: "/functions/create", label: "Create" },
-        { href: "/profiles", label: "Profiles" },
-        { href: "/profiles/train", label: "Train" },
-      ],
-    },
-    {
-      href: "/ensembles",
-      label: "Ensembles",
-      subLinks: [
-        { href: "/ensembles", label: "Browse" },
-        { href: "/ensembles/create", label: "Create" },
-        { href: "/ensemble-llms", label: "LLMs" },
-        { href: "/ensemble-llms/create", label: "Create LLM" },
-      ],
-    },
-    {
-      href: "/information",
-      label: "Information",
-      subLinks: [
-        { href: "/people", label: "Team" },
-        { href: "/information", label: "Info" },
-        { href: "/legal", label: "Legal" },
-      ],
-    },
+    { href: "/functions", label: "Functions" },
+    { href: "/docs", label: "Docs" },
+    { href: "/people", label: "Team" },
+    { href: "/legal", label: "Legal" },
   ];
-
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   return (
     <>
@@ -193,88 +166,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 alignItems: 'center',
               }}>
                 {navLinks.map(link => (
-                  <div
+                  <Link
                     key={link.href}
-                    style={{ position: 'relative' }}
-                    onMouseEnter={() => link.subLinks && link.subLinks.length > 1 && setOpenDropdown(link.href)}
-                    onMouseLeave={() => setOpenDropdown(null)}
+                    href={link.href}
+                    className={`navLink ${isActive(link.href) ? 'active' : ''}`}
                   >
-                    <Link
-                      href={link.href}
-                      className={`navLink ${isActive(link.href) ? 'active' : ''}`}
-                      aria-expanded={link.subLinks && link.subLinks.length > 1 ? openDropdown === link.href : undefined}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
-                      {link.label}
-                      {link.subLinks && link.subLinks.length > 1 && (
-                        <svg
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          style={{
-                            opacity: 0.5,
-                            transform: openDropdown === link.href ? 'rotate(180deg)' : 'rotate(0deg)',
-                            transition: 'transform 0.2s',
-                          }}
-                        >
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
-                      )}
-                    </Link>
-                    {/* Dropdown */}
-                    {link.subLinks && link.subLinks.length > 1 && openDropdown === link.href && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        paddingTop: '8px',
-                        zIndex: 100,
-                      }}>
-                        <div style={{
-                          background: 'var(--card-bg)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '12px',
-                          padding: '8px',
-                          minWidth: isMobile ? '120px' : '140px',
-                          boxShadow: '0 4px 20px var(--shadow)',
-                        }}>
-                          {link.subLinks.map(sub => (
-                            <Link
-                              key={sub.href}
-                              href={sub.href}
-                              onClick={() => setOpenDropdown(null)}
-                              style={{
-                                display: 'block',
-                                padding: '8px 12px',
-                                fontSize: '14px',
-                                fontWeight: 500,
-                                color: pathname === sub.href ? 'var(--accent)' : 'var(--text)',
-                                textDecoration: 'none',
-                                borderRadius: '8px',
-                                transition: 'background 0.15s',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'var(--border)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent';
-                              }}
-                            >
-                              {sub.label}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    {link.label}
+                  </Link>
                 ))}
               </div>
             )}
@@ -412,7 +310,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Mobile Menu Dropdown - horizontal layout like footer */}
+        {/* Mobile Menu Dropdown - flat links */}
         {isMobile && mobileMenuOpen && (
           <div style={{
             position: 'absolute',
@@ -437,48 +335,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 justifyContent: 'space-between',
               }}>
                 {navLinks.map((link) => (
-                  <div key={link.href} style={{ flex: 1 }}>
-                    <Link
-                      href={link.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      style={{
-                        display: 'block',
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        color: isActive(link.href) ? 'var(--accent)' : 'var(--text-muted)',
-                        textDecoration: 'none',
-                        marginBottom: '6px',
-                      }}
-                    >
-                      {link.label}
-                    </Link>
-                    {link.subLinks && link.subLinks.length > 1 && (
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '4px',
-                      }}>
-                        {link.subLinks.map(sub => (
-                          <Link
-                            key={sub.href}
-                            href={sub.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            style={{
-                              display: 'block',
-                              fontSize: '13px',
-                              fontWeight: 400,
-                              color: pathname === sub.href ? 'var(--accent)' : 'var(--text)',
-                              textDecoration: 'none',
-                            }}
-                          >
-                            {sub.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: isActive(link.href) ? 'var(--accent)' : 'var(--text)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {link.label}
+                  </Link>
                 ))}
               </div>
               {/* Discord Button for Mobile */}

@@ -63,8 +63,7 @@ export default function FunctionsPage() {
         // Fetch details for each unique function via API route
         const functionItems: FunctionItem[] = await Promise.all(
           Array.from(uniqueFunctions.values()).map(async (fn) => {
-            // Use -- separator for slug (single path segment)
-            const slug = `${fn.owner}--${fn.repository}`;
+            const slug = `${fn.owner}/${fn.repository}`;
 
             // Fetch full function details via SDK
             const details = await Functions.retrieve(client, fn.owner, fn.repository, fn.commit);
@@ -169,28 +168,6 @@ export default function FunctionsPage() {
             <p style={{ fontSize: isMobile ? '15px' : '17px', color: 'var(--text-muted)' }}>
               Browse AI functions for scoring, ranking, and evaluation
             </p>
-          </div>
-          <div className="pageHeaderActions">
-            <Link
-              href="/functions/create"
-              className="pillBtn"
-              style={{
-                padding: "12px 24px",
-                fontSize: "14px",
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                textDecoration: "none",
-                flexShrink: 0,
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Create New
-            </Link>
           </div>
         </div>
 

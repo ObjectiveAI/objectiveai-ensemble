@@ -172,8 +172,13 @@ export function getDefaultValue(schema: InputSchema): InputValue {
       );
 
     case "array":
-      // Return empty array, user can add items
-      return [];
+      // Create array with minimum required items
+      const minItems = schema.minItems ?? 0;
+      const items = [];
+      for (let i = 0; i < minItems; i++) {
+        items.push(getDefaultValue(schema.items));
+      }
+      return items;
 
     case "string":
       // Use first enum value if available

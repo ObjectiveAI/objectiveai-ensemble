@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createPublicClient } from "../../../lib/client";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
+import { loadReasoningModels } from "../../../lib/reasoning-models";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
 import { InputBuilder } from "../../../components/InputBuilder";
@@ -15,7 +17,6 @@ import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/
 import { compileFunctionInputSplit, type FunctionConfig } from "../../../lib/wasm-validation";
 import { Functions, EnsembleLlm } from "objectiveai";
 import { ObjectiveAIFetchError } from "objectiveai";
-
 interface FunctionDetails {
   owner: string;
   repository: string;
@@ -27,13 +28,24 @@ interface FunctionDetails {
   inputSchema: Record<string, unknown> | null;
 }
 
-export default function FunctionDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function FunctionDetailPage({ params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = use(params);
 
-  // Parse slug (format: owner--repository)
-  const [owner, repository] = slug.includes("--")
-    ? slug.split("--")
-    : ["unknown", slug];
+  const router = useRouter();
+
+  // Parse slug: catch-all route gives us string[] e.g. ["owner", "repo"]
+  const owner = slug[0] || "unknown";
+  const repository = slug.length >= 2 ? slug[1] : slug[0] || "unknown";
+
+  // Backward compat: old "--" URLs redirect to new "/" format
+  useEffect(() => {
+    if (slug.length === 1 && slug[0].includes("--")) {
+      router.replace(`/functions/${slug[0].replace("--", "/")}`);
+    }
+  }, [slug, router]);
+
+  // Canonical key for localStorage pinning (owner/repo format)
+  const slugKey = `${owner}/${repository}`;
 
   const [functionDetails, setFunctionDetails] = useState<FunctionDetails | null>(null);
   const [availableProfiles, setAvailableProfiles] = useState<{ owner: string; repository: string; commit: string }[]>([]);
@@ -93,21 +105,19 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const [showAllModels, setShowAllModels] = useState(false);
   const [expandedVotes, setExpandedVotes] = useState<Set<number>>(new Set());
 
+  // Demo mode: when enabled, uses RNG votes (free, simulated). When disabled, uses real LLM inference.
+  const [demoMode, setDemoMode] = useState(true);
+
   // Reasoning options
   const [reasoningEnabled, setReasoningEnabled] = useState(false);
-  const [reasoningModel, setReasoningModel] = useState("openai/gpt-4o-mini");
-
-  const REASONING_MODEL_OPTIONS = [
-    { value: "openai/gpt-4o-mini", label: "GPT-4o Mini (cheapest)" },
-    { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
-    { value: "openai/gpt-4o", label: "GPT-4o" },
-    { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-    { value: "google/gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-    { value: "anthropic/claude-opus-4.6", label: "Claude Opus 4.6 (best)" },
-  ];
+  const [reasoningModel, setReasoningModel] = useState(""); // Set after loading from JSON
+  const [reasoningModels, setReasoningModels] = useState<Array<{ value: string; label: string }>>([]);
 
   // Fetch function details
   useEffect(() => {
+    // Skip fetching if this is a legacy "--" URL that will redirect
+    if (slug.length === 1 && slug[0].includes("--")) return;
+
     async function fetchDetails() {
       try {
         setIsLoadingDetails(true);
@@ -128,8 +138,18 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
           );
           profiles = matchingPairs.map((p: { profile: { owner: string; repository: string; commit: string } }) => p.profile);
         } catch {
-          // If profiles fetch fails, just continue without profiles
+          // If pairs fetch fails, continue to fallback
           profiles = [];
+        }
+
+        // Fallback: try fetching profile from same repo (CLI puts profile.json in the function repo)
+        if (profiles.length === 0) {
+          try {
+            const profile = await Functions.Profiles.retrieve(publicClient, owner, repository, null);
+            profiles = [{ owner, repository, commit: profile.commit }];
+          } catch {
+            // Genuinely no profile exists for this function
+          }
         }
 
         setAvailableProfiles(profiles);
@@ -159,14 +179,27 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     fetchDetails();
   }, [owner, repository]);
 
-  // Load saved state from localStorage
+  // Load saved state from localStorage + migrate old "--" keys
   useEffect(() => {
     const savedLibrary = localStorage.getItem("pinned-functions");
     if (savedLibrary) {
-      const library = JSON.parse(savedLibrary);
-      setIsSaved(library.includes(slug));
+      const library: string[] = JSON.parse(savedLibrary);
+      // Migrate old "--" format keys to "/" format
+      const migrated = library.map((s: string) => s.includes("--") ? s.replace("--", "/") : s);
+      if (JSON.stringify(migrated) !== JSON.stringify(library)) {
+        localStorage.setItem("pinned-functions", JSON.stringify(migrated));
+      }
+      setIsSaved(migrated.includes(slugKey));
     }
-  }, [slug]);
+  }, [slugKey]);
+
+  // Load reasoning models from build-time generated JSON
+  useEffect(() => {
+    loadReasoningModels().then(config => {
+      setReasoningModels(config.models.map(m => ({ value: m.value, label: m.label })));
+      setReasoningModel(config.default_model);
+    });
+  }, []);
 
   // Toggle save state
   const toggleSave = () => {
@@ -174,11 +207,11 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
     const library = savedLibrary ? JSON.parse(savedLibrary) : [];
 
     if (isSaved) {
-      const updated = library.filter((s: string) => s !== slug);
+      const updated = library.filter((s: string) => s !== slugKey);
       localStorage.setItem("pinned-functions", JSON.stringify(updated));
       setIsSaved(false);
     } else {
-      library.push(slug);
+      library.push(slugKey);
       localStorage.setItem("pinned-functions", JSON.stringify(library));
       setIsSaved(true);
       setShowPinnedColor(true);
@@ -291,7 +324,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         input: formData as unknown as Parameters<typeof Functions.Executions.create>[3]["input"],
         stream: true as const,
         from_cache: DEV_EXECUTION_OPTIONS.from_cache,
-        from_rng: DEV_EXECUTION_OPTIONS.from_rng,
+        from_rng: demoMode,
         reasoning: reasoningEnabled ? {
           model: {
             model: reasoningModel,
@@ -877,7 +910,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                       fontSize: isMobile ? "14px" : "15px",
                     }}
                   >
-                    {REASONING_MODEL_OPTIONS.map((option) => (
+                    {reasoningModels.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -898,6 +931,51 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
               </p>
             </div>
 
+            {/* Demo Mode Toggle */}
+            <div style={{
+              marginTop: isMobile ? "16px" : "20px",
+              padding: "12px 16px",
+              background: "var(--bg-secondary)",
+              borderRadius: "8px",
+              border: "1px solid var(--border)",
+            }}>
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                cursor: "pointer",
+              }}>
+                <input
+                  type="checkbox"
+                  checked={demoMode}
+                  onChange={(e) => setDemoMode(e.target.checked)}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    accentColor: "var(--accent)",
+                    cursor: "pointer",
+                  }}
+                />
+                <span style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "var(--text)",
+                }}>
+                  Demo Mode
+                </span>
+              </label>
+              <p style={{
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                marginTop: "8px",
+                lineHeight: 1.4,
+              }}>
+                {demoMode
+                  ? "Simulated results (free, instant). Scores are generated via RNG."
+                  : "Real LLM inference. Costs credits per execution."}
+              </p>
+            </div>
+
             <button
               className="pillBtn"
               onClick={handleRun}
@@ -906,11 +984,22 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                 width: "100%",
                 marginTop: isMobile ? "20px" : "32px",
                 padding: isMobile ? "12px 16px" : undefined,
-                opacity: isRunning ? 0.7 : 1,
+                opacity: (isRunning || availableProfiles.length === 0) ? 0.7 : 1,
               }}
             >
-              {isRunning ? "Running..." : "Execute"}
+              {isRunning ? "Running..." : availableProfiles.length === 0 ? "No Profile Available" : "Execute"}
             </button>
+            {availableProfiles.length === 0 && !isLoadingDetails && (
+              <p style={{
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                marginTop: "8px",
+                textAlign: "center",
+                lineHeight: 1.4,
+              }}>
+                This function has no profile yet. A profile with learned weights is required for execution.
+              </p>
+            )}
           </div>
 
           {/* Right - Results */}
@@ -1232,6 +1321,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                     )}
                   </div>
                 )}
+
               </div>
             )}
           </div>

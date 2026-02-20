@@ -58,7 +58,7 @@ function SidebarTable(): ReactElement {
   return (
     <nav className="docsSidebarNav">
       <SidebarSection title="Overview" />
-      <SidebarItem href="/information" title="All Endpoints" />
+      <SidebarItem href="/docs" title="All Endpoints" />
 
       <SidebarSectionSpacer />
 

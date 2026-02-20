@@ -1,0 +1,26 @@
+{
+  "generated_at": "2026-02-15T01:40:33.528Z",
+  "default_model": "anthropic/claude-haiku-4.5",
+  "models": [
+    {
+      "value": "anthropic/claude-haiku-4.5",
+      "label": "Claude Haiku 4.5",
+      "provider": "Anthropic",
+      "tier": "affordable",
+      "pricing": {
+        "prompt": 0.000001,
+        "completion": 0.000005
+      }
+    },
+    {
+      "value": "anthropic/claude-sonnet-4.5",
+      "label": "Claude Sonnet 4.5",
+      "provider": "Anthropic",
+      "tier": "premium",
+      "pricing": {
+        "prompt": 0.000003,
+        "completion": 0.000015
+      }
+    }
+  ]
+}
