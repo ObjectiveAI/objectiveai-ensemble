@@ -386,7 +386,7 @@ fn create_simple_vector_function() -> objectiveai::functions::InlineFunction {
 
 /// Creates a simple inline profile for a function with one vector completion task.
 fn create_simple_profile() -> objectiveai::functions::InlineProfile {
-    objectiveai::functions::InlineProfile {
+    objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
         tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
             ensemble: create_simple_ensemble(),
             profile:
@@ -397,7 +397,7 @@ fn create_simple_profile() -> objectiveai::functions::InlineProfile {
         profile: objectiveai::vector::completions::request::Profile::Weights(
             vec![Decimal::ONE],
         ),
-    }
+    })
 }
 
 /// Creates a simple inline scalar function with one vector completion task.
@@ -446,7 +446,7 @@ fn create_simple_scalar_function() -> objectiveai::functions::InlineFunction {
 
 /// Creates a simple inline scalar profile.
 fn create_simple_scalar_profile() -> objectiveai::functions::InlineProfile {
-    objectiveai::functions::InlineProfile {
+    objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
         tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
             ensemble: create_simple_ensemble(),
             profile:
@@ -457,7 +457,7 @@ fn create_simple_scalar_profile() -> objectiveai::functions::InlineProfile {
         profile: objectiveai::vector::completions::request::Profile::Weights(
             vec![Decimal::ONE],
         ),
-    }
+    })
 }
 
 // ============================================================================
@@ -731,7 +731,7 @@ mod tests {
         };
 
         // Create a profile with equal weights for both tasks
-        let profile = objectiveai::functions::InlineProfile {
+        let profile = objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
             tasks: vec![
                 objectiveai::functions::TaskProfile::VectorCompletion {
                     ensemble: create_simple_ensemble(),
@@ -749,7 +749,7 @@ mod tests {
             profile: objectiveai::vector::completions::request::Profile::Weights(
                 vec![Decimal::new(5, 1), Decimal::new(5, 1)],
             ), // 0.5, 0.5
-        };
+        });
 
         let request = Arc::new(objectiveai::functions::executions::request::Request::FunctionInlineProfileInline {
             body: objectiveai::functions::executions::request::FunctionInlineProfileInlineRequestBody {
@@ -829,7 +829,7 @@ mod tests {
             },
         );
 
-        let profile = objectiveai::functions::InlineProfile {
+        let profile = objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
             tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
                 ensemble,
                 // Profile weights are per-LLM-config, not per-instance
@@ -844,7 +844,7 @@ mod tests {
             profile: objectiveai::vector::completions::request::Profile::Weights(
                 vec![Decimal::ONE],
             ),
-        };
+        });
 
         let request = Arc::new(objectiveai::functions::executions::request::Request::FunctionInlineProfileInline {
             body: objectiveai::functions::executions::request::FunctionInlineProfileInlineRequestBody {

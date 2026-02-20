@@ -101,23 +101,46 @@ export const TaskProfilesSchema = z
 export type TaskProfiles = z.infer<typeof TaskProfilesSchema>;
 export const TaskProfilesJsonSchema: JSONSchema = convert(TaskProfilesSchema);
 
-// Inline Profile
+// Inline Tasks Profile (per-task configuration)
 
-export const InlineProfileSchema = z
+export const InlineTasksProfileSchema = z
   .object({
     tasks: TaskProfilesSchema,
     profile: VectorProfileSchema.describe(
       "The weights for each task used in weighted averaging of task outputs. Can be either a list of weights or a list of objects with `weight` and optional `invert`.",
     ),
   })
+  .describe("A tasks-based function profile defined inline.")
+  .meta({ title: "InlineTasksProfile" });
+export type InlineTasksProfile = z.infer<typeof InlineTasksProfileSchema>;
+export const InlineTasksProfileJsonSchema: JSONSchema = convert(InlineTasksProfileSchema);
+
+// Inline Auto Profile (single ensemble+weights for all tasks)
+
+export const InlineAutoProfileSchema = z
+  .object({
+    ensemble: EnsembleSchema,
+    profile: VectorProfileSchema.describe(
+      "The weights for each LLM in the ensemble.",
+    ),
+  })
+  .describe("An auto function profile defined inline. Applies a single ensemble and weights to all vector completion tasks.")
+  .meta({ title: "InlineAutoProfile" });
+export type InlineAutoProfile = z.infer<typeof InlineAutoProfileSchema>;
+export const InlineAutoProfileJsonSchema: JSONSchema = convert(InlineAutoProfileSchema);
+
+// Inline Profile (union of tasks and auto)
+
+export const InlineProfileSchema = z
+  .union([InlineTasksProfileSchema, InlineAutoProfileSchema])
   .describe("A function profile defined inline.")
   .meta({ title: "InlineProfile" });
 export type InlineProfile = z.infer<typeof InlineProfileSchema>;
 export const InlineProfileJsonSchema: JSONSchema = convert(InlineProfileSchema);
 
-// Remote Profile
+// Remote Tasks Profile
 
-export const RemoteProfileSchema = InlineProfileSchema.extend({
+export const RemoteTasksProfileSchema = InlineTasksProfileSchema.extend({
   description: z.string().describe("The description of the profile."),
   changelog: z
     .string()
@@ -127,6 +150,32 @@ export const RemoteProfileSchema = InlineProfileSchema.extend({
       "When present, describes changes from the previous version or versions.",
     ),
 })
+  .describe('A tasks-based function profile fetched from GitHub. "profile.json"')
+  .meta({ title: "RemoteTasksProfile" });
+export type RemoteTasksProfile = z.infer<typeof RemoteTasksProfileSchema>;
+export const RemoteTasksProfileJsonSchema: JSONSchema = convert(RemoteTasksProfileSchema);
+
+// Remote Auto Profile
+
+export const RemoteAutoProfileSchema = InlineAutoProfileSchema.extend({
+  description: z.string().describe("The description of the profile."),
+  changelog: z
+    .string()
+    .optional()
+    .nullable()
+    .describe(
+      "When present, describes changes from the previous version or versions.",
+    ),
+})
+  .describe('An auto function profile fetched from GitHub. "profile.json"')
+  .meta({ title: "RemoteAutoProfile" });
+export type RemoteAutoProfile = z.infer<typeof RemoteAutoProfileSchema>;
+export const RemoteAutoProfileJsonSchema: JSONSchema = convert(RemoteAutoProfileSchema);
+
+// Remote Profile (union of tasks and auto)
+
+export const RemoteProfileSchema = z
+  .union([RemoteTasksProfileSchema, RemoteAutoProfileSchema])
   .describe('A function profile fetched from GitHub. "profile.json"')
   .meta({ title: "RemoteProfile" });
 export type RemoteProfile = z.infer<typeof RemoteProfileSchema>;
