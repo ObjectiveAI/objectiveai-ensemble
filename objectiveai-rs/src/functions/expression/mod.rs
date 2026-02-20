@@ -35,3 +35,4 @@ pub use expression::*;
 pub use input::*;
 pub use params::*;
 pub use runtime::*;
+pub use starlark::{FromStarlarkValue, ToStarlarkValue};

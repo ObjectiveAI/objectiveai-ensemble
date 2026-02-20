@@ -250,6 +250,16 @@ where
     }
 }
 
+impl<T: super::starlark::FromStarlarkValue> super::starlark::FromStarlarkValue
+    for WithExpression<T>
+{
+    fn from_starlark_value(
+        value: &starlark::values::Value,
+    ) -> Result<Self, super::ExpressionError> {
+        T::from_starlark_value(value).map(WithExpression::Value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
