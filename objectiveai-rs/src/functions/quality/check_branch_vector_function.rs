@@ -1,17 +1,25 @@
 //! Quality checks for branch vector functions (depth > 0: function/placeholder tasks only).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::functions::{RemoteFunction, TaskExpression};
+use crate::functions::expression::{Input, Params, ParamsRef};
+use crate::functions::{CompiledTask, Function, RemoteFunction, TaskExpression};
 
-use super::check_leaf_vector_function::{
-    check_vector_input_schema, validate_tasks_for_merged_inputs,
+use super::check_description::check_description;
+use super::check_input_schema::check_input_schema;
+use super::check_output_expression::{
+    VectorOutputShape, check_vector_distribution,
 };
-use super::check_vector_fields::{VectorFieldsValidation, check_vector_fields};
+use super::check_leaf_vector_function::check_vector_input_schema;
+use super::check_scalar_fields::{ScalarFieldsValidation, check_scalar_fields};
+use super::check_vector_fields::{
+    VectorFieldsValidation, check_vector_fields, check_vector_fields_for_input,
+    random_subsets,
+};
 use super::compile_and_validate::{
-    check_no_unused_input_maps, compile_and_validate_task_inputs,
-    validate_function_input_diversity,
+    compile_and_validate_one_input, extract_task_input, extract_task_input_value,
 };
+use super::example_inputs;
 
 /// Validates quality requirements for a branch vector function.
 ///
@@ -34,42 +42,62 @@ pub fn check_branch_vector_function(
     function: &RemoteFunction,
     children: Option<&HashMap<String, RemoteFunction>>,
 ) -> Result<(), String> {
-    let (input_schema, tasks, output_length, input_split, input_merge) =
-        match function {
-            RemoteFunction::Vector {
-                input_schema,
-                tasks,
-                output_length,
-                input_split,
-                input_merge,
-                ..
-            } => (input_schema, tasks, output_length, input_split, input_merge),
-            RemoteFunction::Scalar { .. } => {
-                return Err(
-                    "Expected vector function, got scalar function".to_string()
-                );
-            }
-        };
+    let (
+        description,
+        input_schema,
+        tasks,
+        output_length,
+        input_split,
+        input_merge,
+    ) = match function {
+        RemoteFunction::Vector {
+            description,
+            input_schema,
+            tasks,
+            output_length,
+            input_split,
+            input_merge,
+            ..
+        } => (
+            description,
+            input_schema,
+            tasks,
+            output_length,
+            input_split,
+            input_merge,
+        ),
+        RemoteFunction::Scalar { .. } => {
+            return Err(
+                "BV01: Expected vector function, got scalar function".to_string()
+            );
+        }
+    };
 
-    // 1. Input schema check
+    // Description
+    check_description(description)?;
+
+    // Input schema permutations
+    check_input_schema(input_schema)?;
+
+    // Input schema check
     check_vector_input_schema(input_schema)?;
 
-    // 2. Must have at least one task
+    // Must have at least one task
     if tasks.is_empty() {
-        return Err("Functions must have at least one task".to_string());
+        return Err("BV02: Functions must have at least one task".to_string());
     }
 
-    // 3-7. Check each task and count mapped scalar vs unmapped vector
+    // Check each task and count mapped scalar vs unmapped vector
     let mut mapped_scalar_count: usize = 0;
     let mut unmapped_vector_count: usize = 0;
 
     for (i, task) in tasks.iter().enumerate() {
         match task {
             TaskExpression::ScalarFunction(sf) => {
-                // 3. Scalar-like must have map
+                // Scalar-like must have map
                 if sf.map.is_none() {
                     return Err(format!(
-                        "Task [{}]: scalar.function in a vector function must have map \
+                        "BV03: Task [{}]: scalar.function in a vector function must have map \
                          (scalar-like tasks must be mapped to produce vector output)",
                         i
                     ));
@@ -77,10 +105,10 @@ pub fn check_branch_vector_function(
                 mapped_scalar_count += 1;
             }
             TaskExpression::PlaceholderScalarFunction(psf) => {
-                // 3. Scalar-like must have map
+                // Scalar-like must have map
                 if psf.map.is_none() {
                     return Err(format!(
-                        "Task [{}]: placeholder.scalar.function in a vector function must have map \
+                        "BV04: Task [{}]: placeholder.scalar.function in a vector function must have map \
                          (scalar-like tasks must be mapped to produce vector output)",
                         i
                     ));
@@ -88,10 +116,10 @@ pub fn check_branch_vector_function(
                 mapped_scalar_count += 1;
             }
             TaskExpression::VectorFunction(vf) => {
-                // 4. Vector-like must NOT have map
+                // Vector-like must NOT have map
                 if vf.map.is_some() {
                     return Err(format!(
-                        "Task [{}]: vector.function in a vector function must not have map \
+                        "BV05: Task [{}]: vector.function in a vector function must not have map \
                          (vector-like tasks are already vector-producing)",
                         i
                     ));
@@ -99,10 +127,10 @@ pub fn check_branch_vector_function(
                 unmapped_vector_count += 1;
             }
             TaskExpression::PlaceholderVectorFunction(pvf) => {
-                // 4. Vector-like must NOT have map
+                // Vector-like must NOT have map
                 if pvf.map.is_some() {
                     return Err(format!(
-                        "Task [{}]: placeholder.vector.function in a vector function must not \
+                        "BV06: Task [{}]: placeholder.vector.function in a vector function must not \
                          have map (vector-like tasks are already vector-producing)",
                         i
                     ));
@@ -111,7 +139,7 @@ pub fn check_branch_vector_function(
             }
             TaskExpression::VectorCompletion(_) => {
                 return Err(format!(
-                    "Task [{}]: branch functions must not contain vector.completion tasks",
+                    "BV07: Task [{}]: branch functions must not contain vector.completion tasks",
                     i
                 ));
             }
@@ -120,19 +148,19 @@ pub fn check_branch_vector_function(
 
     let total = mapped_scalar_count + unmapped_vector_count;
 
-    // 5. If only 1 task, it must be unmapped vector
+    // If only 1 task, it must be unmapped vector
     if total == 1 && unmapped_vector_count == 0 {
         return Err(
-            "A branch vector function with a single task must use an unmapped \
+            "BV08: A branch vector function with a single task must use an unmapped \
              vector-like task (vector.function or placeholder.vector.function)"
                 .to_string(),
         );
     }
 
-    // 6. At most 50% of tasks may be mapped scalar
+    // At most 50% of tasks may be mapped scalar
     if total > 1 && mapped_scalar_count * 2 > total {
         return Err(format!(
-            "At most 50% of tasks in a branch vector function may be mapped scalar-like, \
+            "BV09: At most 50% of tasks in a branch vector function may be mapped scalar-like, \
              found {}/{} ({:.0}%)",
             mapped_scalar_count,
             total,
@@ -140,25 +168,326 @@ pub fn check_branch_vector_function(
         ));
     }
 
-    // 7. No unused input_maps (compiled)
-    check_no_unused_input_maps(function)?;
-
-    // 8. Vector fields round-trip validation
-    check_vector_fields(VectorFieldsValidation {
+    // --- Single generate() loop ---
+    let vector_fields = VectorFieldsValidation {
         input_schema: input_schema.clone(),
         output_length: output_length.clone(),
         input_split: input_split.clone(),
         input_merge: input_merge.clone(),
-    })?;
+    };
+    let func_template = Function::Remote(function.clone());
+    let task_count = tasks.len();
 
-    // 9. Compile tasks with example inputs and validate placeholder inputs
-    compile_and_validate_task_inputs(function, children)?;
+    // Input maps validation setup
+    let has_input_maps = function.input_maps().is_some();
+    let task_map_indices: HashSet<u64> = function
+        .tasks()
+        .iter()
+        .filter_map(|t| t.input_map())
+        .collect();
 
-    // 10. Function input diversity — compiled inputs must vary with parent input
-    validate_function_input_diversity(function)?;
+    // Function input diversity tracking
+    let mut per_task_inputs: Vec<HashSet<String>> =
+        vec![HashSet::new(); task_count];
+    // Mapped scalar per-index diversity
+    let mut per_task_indexed: Vec<HashMap<usize, (usize, HashSet<String>)>> =
+        vec![HashMap::new(); task_count];
+    // Mapped scalar inputs not all equal
+    let mut per_task_has_varying = vec![false; task_count];
+    let mut per_task_is_mapped = vec![false; task_count];
+    let mut per_task_skipped = vec![false; task_count];
+    let mut seen_dist_tasks: HashSet<(usize, usize)> = HashSet::new();
+    let mut count = 0usize;
 
-    // 11. Compile and validate tasks for merged sub-inputs
-    validate_tasks_for_merged_inputs(function, children)?;
+
+    for ref input in example_inputs::generate(input_schema) {
+        count += 1;
+        let input_label = serde_json::to_string(input).unwrap_or_default();
+
+        // Input maps validation
+        if has_input_maps {
+            let compiled = func_template
+                .clone()
+                .compile_input_maps(input)
+                .map_err(|e| {
+                    format!(
+                        "BV10: Input {}: input_maps compilation failed: {}",
+                        input_label, e
+                    )
+                })?;
+
+            if let Some(compiled_maps) = compiled {
+                let len = compiled_maps.len() as u64;
+                for &idx in &task_map_indices {
+                    if idx >= len {
+                        return Err(format!(
+                            "BV11: Input {}: task has map index {} but compiled \
+                             input_maps has only {} sub-arrays",
+                            input_label, idx, len
+                        ));
+                    }
+                }
+                for idx in 0..len {
+                    if !task_map_indices.contains(&idx) {
+                        return Err(format!(
+                            "BV12: Input {}: compiled input_maps has {} sub-arrays \
+                             but index {} is not referenced by any task's map field",
+                            input_label, len, idx
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Vector fields validation
+        check_vector_fields_for_input(&vector_fields, &input_label, input)?;
+
+        // Compile and validate
+        let compiled_tasks =
+            compile_and_validate_one_input(&input_label, function, input, children)?;
+
+        // Output expression distribution check (once per task+length pair)
+        {
+            let params = Params::Ref(ParamsRef {
+                input,
+                output: None,
+                map: None,
+            });
+            let ol = output_length
+                .clone()
+                .compile_one(&params)
+                .unwrap_or(0) as usize;
+
+            for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+                match compiled_task {
+                    Some(CompiledTask::Many(tasks)) => {
+                        // Mapped scalar: key = (j, tasks.len())
+                        let key = (j, tasks.len());
+                        if seen_dist_tasks.insert(key) {
+                            if let Some(first) = tasks.first() {
+                                check_vector_distribution(
+                                    j,
+                                    input,
+                                    first,
+                                    &VectorOutputShape::MapScalar(tasks.len()),
+                                    ol,
+                                )?;
+                            }
+                        }
+                    }
+                    Some(CompiledTask::One(task)) => {
+                        // Unmapped vector: key = (j, output_length)
+                        let key = (j, ol);
+                        if seen_dist_tasks.insert(key) {
+                            check_vector_distribution(
+                                j,
+                                input,
+                                task,
+                                &VectorOutputShape::Vector(ol as u64),
+                                ol,
+                            )?;
+                        }
+                    }
+                    None => {}
+                }
+            }
+        }
+
+        // Track per-task input diversity + mapped scalar diversity
+        for (j, compiled_task) in compiled_tasks.iter().enumerate() {
+            let Some(compiled_task) = compiled_task else {
+                per_task_skipped[j] = true;
+                continue;
+            };
+
+            // Function input diversity
+            let key = match compiled_task {
+                CompiledTask::One(task) => extract_task_input(task),
+                CompiledTask::Many(tasks) => {
+                    let inputs: Vec<_> = tasks
+                        .iter()
+                        .filter_map(|t| extract_task_input_value(t))
+                        .collect::<Vec<_>>();
+                    serde_json::to_string(&inputs).unwrap_or_default()
+                }
+            };
+            if !key.is_empty() {
+                per_task_inputs[j].insert(key);
+            }
+
+            // Mapped scalar per-index diversity + not-all-equal
+            if let CompiledTask::Many(tasks) = compiled_task {
+                per_task_is_mapped[j] = true;
+
+                // Per-index diversity
+                for (mi, task) in tasks.iter().enumerate() {
+                    if let Some(task_input) = extract_task_input_value(task) {
+                        let k = serde_json::to_string(task_input)
+                            .unwrap_or_default();
+                        let entry = per_task_indexed[j]
+                            .entry(mi)
+                            .or_insert_with(|| (0, HashSet::new()));
+                        entry.0 += 1;
+                        entry.1.insert(k);
+                    }
+                }
+
+                // Not all equal
+                if !per_task_has_varying[j] && tasks.len() >= 2 {
+                    let first = extract_task_input_value(&tasks[0])
+                        .map(|v| serde_json::to_string(v).unwrap_or_default());
+                    let has_different = tasks[1..].iter().any(|t| {
+                        extract_task_input_value(t)
+                            .map(|v| {
+                                serde_json::to_string(v).unwrap_or_default()
+                            })
+                            != first
+                    });
+                    if has_different {
+                        per_task_has_varying[j] = true;
+                    }
+                }
+            }
+        }
+
+        // Merged sub-inputs validation
+        let splits = func_template
+            .clone()
+            .compile_input_split(input)
+            .map_err(|e| {
+                format!(
+                    "BV13: Merged input validation, input {}: input_split failed: {}",
+                    input_label, e
+                )
+            })?
+            .ok_or_else(|| {
+                format!(
+                    "BV14: Merged input validation, input {}: input_split returned None",
+                    input_label
+                )
+            })?;
+
+        if splits.len() >= 2 {
+            let subsets = random_subsets(splits.len(), 3);
+            for subset in &subsets {
+                let sub_splits: Vec<Input> =
+                    subset.iter().map(|&idx| splits[idx].clone()).collect();
+                let merge_input = Input::Array(sub_splits);
+                let merged = func_template
+                    .clone()
+                    .compile_input_merge(&merge_input)
+                    .map_err(|e| {
+                        format!(
+                            "BV15: Merged input validation, input {}, subset {:?}: \
+                             input_merge failed: {}",
+                            input_label, subset, e
+                        )
+                    })?
+                    .ok_or_else(|| {
+                        format!(
+                            "BV16: Merged input validation, input {}, subset {:?}: \
+                             input_merge returned None",
+                            input_label, subset
+                        )
+                    })?;
+                let merged_label =
+                    serde_json::to_string(&merged).unwrap_or_default();
+                compile_and_validate_one_input(
+                    &merged_label, function, &merged, children,
+                )?;
+            }
+        }
+    }
+
+    if count == 0 {
+        return Err(
+            "BV17: Failed to generate any example inputs from input_schema"
+                .to_string(),
+        );
+    }
+
+    // Post-loop diversity checks
+    if count >= 2 {
+        // Function input diversity
+        for (j, unique_inputs) in per_task_inputs.iter().enumerate() {
+            let effective = unique_inputs.len()
+                + if per_task_skipped[j] { 1 } else { 0 };
+            if effective < 2 {
+                return Err(format!(
+                    "BV18: Task [{}]: task input is a fixed value — task inputs must \
+                     be derived from the parent input, otherwise the score is useless",
+                    j,
+                ));
+            }
+        }
+
+        // Mapped scalar per-index diversity
+        for (j, indexed) in per_task_indexed.iter().enumerate() {
+            for (&mi, (occurrences, unique_inputs)) in indexed {
+                let total = *occurrences
+                    + if per_task_skipped[j] { 1 } else { 0 };
+                if total <= 1 {
+                    continue;
+                }
+                let effective = unique_inputs.len()
+                    + if per_task_skipped[j] { 1 } else { 0 };
+                if effective < 2 {
+                    return Err(format!(
+                        "BV19: Task [{}]: mapped input at index {} is a fixed value — \
+                         mapped inputs must be derived from the parent input",
+                        j, mi,
+                    ));
+                }
+            }
+        }
+
+        // Mapped scalar inputs not all equal
+        for (j, has_varying) in per_task_has_varying.iter().enumerate() {
+            if !per_task_is_mapped[j] {
+                continue;
+            }
+            if !has_varying && !per_task_skipped[j] {
+                return Err(format!(
+                    "BV20: Task [{}]: all mapped inputs are equal to each other for \
+                     every example input — rankings are useless if every item \
+                     is the same",
+                    j,
+                ));
+            }
+        }
+    }
+
+    // Validate placeholder task fields as if they were standalone functions
+    for (i, task) in tasks.iter().enumerate() {
+        match task {
+            TaskExpression::PlaceholderScalarFunction(psf) => {
+                check_scalar_fields(ScalarFieldsValidation {
+                    input_schema: psf.input_schema.clone(),
+                })
+                .map_err(|e| {
+                    format!(
+                        "BV21: Task [{}]: placeholder scalar field validation failed: {}",
+                        i, e
+                    )
+                })?;
+            }
+            TaskExpression::PlaceholderVectorFunction(pvf) => {
+                check_vector_fields(VectorFieldsValidation {
+                    input_schema: pvf.input_schema.clone(),
+                    output_length: pvf.output_length.clone(),
+                    input_split: pvf.input_split.clone(),
+                    input_merge: pvf.input_merge.clone(),
+                })
+                .map_err(|e| {
+                    format!(
+                        "BV22: Task [{}]: placeholder vector field validation failed: {}",
+                        i, e
+                    )
+                })?;
+            }
+            _ => {}
+        }
+    }
 
     Ok(())
 }

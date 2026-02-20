@@ -102,7 +102,7 @@ describe("checkBranchScalarFunction", () => {
       tasks: [],
     };
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /Expected scalar function/,
+      /BS01/,
     );
   });
 
@@ -113,7 +113,7 @@ describe("checkBranchScalarFunction", () => {
       [{ $starlark: "input" }],
     );
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /must not have input_maps/,
+      /BS02/,
     );
   });
 
@@ -121,14 +121,14 @@ describe("checkBranchScalarFunction", () => {
   it("rejects scalar.function task with map", () => {
     const f = branchScalar([scalarFunctionTask(0)]);
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /must not have map/,
+      /BS04/,
     );
   });
 
   it("rejects placeholder.scalar.function task with map", () => {
     const f = branchScalar([placeholderScalarTask(0)]);
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /must not have map/,
+      /BS05/,
     );
   });
 
@@ -136,21 +136,21 @@ describe("checkBranchScalarFunction", () => {
   it("rejects vector.function task", () => {
     const f = branchScalar([vectorFunctionTask()]);
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /found vector\.function/,
+      /BS06/,
     );
   });
 
   it("rejects placeholder.vector.function task", () => {
     const f = branchScalar([placeholderVectorTask()]);
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /found placeholder\.vector\.function/,
+      /BS07/,
     );
   });
 
   it("rejects vector.completion task", () => {
     const f = branchScalar([qualityVcTask()]);
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /must not contain vector\.completion/,
+      /BS08/,
     );
   });
 
@@ -173,7 +173,7 @@ describe("checkBranchScalarFunction", () => {
   it("rejects empty tasks", () => {
     const f = branchScalar([]);
     expect(() => Functions.Quality.checkBranchScalarFunction(f)).toThrow(
-      /at least one task/,
+      /BS03/,
     );
   });
 });

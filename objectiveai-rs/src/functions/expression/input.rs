@@ -58,7 +58,7 @@ impl InputMaps {
 ///
 /// Represents any JSON-like value that can be passed to a Function,
 /// including rich content types (images, audio, video, files).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum Input {
     /// Rich content (image, audio, video, file).
@@ -75,6 +75,46 @@ pub enum Input {
     Number(f64),
     /// A boolean value.
     Boolean(bool),
+}
+
+impl Eq for Input {}
+
+impl std::hash::Hash for Input {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Input::RichContentPart(p) => p.hash(state),
+            Input::Object(map) => {
+                map.len().hash(state);
+                for (k, v) in map {
+                    k.hash(state);
+                    v.hash(state);
+                }
+            }
+            Input::Array(arr) => arr.hash(state),
+            Input::String(s) => s.hash(state),
+            Input::Integer(i) => i.hash(state),
+            Input::Number(f) => canonical_f64_bits(*f).hash(state),
+            Input::Boolean(b) => b.hash(state),
+        }
+    }
+}
+
+/// Normalizes f64 to canonical bits for consistent hashing.
+///
+/// - NaN (any bit pattern) → single canonical value
+/// - -0.0 → +0.0
+/// - Everything else (including ±inf) → to_bits()
+fn canonical_f64_bits(f: f64) -> u64 {
+    if f.is_nan() {
+        // All NaN patterns hash the same
+        0x7FF8_0000_0000_0000 // canonical quiet NaN
+    } else if f == 0.0 {
+        // +0.0 and -0.0 hash the same
+        0u64
+    } else {
+        f.to_bits()
+    }
 }
 
 impl Input {

@@ -76,7 +76,7 @@ describe("checkLeafFunction", () => {
       tasks: [scalarVcTask()],
     };
     expect(() => Functions.Quality.checkLeafFunction(f)).toThrow(
-      /must not have input_maps/,
+      /LS02/,
     );
   });
 
@@ -91,7 +91,7 @@ describe("checkLeafFunction", () => {
       tasks: [],
     };
     expect(() => Functions.Quality.checkLeafFunction(f)).toThrow(
-      /must be an array, or an object/,
+      /LV14/,
     );
   });
 });

@@ -82,7 +82,7 @@ describe("checkBranchFunction", () => {
       tasks: [scalarFunctionTask()],
     };
     expect(() => Functions.Quality.checkBranchFunction(f as any)).toThrow(
-      /must not have input_maps/,
+      /BS02/,
     );
   });
 
@@ -97,7 +97,7 @@ describe("checkBranchFunction", () => {
       tasks: [],
     };
     expect(() => Functions.Quality.checkBranchFunction(f as any)).toThrow(
-      /must be an array, or an object/,
+      /LV14/,
     );
   });
 });

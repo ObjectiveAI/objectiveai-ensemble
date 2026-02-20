@@ -1,4 +1,5 @@
 import {
+  qualityCheckScalarFields as wasmQualityCheckScalarFields,
   qualityCheckVectorFields as wasmQualityCheckVectorFields,
   qualityCheckLeafFunction as wasmQualityCheckLeafFunction,
   qualityCheckBranchFunction as wasmQualityCheckBranchFunction,
@@ -7,8 +8,19 @@ import {
   qualityCheckBranchScalarFunction as wasmQualityCheckBranchScalarFunction,
   qualityCheckBranchVectorFunction as wasmQualityCheckBranchVectorFunction,
 } from "../../wasm/loader.js";
+import { ScalarFieldsValidation } from "./scalarFields.js";
 import { VectorFieldsValidation } from "./vectorFields.js";
 import type { RemoteFunction } from "../function.js";
+
+/**
+ * Validates that a scalar function's input_schema produces enough diverse
+ * example inputs.
+ *
+ * Throws a descriptive error string on failure.
+ */
+export function checkScalarFields(fields: ScalarFieldsValidation): void {
+  wasmQualityCheckScalarFields(fields);
+}
 
 /**
  * Validates that a vector function's output_length, input_split, and
@@ -39,7 +51,7 @@ export function checkLeafFunction(func: RemoteFunction): void {
  * Routes to branch scalar or branch vector checks based on the function type.
  * Branch functions contain only function/placeholder tasks.
  *
- * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * @param children - Optional map of `"owner/repository/commit"` → RemoteFunction for
  * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */
@@ -78,7 +90,7 @@ export function checkLeafVectorFunction(func: RemoteFunction): void {
  * Validates: no input_maps, only scalar-like tasks, no map, no vector.completion,
  * example inputs compile and placeholder inputs match schemas.
  *
- * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * @param children - Optional map of `"owner/repository/commit"` → RemoteFunction for
  * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */
@@ -95,7 +107,7 @@ export function checkBranchScalarFunction(
  * Validates: vector input schema, task type/map constraints, single-task-must-be-vector,
  * <= 50% mapped scalar, vector field round-trip, example input compilation.
  *
- * @param children - Optional map of `"owner/repository"` → RemoteFunction for
+ * @param children - Optional map of `"owner/repository/commit"` → RemoteFunction for
  * validating compiled task inputs against child function input schemas.
  * Throws a descriptive error string on failure.
  */

@@ -769,7 +769,7 @@ impl RichContentExpression {
 }
 
 /// A part of rich content.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RichContentPart {
     /// Text content.
@@ -878,7 +878,7 @@ impl RichContentPartExpression {
 }
 
 /// An image URL for multimodal input.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImageUrl {
     /// The URL of the image (can be a data URL or HTTP URL).
     pub url: String,
@@ -902,7 +902,7 @@ impl ImageUrl {
 }
 
 /// Detail level for image processing.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ImageUrlDetail {
     /// Let the model decide the detail level.
     #[serde(rename = "auto")]
@@ -916,7 +916,7 @@ pub enum ImageUrlDetail {
 }
 
 /// Audio input for multimodal messages.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InputAudio {
     /// Base64-encoded audio data.
     pub data: String,
@@ -932,7 +932,7 @@ impl InputAudio {
 }
 
 /// A video URL for multimodal input.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VideoUrl {
     /// The URL of the video.
     pub url: String,
@@ -946,7 +946,7 @@ impl VideoUrl {
 }
 
 /// A file attachment for multimodal input.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct File {
     /// Base64-encoded file data.
     #[serde(skip_serializing_if = "Option::is_none")]

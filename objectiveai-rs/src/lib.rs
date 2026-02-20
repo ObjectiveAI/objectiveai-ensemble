@@ -40,6 +40,9 @@ pub mod functions;
 pub mod prefixed_uuid;
 pub mod vector;
 
+#[cfg(test)]
+mod util;
+
 #[cfg(feature = "http")]
 mod http;
 

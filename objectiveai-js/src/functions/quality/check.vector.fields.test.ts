@@ -77,7 +77,7 @@ describe("checkVectorFields", () => {
       output_length: { $starlark: "undefined_var" },
     };
     expect(() => Functions.Quality.checkVectorFields(fields)).toThrow(
-      /output_length compilation failed/,
+      /VF01/,
     );
   });
 
@@ -87,7 +87,7 @@ describe("checkVectorFields", () => {
       output_length: { $starlark: "'not_a_number'" },
     };
     expect(() => Functions.Quality.checkVectorFields(fields)).toThrow(
-      /output_length compilation failed/,
+      /VF01/,
     );
   });
 
@@ -97,7 +97,7 @@ describe("checkVectorFields", () => {
       input_split: { $starlark: "undefined_var" },
     };
     expect(() => Functions.Quality.checkVectorFields(fields)).toThrow(
-      /input_split compilation failed/,
+      /VF04/,
     );
   });
 
@@ -107,7 +107,7 @@ describe("checkVectorFields", () => {
       input_split: { $starlark: "[input[0:1], input[1:2]]" },
     };
     expect(() => Functions.Quality.checkVectorFields(fields)).toThrow(
-      /input_split produced.*but output_length is/,
+      /VF06/,
     );
   });
 
@@ -124,7 +124,7 @@ describe("checkVectorFields", () => {
       input_merge: { $starlark: "[x[0] for x in input]" },
     };
     expect(() => Functions.Quality.checkVectorFields(fields)).toThrow(
-      /output_length must be 1/,
+      /VF09/,
     );
   });
 
@@ -134,7 +134,7 @@ describe("checkVectorFields", () => {
       input_merge: { $starlark: "undefined_var" },
     };
     expect(() => Functions.Quality.checkVectorFields(fields)).toThrow(
-      /input_merge compilation failed/,
+      /VF10/,
     );
   });
 });
