@@ -3634,13 +3634,13 @@ async function repoExists(name, gitHubToken) {
     return false;
   }
 }
-async function commitExistsOnRemote(owner, repository, sha) {
+async function commitExistsOnRemote(owner, repository, sha, gitHubToken) {
   try {
     const url = `https://api.github.com/repos/${owner}/${repository}/commits/${sha}`;
     const response = await fetch(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
-        ...process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}
+        Authorization: `Bearer ${gitHubToken}`
       }
     });
     return response.ok;
@@ -3648,14 +3648,14 @@ async function commitExistsOnRemote(owner, repository, sha) {
     return false;
   }
 }
-async function getOwnerRepositoryCommit(dir) {
+async function getOwnerRepositoryCommit(dir, gitHubToken) {
   const repoRoot = getRepoRoot(dir);
   if (!repoRoot) return null;
   const remoteUrl = getRemoteUrl(repoRoot);
   if (!remoteUrl) return null;
   const parsed = parseGitHubRemote(remoteUrl);
   if (!parsed) return null;
-  const relativePath = path.relative(repoRoot, dir).replace(/\\/g, "/");
+  const relativePath = path.relative(repoRoot, dir).replace(/\\/g, "/") || ".";
   if (hasUncommittedChanges(repoRoot, relativePath + "/function.json")) {
     return null;
   }
@@ -3664,7 +3664,8 @@ async function getOwnerRepositoryCommit(dir) {
   const exists = await commitExistsOnRemote(
     parsed.owner,
     parsed.repository,
-    localCommit
+    localCommit,
+    gitHubToken
   );
   if (!exists) return null;
   return {
@@ -4352,17 +4353,18 @@ async function invent(onNotification, options, continuation) {
     gitAuthorEmail
   );
   if (hasChildren) {
-    const specs = qualityFn.placeholderTaskSpecs;
     const fn = qualityFn.function.type === "branch.scalar.function" || qualityFn.function.type === "branch.vector.function" ? qualityFn.function.function : void 0;
-    const totalTasks = fn?.tasks.length ?? 0;
-    const placeholderCount = specs.filter((s) => s !== null).length;
+    const tasks = fn?.tasks ?? [];
+    const remainingPlaceholders = tasks.filter(
+      (t) => t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function"
+    ).length;
     onNotification({
       path: path$1,
       name: qualityFn.name,
       message: {
         role: "done",
-        functionTasks: totalTasks - placeholderCount,
-        placeholderTasks: placeholderCount,
+        functionTasks: tasks.length - remainingPlaceholders,
+        placeholderTasks: remainingPlaceholders,
         error: unreplacedReasons.length > 0 ? unreplacedReasons.join("\n") : void 0
       }
     });
@@ -4542,7 +4544,7 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
       unreplacedReasons.push(`task ${i}: still has unresolved placeholders`);
       continue;
     }
-    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir);
+    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir, gitHubToken);
     if (!orc) {
       unreplacedReasons.push(`task ${i}: could not resolve repository commit`);
       continue;

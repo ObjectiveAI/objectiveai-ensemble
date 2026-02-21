@@ -236,21 +236,24 @@ export async function invent(
   );
 
   if (hasChildren) {
-    const specs = qualityFn.placeholderTaskSpecs!;
     const fn =
       qualityFn.function.type === "branch.scalar.function" ||
       qualityFn.function.type === "branch.vector.function"
         ? qualityFn.function.function
         : undefined;
-    const totalTasks = fn?.tasks.length ?? 0;
-    const placeholderCount = specs.filter((s) => s !== null).length;
+    const tasks = fn?.tasks ?? [];
+    const remainingPlaceholders = tasks.filter(
+      (t) =>
+        t.type === "placeholder.scalar.function" ||
+        t.type === "placeholder.vector.function",
+    ).length;
     onNotification({
       path,
       name: qualityFn.name,
       message: {
         role: "done",
-        functionTasks: totalTasks - placeholderCount,
-        placeholderTasks: placeholderCount,
+        functionTasks: tasks.length - remainingPlaceholders,
+        placeholderTasks: remainingPlaceholders,
         error:
           unreplacedReasons.length > 0
             ? unreplacedReasons.join("\n")
@@ -508,7 +511,7 @@ async function stage3(
       continue;
     }
 
-    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir);
+    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir, gitHubToken);
     if (!orc) {
       unreplacedReasons.push(`task ${i}: could not resolve repository commit`);
       continue;
