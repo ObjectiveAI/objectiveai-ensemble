@@ -1233,7 +1233,7 @@ async fn get_vector_completion_flat_task_profile<CTXEXT>(
     path: Vec<u64>,
     task: objectiveai::functions::VectorCompletionTask,
     ensemble: objectiveai::vector::completions::request::Ensemble,
-    profile: objectiveai::vector::completions::request::Profile,
+    mut profile: objectiveai::vector::completions::request::Profile,
     invert_output: bool,
     ensemble_fetcher: Arc<
         crate::ensemble::fetcher::CachingFetcher<
@@ -1261,22 +1261,17 @@ where
         objectiveai::vector::completions::request::Ensemble::Provided(
             ensemble,
         ) => {
-            // validate ensemble
-            ensemble
-                .clone()
-                .try_into()
-                .map_err(super::executions::Error::InvalidEnsemble)?
+            // validate ensemble and align profile weights
+            let (ens, aligned_profile) =
+                objectiveai::ensemble::Ensemble::try_from_with_profile(
+                    ensemble.clone(),
+                    profile,
+                )
+                .map_err(super::executions::Error::InvalidEnsemble)?;
+            profile = aligned_profile;
+            ens
         }
     };
-
-    // validate profile length matches ensemble LLMs length
-    if profile.len() != ensemble.llms.len() {
-        return Err(super::executions::Error::InvalidProfile(format!(
-            "vector completion profile length ({}) does not match ensemble LLMs length ({})",
-            profile.len(),
-            ensemble.llms.len()
-        )));
-    }
 
     // construct flat task profile
     Ok(super::VectorCompletionFlatTaskProfile {
