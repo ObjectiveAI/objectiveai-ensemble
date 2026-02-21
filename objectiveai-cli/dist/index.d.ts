@@ -268,7 +268,7 @@ declare class LeafScalarState {
     readonly parameters: Parameters;
     readonly function: Partial<Functions.QualityLeafRemoteScalarFunction>;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters);
+    constructor(parameters: Parameters, inputSchema?: Functions.RemoteScalarFunction["input_schema"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
     setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
@@ -306,7 +306,7 @@ declare class LeafVectorState {
     readonly parameters: Parameters;
     readonly function: Partial<Functions.QualityLeafRemoteVectorFunction>;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters, outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
+    constructor(parameters: Parameters, inputSchema?: Functions.QualityLeafRemoteVectorFunction["input_schema"], outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
     setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;

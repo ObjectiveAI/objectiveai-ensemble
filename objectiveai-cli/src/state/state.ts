@@ -78,10 +78,14 @@ export class State {
         }
       } else {
         if (options.type === "scalar.function") {
-          this._inner = new LeafScalarState(options.parameters);
+          this._inner = new LeafScalarState(
+            options.parameters,
+            options.input_schema,
+          );
         } else if (options.type === "vector.function") {
           this._inner = new LeafVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge,

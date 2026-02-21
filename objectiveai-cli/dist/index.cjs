@@ -1299,10 +1299,11 @@ var LeafScalarState = class {
   parameters;
   function;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters) {
+  constructor(parameters, inputSchema) {
     this.parameters = parameters;
     this.function = {
-      type: "scalar.function"
+      type: "scalar.function",
+      input_schema: inputSchema
     };
   }
   getInputSchema() {
@@ -1606,10 +1607,11 @@ var LeafVectorState = class {
   parameters;
   function;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters, outputLength, inputSplit, inputMerge) {
+  constructor(parameters, inputSchema, outputLength, inputSplit, inputMerge) {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge
@@ -2150,10 +2152,14 @@ var State = class {
         }
       } else {
         if (options.type === "scalar.function") {
-          this._inner = new LeafScalarState(options.parameters);
+          this._inner = new LeafScalarState(
+            options.parameters,
+            options.input_schema
+          );
         } else if (options.type === "vector.function") {
           this._inner = new LeafVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge
