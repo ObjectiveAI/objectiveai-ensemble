@@ -1283,7 +1283,7 @@ function useInventNotifications() {
   }, []);
   return { tree, onNotification };
 }
-function flattenNode(node, gutter, isLast, isRoot) {
+function flattenNode(node, gutter, isLast, isRoot, termWidth) {
   const lines = [];
   const prefix = isRoot ? "" : isLast ? "\u2514\u2500 " : "\u251C\u2500 ";
   const continuation = isRoot ? "" : isLast ? "   " : "\u2502  ";
@@ -1303,12 +1303,12 @@ function flattenNode(node, gutter, isLast, isRoot) {
   if (node.done && node.error && node.functionTasks !== void 0) {
     const errorGutter = children.length > 0 ? childGutter + "\u2502  " : childGutter;
     for (const errLine of node.error.split("\n")) {
-      if (errLine) lines.push({ type: "error", gutter: errorGutter, text: errLine });
+      if (errLine) lines.push({ type: "text", text: errorGutter + "\u2717 " + errLine, color: "red" });
     }
   }
   if (!node.done && !node.waiting && node.messages.length > 0) {
     for (const msg of node.messages) {
-      lines.push({ type: "message", gutter: childGutter, message: msg });
+      flattenMessage(lines, childGutter, msg, termWidth);
     }
   }
   if (!node.done && !node.waiting) {
@@ -1317,10 +1317,33 @@ function flattenNode(node, gutter, isLast, isRoot) {
   for (let i = 0; i < children.length; i++) {
     const [, child] = children[i];
     lines.push(
-      ...flattenNode(child, childGutter, i === children.length - 1, false)
+      ...flattenNode(child, childGutter, i === children.length - 1, false, termWidth)
     );
   }
   return lines;
+}
+function flattenMessage(lines, gutter, msg, termWidth) {
+  if (msg.role === "assistant") {
+    const indent = gutter + "  ";
+    const wrapped = wrapIndent(msg.content, termWidth - indent.length, indent);
+    for (const row of wrapped.split("\n")) {
+      lines.push({ type: "text", text: row, wrap: "truncate" });
+    }
+  } else if (msg.role === "tool") {
+    if (msg.error) {
+      const errIndent = gutter + "    ";
+      const firstPrefixLen = gutter.length + 4 + msg.name.length + 3;
+      const wrapped = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
+      const wrappedRows = wrapped.split("\n");
+      const firstRow = gutter + "  \u2717 " + msg.name + " \u2014 " + wrappedRows[0].slice(errIndent.length);
+      lines.push({ type: "text", text: firstRow, color: "red", wrap: "truncate" });
+      for (let j = 1; j < wrappedRows.length; j++) {
+        lines.push({ type: "text", text: wrappedRows[j], color: "red", wrap: "truncate" });
+      }
+    } else {
+      lines.push({ type: "toolSuccess", gutter, name: msg.name });
+    }
+  }
 }
 function wrapIndent(text, width, indent) {
   if (width <= 0) return indent + text;
@@ -1342,7 +1365,7 @@ function wrapIndent(text, width, indent) {
   return indent + lines.join("\n" + indent);
 }
 var LOADING_FRAMES = ["\xB7  ", "\xB7\xB7 ", "\xB7\xB7\xB7"];
-function RenderLine({ line, tick, termWidth }) {
+function RenderLine({ line, tick }) {
   if (line.type === "title") {
     return /* @__PURE__ */ jsxs(Text, { children: [
       line.gutter,
@@ -1366,14 +1389,20 @@ function RenderLine({ line, tick, termWidth }) {
       ] })
     ] });
   }
-  if (line.type === "error") {
+  if (line.type === "toolSuccess") {
     return /* @__PURE__ */ jsxs(Text, { children: [
       line.gutter,
-      /* @__PURE__ */ jsxs(Text, { color: "red", children: [
-        "\u2717 ",
-        line.text
+      /* @__PURE__ */ jsxs(Text, { color: "green", children: [
+        "  \u2713 ",
+        line.name
       ] })
     ] });
+  }
+  if (line.type === "text") {
+    if (line.color) {
+      return /* @__PURE__ */ jsx(Text, { wrap: line.wrap, children: /* @__PURE__ */ jsx(Text, { color: line.color, children: line.text }) });
+    }
+    return /* @__PURE__ */ jsx(Text, { wrap: line.wrap, children: line.text });
   }
   if (line.type === "loading") {
     return /* @__PURE__ */ jsxs(Text, { children: [
@@ -1381,34 +1410,6 @@ function RenderLine({ line, tick, termWidth }) {
       /* @__PURE__ */ jsxs(Text, { dimColor: true, children: [
         "  ",
         LOADING_FRAMES[tick % LOADING_FRAMES.length]
-      ] })
-    ] });
-  }
-  const msg = line.message;
-  if (msg.role === "assistant") {
-    const indent = line.gutter + "  ";
-    return /* @__PURE__ */ jsx(Text, { wrap: "truncate", children: wrapIndent(msg.content, termWidth - indent.length, indent) });
-  }
-  if (msg.role === "tool") {
-    if (msg.error) {
-      const errIndent = line.gutter + "    ";
-      const firstPrefixLen = line.gutter.length + 4 + msg.name.length + 3;
-      const error = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
-      return /* @__PURE__ */ jsxs(Text, { wrap: "truncate", children: [
-        line.gutter,
-        /* @__PURE__ */ jsxs(Text, { color: "red", children: [
-          "  \u2717 ",
-          msg.name,
-          " \u2014 ",
-          error.slice(errIndent.length)
-        ] })
-      ] });
-    }
-    return /* @__PURE__ */ jsxs(Text, { children: [
-      line.gutter,
-      /* @__PURE__ */ jsxs(Text, { color: "green", children: [
-        "  \u2713 ",
-        msg.name
       ] })
     ] });
   }
@@ -1478,7 +1479,9 @@ function InventView({ tree, done }) {
   }, [stdout]);
   const hintHeight = done ? 1 : 0;
   const viewportHeight = termHeight - hintHeight;
-  const lines = useMemo(() => flattenNode(tree, "", true, true), [tree]);
+  const scrollbarWidth = 1;
+  const contentWidth = termWidth - scrollbarWidth;
+  const lines = useMemo(() => flattenNode(tree, "", true, true, contentWidth), [tree, contentWidth]);
   const maxOffset = Math.max(0, lines.length - viewportHeight);
   useEffect(() => {
     if (autoFollow) {
@@ -1509,7 +1512,7 @@ function InventView({ tree, done }) {
   const visible = lines.slice(scrollOffset, scrollOffset + viewportHeight);
   return /* @__PURE__ */ jsxs(Box, { flexDirection: "column", height: termHeight, children: [
     /* @__PURE__ */ jsxs(Box, { width: "100%", flexGrow: 1, children: [
-      /* @__PURE__ */ jsx(Box, { flexDirection: "column", flexGrow: 1, children: visible.map((line, i) => /* @__PURE__ */ jsx(RenderLine, { line, tick, termWidth: termWidth - 1 }, scrollOffset + i)) }),
+      /* @__PURE__ */ jsx(Box, { flexDirection: "column", flexGrow: 1, children: visible.map((line, i) => /* @__PURE__ */ jsx(RenderLine, { line, tick }, scrollOffset + i)) }),
       /* @__PURE__ */ jsx(
         Scrollbar,
         {

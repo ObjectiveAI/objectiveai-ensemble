@@ -89,7 +89,8 @@ export function useInventNotifications() {
   return { tree, onNotification };
 }
 
-// Flat line types for the scrollable viewport
+// Flat line types for the scrollable viewport.
+// INVARIANT: each FlatLine renders as exactly 1 terminal row.
 interface TitleLine {
   type: "title";
   gutter: string;
@@ -102,16 +103,18 @@ interface TitleLine {
   placeholderTasks?: number;
 }
 
-interface MsgLine {
-  type: "message";
+interface ToolSuccessLine {
+  type: "toolSuccess";
   gutter: string;
-  message: NotificationMessage;
+  name: string;
 }
 
-interface ErrorLine {
-  type: "error";
-  gutter: string;
+interface TextLine {
+  type: "text";
   text: string;
+  color?: string;
+  dimColor?: boolean;
+  wrap?: "truncate";
 }
 
 interface LoadingLine {
@@ -119,13 +122,14 @@ interface LoadingLine {
   gutter: string;
 }
 
-type FlatLine = TitleLine | MsgLine | ErrorLine | LoadingLine;
+type FlatLine = TitleLine | ToolSuccessLine | TextLine | LoadingLine;
 
 function flattenNode(
   node: FunctionNode,
   gutter: string,
   isLast: boolean,
   isRoot: boolean,
+  termWidth: number,
 ): FlatLine[] {
   const lines: FlatLine[] = [];
   const prefix = isRoot ? "" : isLast ? "└─ " : "├─ ";
@@ -149,13 +153,13 @@ function flattenNode(
   if (node.done && node.error && node.functionTasks !== undefined) {
     const errorGutter = children.length > 0 ? childGutter + "│  " : childGutter;
     for (const errLine of node.error.split("\n")) {
-      if (errLine) lines.push({ type: "error", gutter: errorGutter, text: errLine });
+      if (errLine) lines.push({ type: "text", text: errorGutter + "✗ " + errLine, color: "red" });
     }
   }
 
   if (!node.done && !node.waiting && node.messages.length > 0) {
     for (const msg of node.messages) {
-      lines.push({ type: "message", gutter: childGutter, message: msg });
+      flattenMessage(lines, childGutter, msg, termWidth);
     }
   }
 
@@ -166,11 +170,43 @@ function flattenNode(
   for (let i = 0; i < children.length; i++) {
     const [, child] = children[i];
     lines.push(
-      ...flattenNode(child, childGutter, i === children.length - 1, false),
+      ...flattenNode(child, childGutter, i === children.length - 1, false, termWidth),
     );
   }
 
   return lines;
+}
+
+function flattenMessage(
+  lines: FlatLine[],
+  gutter: string,
+  msg: NotificationMessage,
+  termWidth: number,
+): void {
+  if (msg.role === "assistant") {
+    const indent = gutter + "  ";
+    const wrapped = wrapIndent(msg.content, termWidth - indent.length, indent);
+    for (const row of wrapped.split("\n")) {
+      lines.push({ type: "text", text: row, wrap: "truncate" });
+    }
+  } else if (msg.role === "tool") {
+    if (msg.error) {
+      // First row: "  ✗ toolName — first line of error"
+      const errIndent = gutter + "    ";
+      const firstPrefixLen = gutter.length + 4 + msg.name.length + 3;
+      const wrapped = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
+      const wrappedRows = wrapped.split("\n");
+      // First row gets the tool prefix
+      const firstRow = gutter + "  ✗ " + msg.name + " — " + wrappedRows[0].slice(errIndent.length);
+      lines.push({ type: "text", text: firstRow, color: "red", wrap: "truncate" });
+      for (let j = 1; j < wrappedRows.length; j++) {
+        lines.push({ type: "text", text: wrappedRows[j], color: "red", wrap: "truncate" });
+      }
+    } else {
+      lines.push({ type: "toolSuccess", gutter, name: msg.name });
+    }
+  }
+  // "done" and "waiting" roles are handled at the node level, not here
 }
 
 function wrapIndent(text: string, width: number, indent: string): string {
@@ -195,7 +231,7 @@ function wrapIndent(text: string, width: number, indent: string): string {
 
 const LOADING_FRAMES = ["·  ", "·· ", "···"];
 
-function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; termWidth: number }) {
+function RenderLine({ line, tick }: { line: FlatLine; tick: number }) {
   if (line.type === "title") {
     return (
       <Text>
@@ -209,10 +245,17 @@ function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; t
     );
   }
 
-  if (line.type === "error") {
+  if (line.type === "toolSuccess") {
     return (
-      <Text>{line.gutter}<Text color="red">{"✗ "}{line.text}</Text></Text>
+      <Text>{line.gutter}<Text color="green">{"  ✓ "}{line.name}</Text></Text>
     );
+  }
+
+  if (line.type === "text") {
+    if (line.color) {
+      return <Text wrap={line.wrap}><Text color={line.color}>{line.text}</Text></Text>;
+    }
+    return <Text wrap={line.wrap}>{line.text}</Text>;
   }
 
   if (line.type === "loading") {
@@ -221,24 +264,6 @@ function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; t
     );
   }
 
-  const msg = line.message;
-  if (msg.role === "assistant") {
-    const indent = line.gutter + "  ";
-    return <Text wrap="truncate">{wrapIndent(msg.content, termWidth - indent.length, indent)}</Text>;
-  }
-  if (msg.role === "tool") {
-    if (msg.error) {
-      const errIndent = line.gutter + "    ";
-      const firstPrefixLen = line.gutter.length + 4 + msg.name.length + 3;
-      const error = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
-      return (
-        <Text wrap="truncate">{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{error.slice(errIndent.length)}</Text></Text>
-      );
-    }
-    return (
-      <Text>{line.gutter}<Text color="green">{"  ✓ "}{msg.name}</Text></Text>
-    );
-  }
   return null;
 }
 
@@ -333,7 +358,9 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
   const hintHeight = done ? 1 : 0;
   const viewportHeight = termHeight - hintHeight;
 
-  const lines = useMemo(() => flattenNode(tree, "", true, true), [tree]);
+  const scrollbarWidth = 1;
+  const contentWidth = termWidth - scrollbarWidth;
+  const lines = useMemo(() => flattenNode(tree, "", true, true, contentWidth), [tree, contentWidth]);
   const maxOffset = Math.max(0, lines.length - viewportHeight);
 
   // Auto-follow: scroll to bottom when new content arrives
@@ -372,7 +399,7 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
       <Box width="100%" flexGrow={1}>
         <Box flexDirection="column" flexGrow={1}>
           {visible.map((line, i) => (
-            <RenderLine key={scrollOffset + i} line={line} tick={tick} termWidth={termWidth - 1} />
+            <RenderLine key={scrollOffset + i} line={line} tick={tick} />
           ))}
         </Box>
         <Scrollbar
