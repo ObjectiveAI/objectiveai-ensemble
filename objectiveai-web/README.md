@@ -1,38 +1,94 @@
-## Trigger CI/CD by Editing this File
+# ObjectiveAI Web
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Production web interface for [ObjectiveAI](https://objective-ai.io) — browse, execute, and create scoring functions powered by ensembles of LLMs.
 
-## Getting Started
+## Tech Stack
 
-First, run the development server:
+- **Next.js 16** (App Router, Turbopack)
+- **React 19** with TypeScript
+- **objectiveai** JS SDK (client-side, no server API routes)
+- **NextAuth** for OAuth (Google, GitHub, X, Reddit)
+- **Stripe** for credit purchases
+
+## Setup
+
+All commands run from the **monorepo root** (not this directory):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev --workspace=objectiveai-web
+
+# Production build
+npm run build --workspace=objectiveai-web
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `objectiveai-web/.env.local` with:
 
-## Learn More
+```env
+# Required
+NEXT_PUBLIC_API_URL=https://api.objective-ai.io
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=<random-secret>
 
-To learn more about Next.js, take a look at the following resources:
+# OAuth providers (at least one required for auth)
+AUTH_GOOGLE_CLIENT_ID=
+AUTH_GOOGLE_CLIENT_SECRET=
+AUTH_GITHUB_CLIENT_ID=
+AUTH_GITHUB_CLIENT_SECRET=
+AUTH_TWITTER_CLIENT_ID=
+AUTH_TWITTER_CLIENT_SECRET=
+AUTH_REDDIT_CLIENT_ID=
+AUTH_REDDIT_CLIENT_SECRET=
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Stripe (for credit purchases)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Optional
+OPENROUTER_API_KEY=          # Build-time: auto-curates reasoning models
+IP_RSA_PUBLIC_KEY=           # Anonymous credit tracking
+USER_IP_HEADER=              # Proxy header for IP detection
+```
 
-## Deploy on Vercel
+## Architecture
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **No server API routes** (except NextAuth). All data fetching uses the JS SDK directly from the client.
+- **Public endpoints** use `createPublicClient()` from `lib/client.ts`
+- **Auth-required endpoints** use `useObjectiveAI().getClient()` hook
+- **Stripe** uses `fetch` directly (not in SDK)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Pages
+
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/functions` | Browse all indexed functions |
+| `/functions/[owner]/[repo]` | Function detail + execution UI |
+| `/functions/create` | JSON builder for `function.json` |
+| `/profiles` | Browse profiles |
+| `/profiles/train` | Profile training UI |
+| `/ensembles` | Browse ensembles |
+| `/ensemble-llms` | Browse ensemble LLMs |
+| `/account/keys` | API key management |
+| `/account/credits` | Credit balance + purchase |
+| `/docs/api/**` | 32 API endpoint docs |
+
+## Design System
+
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Light | `#EDEDF2` | Light backgrounds |
+| Dark | `#1B1B1B` | Dark backgrounds |
+| Accent | `#6B5CFF` | Buttons, links, interactive |
+
+Breakpoints: `640px` (mobile), `1024px` (tablet). See `app/globals.css` for full system.
+
+## Deployment
+
+Deployed to Google Cloud Run via Cloud Build. See `Dockerfile` and `cloudbuild.yaml` in this directory.
