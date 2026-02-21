@@ -48,9 +48,6 @@ pub enum InlineProfile {
 pub struct RemoteTasksProfile {
     /// Human-readable description of the profile.
     pub description: String,
-    /// Version history and changes for this profile.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub changelog: Option<String>,
     /// Configuration for each task in the corresponding Function.
     pub tasks: Vec<TaskProfile>,
     /// Weights for each Task in the corresponding Function.
@@ -69,9 +66,6 @@ pub struct RemoteTasksProfile {
 pub struct RemoteAutoProfile {
     /// Human-readable description of the profile.
     pub description: String,
-    /// Version history and changes for this profile.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub changelog: Option<String>,
     /// The ensemble to use for all vector completion tasks.
     pub ensemble: vector::completions::request::Ensemble,
     /// Weights for each LLM in the ensemble.

@@ -31,7 +31,6 @@ fn test_err(f: &RemoteFunction, expected: &str) {
 fn wrong_type_vector() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -72,7 +71,6 @@ fn wrong_type_vector() {
 fn has_input_maps() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -102,7 +100,6 @@ fn has_input_maps() {
 fn scalar_function_has_map() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -132,7 +129,6 @@ fn scalar_function_has_map() {
 fn placeholder_scalar_has_map() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -164,7 +160,6 @@ fn placeholder_scalar_has_map() {
 fn contains_vector_function() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -192,7 +187,6 @@ fn contains_vector_function() {
 fn contains_placeholder_vector() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -235,7 +229,6 @@ fn contains_placeholder_vector() {
 fn contains_vector_completion() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -298,7 +291,6 @@ fn contains_vector_completion() {
 fn valid_single_scalar_function() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -326,7 +318,6 @@ fn valid_single_scalar_function() {
 fn valid_single_placeholder_scalar() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -356,7 +347,6 @@ fn valid_single_placeholder_scalar() {
 fn valid_multiple_tasks() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -399,7 +389,6 @@ fn valid_multiple_tasks() {
 fn rejects_no_tasks() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -417,7 +406,6 @@ fn rejects_no_tasks() {
 fn description_too_long() {
     let f = RemoteFunction::Scalar {
         description: "a".repeat(351),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -444,7 +432,6 @@ fn description_too_long() {
 fn description_empty() {
     let f = RemoteFunction::Scalar {
         description: "  ".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -473,7 +460,6 @@ fn description_empty() {
 fn scalar_diversity_fail_fixed_input() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -511,7 +497,6 @@ fn scalar_diversity_fail_fixed_input() {
 fn scalar_diversity_fail_fixed_integer() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -550,7 +535,6 @@ fn scalar_diversity_fail_fixed_integer() {
 fn scalar_diversity_fail_third_task_fixed_object() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -612,7 +596,6 @@ fn scalar_diversity_fail_third_task_fixed_object() {
 fn scalar_diversity_pass_string_passthrough() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -650,7 +633,6 @@ fn scalar_diversity_pass_string_passthrough() {
 fn scalar_diversity_pass_integer_derived() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -689,7 +671,6 @@ fn scalar_diversity_pass_integer_derived() {
 fn scalar_diversity_pass_object_extract_field() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -737,7 +718,6 @@ fn scalar_diversity_pass_object_extract_field() {
 fn scalar_diversity_pass_placeholder_with_transform() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -792,7 +772,6 @@ fn scalar_diversity_pass_placeholder_with_transform() {
 fn scalar_diversity_pass_optional_field_used() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -840,7 +819,6 @@ fn scalar_diversity_pass_optional_field_used() {
 fn scalar_diversity_pass_array_input() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -885,7 +863,6 @@ fn scalar_diversity_pass_array_input() {
 fn valid_with_skip_last_task_boolean() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -932,7 +909,6 @@ fn valid_with_skip_last_task_boolean() {
 fn valid_with_skip_on_low_priority() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -983,7 +959,6 @@ fn valid_with_skip_on_low_priority() {
 fn output_distribution_fail_biased_output_expression() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -1013,7 +988,6 @@ fn output_distribution_fail_biased_output_expression() {
 fn output_distribution_pass_identity() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -1041,7 +1015,6 @@ fn output_distribution_pass_identity() {
 fn rejects_single_permutation_string_enum() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: Some(vec!["only".to_string()]),
@@ -1068,7 +1041,6 @@ fn rejects_single_permutation_string_enum() {
 fn rejects_single_permutation_integer() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(0),
@@ -1096,7 +1068,6 @@ fn rejects_single_permutation_integer() {
 fn all_tasks_skipped() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
