@@ -2272,7 +2272,7 @@ fn input_merge_fails_on_subset() {
         })],
         output_length: WithExpression::Expression(Expression::Starlark("len(input['items'])".to_string())),
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
-        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label'] if len(input) == 3 else 1/0}".to_string())),
+        input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': 1/0}".to_string())),
     };
     test_err(&f, "BV15");
 }
