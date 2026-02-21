@@ -8,6 +8,7 @@ interface FunctionNode {
   name?: string;
   messages: NotificationMessage[];
   done: boolean;
+  waiting: boolean;
   error?: string;
   children: Map<number, FunctionNode>;
 }
@@ -22,6 +23,7 @@ function findOrCreateNode(
       node.children.set(index, {
         messages: [],
         done: false,
+        waiting: false,
         children: new Map(),
       });
     }
@@ -44,6 +46,7 @@ export function useInventNotifications() {
   const [tree, setTree] = useState<FunctionNode>({
     messages: [],
     done: false,
+    waiting: false,
     children: new Map(),
   });
 
@@ -58,9 +61,12 @@ export function useInventNotifications() {
 
       if (notification.message.role === "done") {
         node.done = true;
+        node.waiting = false;
         if (notification.message.error) {
           node.error = notification.message.error;
         }
+      } else if (notification.message.role === "waiting") {
+        node.waiting = true;
       } else {
         node.messages.push(notification.message);
         if (node.messages.length > 5) {
@@ -82,6 +88,7 @@ interface TitleLine {
   prefix: string;
   name: string;
   done: boolean;
+  waiting: boolean;
   error?: string;
 }
 
@@ -115,16 +122,17 @@ function flattenNode(
     prefix,
     name: node.name ?? "Unnamed Function",
     done: node.done,
+    waiting: node.waiting,
     error: node.error,
   });
 
-  if (!node.done && node.messages.length > 0) {
+  if (!node.done && !node.waiting && node.messages.length > 0) {
     for (const msg of node.messages) {
       lines.push({ type: "message", gutter: childGutter, message: msg });
     }
   }
 
-  if (!node.done) {
+  if (!node.done && !node.waiting) {
     lines.push({ type: "loading", gutter: childGutter });
   }
 
@@ -167,6 +175,7 @@ function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; t
       <Text>
         {line.gutter}{line.prefix}
         <Text bold color="#5948e7">{line.name}</Text>
+        {line.waiting && !line.done && <Text color="#5948e7">{" — Waiting"}<Text dimColor>{LOADING_FRAMES[tick % LOADING_FRAMES.length]}</Text></Text>}
         {line.done && !line.error && <Text color="#5948e7">{" — Complete"}</Text>}
         {line.done && line.error && <Text color="red">{" — "}{line.error}</Text>}
       </Text>

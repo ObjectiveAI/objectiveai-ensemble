@@ -34,6 +34,8 @@ type NotificationMessage = {
 } | {
     role: "done";
     error?: string;
+} | {
+    role: "waiting";
 };
 
 declare const ParametersSchema: z.ZodObject<{

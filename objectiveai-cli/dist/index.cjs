@@ -4333,10 +4333,11 @@ async function invent(onNotification, options, continuation) {
     }
     throw err;
   }
+  const hasChildren = qualityFn.placeholderTaskSpecs?.some((s) => s !== null) ?? false;
   onNotification({
     path: path$1,
     name: qualityFn.name,
-    message: { role: "done" }
+    message: hasChildren ? { role: "waiting" } : { role: "done" }
   });
   await stage3(
     dir,
@@ -4350,6 +4351,13 @@ async function invent(onNotification, options, continuation) {
     gitAuthorName,
     gitAuthorEmail
   );
+  if (hasChildren) {
+    onNotification({
+      path: path$1,
+      name: qualityFn.name,
+      message: { role: "done" }
+    });
+  }
 }
 async function stage1(owner, options, parentToken, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
   const {

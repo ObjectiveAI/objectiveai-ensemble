@@ -4733,10 +4733,11 @@ async function invent(onNotification, options, continuation) {
     }
     throw err;
   }
+  const hasChildren = qualityFn.placeholderTaskSpecs?.some((s) => s !== null) ?? false;
   onNotification({
     path,
     name: qualityFn.name,
-    message: { role: "done" }
+    message: hasChildren ? { role: "waiting" } : { role: "done" }
   });
   await stage3(
     dir,
@@ -4750,6 +4751,13 @@ async function invent(onNotification, options, continuation) {
     gitAuthorName,
     gitAuthorEmail
   );
+  if (hasChildren) {
+    onNotification({
+      path,
+      name: qualityFn.name,
+      message: { role: "done" }
+    });
+  }
 }
 async function stage1(owner, options, parentToken, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
   const {
@@ -4999,6 +5007,7 @@ function findOrCreateNode(root, path) {
       node.children.set(index, {
         messages: [],
         done: false,
+        waiting: false,
         children: /* @__PURE__ */ new Map()
       });
     }
@@ -5019,6 +5028,7 @@ function useInventNotifications() {
   const [tree, setTree] = useState({
     messages: [],
     done: false,
+    waiting: false,
     children: /* @__PURE__ */ new Map()
   });
   const onNotification = useCallback((notification) => {
@@ -5030,9 +5040,12 @@ function useInventNotifications() {
       }
       if (notification.message.role === "done") {
         node.done = true;
+        node.waiting = false;
         if (notification.message.error) {
           node.error = notification.message.error;
         }
+      } else if (notification.message.role === "waiting") {
+        node.waiting = true;
       } else {
         node.messages.push(notification.message);
         if (node.messages.length > 5) {
@@ -5055,14 +5068,15 @@ function flattenNode(node, gutter, isLast, isRoot) {
     prefix,
     name: node.name ?? "Unnamed Function",
     done: node.done,
+    waiting: node.waiting,
     error: node.error
   });
-  if (!node.done && node.messages.length > 0) {
+  if (!node.done && !node.waiting && node.messages.length > 0) {
     for (const msg of node.messages) {
       lines.push({ type: "message", gutter: childGutter, message: msg });
     }
   }
-  if (!node.done) {
+  if (!node.done && !node.waiting) {
     lines.push({ type: "loading", gutter: childGutter });
   }
   const children = Array.from(node.children.entries());
@@ -5100,6 +5114,10 @@ function RenderLine({ line, tick, termWidth }) {
       line.gutter,
       line.prefix,
       /* @__PURE__ */ jsx(Text, { bold: true, color: "#5948e7", children: line.name }),
+      line.waiting && !line.done && /* @__PURE__ */ jsxs(Text, { color: "#5948e7", children: [
+        " \u2014 Waiting",
+        /* @__PURE__ */ jsx(Text, { dimColor: true, children: LOADING_FRAMES[tick % LOADING_FRAMES.length] })
+      ] }),
       line.done && !line.error && /* @__PURE__ */ jsx(Text, { color: "#5948e7", children: " \u2014 Complete" }),
       line.done && line.error && /* @__PURE__ */ jsxs(Text, { color: "red", children: [
         " \u2014 ",

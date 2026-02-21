@@ -212,11 +212,13 @@ export async function invent(
     throw err;
   }
 
-  // Emit done — covers both "stage2 just finished" and "both stages skipped"
+  const hasChildren =
+    qualityFn.placeholderTaskSpecs?.some((s) => s !== null) ?? false;
+
   onNotification({
     path,
     name: qualityFn.name,
-    message: { role: "done" },
+    message: hasChildren ? { role: "waiting" } : { role: "done" },
   });
 
   // Always stage3
@@ -232,6 +234,14 @@ export async function invent(
     gitAuthorName,
     gitAuthorEmail,
   );
+
+  if (hasChildren) {
+    onNotification({
+      path,
+      name: qualityFn.name,
+      message: { role: "done" },
+    });
+  }
 }
 
 async function stage1(
