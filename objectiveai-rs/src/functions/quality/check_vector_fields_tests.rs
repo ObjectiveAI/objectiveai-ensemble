@@ -567,7 +567,7 @@ fn output_length_fails_for_split() {
                 })),
             }),
             output_length: WithExpression::Expression(Expression::Starlark(
-                "len(input) if len(input) > 1 else 1/0".to_string(),
+                "len(input) if len(input) > 5 else 1/0".to_string(),
             )),
             input_split: WithExpression::Expression(Expression::Starlark(
                 "[[x] for x in input]".to_string(),
@@ -688,7 +688,6 @@ fn array_violates_min_items() {
                 description: None,
                 min_items: Some(3),
                 max_items: Some(3),
-                // Needs to be an array of objects to avoid VF21 (Wait, no, VF23 triggers when checking array length manually)
                 items: Box::new(InputSchema::String(StringInputSchema {
                     description: None,
                     r#enum: None,
