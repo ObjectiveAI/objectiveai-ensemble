@@ -50,6 +50,7 @@ export class State {
     | LeafVectorState
     | undefined;
   private readme: string | undefined;
+  private placeholderTaskIndices: number[] | undefined;
   private gitHubBackend: GitHubBackend;
 
   constructor(options: StateOptions, gitHubBackend: GitHubBackend) {
@@ -271,9 +272,29 @@ export class State {
   }
 
 
+  setPlaceholderTaskIndices(indices: number[]): void {
+    this.placeholderTaskIndices = indices;
+  }
+
   setReadme(value: string): Result<string> {
     if (value.trim() === "") {
       return { ok: false, value: undefined, error: "Readme cannot be empty" };
+    }
+    if (this.placeholderTaskIndices && this.placeholderTaskIndices.length > 0) {
+      const missing: string[] = [];
+      for (const i of this.placeholderTaskIndices) {
+        const template = `https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        if (!value.includes(template)) {
+          missing.push(template);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          value: undefined,
+          error: `README must include links to all sub-functions. Missing:\n${missing.join("\n")}`,
+        };
+      }
     }
     this.readme = value;
     return { ok: true, value: "", error: undefined };

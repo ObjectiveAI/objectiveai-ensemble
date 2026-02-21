@@ -275,7 +275,11 @@ function writeInventEssayTasksToFilesystem(
   writeTextToFilesystem(join(dir, "INVENT_ESSAY_TASKS.md"), essayTasks);
 }
 
-function writeReadmeToFilesystem(dir: string, readme: string): void {
+export function readReadmeFromFilesystem(dir: string): string | null {
+  return readTextFromFilesystem(join(dir, "README.md"));
+}
+
+export function writeReadmeToFilesystem(dir: string, readme: string): void {
   writeTextToFilesystem(join(dir, "README.md"), readme);
 }
 

@@ -584,14 +584,26 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
         },
         wait,
       );
-      yield* callTool(
-        readmeTool,
-        {
-          readme:
-            "# Mock Function\n\nEvaluates quality, clarity, and relevance.",
-        },
-        wait,
-      );
+
+      // For branch functions, include template links in the README
+      const isBranch = !!findTool(step, "ReadTaskSpec");
+      let readmeContent =
+        "# Mock Function\n\nEvaluates quality, clarity, and relevance.";
+      if (isBranch) {
+        // Read tasks length to determine how many placeholder tasks exist
+        const tasksLengthTool = findTool(step, "ReadTasksLength");
+        let taskCount = 1;
+        if (tasksLengthTool) {
+          const result = await tasksLengthTool.fn({});
+          if (result.ok) taskCount = parseInt(result.value as string, 10) || 1;
+        }
+        readmeContent += "\n\n## Sub-functions\n";
+        for (let i = 0; i < taskCount; i++) {
+          readmeContent += `\n- https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        }
+      }
+
+      yield* callTool(readmeTool, { readme: readmeContent }, wait);
       return undefined;
     }
 

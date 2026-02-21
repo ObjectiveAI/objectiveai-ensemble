@@ -5,9 +5,11 @@ import { Parameters, ParametersBuilder, buildParameters } from "../parameters";
 import { Functions } from "objectiveai";
 import {
   readQualityFunctionFromFilesystem,
+  readReadmeFromFilesystem,
   writeInitialStateToFilesystem,
   writeFinalStateToFilesystem,
   writeFunctionToFilesystem,
+  writeReadmeToFilesystem,
   writeParentTokenToFilesystem,
   findChildByToken,
   inventDir,
@@ -482,6 +484,37 @@ async function stage3(
       dir,
       qualityFn.function.function as Functions.RemoteFunction,
     );
+
+    // Replace template strings in README.md
+    let readme = readReadmeFromFilesystem(dir);
+    if (readme) {
+      let readmeChanged = false;
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        if (
+          task.type !== "scalar.function" &&
+          task.type !== "vector.function"
+        ) {
+          continue;
+        }
+        if (!("owner" in task) || !("repository" in task)) continue;
+        const taskOwner = task.owner as string;
+        const taskRepo = task.repository as string;
+        const templateTask = `{{ .Task${i} }}`;
+        const templateOwner = `{{ .Owner }}`;
+        if (readme.includes(templateTask)) {
+          readme = readme.split(templateTask).join(taskRepo);
+          readmeChanged = true;
+        }
+        if (readmeChanged && readme.includes(templateOwner)) {
+          readme = readme.split(templateOwner).join(taskOwner);
+        }
+      }
+      if (readmeChanged) {
+        writeReadmeToFilesystem(dir, readme);
+      }
+    }
+
     await gitHubBackend.pushFinal({
       dir,
       gitHubToken,

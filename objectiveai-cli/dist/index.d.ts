@@ -473,6 +473,7 @@ declare class State {
     private inventEssayTasks;
     private _inner;
     private readme;
+    private placeholderTaskIndices;
     private gitHubBackend;
     constructor(options: StateOptions, gitHubBackend: GitHubBackend);
     getInventSpec(): Result<string>;
@@ -497,6 +498,7 @@ declare class State {
     }>;
     getReadme(): Result<string>;
     getReadmeTool(): Tool<{}>;
+    setPlaceholderTaskIndices(indices: number[]): void;
     setReadme(value: string): Result<string>;
     setReadmeTool(): Tool<{
         readme: z.ZodString;

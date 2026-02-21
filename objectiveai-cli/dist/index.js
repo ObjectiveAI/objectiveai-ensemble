@@ -2116,6 +2116,7 @@ var State = class {
   inventEssayTasks;
   _inner;
   readme;
+  placeholderTaskIndices;
   gitHubBackend;
   constructor(options, gitHubBackend) {
     this.parameters = options.parameters;
@@ -2316,9 +2317,29 @@ var State = class {
       fn: () => Promise.resolve(this.getReadme())
     };
   }
+  setPlaceholderTaskIndices(indices) {
+    this.placeholderTaskIndices = indices;
+  }
   setReadme(value) {
     if (value.trim() === "") {
       return { ok: false, value: void 0, error: "Readme cannot be empty" };
+    }
+    if (this.placeholderTaskIndices && this.placeholderTaskIndices.length > 0) {
+      const missing = [];
+      for (const i of this.placeholderTaskIndices) {
+        const template = `https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        if (!value.includes(template)) {
+          missing.push(template);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `README must include links to all sub-functions. Missing:
+${missing.join("\n")}`
+        };
+      }
     }
     this.readme = value;
     return { ok: true, value: "", error: void 0 };
@@ -2988,13 +3009,22 @@ function mock() {
         },
         wait
       );
-      yield* callTool(
-        readmeTool,
-        {
-          readme: "# Mock Function\n\nEvaluates quality, clarity, and relevance."
-        },
-        wait
-      );
+      const isBranch = !!findTool(step, "ReadTaskSpec");
+      let readmeContent = "# Mock Function\n\nEvaluates quality, clarity, and relevance.";
+      if (isBranch) {
+        const tasksLengthTool = findTool(step, "ReadTasksLength");
+        let taskCount = 1;
+        if (tasksLengthTool) {
+          const result = await tasksLengthTool.fn({});
+          if (result.ok) taskCount = parseInt(result.value, 10) || 1;
+        }
+        readmeContent += "\n\n## Sub-functions\n";
+        for (let i = 0; i < taskCount; i++) {
+          readmeContent += `
+- https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        }
+      }
+      yield* callTool(readmeTool, { readme: readmeContent }, wait);
       return void 0;
     }
     throw new Error(
@@ -3360,6 +3390,9 @@ function writeInventEssayToFilesystem(dir, essay) {
 }
 function writeInventEssayTasksToFilesystem(dir, essayTasks) {
   writeTextToFilesystem(join(dir, "INVENT_ESSAY_TASKS.md"), essayTasks);
+}
+function readReadmeFromFilesystem(dir) {
+  return readTextFromFilesystem(join(dir, "README.md"));
 }
 function writeReadmeToFilesystem(dir, readme) {
   writeTextToFilesystem(join(dir, "README.md"), readme);
@@ -4120,10 +4153,38 @@ Multimodal content parts can be used in both \`messages\` and \`responses\`. Typ
 function stepDescription(state, agent, onNotification, agentState, maxRetries = 5) {
   const inner = state.inner;
   if (!inner) throw new Error("Function type not set");
+  const isBranch = inner instanceof BranchVectorState || inner instanceof BranchScalarState;
+  if (isBranch) {
+    const tasks = inner.function.tasks ?? [];
+    const indices = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
+        indices.push(i);
+      }
+    }
+    state.setPlaceholderTaskIndices(indices);
+  }
+  let prompt = "First, create a 1-paragraph description of the Function you've invented. Then, create a comprehensive README for the Function, describing its input, output, use-cases, and what all it evaluates.";
+  if (isBranch) {
+    const tasks = inner.function.tasks ?? [];
+    const templateLines = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
+        templateLines.push(
+          `https://github.com/{{ .Owner }}/{{ .Task${i} }}`
+        );
+      }
+    }
+    if (templateLines.length > 0) {
+      prompt += "\n\nYour README must include a link to each sub-function using the following template format:\n" + templateLines.join("\n") + "\nThese templates will be automatically replaced with the actual repository URLs after the sub-functions are invented.";
+    }
+  }
   return runAgentStep(
     agent,
     {
-      prompt: "First, create a 1-paragraph description of the Function you've invented. Then, create a comprehensive README for the Function, describing its input, output, use-cases, and what all it evaluates.",
+      prompt,
       tools: [
         state.getInventSpecTool(),
         state.getFunctionTypeTool(),
@@ -4133,7 +4194,7 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
         state.getInventEssayTasksTool(),
         inner.getTasksLengthTool(),
         inner.getTaskTool(),
-        ...inner instanceof BranchVectorState || inner instanceof BranchScalarState ? [inner.getTaskSpecTool()] : [],
+        ...isBranch ? [inner.getTaskSpecTool()] : [],
         state.setDescriptionTool(),
         state.setReadmeTool()
       ]
@@ -4454,6 +4515,31 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
       dir,
       qualityFn.function.function
     );
+    let readme = readReadmeFromFilesystem(dir);
+    if (readme) {
+      let readmeChanged = false;
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        if (task.type !== "scalar.function" && task.type !== "vector.function") {
+          continue;
+        }
+        if (!("owner" in task) || !("repository" in task)) continue;
+        const taskOwner = task.owner;
+        const taskRepo = task.repository;
+        const templateTask = `{{ .Task${i} }}`;
+        const templateOwner = `{{ .Owner }}`;
+        if (readme.includes(templateTask)) {
+          readme = readme.split(templateTask).join(taskRepo);
+          readmeChanged = true;
+        }
+        if (readmeChanged && readme.includes(templateOwner)) {
+          readme = readme.split(templateOwner).join(taskOwner);
+        }
+      }
+      if (readmeChanged) {
+        writeReadmeToFilesystem(dir, readme);
+      }
+    }
     await gitHubBackend.pushFinal({
       dir,
       gitHubToken,
