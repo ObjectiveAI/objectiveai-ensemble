@@ -4510,6 +4510,7 @@ async function stage2(dir, state, agentState, path, onNotification, agent, gitHu
     agentState
   );
   writeFinalStateToFilesystem(dir, state, state.parameters);
+  await ensureRemote(dir, name, gitHubToken);
   await gitHubBackend.pushFinal({
     dir,
     gitHubToken,
@@ -4519,8 +4520,38 @@ async function stage2(dir, state, agentState, path, onNotification, agent, gitHu
     description: state.getDescription().value
   });
 }
+async function ensureRemote(dir, name, gitHubToken) {
+  const repoRoot = getRepoRoot(dir);
+  if (!repoRoot) return;
+  if (getRemoteUrl(repoRoot)) return;
+  const res = await fetch("https://api.github.com/user/repos", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${gitHubToken}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ name, visibility: "public" })
+  });
+  if (res.ok) {
+    const repo = await res.json();
+    addRemote(dir, `https://github.com/${repo.owner.login}/${repo.name}.git`);
+  } else if (res.status === 422) {
+    const user = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json"
+      }
+    });
+    if (user.ok) {
+      const { login } = await user.json();
+      addRemote(dir, `https://github.com/${login}/${name}.git`);
+    }
+  }
+}
 async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
   if (isDirty(dir)) {
+    await ensureRemote(dir, qualityFn.name, gitHubToken);
     await gitHubBackend.pushFinal({
       dir,
       gitHubToken,
@@ -4662,6 +4693,7 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
         writeReadmeToFilesystem(dir, readme);
       }
     }
+    await ensureRemote(dir, qualityFn.name, gitHubToken);
     await gitHubBackend.pushFinal({
       dir,
       gitHubToken,
