@@ -16,4 +16,5 @@ export type NotificationMessage =
     }
   | {
       role: "done";
+      error?: string;
     };

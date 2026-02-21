@@ -22,6 +22,7 @@ export interface GitHubBackend {
     refs: Iterable<OwnerRepositoryCommit>,
   ): Promise<Record<string, Functions.RemoteFunction> | null>;
   repoExists(name: string, gitHubToken: string): Promise<boolean>;
+  getAuthenticatedUser(gitHubToken: string): Promise<string>;
 }
 
 export const DefaultGitHubBackend: GitHubBackend = {
@@ -30,6 +31,7 @@ export const DefaultGitHubBackend: GitHubBackend = {
   getOwnerRepositoryCommit,
   fetchRemoteFunctions,
   repoExists,
+  getAuthenticatedUser,
 };
 
 export interface OwnerRepositoryCommit {
@@ -243,6 +245,20 @@ export interface PushFinalOptions {
   gitAuthorEmail: string;
   message: string;
   description: string;
+}
+
+async function getAuthenticatedUser(gitHubToken: string): Promise<string> {
+  const res = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${gitHubToken}`,
+      Accept: "application/vnd.github.v3+json",
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
+  }
+  const user = (await res.json()) as { login: string };
+  return user.login;
 }
 
 async function pushFinal(options: PushFinalOptions): Promise<void> {

@@ -1,3 +1,4 @@
+import { existsSync, mkdirSync } from "fs";
 import z from "zod";
 import { Parameters, ParametersSchema } from "../parameters";
 import { Functions } from "objectiveai";
@@ -8,11 +9,13 @@ import { LeafScalarState } from "./leafScalarState";
 import { LeafVectorState } from "./leafVectorState";
 import { Tool } from "src/tool";
 import { GitHubBackend } from "../github";
+import { functionsDir, inventDir } from "../dirs";
 
 export const StateOptionsBaseSchema = z.object({
   parameters: ParametersSchema,
   inventSpec: z.string().nonempty(),
   gitHubToken: z.string().nonempty(),
+  owner: z.string().nonempty(),
 });
 export type StateOptionsBase = z.infer<typeof StateOptionsBaseSchema>;
 
@@ -36,6 +39,7 @@ export class State {
   readonly parameters: Parameters;
   readonly inventSpec: string;
   readonly gitHubToken: string;
+  readonly owner: string;
   private name: string | undefined;
   private inventEssay: string | undefined;
   private inventEssayTasks: string | undefined;
@@ -52,6 +56,7 @@ export class State {
     this.parameters = options.parameters;
     this.inventSpec = options.inventSpec;
     this.gitHubToken = options.gitHubToken;
+    this.owner = options.owner;
     this.gitHubBackend = gitHubBackend;
     if ("type" in options) {
       if (options.parameters.depth > 0) {
@@ -132,7 +137,26 @@ export class State {
         error: "FunctionName exceeds maximum of 100 bytes",
       };
     }
+    const dir = inventDir(this.owner, value);
+    if (existsSync(dir)) {
+      return {
+        ok: false,
+        value: undefined,
+        error: "Name is already taken, please use another",
+      };
+    }
     if (await this.gitHubBackend.repoExists(value, this.gitHubToken)) {
+      return {
+        ok: false,
+        value: undefined,
+        error: "Name is already taken, please use another",
+      };
+    }
+    // Create the directory atomically to claim the name
+    mkdirSync(functionsDir(this.owner), { recursive: true });
+    try {
+      mkdirSync(dir);
+    } catch {
       return {
         ok: false,
         value: undefined,
@@ -384,6 +408,10 @@ export class State {
       inputSchema: { description: z.string() },
       fn: (args) => Promise.resolve(this.setDescription(args.description)),
     };
+  }
+
+  forceSetName(value: string): void {
+    this.name = value;
   }
 
   get inner():

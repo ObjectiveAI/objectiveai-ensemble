@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
@@ -425,8 +426,8 @@ export class BranchVectorState {
         error: "Invalid index",
       };
     }
-    const value = this.placeholderTaskSpecs[index];
-    if (value === null || value.trim() === "") {
+    const entry = this.placeholderTaskSpecs[index];
+    if (entry === null) {
       return {
         ok: false,
         value: undefined,
@@ -435,7 +436,7 @@ export class BranchVectorState {
     }
     return {
       ok: true,
-      value,
+      value: entry.spec,
       error: undefined,
     };
   }
@@ -487,10 +488,11 @@ export class BranchVectorState {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     return {
       ok: true,
@@ -569,10 +571,11 @@ export class BranchVectorState {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     if (this.function.input_maps) {
       this.function.input_maps.push(inputMapParsed.data);
@@ -793,7 +796,16 @@ export class BranchVectorState {
         error: "Spec cannot be empty",
       };
     }
-    this.placeholderTaskSpecs![index] = spec;
+    if (!this.placeholderTaskSpecs) {
+      throw new Error(
+        "placeholderTaskSpecs should be defined if there are tasks",
+      );
+    }
+    const existing = this.placeholderTaskSpecs[index];
+    if (existing === null) {
+      throw new Error("Cannot edit spec of a null entry");
+    }
+    existing.spec = spec;
     return {
       ok: true,
       value: "Task spec updated. If the task should change, edit it as well.",

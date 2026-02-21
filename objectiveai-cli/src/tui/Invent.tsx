@@ -8,6 +8,7 @@ interface FunctionNode {
   name?: string;
   messages: NotificationMessage[];
   done: boolean;
+  error?: string;
   children: Map<number, FunctionNode>;
 }
 
@@ -57,6 +58,9 @@ export function useInventNotifications() {
 
       if (notification.message.role === "done") {
         node.done = true;
+        if (notification.message.error) {
+          node.error = notification.message.error;
+        }
       } else {
         node.messages.push(notification.message);
         if (node.messages.length > 5) {
@@ -78,6 +82,7 @@ interface TitleLine {
   prefix: string;
   name: string;
   done: boolean;
+  error?: string;
 }
 
 interface MsgLine {
@@ -105,6 +110,7 @@ function flattenNode(
     prefix,
     name: node.name ?? "Unnamed Function",
     done: node.done,
+    error: node.error,
   });
 
   if (!node.done && node.messages.length > 0) {
@@ -130,7 +136,8 @@ function RenderLine({ line }: { line: FlatLine }) {
       <Text>
         {line.gutter}{line.prefix}
         <Text bold color="#5948e7">{line.name}</Text>
-        {line.done && <Text color="#5948e7">{" — Complete"}</Text>}
+        {line.done && !line.error && <Text color="#5948e7">{" — Complete"}</Text>}
+        {line.done && line.error && <Text color="red">{" — "}{line.error}</Text>}
       </Text>
     );
   }
@@ -212,8 +219,7 @@ export function InventFlow({
     if (started.current) return;
     started.current = true;
 
-    const dir = process.cwd();
-    invent(dir, onNotification, { inventSpec: spec, parameters })
+    invent(onNotification, { inventSpec: spec, parameters })
       .then(() => setDone(true))
       .catch((err) => {
         console.error(err);
