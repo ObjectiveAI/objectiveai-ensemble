@@ -91,7 +91,12 @@ interface MsgLine {
   message: NotificationMessage;
 }
 
-type FlatLine = TitleLine | MsgLine;
+interface LoadingLine {
+  type: "loading";
+  gutter: string;
+}
+
+type FlatLine = TitleLine | MsgLine | LoadingLine;
 
 function flattenNode(
   node: FunctionNode,
@@ -119,6 +124,10 @@ function flattenNode(
     }
   }
 
+  if (!node.done) {
+    lines.push({ type: "loading", gutter: childGutter });
+  }
+
   const children = Array.from(node.children.entries());
   for (let i = 0; i < children.length; i++) {
     const [, child] = children[i];
@@ -130,7 +139,9 @@ function flattenNode(
   return lines;
 }
 
-function RenderLine({ line }: { line: FlatLine }) {
+const LOADING_FRAMES = ["·  ", "·· ", "···"];
+
+function RenderLine({ line, tick }: { line: FlatLine; tick: number }) {
   if (line.type === "title") {
     return (
       <Text>
@@ -139,6 +150,12 @@ function RenderLine({ line }: { line: FlatLine }) {
         {line.done && !line.error && <Text color="#5948e7">{" — Complete"}</Text>}
         {line.done && line.error && <Text color="red">{" — "}{line.error}</Text>}
       </Text>
+    );
+  }
+
+  if (line.type === "loading") {
+    return (
+      <Text>{line.gutter}<Text dimColor>{"  "}{LOADING_FRAMES[tick % LOADING_FRAMES.length]}</Text></Text>
     );
   }
 
@@ -239,6 +256,13 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
   const [scrollOffset, setScrollOffset] = useState(0);
   const [autoFollow, setAutoFollow] = useState(true);
   const [termHeight, setTermHeight] = useState(stdout.rows ?? 24);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (done) return;
+    const id = setInterval(() => setTick((t) => t + 1), 400);
+    return () => clearInterval(id);
+  }, [done]);
 
   useEffect(() => {
     const onResize = () => setTermHeight(stdout.rows ?? 24);
@@ -288,7 +312,7 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
       <Box width="100%" flexGrow={1}>
         <Box flexDirection="column" flexGrow={1}>
           {visible.map((line, i) => (
-            <RenderLine key={scrollOffset + i} line={line} />
+            <RenderLine key={scrollOffset + i} line={line} tick={tick} />
           ))}
         </Box>
         <Scrollbar
