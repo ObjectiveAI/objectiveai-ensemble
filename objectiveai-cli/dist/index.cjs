@@ -3757,18 +3757,25 @@ async function pushInitial(options) {
   addRemote(dir, `https://github.com/${owner}/${repository}.git`);
   push(dir, gitHubToken);
 }
-async function getAuthenticatedUser(gitHubToken) {
-  const res = await fetch("https://api.github.com/user", {
-    headers: {
-      Authorization: `Bearer ${gitHubToken}`,
-      Accept: "application/vnd.github.v3+json"
+var authenticatedUserCache = /* @__PURE__ */ new Map();
+function getAuthenticatedUser(gitHubToken) {
+  const cached = authenticatedUserCache.get(gitHubToken);
+  if (cached) return cached;
+  const promise = (async () => {
+    const res = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json"
+      }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
     }
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
-  }
-  const user = await res.json();
-  return user.login;
+    const user = await res.json();
+    return user.login;
+  })();
+  authenticatedUserCache.set(gitHubToken, promise);
+  return promise;
 }
 async function pushFinal(options) {
   const {

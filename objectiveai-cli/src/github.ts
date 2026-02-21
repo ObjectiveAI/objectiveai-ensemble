@@ -248,18 +248,28 @@ export interface PushFinalOptions {
   description: string;
 }
 
-async function getAuthenticatedUser(gitHubToken: string): Promise<string> {
-  const res = await fetch("https://api.github.com/user", {
-    headers: {
-      Authorization: `Bearer ${gitHubToken}`,
-      Accept: "application/vnd.github.v3+json",
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
-  }
-  const user = (await res.json()) as { login: string };
-  return user.login;
+const authenticatedUserCache = new Map<string, Promise<string>>();
+
+function getAuthenticatedUser(gitHubToken: string): Promise<string> {
+  const cached = authenticatedUserCache.get(gitHubToken);
+  if (cached) return cached;
+
+  const promise = (async (): Promise<string> => {
+    const res = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
+    }
+    const user = (await res.json()) as { login: string };
+    return user.login;
+  })();
+
+  authenticatedUserCache.set(gitHubToken, promise);
+  return promise;
 }
 
 async function pushFinal(options: PushFinalOptions): Promise<void> {
