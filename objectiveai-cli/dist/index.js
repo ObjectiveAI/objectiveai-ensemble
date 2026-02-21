@@ -3139,6 +3139,13 @@ function claude() {
       }
     });
     let sessionId = state?.sessionId;
+    const onUncaughtException = (err) => {
+      if (err?.code === "ERR_STREAM_WRITE_AFTER_END") {
+        return;
+      }
+      throw err;
+    };
+    process.on("uncaughtException", onUncaughtException);
     try {
       for await (const message of stream) {
         while (notifications.length > 0) {
@@ -3160,11 +3167,8 @@ function claude() {
           }
         }
       }
-    } catch (err) {
-      if (err?.code === "ERR_STREAM_WRITE_AFTER_END") {
-        return { sessionId };
-      }
-      throw err;
+    } finally {
+      process.removeListener("uncaughtException", onUncaughtException);
     }
     while (notifications.length > 0) {
       yield notifications.shift();

@@ -80,6 +80,18 @@ export function claude(): [AgentStepFn<ClaudeState>, null] {
     });
 
     let sessionId: string | undefined = state?.sessionId;
+    // The Claude Agent SDK has a race condition where it writes to the MCP
+    // server's stdin after the transport stream closes. This surfaces as an
+    // unhandled 'error' event on the Socket, which crashes the process.
+    // Install a temporary handler to swallow it.
+    const onUncaughtException = (err: Error & { code?: string }) => {
+      if (err?.code === "ERR_STREAM_WRITE_AFTER_END") {
+        return;
+      }
+      // Re-throw anything else — it's not ours to handle.
+      throw err;
+    };
+    process.on("uncaughtException", onUncaughtException);
 
     try {
       for await (const message of stream) {
@@ -105,14 +117,8 @@ export function claude(): [AgentStepFn<ClaudeState>, null] {
           }
         }
       }
-    } catch (err: any) {
-      if (err?.code === "ERR_STREAM_WRITE_AFTER_END") {
-        // Race condition in Claude Agent SDK's MCP transport —
-        // the SDK writes to stdin after the stream closes.
-        // Return current state so the retry mechanism can resume.
-        return { sessionId };
-      }
-      throw err;
+    } finally {
+      process.removeListener("uncaughtException", onUncaughtException);
     }
 
     // Drain any remaining tool notifications
