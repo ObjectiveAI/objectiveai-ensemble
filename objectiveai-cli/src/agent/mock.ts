@@ -302,6 +302,12 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
         },
         wait,
       );
+      yield {
+        role: "assistant",
+        content:
+          "I've written the essay describing the function's approach.\nIt covers the key evaluation dimensions:\n- Quality assessment\n- Clarity scoring\n- Relevance matching",
+      };
+      await wait();
       return undefined;
     }
 
@@ -546,6 +552,12 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
         const result = await checkFunctionTool.fn({});
         if (result.ok) {
           yield { role: "tool", name: checkFunctionTool.name };
+          await wait();
+          yield {
+            role: "assistant",
+            content:
+              "Function validation passed successfully.\nAll tasks compile correctly and produce valid outputs.\nThe function is ready for deployment.",
+          };
           await wait();
           return undefined;
         }

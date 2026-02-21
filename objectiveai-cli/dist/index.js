@@ -2739,6 +2739,11 @@ function mock() {
         },
         wait
       );
+      yield {
+        role: "assistant",
+        content: "I've written the essay describing the function's approach.\nIt covers the key evaluation dimensions:\n- Quality assessment\n- Clarity scoring\n- Relevance matching"
+      };
+      await wait();
       return void 0;
     }
     const inputSchemaTool = findTool(step, "WriteFunctionInputSchema");
@@ -2955,6 +2960,11 @@ function mock() {
         const result = await checkFunctionTool.fn({});
         if (result.ok) {
           yield { role: "tool", name: checkFunctionTool.name };
+          await wait();
+          yield {
+            role: "assistant",
+            content: "Function validation passed successfully.\nAll tasks compile correctly and produce valid outputs.\nThe function is ready for deployment."
+          };
           await wait();
           return void 0;
         }
@@ -4271,7 +4281,11 @@ async function invent(onNotification, options, continuation) {
   );
 }
 async function stage1(owner, options, parentToken, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
-  const { parameters: parametersBuilder, inventSpec, ...stateOptions } = options;
+  const {
+    parameters: parametersBuilder,
+    inventSpec,
+    ...stateOptions
+  } = options;
   const parameters = buildParameters(parametersBuilder);
   const state = new State(
     {
@@ -4310,8 +4324,8 @@ async function stage1(owner, options, parentToken, path, onNotification, agent, 
 async function stage2(dir, state, agentState, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
   const name = state.getName().value;
   const boundOnNotification = (message) => onNotification({ path, name, message });
-  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
+  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
     state,
     agent,

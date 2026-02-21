@@ -11,6 +11,49 @@ import { Functions, listRefDependencies, getJsonSchema } from 'objectiveai';
 import { randomUUID } from 'crypto';
 import { execSync } from 'child_process';
 
+function useTextInput() {
+  const [state, setState] = useState({ text: "", cursor: 0 });
+  const handleKey = useCallback(
+    (ch, key) => {
+      if (key.backspace || key.delete) {
+        setState((prev) => {
+          if (prev.cursor <= 0) return prev;
+          return {
+            text: prev.text.slice(0, prev.cursor - 1) + prev.text.slice(prev.cursor),
+            cursor: prev.cursor - 1
+          };
+        });
+        return true;
+      }
+      if (key.leftArrow) {
+        setState((prev) => ({ ...prev, cursor: Math.max(0, prev.cursor - 1) }));
+        return true;
+      }
+      if (key.rightArrow) {
+        setState((prev) => ({
+          ...prev,
+          cursor: Math.min(prev.text.length, prev.cursor + 1)
+        }));
+        return true;
+      }
+      if (ch && !key.ctrl && !key.meta) {
+        setState((prev) => ({
+          text: prev.text.slice(0, prev.cursor) + ch + prev.text.slice(prev.cursor),
+          cursor: prev.cursor + 1
+        }));
+        return true;
+      }
+      return false;
+    },
+    []
+  );
+  const clear = useCallback(() => setState({ text: "", cursor: 0 }), []);
+  const set = useCallback(
+    (text) => setState({ text, cursor: text.length }),
+    []
+  );
+  return [state, { handleKey, clear, set }];
+}
 var COMMANDS = [
   { name: "/invent", description: "Invent a new ObjectiveAI Function" },
   { name: "/config", description: "Open the Config Panel" }
@@ -40,8 +83,7 @@ var INVENT_WIZARD = [
 function Menu({ onResult }) {
   const { stdout } = useStdout();
   const termHeight = stdout.rows ?? 24;
-  const [input, setInput] = useState("");
-  const [cursorPos, setCursorPos] = useState(0);
+  const [{ text: input, cursor: cursorPos }, inputActions] = useTextInput();
   const [wizardStep, setWizardStep] = useState(null);
   const [wizardValues, setWizardValues] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -55,8 +97,7 @@ function Menu({ onResult }) {
       } else if (cmd === "/invent") {
         setWizardStep(0);
         setWizardValues([]);
-        setInput("");
-        setCursorPos(0);
+        inputActions.clear();
       }
     },
     [onResult]
@@ -71,8 +112,7 @@ function Menu({ onResult }) {
       if (wizardStep < INVENT_WIZARD.length - 1) {
         setWizardValues(next);
         setWizardStep(wizardStep + 1);
-        setInput("");
-        setCursorPos(0);
+        inputActions.clear();
       } else {
         const [spec, depth, minWidth, maxWidth] = next;
         const depthNum = parseInt(depth, 10);
@@ -102,24 +142,15 @@ function Menu({ onResult }) {
       }
       return;
     }
-    if (key.backspace || key.delete) {
-      if (inWizard && input.length === 0) {
-        if (wizardStep > 0) {
-          const prev = wizardValues.slice(0, -1);
-          setWizardValues(prev);
-          setWizardStep(wizardStep - 1);
-          setInput("");
-          setCursorPos(0);
-        } else {
-          setWizardStep(null);
-          setWizardValues([]);
-          setInput("");
-          setCursorPos(0);
-        }
-      } else if (cursorPos > 0) {
-        setInput((prev) => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
-        setCursorPos((prev) => prev - 1);
+    if ((key.backspace || key.delete) && inWizard && input.length === 0) {
+      if (wizardStep > 0) {
+        setWizardValues(wizardValues.slice(0, -1));
+        setWizardStep(wizardStep - 1);
+      } else {
+        setWizardStep(null);
+        setWizardValues([]);
       }
+      inputActions.clear();
       return;
     }
     if (key.escape) {
@@ -127,16 +158,7 @@ function Menu({ onResult }) {
         setWizardStep(null);
         setWizardValues([]);
       }
-      setInput("");
-      setCursorPos(0);
-      return;
-    }
-    if (key.leftArrow) {
-      setCursorPos((prev) => Math.max(0, prev - 1));
-      return;
-    }
-    if (key.rightArrow) {
-      setCursorPos((prev) => Math.min(input.length, prev + 1));
+      inputActions.clear();
       return;
     }
     if (key.upArrow && commandsOpen) {
@@ -147,9 +169,7 @@ function Menu({ onResult }) {
       setSelectedIndex((prev) => Math.min(filtered.length - 1, prev + 1));
       return;
     }
-    if (ch && !key.ctrl && !key.meta) {
-      setInput((prev) => prev.slice(0, cursorPos) + ch + prev.slice(cursorPos));
-      setCursorPos((prev) => prev + 1);
+    if (inputActions.handleKey(ch, key)) {
       setSelectedIndex(0);
     }
   });
@@ -454,6 +474,11 @@ function mock() {
         },
         wait
       );
+      yield {
+        role: "assistant",
+        content: "I've written the essay describing the function's approach.\nIt covers the key evaluation dimensions:\n- Quality assessment\n- Clarity scoring\n- Relevance matching"
+      };
+      await wait();
       return void 0;
     }
     const inputSchemaTool = findTool(step, "WriteFunctionInputSchema");
@@ -670,6 +695,11 @@ function mock() {
         const result = await checkFunctionTool.fn({});
         if (result.ok) {
           yield { role: "tool", name: checkFunctionTool.name };
+          await wait();
+          yield {
+            role: "assistant",
+            content: "Function validation passed successfully.\nAll tasks compile correctly and produce valid outputs.\nThe function is ready for deployment."
+          };
           await wait();
           return void 0;
         }
@@ -990,8 +1020,7 @@ function Config({ onBack }) {
   const termHeight = stdout.rows ?? 24;
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState("");
-  const [cursorPos, setCursorPos] = useState(0);
+  const [{ text: editValue, cursor: cursorPos }, editActions] = useTextInput();
   const [values, setValues] = useState(() => {
     const config = readHomeConfig();
     const result = {};
@@ -1032,25 +1061,7 @@ function Config({ onBack }) {
         setEditing(false);
         return;
       }
-      if (key.leftArrow) {
-        setCursorPos((prev) => Math.max(0, prev - 1));
-        return;
-      }
-      if (key.rightArrow) {
-        setCursorPos((prev) => Math.min(editValue.length, prev + 1));
-        return;
-      }
-      if (key.backspace || key.delete) {
-        if (cursorPos > 0) {
-          setEditValue((prev) => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
-          setCursorPos((prev) => prev - 1);
-        }
-        return;
-      }
-      if (ch && !key.ctrl && !key.meta) {
-        setEditValue((prev) => prev.slice(0, cursorPos) + ch + prev.slice(cursorPos));
-        setCursorPos((prev) => prev + 1);
-      }
+      editActions.handleKey(ch, key);
       return;
     }
     if (key.escape) {
@@ -1077,10 +1088,8 @@ function Config({ onBack }) {
           saveValue(item, item.options[next]);
         }
       } else {
-        const existing = values[item.key] ?? "";
         setEditing(true);
-        setEditValue(existing);
-        setCursorPos(existing.length);
+        editActions.set(values[item.key] ?? "");
       }
     }
   });
@@ -4678,7 +4687,11 @@ async function invent(onNotification, options, continuation) {
   );
 }
 async function stage1(owner, options, parentToken, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
-  const { parameters: parametersBuilder, inventSpec, ...stateOptions } = options;
+  const {
+    parameters: parametersBuilder,
+    inventSpec,
+    ...stateOptions
+  } = options;
   const parameters = buildParameters(parametersBuilder);
   const state = new State(
     {
@@ -4717,8 +4730,8 @@ async function stage1(owner, options, parentToken, path, onNotification, agent, 
 async function stage2(dir, state, agentState, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
   const name = state.getName().value;
   const boundOnNotification = (message) => onNotification({ path, name, message });
-  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
+  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
     state,
     agent,
