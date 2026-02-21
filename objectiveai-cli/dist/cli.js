@@ -41,6 +41,7 @@ function Menu({ onResult }) {
   const { stdout } = useStdout();
   const termHeight = stdout.rows ?? 24;
   const [input, setInput] = useState("");
+  const [cursorPos, setCursorPos] = useState(0);
   const [wizardStep, setWizardStep] = useState(null);
   const [wizardValues, setWizardValues] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -55,6 +56,7 @@ function Menu({ onResult }) {
         setWizardStep(0);
         setWizardValues([]);
         setInput("");
+        setCursorPos(0);
       }
     },
     [onResult]
@@ -70,6 +72,7 @@ function Menu({ onResult }) {
         setWizardValues(next);
         setWizardStep(wizardStep + 1);
         setInput("");
+        setCursorPos(0);
       } else {
         const [spec, depth, minWidth, maxWidth] = next;
         const depthNum = parseInt(depth, 10);
@@ -106,13 +109,16 @@ function Menu({ onResult }) {
           setWizardValues(prev);
           setWizardStep(wizardStep - 1);
           setInput("");
+          setCursorPos(0);
         } else {
           setWizardStep(null);
           setWizardValues([]);
           setInput("");
+          setCursorPos(0);
         }
-      } else {
-        setInput((prev) => prev.slice(0, -1));
+      } else if (cursorPos > 0) {
+        setInput((prev) => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
+        setCursorPos((prev) => prev - 1);
       }
       return;
     }
@@ -120,10 +126,17 @@ function Menu({ onResult }) {
       if (inWizard) {
         setWizardStep(null);
         setWizardValues([]);
-        setInput("");
-      } else {
-        setInput("");
       }
+      setInput("");
+      setCursorPos(0);
+      return;
+    }
+    if (key.leftArrow) {
+      setCursorPos((prev) => Math.max(0, prev - 1));
+      return;
+    }
+    if (key.rightArrow) {
+      setCursorPos((prev) => Math.min(input.length, prev + 1));
       return;
     }
     if (key.upArrow && commandsOpen) {
@@ -135,7 +148,8 @@ function Menu({ onResult }) {
       return;
     }
     if (ch && !key.ctrl && !key.meta) {
-      setInput((prev) => prev + ch);
+      setInput((prev) => prev.slice(0, cursorPos) + ch + prev.slice(cursorPos));
+      setCursorPos((prev) => prev + 1);
       setSelectedIndex(0);
     }
   });
@@ -154,8 +168,9 @@ function Menu({ onResult }) {
     /* @__PURE__ */ jsxs(Box, { children: [
       /* @__PURE__ */ jsx(Text, { color: "#5948e7", bold: true, children: "\u276F " }),
       input.length > 0 ? /* @__PURE__ */ jsxs(Text, { children: [
-        input,
-        /* @__PURE__ */ jsx(Text, { dimColor: true, children: "\u2588" })
+        input.slice(0, cursorPos),
+        /* @__PURE__ */ jsx(Text, { dimColor: true, children: "\u2588" }),
+        input.slice(cursorPos)
       ] }) : currentStep && currentStep.placeholder ? /* @__PURE__ */ jsxs(Text, { children: [
         "\u2588",
         /* @__PURE__ */ jsx(Text, { color: "gray", children: currentStep.placeholder })

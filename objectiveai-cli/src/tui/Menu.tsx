@@ -50,6 +50,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
   const termHeight = stdout.rows ?? 24;
 
   const [input, setInput] = useState("");
+  const [cursorPos, setCursorPos] = useState(0);
   const [wizardStep, setWizardStep] = useState<number | null>(null);
   const [wizardValues, setWizardValues] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -69,6 +70,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
         setWizardStep(0);
         setWizardValues([]);
         setInput("");
+        setCursorPos(0);
       }
     },
     [onResult],
@@ -86,6 +88,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
         setWizardValues(next);
         setWizardStep(wizardStep + 1);
         setInput("");
+        setCursorPos(0);
       } else {
         // Wizard complete
         const [spec, depth, minWidth, maxWidth] = next;
@@ -126,14 +129,17 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
           setWizardValues(prev);
           setWizardStep(wizardStep! - 1);
           setInput("");
+          setCursorPos(0);
         } else {
           // Exit wizard back to menu
           setWizardStep(null);
           setWizardValues([]);
           setInput("");
+          setCursorPos(0);
         }
-      } else {
-        setInput((prev) => prev.slice(0, -1));
+      } else if (cursorPos > 0) {
+        setInput((prev) => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
+        setCursorPos((prev) => prev - 1);
       }
       return;
     }
@@ -142,10 +148,18 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       if (inWizard) {
         setWizardStep(null);
         setWizardValues([]);
-        setInput("");
-      } else {
-        setInput("");
       }
+      setInput("");
+      setCursorPos(0);
+      return;
+    }
+
+    if (key.leftArrow) {
+      setCursorPos((prev) => Math.max(0, prev - 1));
+      return;
+    }
+    if (key.rightArrow) {
+      setCursorPos((prev) => Math.min(input.length, prev + 1));
       return;
     }
 
@@ -159,7 +173,8 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
     }
 
     if (ch && !key.ctrl && !key.meta) {
-      setInput((prev) => prev + ch);
+      setInput((prev) => prev.slice(0, cursorPos) + ch + prev.slice(cursorPos));
+      setCursorPos((prev) => prev + 1);
       setSelectedIndex(0);
     }
   });
@@ -187,7 +202,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       <Box>
         <Text color="#5948e7" bold>{"❯ "}</Text>
         {input.length > 0 ? (
-          <Text>{input}<Text dimColor>█</Text></Text>
+          <Text>{input.slice(0, cursorPos)}<Text dimColor>█</Text>{input.slice(cursorPos)}</Text>
         ) : currentStep && currentStep.placeholder ? (
           <Text>█<Text color="gray">{currentStep.placeholder}</Text></Text>
         ) : (
