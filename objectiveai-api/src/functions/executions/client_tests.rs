@@ -387,13 +387,17 @@ fn create_simple_vector_function() -> objectiveai::functions::InlineFunction {
 /// Creates a simple inline profile for a function with one vector completion task.
 fn create_simple_profile() -> objectiveai::functions::InlineProfile {
     objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
-        tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
-            ensemble: create_simple_ensemble(),
-            profile:
-                objectiveai::vector::completions::request::Profile::Weights(
-                    vec![Decimal::ONE],
-                ),
-        }],
+        tasks: vec![objectiveai::functions::TaskProfile::Inline(
+            objectiveai::functions::InlineProfile::Auto(
+                objectiveai::functions::InlineAutoProfile {
+                    ensemble: create_simple_ensemble(),
+                    profile:
+                        objectiveai::vector::completions::request::Profile::Weights(
+                            vec![Decimal::ONE],
+                        ),
+                },
+            ),
+        )],
         profile: objectiveai::vector::completions::request::Profile::Weights(
             vec![Decimal::ONE],
         ),
@@ -447,13 +451,17 @@ fn create_simple_scalar_function() -> objectiveai::functions::InlineFunction {
 /// Creates a simple inline scalar profile.
 fn create_simple_scalar_profile() -> objectiveai::functions::InlineProfile {
     objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
-        tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
-            ensemble: create_simple_ensemble(),
-            profile:
-                objectiveai::vector::completions::request::Profile::Weights(
-                    vec![Decimal::ONE],
-                ),
-        }],
+        tasks: vec![objectiveai::functions::TaskProfile::Inline(
+            objectiveai::functions::InlineProfile::Auto(
+                objectiveai::functions::InlineAutoProfile {
+                    ensemble: create_simple_ensemble(),
+                    profile:
+                        objectiveai::vector::completions::request::Profile::Weights(
+                            vec![Decimal::ONE],
+                        ),
+                },
+            ),
+        )],
         profile: objectiveai::vector::completions::request::Profile::Weights(
             vec![Decimal::ONE],
         ),
@@ -733,18 +741,26 @@ mod tests {
         // Create a profile with equal weights for both tasks
         let profile = objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
             tasks: vec![
-                objectiveai::functions::TaskProfile::VectorCompletion {
-                    ensemble: create_simple_ensemble(),
-                    profile: objectiveai::vector::completions::request::Profile::Weights(
-                        vec![Decimal::ONE],
+                objectiveai::functions::TaskProfile::Inline(
+                    objectiveai::functions::InlineProfile::Auto(
+                        objectiveai::functions::InlineAutoProfile {
+                            ensemble: create_simple_ensemble(),
+                            profile: objectiveai::vector::completions::request::Profile::Weights(
+                                vec![Decimal::ONE],
+                            ),
+                        },
                     ),
-                },
-                objectiveai::functions::TaskProfile::VectorCompletion {
-                    ensemble: create_simple_ensemble(),
-                    profile: objectiveai::vector::completions::request::Profile::Weights(
-                        vec![Decimal::ONE],
+                ),
+                objectiveai::functions::TaskProfile::Inline(
+                    objectiveai::functions::InlineProfile::Auto(
+                        objectiveai::functions::InlineAutoProfile {
+                            ensemble: create_simple_ensemble(),
+                            profile: objectiveai::vector::completions::request::Profile::Weights(
+                                vec![Decimal::ONE],
+                            ),
+                        },
                     ),
-                },
+                ),
             ],
             profile: objectiveai::vector::completions::request::Profile::Weights(
                 vec![Decimal::new(5, 1), Decimal::new(5, 1)],
@@ -830,17 +846,21 @@ mod tests {
         );
 
         let profile = objectiveai::functions::InlineProfile::Tasks(objectiveai::functions::InlineTasksProfile {
-            tasks: vec![objectiveai::functions::TaskProfile::VectorCompletion {
-                ensemble,
-                // Profile weights are per-LLM-config, not per-instance
-                // We have 2 distinct LLM configs (gpt-4o and claude)
-                profile: objectiveai::vector::completions::request::Profile::Weights(
-                    vec![
-                        Decimal::new(6, 1), // 0.6 for gpt-4o (covers both instances)
-                        Decimal::new(4, 1), // 0.4 for claude
-                    ],
+            tasks: vec![objectiveai::functions::TaskProfile::Inline(
+                objectiveai::functions::InlineProfile::Auto(
+                    objectiveai::functions::InlineAutoProfile {
+                        ensemble,
+                        // Profile weights are per-LLM-config, not per-instance
+                        // We have 2 distinct LLM configs (gpt-4o and claude)
+                        profile: objectiveai::vector::completions::request::Profile::Weights(
+                            vec![
+                                Decimal::new(6, 1), // 0.6 for gpt-4o (covers both instances)
+                                Decimal::new(4, 1), // 0.4 for claude
+                            ],
+                        ),
+                    },
                 ),
-            }],
+            )],
             profile: objectiveai::vector::completions::request::Profile::Weights(
                 vec![Decimal::ONE],
             ),
