@@ -4,11 +4,12 @@ import {
   tool,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { AgentStepFn, AgentStep } from ".";
+import { AgentStepFn, AgentStep, StepName } from ".";
 import { NotificationMessage } from "../notification";
 import { Parameters } from "../parameters";
 import { Result } from "../result";
 import { Tool } from "../tool";
+import { getAgentClaudeConfig, AgentClaudeConfig, ClaudeModel } from "../config";
 
 export interface ClaudeState {
   sessionId?: string;
@@ -20,6 +21,22 @@ function resultToCallToolResult(result: Result<string>): CallToolResult {
   }
   return { content: [{ type: "text" as const, text: result.value ?? "OK" }] };
 }
+
+const STEP_TO_CONFIG_KEY: Record<StepName, keyof AgentClaudeConfig> = {
+  type: "typeModel",
+  name: "nameModel",
+  essay: "essayModel",
+  fields: "fieldsModel",
+  essay_tasks: "essayTasksModel",
+  body: "bodyModel",
+  description: "descriptionModel",
+};
+
+const CLAUDE_MODEL_TO_QUERY: Record<ClaudeModel, string> = {
+  opus: "default",
+  sonnet: "sonnet",
+  haiku: "haiku",
+};
 
 export function claude(): [AgentStepFn<ClaudeState>, null] {
   const agent: AgentStepFn<ClaudeState> = async function* (
@@ -46,6 +63,10 @@ export function claude(): [AgentStepFn<ClaudeState>, null] {
       tools: sdkTools,
     });
 
+    const claudeConfig = getAgentClaudeConfig();
+    const configKey = STEP_TO_CONFIG_KEY[step.stepName];
+    const claudeModel = claudeConfig[configKey];
+
     const stream = query({
       prompt: step.prompt,
       options: {
@@ -54,33 +75,44 @@ export function claude(): [AgentStepFn<ClaudeState>, null] {
         disallowedTools: ["AskUserQuestion"],
         permissionMode: "dontAsk",
         resume: state?.sessionId,
+        ...(claudeModel ? { model: CLAUDE_MODEL_TO_QUERY[claudeModel] } : {}),
       },
     });
 
     let sessionId: string | undefined = state?.sessionId;
 
-    for await (const message of stream) {
-      // Drain queued tool notifications
-      while (notifications.length > 0) {
-        yield notifications.shift()!;
-      }
+    try {
+      for await (const message of stream) {
+        // Drain queued tool notifications
+        while (notifications.length > 0) {
+          yield notifications.shift()!;
+        }
 
-      if (message.type === "system" && message.subtype === "init") {
-        sessionId = message.session_id;
-      }
+        if (message.type === "system" && message.subtype === "init") {
+          sessionId = message.session_id;
+        }
 
-      if (message.type === "assistant") {
-        const parts: string[] = [];
-        for (const block of message.message.content) {
-          if (block.type === "text") {
-            const text = block.text.trim();
-            if (text) parts.push(text);
+        if (message.type === "assistant") {
+          const parts: string[] = [];
+          for (const block of message.message.content) {
+            if (block.type === "text") {
+              const text = block.text.trim();
+              if (text) parts.push(text);
+            }
+          }
+          if (parts.length > 0) {
+            yield { role: "assistant", content: parts.join("\n") };
           }
         }
-        if (parts.length > 0) {
-          yield { role: "assistant", content: parts.join("\n") };
-        }
       }
+    } catch (err: any) {
+      if (err?.code === "ERR_STREAM_WRITE_AFTER_END") {
+        // Race condition in Claude Agent SDK's MCP transport —
+        // the SDK writes to stdin after the stream closes.
+        // Return current state so the retry mechanism can resume.
+        return { sessionId };
+      }
+      throw err;
     }
 
     // Drain any remaining tool notifications
