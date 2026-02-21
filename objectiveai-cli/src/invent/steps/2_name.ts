@@ -16,6 +16,7 @@ export function stepName<TState>(
   return runAgentStep(
     agent,
     {
+      stepName: "name",
       prompt:
         "Select a name for your ObjectiveAI Function. " +
         'Do not include "ObjectiveAI" or "Function" in the name. ' +

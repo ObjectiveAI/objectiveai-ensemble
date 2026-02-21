@@ -61,6 +61,7 @@ export function stepDescription<TState>(
   return runAgentStep(
     agent,
     {
+      stepName: "description",
       prompt,
       tools: [
         state.getInventSpecTool(),

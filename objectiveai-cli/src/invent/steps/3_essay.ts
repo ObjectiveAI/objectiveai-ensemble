@@ -33,6 +33,7 @@ export function stepEssay<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "essay",
         prompt:
           "Write a non-technical essay describing the Vector Function you are building. " +
           "Explore the purpose, inputs, and use-cases of the function in detail. " +
@@ -56,6 +57,7 @@ export function stepEssay<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "essay",
         prompt:
           "Write a non-technical essay describing the Scalar Function you are building. " +
           "Explore the purpose, input, and use-cases of the function in detail. " +

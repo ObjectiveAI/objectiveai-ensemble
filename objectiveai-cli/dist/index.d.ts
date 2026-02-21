@@ -93,7 +93,10 @@ interface PushFinalOptions {
     description: string;
 }
 
+declare const StepNameSchema: z.ZodUnion<readonly [z.ZodLiteral<"type">, z.ZodLiteral<"name">, z.ZodLiteral<"essay">, z.ZodLiteral<"fields">, z.ZodLiteral<"essay_tasks">, z.ZodLiteral<"body">, z.ZodLiteral<"description">]>;
+type StepName = z.infer<typeof StepNameSchema>;
 interface AgentStep {
+    stepName: StepName;
     prompt: string;
     tools: Tool[];
 }

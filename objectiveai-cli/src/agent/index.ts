@@ -19,7 +19,19 @@ export const AgentUpstreamSchema = z.union([
 ]);
 export type AgentUpstream = z.infer<typeof AgentUpstreamSchema>;
 
+export const StepNameSchema = z.union([
+  z.literal("type"),
+  z.literal("name"),
+  z.literal("essay"),
+  z.literal("fields"),
+  z.literal("essay_tasks"),
+  z.literal("body"),
+  z.literal("description"),
+]);
+export type StepName = z.infer<typeof StepNameSchema>;
+
 export interface AgentStep {
+  stepName: StepName;
   prompt: string;
   tools: Tool[];
 }

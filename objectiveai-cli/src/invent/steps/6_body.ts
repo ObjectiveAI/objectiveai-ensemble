@@ -36,6 +36,7 @@ export function stepBody<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt:
           "Create the Tasks for your Vector Function.\n\n" +
           "## Task Structure\n\n" +
@@ -117,6 +118,7 @@ export function stepBody<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt:
           "Create the Tasks for your Scalar Function.\n\n" +
           "## Task Structure\n\n" +
@@ -170,6 +172,7 @@ export function stepBody<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt:
           "Create the Tasks for your Vector Function.\n\n" +
           "## Task Structure\n\n" +
@@ -245,6 +248,7 @@ export function stepBody<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt:
           "Create the Tasks for your Scalar Function.\n\n" +
           "## Task Structure\n\n" +

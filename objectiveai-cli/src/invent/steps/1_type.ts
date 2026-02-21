@@ -16,6 +16,7 @@ export function stepType<TState>(
   return runAgentStep(
     agent,
     {
+      stepName: "type",
       prompt:
         "You are an inventor creating a new ObjectiveAI Function. " +
         'ObjectiveAI Functions are for ranking multiple input items ("vector.function"), or for scoring a single input item ("scalar.function"). ' +

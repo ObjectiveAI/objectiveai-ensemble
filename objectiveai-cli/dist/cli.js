@@ -783,6 +783,20 @@ function resultToCallToolResult(result) {
   }
   return { content: [{ type: "text", text: result.value ?? "OK" }] };
 }
+var STEP_TO_CONFIG_KEY = {
+  type: "typeModel",
+  name: "nameModel",
+  essay: "essayModel",
+  fields: "fieldsModel",
+  essay_tasks: "essayTasksModel",
+  body: "bodyModel",
+  description: "descriptionModel"
+};
+var CLAUDE_MODEL_TO_QUERY = {
+  opus: "default",
+  sonnet: "sonnet",
+  haiku: "haiku"
+};
 function claude() {
   const agent = async function* (step, state, _parameters) {
     const notifications = [];
@@ -799,6 +813,9 @@ function claude() {
       name: "invent",
       tools: sdkTools
     });
+    const claudeConfig = getAgentClaudeConfig();
+    const configKey = STEP_TO_CONFIG_KEY[step.stepName];
+    const claudeModel = claudeConfig[configKey];
     const stream = query({
       prompt: step.prompt,
       options: {
@@ -806,29 +823,37 @@ function claude() {
         allowedTools: ["mcp__invent__*"],
         disallowedTools: ["AskUserQuestion"],
         permissionMode: "dontAsk",
-        resume: state?.sessionId
+        resume: state?.sessionId,
+        ...claudeModel ? { model: CLAUDE_MODEL_TO_QUERY[claudeModel] } : {}
       }
     });
     let sessionId = state?.sessionId;
-    for await (const message of stream) {
-      while (notifications.length > 0) {
-        yield notifications.shift();
-      }
-      if (message.type === "system" && message.subtype === "init") {
-        sessionId = message.session_id;
-      }
-      if (message.type === "assistant") {
-        const parts = [];
-        for (const block of message.message.content) {
-          if (block.type === "text") {
-            const text = block.text.trim();
-            if (text) parts.push(text);
+    try {
+      for await (const message of stream) {
+        while (notifications.length > 0) {
+          yield notifications.shift();
+        }
+        if (message.type === "system" && message.subtype === "init") {
+          sessionId = message.session_id;
+        }
+        if (message.type === "assistant") {
+          const parts = [];
+          for (const block of message.message.content) {
+            if (block.type === "text") {
+              const text = block.text.trim();
+              if (text) parts.push(text);
+            }
+          }
+          if (parts.length > 0) {
+            yield { role: "assistant", content: parts.join("\n") };
           }
         }
-        if (parts.length > 0) {
-          yield { role: "assistant", content: parts.join("\n") };
-        }
       }
+    } catch (err) {
+      if (err?.code === "ERR_STREAM_WRITE_AFTER_END") {
+        return { sessionId };
+      }
+      throw err;
     }
     while (notifications.length > 0) {
       yield notifications.shift();
@@ -844,6 +869,15 @@ var ClaudeAgentUpstreamSchema = z4.literal("claude");
 var AgentUpstreamSchema = z4.union([
   MockAgentUpstreamSchema,
   ClaudeAgentUpstreamSchema
+]);
+z4.union([
+  z4.literal("type"),
+  z4.literal("name"),
+  z4.literal("essay"),
+  z4.literal("fields"),
+  z4.literal("essay_tasks"),
+  z4.literal("body"),
+  z4.literal("description")
 ]);
 async function runAgentStep(agent, step, parameters, isDone, maxRetries, onNotification, state) {
   state = await runAgentStepOne(agent, step, parameters, onNotification, state);
@@ -939,6 +973,28 @@ function getAgentMockConfig() {
   if (!Number.isFinite(n)) return null;
   return { notificationDelayMs: n };
 }
+var CLAUDE_MODELS = ["opus", "sonnet", "haiku"];
+function parseClaudeModel(value) {
+  if (typeof value === "string" && CLAUDE_MODELS.includes(value)) {
+    return value;
+  }
+  return void 0;
+}
+function getAgentClaudeConfig() {
+  const config = {
+    ...readConfigFile(homedir()) ?? {},
+    ...readConfigFile(process.cwd()) ?? {}
+  };
+  return {
+    typeModel: parseClaudeModel(config.agentClaudeTypeModel),
+    nameModel: parseClaudeModel(config.agentClaudeNameModel),
+    essayModel: parseClaudeModel(config.agentClaudeEssayModel),
+    fieldsModel: parseClaudeModel(config.agentClaudeFieldsModel),
+    essayTasksModel: parseClaudeModel(config.agentClaudeEssayTasksModel),
+    bodyModel: parseClaudeModel(config.agentClaudeBodyModel),
+    descriptionModel: parseClaudeModel(config.agentClaudeDescriptionModel)
+  };
+}
 var homeConfigDir = () => join(homedir(), ".objectiveai");
 var homeConfigPath = () => join(homeConfigDir(), "config.json");
 function readHomeConfig() {
@@ -992,7 +1048,7 @@ function SelectableList({
     ] }, item.key);
   }) });
 }
-var CLAUDE_MODELS = ["opus", "sonnet", "haiku"];
+var CLAUDE_MODELS2 = ["opus", "sonnet", "haiku"];
 var CONFIG_ITEMS = [
   { label: "GitHub Token", key: "gitHubToken", kind: "text" },
   { label: "Git Author Name", key: "gitAuthorName", kind: "text" },
@@ -1016,43 +1072,43 @@ var CONFIG_ITEMS = [
     label: "Claude Agent Type Model",
     key: "agentClaudeTypeModel",
     kind: "toggle",
-    options: CLAUDE_MODELS
+    options: CLAUDE_MODELS2
   },
   {
     label: "Claude Agent Name Model",
     key: "agentClaudeNameModel",
     kind: "toggle",
-    options: CLAUDE_MODELS
+    options: CLAUDE_MODELS2
   },
   {
     label: "Claude Agent Essay Model",
     key: "agentClaudeEssayModel",
     kind: "toggle",
-    options: CLAUDE_MODELS
+    options: CLAUDE_MODELS2
   },
   {
     label: "Claude Agent Fields Model",
     key: "agentClaudeFieldsModel",
     kind: "toggle",
-    options: CLAUDE_MODELS
+    options: CLAUDE_MODELS2
   },
   {
     label: "Claude Agent Essay Tasks Model",
     key: "agentClaudeEssayTasksModel",
     kind: "toggle",
-    options: CLAUDE_MODELS
+    options: CLAUDE_MODELS2
   },
   {
     label: "Claude Agent Body Model",
     key: "agentClaudeBodyModel",
     kind: "toggle",
-    options: CLAUDE_MODELS
+    options: CLAUDE_MODELS2
   },
   {
     label: "Claude Agent Description Model",
     key: "agentClaudeDescriptionModel",
     kind: "toggle",
-    options: CLAUDE_MODELS
+    options: CLAUDE_MODELS2
   }
 ];
 var LABEL_WIDTH = Math.max(...CONFIG_ITEMS.map((item) => item.label.length)) + 2;
@@ -4236,6 +4292,7 @@ function stepType(state, agent, onNotification, agentState, maxRetries = 5) {
   return runAgentStep(
     agent,
     {
+      stepName: "type",
       prompt: 'You are an inventor creating a new ObjectiveAI Function. ObjectiveAI Functions are for ranking multiple input items ("vector.function"), or for scoring a single input item ("scalar.function"). Select the appropriate type based on InventSpec and what the expected input is.',
       tools: [
         state.getInventSpecTool(),
@@ -4258,6 +4315,7 @@ function stepName(state, agent, onNotification, agentState, maxRetries = 5) {
   return runAgentStep(
     agent,
     {
+      stepName: "name",
       prompt: 'Select a name for your ObjectiveAI Function. Do not include "ObjectiveAI" or "Function" in the name. Name it how you would name a function in code. Use all lowercase and separate words with dashes.',
       tools: [
         state.getInventSpecTool(),
@@ -4285,6 +4343,7 @@ function stepEssay(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "essay",
         prompt: `Write a non-technical essay describing the Vector Function you are building. Explore the purpose, inputs, and use-cases of the function in detail. Explore the qualities and values that must be evaluated in order to properly rank items relative to one another. There should be ${tasksStr} qualities or values. This essay will guide the development of the Vector Function and underpins its philosophy.`,
         tools: [
           state.getInventSpecTool(),
@@ -4303,6 +4362,7 @@ function stepEssay(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "essay",
         prompt: `Write a non-technical essay describing the Scalar Function you are building. Explore the purpose, input, and use-cases of the function in detail. Explore the qualities and values that must be evaluated for the input. There should be ${tasksStr} qualities or values. This essay will guide the development of the Scalar Function and underpins its philosophy.`,
         tools: [
           state.getInventSpecTool(),
@@ -4332,6 +4392,7 @@ function stepFields(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "fields",
         prompt: "Create the InputSchema for your Vector Function. Ensure that it adheres to the specifications outlined in your InventSpec and is consistent with the qualities and values described in your essay. Read the QualityVectorFunctionInputSchema for guidance on what a valid input schema looks like. Next, create an OutputLength Starlark Expression. This expression is provided with an `input` matching the InputSchema and should evaluate to the number of items being ranked. Next, create an InputSplit Starlark Expression. This expression is provided with the same `input` and should evaluate to an array of valid inputs, which, on their own, are valid inputs to the function. So, if the input is an array, the InputSplit expression should convert it into an array of 1-length arrays. Or, if the input is an object with at least 1 array field, the InputSplit expression should convert it into an array of objects with the field containing rankable items being 1-length arrays. Finally, create an InputMerge Starlark Expression. This expression is provided with an `input` which is an array of valid inputs. This expression should re-combine the provided inputs back into the original input format. Use `CheckFields` to validate your schema and expressions prior to finishing.",
         tools: [
           state.getInventSpecTool(),
@@ -4360,6 +4421,7 @@ function stepFields(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "fields",
         prompt: "Create the InputSchema for your Scalar Function. Ensure that it adheres to the specifications outlined in your InventSpec and is consistent with the essay you wrote describing your function. Read the InputSchemaSchema for guidance on what a valid input schema looks like. Use `CheckFields` to validate your schema prior to finishing.",
         tools: [
           state.getInventSpecTool(),
@@ -4391,6 +4453,7 @@ function stepEssayTasks(state, agent, onNotification, agentState, maxRetries = 5
   return runAgentStep(
     agent,
     {
+      stepName: "essay_tasks",
       prompt: `Write EssayTasks listing and describing the key tasks the Function must perform in order to fulfill the quality and value evaluations defined within the essay.  Each task is a non-technical plain language description of a task which will go into the function's \`tasks\` array. There should be ${tasksStr} tasks.`,
       tools: [
         state.getInventSpecTool(),
@@ -4420,6 +4483,7 @@ function stepBody(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Vector Function.
 
 ## Task Structure
@@ -4467,6 +4531,7 @@ You can mix two types of placeholder tasks:
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Scalar Function.
 
 ## Task Structure
@@ -4503,6 +4568,7 @@ Create ${tasksStr} placeholder tasks based on your EssayTasks. Each task defines
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Vector Function.
 
 ## Task Structure
@@ -4570,6 +4636,7 @@ Multimodal content parts can be used in both \`messages\` and \`responses\`. Put
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Scalar Function.
 
 ## Task Structure
@@ -4670,6 +4737,7 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
   return runAgentStep(
     agent,
     {
+      stepName: "description",
       prompt,
       tools: [
         state.getInventSpecTool(),

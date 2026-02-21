@@ -29,6 +29,7 @@ export function stepEssayTasks<TState>(
   return runAgentStep(
     agent,
     {
+      stepName: "essay_tasks",
       prompt:
         "Write EssayTasks listing and describing the key tasks the Function must perform in order to fulfill the quality and value evaluations defined within the essay. " +
         " Each task is a non-technical plain language description of a task which will go into the function's `tasks` array." +
