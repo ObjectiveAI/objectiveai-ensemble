@@ -241,6 +241,7 @@ async function pushInitial(options: PushInitialOptions): Promise<void> {
 
 export interface PushFinalOptions {
   dir: string;
+  name: string;
   gitHubToken: string;
   gitAuthorName: string;
   gitAuthorEmail: string;
@@ -275,6 +276,7 @@ function getAuthenticatedUser(gitHubToken: string): Promise<string> {
 async function pushFinal(options: PushFinalOptions): Promise<void> {
   const {
     dir,
+    name,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
@@ -282,9 +284,14 @@ async function pushFinal(options: PushFinalOptions): Promise<void> {
     description,
   } = options;
 
-  // Verify git is initialized and has a remote
+  // Verify git is initialized
   const repoRoot = getRepoRoot(dir);
   if (!repoRoot) throw new Error("Git repository not initialized");
+
+  // Ensure remote exists (pushInitial may have failed before adding it)
+  if (!getRemoteUrl(repoRoot)) {
+    await ensureRemote(dir, name, gitHubToken);
+  }
 
   const remoteUrl = getRemoteUrl(repoRoot);
   if (!remoteUrl) throw new Error("No remote origin set");
@@ -318,4 +325,37 @@ async function pushFinal(options: PushFinalOptions): Promise<void> {
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
   push(dir, gitHubToken);
+}
+
+async function ensureRemote(
+  dir: string,
+  name: string,
+  gitHubToken: string,
+): Promise<void> {
+  const res = await fetch("https://api.github.com/user/repos", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${gitHubToken}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, visibility: "public" }),
+  });
+
+  if (res.ok) {
+    const repo = (await res.json()) as { owner: { login: string }; name: string };
+    addRemote(dir, `https://github.com/${repo.owner.login}/${repo.name}.git`);
+  } else if (res.status === 422) {
+    // 422 = repo already exists (pushInitial created it but failed before addRemote)
+    const user = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (user.ok) {
+      const { login } = (await user.json()) as { login: string };
+      addRemote(dir, `https://github.com/${login}/${name}.git`);
+    }
+  }
 }

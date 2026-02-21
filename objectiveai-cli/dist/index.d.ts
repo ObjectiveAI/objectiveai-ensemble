@@ -86,6 +86,7 @@ interface PushInitialOptions {
 }
 interface PushFinalOptions {
     dir: string;
+    name: string;
     gitHubToken: string;
     gitAuthorName: string;
     gitAuthorEmail: string;

@@ -20,7 +20,7 @@ import {
   DefaultGitHubBackend,
   OwnerRepositoryCommit,
 } from "../github";
-import { isDirty, getRepoRoot, getRemoteUrl, addRemote } from "../git";
+import { isDirty } from "../git";
 import {
   stepName,
   stepType,
@@ -361,53 +361,15 @@ async function stage2(
   );
 
   writeFinalStateToFilesystem(dir, state, state.parameters);
-  await ensureRemote(dir, name, gitHubToken);
   await gitHubBackend.pushFinal({
     dir,
+    name,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
     message: `implement ${name}`,
     description: state.getDescription().value!,
   });
-}
-
-async function ensureRemote(
-  dir: string,
-  name: string,
-  gitHubToken: string,
-): Promise<void> {
-  const repoRoot = getRepoRoot(dir);
-  if (!repoRoot) return;
-  if (getRemoteUrl(repoRoot)) return;
-
-  // pushInitial failed before adding the remote — create the repo and add it
-  const res = await fetch("https://api.github.com/user/repos", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${gitHubToken}`,
-      Accept: "application/vnd.github.v3+json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ name, visibility: "public" }),
-  });
-
-  if (res.ok) {
-    const repo = (await res.json()) as { owner: { login: string }; name: string };
-    addRemote(dir, `https://github.com/${repo.owner.login}/${repo.name}.git`);
-  } else if (res.status === 422) {
-    // 422 = repo already exists (pushInitial created it but failed before addRemote)
-    const user = await fetch("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${gitHubToken}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    });
-    if (user.ok) {
-      const { login } = (await user.json()) as { login: string };
-      addRemote(dir, `https://github.com/${login}/${name}.git`);
-    }
-  }
 }
 
 async function stage3(
@@ -423,9 +385,9 @@ async function stage3(
   gitAuthorEmail: string,
 ): Promise<string[]> {
   if (isDirty(dir)) {
-    await ensureRemote(dir, qualityFn.name, gitHubToken);
     await gitHubBackend.pushFinal({
       dir,
+      name: qualityFn.name,
       gitHubToken,
       gitAuthorName,
       gitAuthorEmail,
@@ -597,9 +559,9 @@ async function stage3(
       }
     }
 
-    await ensureRemote(dir, qualityFn.name, gitHubToken);
     await gitHubBackend.pushFinal({
       dir,
+      name: qualityFn.name,
       gitHubToken,
       gitAuthorName,
       gitAuthorEmail,
