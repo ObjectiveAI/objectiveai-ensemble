@@ -4959,6 +4959,9 @@ function flattenNode(node, gutter, isLast, isRoot) {
       lines.push({ type: "message", gutter: childGutter, message: msg });
     }
   }
+  if (!node.done) {
+    lines.push({ type: "loading", gutter: childGutter });
+  }
   const children = Array.from(node.children.entries());
   for (let i = 0; i < children.length; i++) {
     const [, child] = children[i];
@@ -4968,7 +4971,8 @@ function flattenNode(node, gutter, isLast, isRoot) {
   }
   return lines;
 }
-function RenderLine({ line }) {
+var LOADING_FRAMES = ["\xB7  ", "\xB7\xB7 ", "\xB7\xB7\xB7"];
+function RenderLine({ line, tick }) {
   if (line.type === "title") {
     return /* @__PURE__ */ jsxs(Text, { children: [
       line.gutter,
@@ -4981,23 +4985,35 @@ function RenderLine({ line }) {
       ] })
     ] });
   }
-  const msg = line.message;
-  if (msg.role === "assistant") {
+  if (line.type === "loading") {
     return /* @__PURE__ */ jsxs(Text, { children: [
       line.gutter,
-      "  ",
-      msg.content
+      /* @__PURE__ */ jsxs(Text, { dimColor: true, children: [
+        "  ",
+        LOADING_FRAMES[tick % LOADING_FRAMES.length]
+      ] })
+    ] });
+  }
+  const msg = line.message;
+  if (msg.role === "assistant") {
+    const indent = line.gutter + "  ";
+    const content = msg.content.replace(/\n/g, "\n" + indent);
+    return /* @__PURE__ */ jsxs(Text, { children: [
+      indent,
+      content
     ] });
   }
   if (msg.role === "tool") {
     if (msg.error) {
+      const errIndent = line.gutter + "    ";
+      const error = msg.error.replace(/\n/g, "\n" + errIndent);
       return /* @__PURE__ */ jsxs(Text, { children: [
         line.gutter,
         /* @__PURE__ */ jsxs(Text, { color: "red", children: [
           "  \u2717 ",
           msg.name,
           " \u2014 ",
-          msg.error
+          error
         ] })
       ] });
     }
@@ -5062,6 +5078,12 @@ function InventView({ tree, done }) {
   const [scrollOffset, setScrollOffset] = useState(0);
   const [autoFollow, setAutoFollow] = useState(true);
   const [termHeight, setTermHeight] = useState(stdout.rows ?? 24);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (done) return;
+    const id = setInterval(() => setTick((t) => t + 1), 400);
+    return () => clearInterval(id);
+  }, [done]);
   useEffect(() => {
     const onResize = () => setTermHeight(stdout.rows ?? 24);
     stdout.on("resize", onResize);
@@ -5102,7 +5124,7 @@ function InventView({ tree, done }) {
   const visible = lines.slice(scrollOffset, scrollOffset + viewportHeight);
   return /* @__PURE__ */ jsxs(Box, { flexDirection: "column", height: termHeight, children: [
     /* @__PURE__ */ jsxs(Box, { width: "100%", flexGrow: 1, children: [
-      /* @__PURE__ */ jsx(Box, { flexDirection: "column", flexGrow: 1, children: visible.map((line, i) => /* @__PURE__ */ jsx(RenderLine, { line }, scrollOffset + i)) }),
+      /* @__PURE__ */ jsx(Box, { flexDirection: "column", flexGrow: 1, children: visible.map((line, i) => /* @__PURE__ */ jsx(RenderLine, { line, tick }, scrollOffset + i)) }),
       /* @__PURE__ */ jsx(
         Scrollbar,
         {

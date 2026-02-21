@@ -161,12 +161,16 @@ function RenderLine({ line, tick }: { line: FlatLine; tick: number }) {
 
   const msg = line.message;
   if (msg.role === "assistant") {
-    return <Text>{line.gutter}{"  "}{msg.content}</Text>;
+    const indent = line.gutter + "  ";
+    const content = msg.content.replace(/\n/g, "\n" + indent);
+    return <Text>{indent}{content}</Text>;
   }
   if (msg.role === "tool") {
     if (msg.error) {
+      const errIndent = line.gutter + "    ";
+      const error = msg.error.replace(/\n/g, "\n" + errIndent);
       return (
-        <Text>{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{msg.error}</Text></Text>
+        <Text>{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{error}</Text></Text>
       );
     }
     return (
