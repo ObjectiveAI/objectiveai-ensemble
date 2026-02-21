@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Menu, MenuResult } from "./Menu";
 import { Config } from "./Config";
 import { InventFlow } from "./Invent";
+import { InventPlaceholdersFlow } from "./InventPlaceholders";
 import { ParametersBuilder } from "../parameters";
 
 type Route =
   | { name: "menu" }
   | { name: "invent"; spec: string; parameters: ParametersBuilder }
+  | { name: "inventplaceholders" }
   | { name: "config" };
 
 export function App() {
@@ -26,6 +28,12 @@ export function App() {
     );
   }
 
+  if (route.name === "inventplaceholders") {
+    return (
+      <InventPlaceholdersFlow onBack={() => setRoute({ name: "menu" })} />
+    );
+  }
+
   return (
     <Menu
       onResult={(result: MenuResult) => {
@@ -37,6 +45,8 @@ export function App() {
             spec: result.spec,
             parameters: result.parameters,
           });
+        } else if (result.command === "inventplaceholders") {
+          setRoute({ name: "inventplaceholders" });
         }
       }}
     />

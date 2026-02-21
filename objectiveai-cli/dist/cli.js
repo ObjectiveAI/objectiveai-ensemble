@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { render, useStdout, useInput, Box, Text } from 'ink';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { jsx, jsxs } from 'react/jsx-runtime';
-import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'fs';
+import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
+import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync, rmSync } from 'fs';
 import { basename, join, relative } from 'path';
 import { homedir } from 'os';
 import z4 from 'zod';
@@ -56,6 +56,7 @@ function useTextInput() {
 }
 var COMMANDS = [
   { name: "/invent", description: "Invent a new ObjectiveAI Function" },
+  { name: "/inventplaceholders", description: "Resume inventing placeholder sub-functions" },
   { name: "/config", description: "Open the Config Panel" }
 ];
 var INVENT_WIZARD = [
@@ -94,6 +95,8 @@ function Menu({ onResult }) {
     (cmd) => {
       if (cmd === "/config") {
         onResult({ command: "config" });
+      } else if (cmd === "/inventplaceholders") {
+        onResult({ command: "inventplaceholders" });
       } else if (cmd === "/invent") {
         setWizardStep(0);
         setWizardValues([]);
@@ -960,6 +963,35 @@ function deleteHomeConfigValue(key) {
   delete config[key];
   writeHomeConfig(config);
 }
+function SelectableList({
+  items,
+  selectedIndex,
+  labelWidth,
+  viewportHeight
+}) {
+  let visibleItems = items;
+  let startIndex = 0;
+  if (viewportHeight !== void 0 && items.length > viewportHeight) {
+    const half = Math.floor(viewportHeight / 2);
+    startIndex = Math.max(0, Math.min(selectedIndex - half, items.length - viewportHeight));
+    visibleItems = items.slice(startIndex, startIndex + viewportHeight);
+  }
+  return /* @__PURE__ */ jsx(Box, { flexDirection: "column", children: visibleItems.map((item, i) => {
+    const actualIndex = startIndex + i;
+    const selected = actualIndex === selectedIndex;
+    const prefix = selected ? "\u276F " : "  ";
+    return /* @__PURE__ */ jsxs(Box, { children: [
+      selected ? /* @__PURE__ */ jsxs(Text, { color: "#5948e7", bold: true, children: [
+        prefix,
+        item.label.padEnd(labelWidth)
+      ] }) : /* @__PURE__ */ jsxs(Text, { dimColor: true, children: [
+        prefix,
+        item.label.padEnd(labelWidth)
+      ] }),
+      /* @__PURE__ */ jsx(Text, { dimColor: !selected, children: item.value })
+    ] }, item.key);
+  }) });
+}
 var CLAUDE_MODELS = ["opus", "sonnet", "haiku"];
 var CONFIG_ITEMS = [
   { label: "GitHub Token", key: "gitHubToken", kind: "text" },
@@ -1105,10 +1137,9 @@ function Config({ onBack }) {
   return /* @__PURE__ */ jsxs(Box, { flexDirection: "column", height: termHeight, children: [
     /* @__PURE__ */ jsx(Box, { children: /* @__PURE__ */ jsx(Text, { bold: true, color: "#5948e7", children: "Config" }) }),
     /* @__PURE__ */ jsx(Box, { height: 1 }),
-    CONFIG_ITEMS.map((item, i) => {
+    editing ? /* @__PURE__ */ jsx(Fragment, { children: CONFIG_ITEMS.map((item, i) => {
       const selected = i === selectedIndex;
       const value = values[item.key];
-      const isEditing = selected && editing;
       const prefix = selected ? "\u276F " : "  ";
       return /* @__PURE__ */ jsxs(Box, { children: [
         selected ? /* @__PURE__ */ jsxs(Text, { color: "#5948e7", bold: true, children: [
@@ -1118,13 +1149,24 @@ function Config({ onBack }) {
           prefix,
           item.label.padEnd(LABEL_WIDTH)
         ] }),
-        isEditing ? /* @__PURE__ */ jsxs(Text, { children: [
+        selected ? /* @__PURE__ */ jsxs(Text, { children: [
           editValue.slice(0, cursorPos),
           "\u2588",
           editValue.slice(cursorPos)
-        ] }) : value !== void 0 ? /* @__PURE__ */ jsx(Text, { dimColor: !selected, children: value }) : /* @__PURE__ */ jsx(Text, { color: "gray", dimColor: true, children: "unset" })
+        ] }) : value !== void 0 ? /* @__PURE__ */ jsx(Text, { dimColor: true, children: value }) : /* @__PURE__ */ jsx(Text, { color: "gray", dimColor: true, children: "unset" })
       ] }, item.key);
-    }),
+    }) }) : /* @__PURE__ */ jsx(
+      SelectableList,
+      {
+        items: CONFIG_ITEMS.map((item) => ({
+          key: item.key,
+          label: item.label,
+          value: values[item.key] ?? "unset"
+        })),
+        selectedIndex,
+        labelWidth: LABEL_WIDTH
+      }
+    ),
     /* @__PURE__ */ jsx(Box, { flexGrow: 1 }),
     /* @__PURE__ */ jsx(Text, { dimColor: true, children: "  press esc to go back" })
   ] });
@@ -3812,6 +3854,39 @@ function writeReadmeToFilesystem(dir, readme) {
 function writePlaceholderTaskSpecsToFilesystem(dir, specs) {
   writeJsonToFilesystem(join(dir, "placeholder_task_specs.json"), specs);
 }
+function scanFunctionsWithPlaceholders(owner) {
+  const ownerDir = functionsDir(owner);
+  if (!existsSync(ownerDir)) return [];
+  let entries;
+  try {
+    entries = readdirSync(ownerDir);
+  } catch {
+    return [];
+  }
+  const results = [];
+  for (const entry of entries) {
+    const dir = join(ownerDir, entry);
+    if (readParentTokenFromFilesystem(dir) !== null) continue;
+    const parameters = readParametersFromFilesystem(dir);
+    if (!parameters || parameters.depth <= 0) continue;
+    const fn = readFunctionFromFilesystem(dir);
+    if (!fn) continue;
+    let placeholderCount = 0;
+    for (const task of fn.tasks) {
+      if (task.type === "placeholder.scalar.function" || task.type === "placeholder.vector.function") {
+        placeholderCount++;
+      }
+    }
+    if (placeholderCount === 0) continue;
+    results.push({
+      name: entry,
+      dir,
+      functionTasks: fn.tasks.length - placeholderCount,
+      placeholderTasks: placeholderCount
+    });
+  }
+  return results;
+}
 function writeGitignoreToFilesystem(dir) {
   const content = [
     "# Ignore everything",
@@ -4739,7 +4814,7 @@ async function invent(onNotification, options, continuation) {
     name: qualityFn.name,
     message: hasChildren ? { role: "waiting" } : { role: "done" }
   });
-  await stage3(
+  const unreplacedReasons = await stage3(
     dir,
     owner,
     qualityFn,
@@ -4762,7 +4837,8 @@ async function invent(onNotification, options, continuation) {
       message: {
         role: "done",
         functionTasks: totalTasks - placeholderCount,
-        placeholderTasks: placeholderCount
+        placeholderTasks: placeholderCount,
+        error: unreplacedReasons.length > 0 ? unreplacedReasons.join("\n") : void 0
       }
     });
   }
@@ -4848,10 +4924,10 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
     });
   }
   if (qualityFn.function.type !== "branch.scalar.function" && qualityFn.function.type !== "branch.vector.function") {
-    return;
+    return [];
   }
   const specs = qualityFn.placeholderTaskSpecs;
-  if (!specs) return;
+  if (!specs) return [];
   const subParameters = {
     ...qualityFn.parameters,
     depth: qualityFn.parameters.depth - 1
@@ -4916,6 +4992,7 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
     if (result.status === "rejected") errors.push(result.reason);
   }
   let replaced = false;
+  const unreplacedReasons = [];
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
     if (task.type !== "placeholder.scalar.function" && task.type !== "placeholder.vector.function") {
@@ -4924,15 +5001,27 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
     const entry = specs[i];
     if (entry === null || entry === void 0) continue;
     const childDir = findChildByToken(owner, entry.token);
-    if (!childDir) continue;
+    if (!childDir) {
+      unreplacedReasons.push(`task ${i}: child directory not found`);
+      continue;
+    }
     const subQualityFn = await readQualityFunctionFromFilesystem(
       childDir,
       gitHubBackend
     );
-    if (!subQualityFn) continue;
-    if (hasPlaceholderTasks(subQualityFn.function.function)) continue;
+    if (!subQualityFn) {
+      unreplacedReasons.push(`task ${i}: not a valid quality function`);
+      continue;
+    }
+    if (hasPlaceholderTasks(subQualityFn.function.function)) {
+      unreplacedReasons.push(`task ${i}: still has unresolved placeholders`);
+      continue;
+    }
     const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir);
-    if (!orc) continue;
+    if (!orc) {
+      unreplacedReasons.push(`task ${i}: could not resolve repository commit`);
+      continue;
+    }
     replacePlaceholderTask(tasks, i, task, orc);
     replaced = true;
   }
@@ -4977,6 +5066,7 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
   }
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1) throw new AggregateError(errors);
+  return unreplacedReasons;
 }
 function hasPlaceholderTasks(fn) {
   return fn.tasks.some(
@@ -5087,6 +5177,11 @@ function flattenNode(node, gutter, isLast, isRoot) {
     functionTasks: node.functionTasks,
     placeholderTasks: node.placeholderTasks
   });
+  if (node.done && node.error) {
+    for (const errLine of node.error.split("\n")) {
+      if (errLine) lines.push({ type: "error", gutter: childGutter, text: errLine });
+    }
+  }
   if (!node.done && !node.waiting && node.messages.length > 0) {
     for (const msg of node.messages) {
       lines.push({ type: "message", gutter: childGutter, message: msg });
@@ -5138,9 +5233,22 @@ function RenderLine({ line, tick, termWidth }) {
         " \u2014 Complete",
         line.functionTasks !== void 0 && line.placeholderTasks !== void 0 && ` [${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`
       ] }),
-      line.done && line.error && /* @__PURE__ */ jsxs(Text, { color: "red", children: [
+      line.done && line.error && line.functionTasks !== void 0 && line.placeholderTasks !== void 0 && /* @__PURE__ */ jsxs(Text, { color: "#5948e7", children: [
+        " \u2014 ",
+        `[${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`
+      ] }),
+      line.done && line.error && (line.functionTasks === void 0 || line.placeholderTasks === void 0) && /* @__PURE__ */ jsxs(Text, { color: "red", children: [
         " \u2014 ",
         line.error
+      ] })
+    ] });
+  }
+  if (line.type === "error") {
+    return /* @__PURE__ */ jsxs(Text, { children: [
+      line.gutter,
+      /* @__PURE__ */ jsxs(Text, { color: "red", children: [
+        "  \u2717 ",
+        line.text
       ] })
     ] });
   }
@@ -5297,6 +5405,137 @@ function InventView({ tree, done }) {
     done && /* @__PURE__ */ jsx(Text, { dimColor: true, children: "  press esc to go back" })
   ] });
 }
+function InventPlaceholdersList({
+  onSelect,
+  onBack
+}) {
+  const { stdout } = useStdout();
+  const termHeight = stdout.rows ?? 24;
+  const [items, setItems] = useState(null);
+  const [error, setError] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    (async () => {
+      try {
+        const gitHubToken = getGitHubToken();
+        if (!gitHubToken) {
+          setError("GitHub token not configured");
+          return;
+        }
+        const upstream = getAgentUpstream();
+        if (!upstream) {
+          setError("Agent not configured");
+          return;
+        }
+        const [, gitHubBackend] = getAgentStepFn(upstream);
+        const backend = gitHubBackend ?? DefaultGitHubBackend;
+        const owner = await backend.getAuthenticatedUser(gitHubToken);
+        setItems(scanFunctionsWithPlaceholders(owner));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+      }
+    })();
+  }, []);
+  useInput((_ch, key) => {
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (items && items.length > 0) {
+      if (key.upArrow) {
+        setSelectedIndex((prev) => Math.max(0, prev - 1));
+      } else if (key.downArrow) {
+        setSelectedIndex((prev) => Math.min(items.length - 1, prev + 1));
+      } else if (key.return) {
+        onSelect(items[selectedIndex]);
+      }
+    }
+  });
+  if (error) {
+    return /* @__PURE__ */ jsxs(Box, { flexDirection: "column", height: termHeight, children: [
+      /* @__PURE__ */ jsxs(Text, { color: "red", children: [
+        "Error: ",
+        error
+      ] }),
+      /* @__PURE__ */ jsx(Box, { flexGrow: 1 }),
+      /* @__PURE__ */ jsx(Text, { dimColor: true, children: "  press esc to go back" })
+    ] });
+  }
+  if (items === null) {
+    return /* @__PURE__ */ jsx(Box, { flexDirection: "column", height: termHeight, children: /* @__PURE__ */ jsx(Text, { dimColor: true, children: "Scanning for functions with placeholders..." }) });
+  }
+  if (items.length === 0) {
+    return /* @__PURE__ */ jsxs(Box, { flexDirection: "column", height: termHeight, children: [
+      /* @__PURE__ */ jsx(Text, { dimColor: true, children: "No functions with placeholders found." }),
+      /* @__PURE__ */ jsx(Box, { flexGrow: 1 }),
+      /* @__PURE__ */ jsx(Text, { dimColor: true, children: "  press esc to go back" })
+    ] });
+  }
+  const labelWidth = Math.max(...items.map((item) => item.name.length)) + 2;
+  const listItems = items.map((item) => ({
+    key: item.name,
+    label: item.name,
+    value: `${item.functionTasks}/${item.functionTasks + item.placeholderTasks}`
+  }));
+  return /* @__PURE__ */ jsxs(Box, { flexDirection: "column", height: termHeight, children: [
+    /* @__PURE__ */ jsx(Box, { children: /* @__PURE__ */ jsx(Text, { bold: true, color: "#5948e7", children: "Functions with placeholders" }) }),
+    /* @__PURE__ */ jsx(Box, { height: 1 }),
+    /* @__PURE__ */ jsx(
+      SelectableList,
+      {
+        items: listItems,
+        selectedIndex,
+        labelWidth,
+        viewportHeight: termHeight - 4
+      }
+    ),
+    /* @__PURE__ */ jsx(Box, { flexGrow: 1 }),
+    /* @__PURE__ */ jsx(Text, { dimColor: true, children: "  press esc to go back \xB7 enter to resume" })
+  ] });
+}
+function InventPlaceholdersRun({
+  name,
+  onBack
+}) {
+  const { tree, onNotification } = useInventNotifications();
+  const started = useRef(false);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    invent(onNotification, { name }).then(() => setDone(true)).catch((err) => {
+      console.error(err);
+      setDone(true);
+    });
+  }, [name, onNotification]);
+  useInput((_ch, key) => {
+    if (key.escape && done) onBack();
+  });
+  return /* @__PURE__ */ jsx(InventView, { tree, done });
+}
+function InventPlaceholdersFlow({ onBack }) {
+  const [selected, setSelected] = useState(null);
+  if (!selected) {
+    return /* @__PURE__ */ jsx(
+      InventPlaceholdersList,
+      {
+        onSelect: setSelected,
+        onBack
+      }
+    );
+  }
+  return /* @__PURE__ */ jsx(
+    InventPlaceholdersRun,
+    {
+      name: selected.name,
+      onBack: () => setSelected(null)
+    },
+    selected.name
+  );
+}
 function App() {
   const [route, setRoute] = useState({ name: "menu" });
   if (route.name === "config") {
@@ -5312,6 +5551,9 @@ function App() {
       }
     );
   }
+  if (route.name === "inventplaceholders") {
+    return /* @__PURE__ */ jsx(InventPlaceholdersFlow, { onBack: () => setRoute({ name: "menu" }) });
+  }
   return /* @__PURE__ */ jsx(
     Menu,
     {
@@ -5324,6 +5566,8 @@ function App() {
             spec: result.spec,
             parameters: result.parameters
           });
+        } else if (result.command === "inventplaceholders") {
+          setRoute({ name: "inventplaceholders" });
         }
       }
     }

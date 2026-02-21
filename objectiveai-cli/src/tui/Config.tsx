@@ -7,6 +7,7 @@ import {
   deleteHomeConfigValue,
 } from "../config";
 import { useTextInput } from "./useTextInput";
+import { SelectableList } from "./SelectableList";
 
 interface TextItem {
   label: string;
@@ -183,29 +184,42 @@ export function Config({ onBack }: { onBack: () => void }) {
         <Text bold color="#5948e7">Config</Text>
       </Box>
       <Box height={1} />
-      {CONFIG_ITEMS.map((item, i) => {
-        const selected = i === selectedIndex;
-        const value = values[item.key];
-        const isEditing = selected && editing;
-        const prefix = selected ? "❯ " : "  ";
+      {editing ? (
+        <>
+          {CONFIG_ITEMS.map((item, i) => {
+            const selected = i === selectedIndex;
+            const value = values[item.key];
+            const prefix = selected ? "❯ " : "  ";
 
-        return (
-          <Box key={item.key}>
-            {selected ? (
-              <Text color="#5948e7" bold>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
-            ) : (
-              <Text dimColor>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
-            )}
-            {isEditing ? (
-              <Text>{editValue.slice(0, cursorPos)}█{editValue.slice(cursorPos)}</Text>
-            ) : value !== undefined ? (
-              <Text dimColor={!selected}>{value}</Text>
-            ) : (
-              <Text color="gray" dimColor>unset</Text>
-            )}
-          </Box>
-        );
-      })}
+            return (
+              <Box key={item.key}>
+                {selected ? (
+                  <Text color="#5948e7" bold>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
+                ) : (
+                  <Text dimColor>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
+                )}
+                {selected ? (
+                  <Text>{editValue.slice(0, cursorPos)}█{editValue.slice(cursorPos)}</Text>
+                ) : value !== undefined ? (
+                  <Text dimColor>{value}</Text>
+                ) : (
+                  <Text color="gray" dimColor>unset</Text>
+                )}
+              </Box>
+            );
+          })}
+        </>
+      ) : (
+        <SelectableList
+          items={CONFIG_ITEMS.map((item) => ({
+            key: item.key,
+            label: item.label,
+            value: values[item.key] ?? "unset",
+          }))}
+          selectedIndex={selectedIndex}
+          labelWidth={LABEL_WIDTH}
+        />
+      )}
       <Box flexGrow={1} />
       <Text dimColor>{"  press esc to go back"}</Text>
     </Box>

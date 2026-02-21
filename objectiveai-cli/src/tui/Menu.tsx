@@ -10,6 +10,7 @@ interface Command {
 
 const COMMANDS: Command[] = [
   { name: "/invent", description: "Invent a new ObjectiveAI Function" },
+  { name: "/inventplaceholders", description: "Resume inventing placeholder sub-functions" },
   { name: "/config", description: "Open the Config Panel" },
 ];
 
@@ -44,6 +45,7 @@ const INVENT_WIZARD: WizardStep[] = [
 
 export type MenuResult =
   | { command: "invent"; spec: string; parameters: ParametersBuilder }
+  | { command: "inventplaceholders" }
   | { command: "config" };
 
 export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
@@ -66,6 +68,8 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
     (cmd: string) => {
       if (cmd === "/config") {
         onResult({ command: "config" });
+      } else if (cmd === "/inventplaceholders") {
+        onResult({ command: "inventplaceholders" });
       } else if (cmd === "/invent") {
         setWizardStep(0);
         setWizardValues([]);

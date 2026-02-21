@@ -4339,7 +4339,7 @@ async function invent(onNotification, options, continuation) {
     name: qualityFn.name,
     message: hasChildren ? { role: "waiting" } : { role: "done" }
   });
-  await stage3(
+  const unreplacedReasons = await stage3(
     dir,
     owner,
     qualityFn,
@@ -4362,7 +4362,8 @@ async function invent(onNotification, options, continuation) {
       message: {
         role: "done",
         functionTasks: totalTasks - placeholderCount,
-        placeholderTasks: placeholderCount
+        placeholderTasks: placeholderCount,
+        error: unreplacedReasons.length > 0 ? unreplacedReasons.join("\n") : void 0
       }
     });
   }
@@ -4448,10 +4449,10 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
     });
   }
   if (qualityFn.function.type !== "branch.scalar.function" && qualityFn.function.type !== "branch.vector.function") {
-    return;
+    return [];
   }
   const specs = qualityFn.placeholderTaskSpecs;
-  if (!specs) return;
+  if (!specs) return [];
   const subParameters = {
     ...qualityFn.parameters,
     depth: qualityFn.parameters.depth - 1
@@ -4516,6 +4517,7 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
     if (result.status === "rejected") errors.push(result.reason);
   }
   let replaced = false;
+  const unreplacedReasons = [];
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
     if (task.type !== "placeholder.scalar.function" && task.type !== "placeholder.vector.function") {
@@ -4524,15 +4526,27 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
     const entry = specs[i];
     if (entry === null || entry === void 0) continue;
     const childDir = findChildByToken(owner, entry.token);
-    if (!childDir) continue;
+    if (!childDir) {
+      unreplacedReasons.push(`task ${i}: child directory not found`);
+      continue;
+    }
     const subQualityFn = await readQualityFunctionFromFilesystem(
       childDir,
       gitHubBackend
     );
-    if (!subQualityFn) continue;
-    if (hasPlaceholderTasks(subQualityFn.function.function)) continue;
+    if (!subQualityFn) {
+      unreplacedReasons.push(`task ${i}: not a valid quality function`);
+      continue;
+    }
+    if (hasPlaceholderTasks(subQualityFn.function.function)) {
+      unreplacedReasons.push(`task ${i}: still has unresolved placeholders`);
+      continue;
+    }
     const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir);
-    if (!orc) continue;
+    if (!orc) {
+      unreplacedReasons.push(`task ${i}: could not resolve repository commit`);
+      continue;
+    }
     replacePlaceholderTask(tasks, i, task, orc);
     replaced = true;
   }
@@ -4577,6 +4591,7 @@ async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHub
   }
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1) throw new AggregateError(errors);
+  return unreplacedReasons;
 }
 function hasPlaceholderTasks(fn) {
   return fn.tasks.some(

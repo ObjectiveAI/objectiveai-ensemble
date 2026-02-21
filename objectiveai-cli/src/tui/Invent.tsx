@@ -108,12 +108,18 @@ interface MsgLine {
   message: NotificationMessage;
 }
 
+interface ErrorLine {
+  type: "error";
+  gutter: string;
+  text: string;
+}
+
 interface LoadingLine {
   type: "loading";
   gutter: string;
 }
 
-type FlatLine = TitleLine | MsgLine | LoadingLine;
+type FlatLine = TitleLine | MsgLine | ErrorLine | LoadingLine;
 
 function flattenNode(
   node: FunctionNode,
@@ -137,6 +143,12 @@ function flattenNode(
     functionTasks: node.functionTasks,
     placeholderTasks: node.placeholderTasks,
   });
+
+  if (node.done && node.error) {
+    for (const errLine of node.error.split("\n")) {
+      if (errLine) lines.push({ type: "error", gutter: childGutter, text: errLine });
+    }
+  }
 
   if (!node.done && !node.waiting && node.messages.length > 0) {
     for (const msg of node.messages) {
@@ -189,8 +201,15 @@ function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; t
         <Text bold color="#5948e7">{line.name}</Text>
         {line.waiting && !line.done && <Text color="#5948e7">{" — Waiting"}<Text dimColor>{LOADING_FRAMES[tick % LOADING_FRAMES.length]}</Text></Text>}
         {line.done && !line.error && <Text color="#5948e7">{" — Complete"}{line.functionTasks !== undefined && line.placeholderTasks !== undefined && ` [${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`}</Text>}
-        {line.done && line.error && <Text color="red">{" — "}{line.error}</Text>}
+        {line.done && line.error && line.functionTasks !== undefined && line.placeholderTasks !== undefined && <Text color="#5948e7">{" — "}{`[${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`}</Text>}
+        {line.done && line.error && (line.functionTasks === undefined || line.placeholderTasks === undefined) && <Text color="red">{" — "}{line.error}</Text>}
       </Text>
+    );
+  }
+
+  if (line.type === "error") {
+    return (
+      <Text>{line.gutter}<Text color="red">{"  ✗ "}{line.text}</Text></Text>
     );
   }
 
