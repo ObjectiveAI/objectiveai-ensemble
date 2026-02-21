@@ -3196,32 +3196,36 @@ z3.union([
   z3.literal("description")
 ]);
 async function runAgentStep(agent, step, parameters, isDone, maxRetries, onNotification, state) {
-  state = await runAgentStepOne(agent, step, parameters, onNotification, state);
-  for (let i = 0; i < maxRetries; i++) {
+  let lastError;
+  for (let i = 0; i <= maxRetries; i++) {
+    const retryPrompt = lastError != null ? step.prompt + `
+
+The following error occurred: ${lastError}
+
+Please try again.` : step.prompt;
+    try {
+      state = await runAgentStepOne(
+        agent,
+        { ...step, prompt: retryPrompt },
+        parameters,
+        onNotification,
+        state
+      );
+    } catch (err) {
+      onNotification({
+        role: "assistant",
+        content: `Agent crashed: ${err instanceof Error ? err.message : err}`
+      });
+      lastError = err instanceof Error ? err.message : String(err);
+      continue;
+    }
     const result = isDone();
     if (result.ok) return state;
-    state = await runAgentStepOne(
-      agent,
-      {
-        ...step,
-        prompt: step.prompt + `
-
-The following error occurred: ${result.error}
-
-Please try again.`
-      },
-      parameters,
-      onNotification,
-      state
-    );
+    lastError = result.error;
   }
-  const finalResult = isDone();
-  if (!finalResult.ok) {
-    throw new Error(
-      `Agent step failed after ${maxRetries} retries: ${finalResult.error}`
-    );
-  }
-  return state;
+  throw new Error(
+    `Agent step failed after ${maxRetries} retries: ${lastError}`
+  );
 }
 async function runAgentStepOne(agent, step, parameters, onNotification, state) {
   const generator = agent(step, state, parameters);

@@ -51,33 +51,40 @@ export async function runAgentStep<TState>(
   onNotification: (notification: NotificationMessage) => void,
   state?: TState,
 ): Promise<TState> {
-  state = await runAgentStepOne(agent, step, parameters, onNotification, state);
+  let lastError: string | undefined;
 
-  for (let i = 0; i < maxRetries; i++) {
+  for (let i = 0; i <= maxRetries; i++) {
+    const retryPrompt =
+      lastError != null
+        ? step.prompt +
+          `\n\nThe following error occurred: ${lastError}\n\nPlease try again.`
+        : step.prompt;
+
+    try {
+      state = await runAgentStepOne(
+        agent,
+        { ...step, prompt: retryPrompt },
+        parameters,
+        onNotification,
+        state,
+      );
+    } catch (err) {
+      onNotification({
+        role: "assistant",
+        content: `Agent crashed: ${err instanceof Error ? err.message : err}`,
+      });
+      lastError = err instanceof Error ? err.message : String(err);
+      continue;
+    }
+
     const result = isDone();
     if (result.ok) return state;
-
-    state = await runAgentStepOne(
-      agent,
-      {
-        ...step,
-        prompt:
-          step.prompt +
-          `\n\nThe following error occurred: ${result.error}\n\nPlease try again.`,
-      },
-      parameters,
-      onNotification,
-      state,
-    );
+    lastError = result.error;
   }
 
-  const finalResult = isDone();
-  if (!finalResult.ok) {
-    throw new Error(
-      `Agent step failed after ${maxRetries} retries: ${finalResult.error}`,
-    );
-  }
-  return state;
+  throw new Error(
+    `Agent step failed after ${maxRetries} retries: ${lastError}`,
+  );
 }
 
 async function runAgentStepOne<TState>(
