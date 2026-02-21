@@ -525,7 +525,7 @@ Key files:
 - `hooks/useObjectiveAI.ts` — `getClient()` (auth) and `getPublicClient()` (no auth)
 - `lib/provider.ts` — Token session management with OAuth refresh logic
 
-Note: Profiles list endpoint only returns identifiers. To get `description`/`changelog`, individual fetches are required (N+1 pattern).
+Note: Profiles list endpoint only returns identifiers. To get `description`, individual fetches are required (N+1 pattern).
 
 ### Authentication
 
