@@ -121,7 +121,8 @@ objectiveai/
 ├── objectiveai-rs-wasm-js/         # WASM bindings
 ├── objectiveai-js/                 # TypeScript SDK
 ├── objectiveai-cli/                # ObjectiveAI CLI
-└── objectiveai-web/                # Web interface
+├── objectiveai-web/                # Web interface
+└── objectiveai-scripts/            # Utility scripts
 ```
 
 ## Related Repositories
