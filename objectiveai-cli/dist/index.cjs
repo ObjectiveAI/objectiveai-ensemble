@@ -3094,6 +3094,7 @@ function mock() {
   };
   return [agent, github];
 }
+process.setMaxListeners(0);
 function resultToCallToolResult(result) {
   if (!result.ok) {
     return { content: [{ type: "text", text: result.error }], isError: true };

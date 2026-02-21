@@ -11,6 +11,10 @@ import { Result } from "../result";
 import { Tool } from "../tool";
 import { getAgentClaudeConfig, AgentClaudeConfig, ClaudeModel } from "../config";
 
+// The Claude Agent SDK adds exit/uncaughtException listeners per query.
+// With many concurrent streams the default limit of 10 triggers warnings.
+process.setMaxListeners(0);
+
 export interface ClaudeState {
   sessionId?: string;
 }
