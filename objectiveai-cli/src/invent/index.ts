@@ -212,15 +212,17 @@ export async function invent(
     throw err;
   }
 
-  // Emit done — covers both "stage2 just finished" and "both stages skipped"
+  const hasChildren =
+    qualityFn.placeholderTaskSpecs?.some((s) => s !== null) ?? false;
+
   onNotification({
     path,
     name: qualityFn.name,
-    message: { role: "done" },
+    message: hasChildren ? { role: "waiting" } : { role: "done" },
   });
 
   // Always stage3
-  await stage3(
+  const unreplacedReasons = await stage3(
     dir,
     owner,
     qualityFn,
@@ -232,6 +234,33 @@ export async function invent(
     gitAuthorName,
     gitAuthorEmail,
   );
+
+  if (hasChildren) {
+    const fn =
+      qualityFn.function.type === "branch.scalar.function" ||
+      qualityFn.function.type === "branch.vector.function"
+        ? qualityFn.function.function
+        : undefined;
+    const tasks = fn?.tasks ?? [];
+    const remainingPlaceholders = tasks.filter(
+      (t) =>
+        t.type === "placeholder.scalar.function" ||
+        t.type === "placeholder.vector.function",
+    ).length;
+    onNotification({
+      path,
+      name: qualityFn.name,
+      message: {
+        role: "done",
+        functionTasks: tasks.length - remainingPlaceholders,
+        placeholderTasks: remainingPlaceholders,
+        error:
+          unreplacedReasons.length > 0
+            ? unreplacedReasons.join("\n")
+            : undefined,
+      },
+    });
+  }
 }
 
 async function stage1(
@@ -353,7 +382,7 @@ async function stage3(
   gitHubToken: string,
   gitAuthorName: string,
   gitAuthorEmail: string,
-): Promise<void> {
+): Promise<string[]> {
   if (isDirty(dir)) {
     await gitHubBackend.pushFinal({
       dir,
@@ -369,11 +398,11 @@ async function stage3(
     qualityFn.function.type !== "branch.scalar.function" &&
     qualityFn.function.type !== "branch.vector.function"
   ) {
-    return; // Leaf functions have no sub-functions
+    return []; // Leaf functions have no sub-functions
   }
 
   const specs = qualityFn.placeholderTaskSpecs;
-  if (!specs) return;
+  if (!specs) return [];
 
   const subParameters: Parameters = {
     ...qualityFn.parameters,
@@ -447,6 +476,7 @@ async function stage3(
 
   // Closer: replace resolved placeholders with real function task references
   let replaced = false;
+  const unreplacedReasons: string[] = [];
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
     if (
@@ -461,19 +491,31 @@ async function stage3(
 
     // Find the child dir by token
     const childDir = findChildByToken(owner, entry.token);
-    if (!childDir) continue;
+    if (!childDir) {
+      unreplacedReasons.push(`task ${i}: child directory not found`);
+      continue;
+    }
 
     const subQualityFn = await readQualityFunctionFromFilesystem(
       childDir,
       gitHubBackend,
     );
-    if (!subQualityFn) continue;
+    if (!subQualityFn) {
+      unreplacedReasons.push(`task ${i}: not a valid quality function`);
+      continue;
+    }
 
     // Assert sub-function has no placeholder tasks remaining
-    if (hasPlaceholderTasks(subQualityFn.function.function)) continue;
+    if (hasPlaceholderTasks(subQualityFn.function.function)) {
+      unreplacedReasons.push(`task ${i}: still has unresolved placeholders`);
+      continue;
+    }
 
-    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir);
-    if (!orc) continue;
+    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir, gitHubToken);
+    if (!orc) {
+      unreplacedReasons.push(`task ${i}: could not resolve repository commit`);
+      continue;
+    }
 
     replacePlaceholderTask(tasks, i, task, orc);
     replaced = true;
@@ -528,6 +570,8 @@ async function stage3(
   // Re-throw any sub-invent errors
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1) throw new AggregateError(errors);
+
+  return unreplacedReasons;
 }
 
 function hasPlaceholderTasks(fn: Functions.RemoteFunction): boolean {

@@ -290,6 +290,65 @@ function writePlaceholderTaskSpecsToFilesystem(
   writeJsonToFilesystem(join(dir, "placeholder_task_specs.json"), specs);
 }
 
+export interface FunctionWithPlaceholders {
+  name: string;
+  dir: string;
+  functionTasks: number;
+  placeholderTasks: number;
+}
+
+export function scanFunctionsWithPlaceholders(
+  owner: string,
+): FunctionWithPlaceholders[] {
+  const ownerDir = functionsDir(owner);
+  if (!existsSync(ownerDir)) return [];
+
+  let entries: string[];
+  try {
+    entries = readdirSync(ownerDir);
+  } catch {
+    return [];
+  }
+
+  const results: FunctionWithPlaceholders[] = [];
+
+  for (const entry of entries) {
+    const dir = join(ownerDir, entry);
+
+    // Skip non-top-level functions (those with parent.txt)
+    if (readParentTokenFromFilesystem(dir) !== null) continue;
+
+    // Must have parameters with depth > 0
+    const parameters = readParametersFromFilesystem(dir);
+    if (!parameters || parameters.depth <= 0) continue;
+
+    // Must have function.json with placeholder tasks
+    const fn = readFunctionFromFilesystem(dir);
+    if (!fn) continue;
+
+    let placeholderCount = 0;
+    for (const task of fn.tasks) {
+      if (
+        task.type === "placeholder.scalar.function" ||
+        task.type === "placeholder.vector.function"
+      ) {
+        placeholderCount++;
+      }
+    }
+
+    if (placeholderCount === 0) continue;
+
+    results.push({
+      name: entry,
+      dir,
+      functionTasks: fn.tasks.length - placeholderCount,
+      placeholderTasks: placeholderCount,
+    });
+  }
+
+  return results;
+}
+
 export function writeGitignoreToFilesystem(dir: string): void {
   const content = [
     "# Ignore everything",

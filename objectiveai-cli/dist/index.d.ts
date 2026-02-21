@@ -34,6 +34,10 @@ type NotificationMessage = {
 } | {
     role: "done";
     error?: string;
+    functionTasks?: number;
+    placeholderTasks?: number;
+} | {
+    role: "waiting";
 };
 
 declare const ParametersSchema: z.ZodObject<{
@@ -62,7 +66,7 @@ declare function buildParameters(builder?: ParametersBuilder): Parameters;
 interface GitHubBackend {
     pushInitial(options: PushInitialOptions): Promise<void>;
     pushFinal(options: PushFinalOptions): Promise<void>;
-    getOwnerRepositoryCommit(dir: string): Promise<OwnerRepositoryCommit | null>;
+    getOwnerRepositoryCommit(dir: string, gitHubToken: string): Promise<OwnerRepositoryCommit | null>;
     fetchRemoteFunctions(refs: Iterable<OwnerRepositoryCommit>): Promise<Record<string, Functions.RemoteFunction> | null>;
     repoExists(name: string, gitHubToken: string): Promise<boolean>;
     getAuthenticatedUser(gitHubToken: string): Promise<string>;

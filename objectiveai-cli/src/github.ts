@@ -17,7 +17,7 @@ import {
 export interface GitHubBackend {
   pushInitial(options: PushInitialOptions): Promise<void>;
   pushFinal(options: PushFinalOptions): Promise<void>;
-  getOwnerRepositoryCommit(dir: string): Promise<OwnerRepositoryCommit | null>;
+  getOwnerRepositoryCommit(dir: string, gitHubToken: string): Promise<OwnerRepositoryCommit | null>;
   fetchRemoteFunctions(
     refs: Iterable<OwnerRepositoryCommit>,
   ): Promise<Record<string, Functions.RemoteFunction> | null>;
@@ -142,15 +142,14 @@ async function commitExistsOnRemote(
   owner: string,
   repository: string,
   sha: string,
+  gitHubToken: string,
 ): Promise<boolean> {
   try {
     const url = `https://api.github.com/repos/${owner}/${repository}/commits/${sha}`;
     const response = await fetch(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
-        ...(process.env.GITHUB_TOKEN
-          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
-          : {}),
+        Authorization: `Bearer ${gitHubToken}`,
       },
     });
     return response.ok;
@@ -161,6 +160,7 @@ async function commitExistsOnRemote(
 
 async function getOwnerRepositoryCommit(
   dir: string,
+  gitHubToken: string,
 ): Promise<OwnerRepositoryCommit | null> {
   const repoRoot = getRepoRoot(dir);
   if (!repoRoot) return null;
@@ -171,7 +171,7 @@ async function getOwnerRepositoryCommit(
   const parsed = parseGitHubRemote(remoteUrl);
   if (!parsed) return null;
 
-  const relativePath = relative(repoRoot, dir).replace(/\\/g, "/");
+  const relativePath = relative(repoRoot, dir).replace(/\\/g, "/") || ".";
 
   if (hasUncommittedChanges(repoRoot, relativePath + "/function.json")) {
     return null;
@@ -184,6 +184,7 @@ async function getOwnerRepositoryCommit(
     parsed.owner,
     parsed.repository,
     localCommit,
+    gitHubToken,
   );
   if (!exists) return null;
 
