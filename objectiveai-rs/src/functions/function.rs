@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Function {
-    /// A GitHub-hosted function with metadata (description, schema, changelog, etc.).
+    /// A GitHub-hosted function with metadata (description, schema, etc.).
     Remote(RemoteFunction),
     /// An inline function definition without metadata.
     Inline(InlineFunction),
@@ -476,14 +476,6 @@ impl Function {
         }
     }
 
-    /// Returns the function's changelog, if available.
-    pub fn changelog(&self) -> Option<&str> {
-        match self {
-            Function::Remote(remote_function) => remote_function.changelog(),
-            Function::Inline(_) => None,
-        }
-    }
-
     /// Returns the function's input schema, if available.
     pub fn input_schema(&self) -> Option<&super::expression::InputSchema> {
         match self {
@@ -558,9 +550,6 @@ pub enum RemoteFunction {
     Scalar {
         /// Human-readable description of what the function does.
         description: String,
-        /// Version history and changes for this function.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        changelog: Option<String>,
         /// JSON Schema defining the expected input structure.
         input_schema: super::expression::InputSchema,
         /// Expressions that transform input into a 2D array for mapped tasks.
@@ -579,9 +568,6 @@ pub enum RemoteFunction {
     Vector {
         /// Human-readable description of what the function does.
         description: String,
-        /// Version history and changes for this function.
-        #[serde(skip_serializing_if = "Option::is_none")]
-        changelog: Option<String>,
         /// JSON Schema defining the expected input structure.
         input_schema: super::expression::InputSchema,
         /// Expressions that transform input into a 2D array for mapped tasks.
@@ -617,14 +603,6 @@ impl RemoteFunction {
         match self {
             RemoteFunction::Scalar { description, .. } => description,
             RemoteFunction::Vector { description, .. } => description,
-        }
-    }
-
-    /// Returns the function's changelog, if present.
-    pub fn changelog(&self) -> Option<&str> {
-        match self {
-            RemoteFunction::Scalar { changelog, .. } => changelog.as_deref(),
-            RemoteFunction::Vector { changelog, .. } => changelog.as_deref(),
         }
     }
 
@@ -688,8 +666,8 @@ impl RemoteFunction {
 /// An inline function definition without metadata.
 ///
 /// Used when embedding function logic directly in requests rather than
-/// referencing a GitHub-hosted function. Lacks description, changelog,
-/// and input schema fields.
+/// referencing a GitHub-hosted function. Lacks description and input
+/// schema fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum InlineFunction {

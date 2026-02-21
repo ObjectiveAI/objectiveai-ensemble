@@ -37,7 +37,6 @@ fn test_err(f: &RemoteFunction, expected: &str) {
 fn wrong_type_scalar() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -53,7 +52,6 @@ fn rejects_input_maps() {
     use crate::functions::expression::InputMaps;
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -111,7 +109,6 @@ fn rejects_input_maps() {
 fn input_schema_string() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -135,7 +132,6 @@ fn input_schema_string() {
 fn input_schema_object_no_required_array() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -165,7 +161,6 @@ fn input_schema_object_no_required_array() {
 fn contains_scalar_function_task() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -206,7 +201,6 @@ fn contains_scalar_function_task() {
 fn contains_vector_function_task() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -247,7 +241,6 @@ fn contains_vector_function_task() {
 fn contains_placeholder_scalar_task() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -290,7 +283,6 @@ fn contains_placeholder_scalar_task() {
 fn contains_placeholder_vector_task() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -346,7 +338,6 @@ fn contains_placeholder_vector_task() {
 fn vc_task_has_map() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -402,7 +393,6 @@ fn vc_task_has_map() {
 fn responses_fixed_array() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -476,7 +466,6 @@ fn responses_fixed_array() {
 fn derived_vector_output_expression_passes() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -532,7 +521,6 @@ fn derived_vector_output_expression_passes() {
 fn fixed_vector_output_expression() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -588,7 +576,6 @@ fn fixed_vector_output_expression() {
 fn branching_vector_output_two_values() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -647,7 +634,6 @@ fn branching_vector_output_two_values() {
 fn branching_vector_output_three_values() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -708,7 +694,6 @@ fn branching_vector_output_three_values() {
 fn responses_fixed_expression_fails_diversity() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -778,7 +763,6 @@ fn responses_fixed_expression_fails_diversity() {
 fn responses_fixed_pool_expression_fails_diversity() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -848,7 +832,6 @@ fn responses_fixed_pool_expression_fails_diversity() {
 fn responses_derived_from_input_passes_diversity() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -920,7 +903,6 @@ fn responses_derived_from_input_passes_diversity() {
 fn description_too_long() {
     let f = RemoteFunction::Vector {
         description: "a".repeat(351),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -976,7 +958,6 @@ fn description_too_long() {
 fn description_empty() {
     let f = RemoteFunction::Vector {
         description: "  ".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -1034,7 +1015,6 @@ fn description_empty() {
 fn diversity_fail_third_task_object_schema() {
     let f = RemoteFunction::Vector {
         description: "Pick the better candidate".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1131,7 +1111,6 @@ fn diversity_fail_third_task_object_schema() {
 fn diversity_fail_third_task_with_labels() {
     let f = RemoteFunction::Vector {
         description: "Rank entries".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1188,7 +1167,6 @@ fn diversity_fail_third_task_with_labels() {
 fn diversity_pass_ranking_with_enum_categories() {
     let f = RemoteFunction::Vector {
         description: "Compare options by criterion".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1233,7 +1211,6 @@ fn diversity_pass_ranking_with_enum_categories() {
 fn diversity_pass_array_of_integers() {
     let f = RemoteFunction::Vector {
         description: "Rank integers by preference".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None, min_items: Some(2), max_items: Some(4),
             items: Box::new(InputSchema::Integer(IntegerInputSchema { description: None, minimum: Some(0), maximum: Some(999) })),
@@ -1266,7 +1243,6 @@ fn diversity_pass_array_of_integers() {
 fn diversity_pass_nested_object_with_descriptions() {
     let f = RemoteFunction::Vector {
         description: "Rank items with descriptions".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1311,7 +1287,6 @@ fn diversity_pass_nested_object_with_descriptions() {
 fn diversity_pass_array_of_objects_with_nested_fields() {
     let f = RemoteFunction::Vector {
         description: "Compare tagged items".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None, min_items: Some(2), max_items: Some(2),
             items: Box::new(InputSchema::Object(ObjectInputSchema {
@@ -1351,7 +1326,6 @@ fn diversity_pass_array_of_objects_with_nested_fields() {
 fn diversity_pass_object_with_context_and_choices() {
     let f = RemoteFunction::Vector {
         description: "Weighted choice selector".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1398,7 +1372,6 @@ fn diversity_pass_object_with_context_and_choices() {
 fn within_input_responses_all_cloned() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -1454,7 +1427,6 @@ fn within_input_responses_all_cloned() {
 fn within_input_responses_cloned_two_elements() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -1512,7 +1484,6 @@ fn within_input_responses_cloned_two_elements() {
 fn valid_array_schema() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -1568,7 +1539,6 @@ fn valid_array_schema() {
 fn valid_object_with_required_array() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1596,7 +1566,6 @@ fn valid_object_with_required_array() {
 fn valid_multiple_tasks() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -1680,7 +1649,6 @@ fn valid_multiple_tasks() {
 fn valid_people_ranking_with_skip() {
     let f = RemoteFunction::Vector {
         description: "Rank people by name quality".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None, min_items: Some(2), max_items: Some(4),
             items: Box::new(InputSchema::Object(ObjectInputSchema {
@@ -1731,7 +1699,6 @@ fn valid_people_ranking_with_skip() {
 fn people_ranking_null_lastname_replaced() {
     let f = RemoteFunction::Vector {
         description: "Rank people by name quality".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None, min_items: Some(2), max_items: Some(4),
             items: Box::new(InputSchema::Object(ObjectInputSchema {
@@ -1779,7 +1746,6 @@ fn people_ranking_null_lastname_replaced() {
 fn rejects_no_tasks() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -1810,7 +1776,6 @@ fn rejects_no_tasks() {
 fn response_diversity_pass_boolean_derived() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None, min_items: Some(2), max_items: Some(4),
             items: Box::new(InputSchema::Object(ObjectInputSchema {
@@ -1841,7 +1806,6 @@ fn response_diversity_pass_boolean_derived() {
 fn response_diversity_fail_fixed_responses() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None, min_items: Some(2), max_items: Some(3),
             items: Box::new(InputSchema::Object(ObjectInputSchema {
@@ -1874,7 +1838,6 @@ fn response_diversity_fail_fixed_responses() {
 fn valid_with_skip_last_task_boolean() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1922,7 +1885,6 @@ fn valid_with_skip_last_task_boolean() {
 fn valid_with_skip_on_quick_mode() {
     let f = RemoteFunction::Vector {
         description: "Rank with optional deep analysis".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1973,7 +1935,6 @@ fn valid_with_skip_on_quick_mode() {
 fn output_distribution_fail_biased() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2019,7 +1980,6 @@ fn output_distribution_fail_biased() {
 fn output_distribution_pass() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2065,7 +2025,6 @@ fn output_distribution_pass() {
 fn output_distribution_pass_no_max_items() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2111,7 +2070,6 @@ fn output_distribution_pass_no_max_items() {
 fn output_distribution_fail_division_by_zero() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2157,7 +2115,6 @@ fn output_distribution_fail_division_by_zero() {
 fn rejects_single_permutation_string_enum() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2214,7 +2171,6 @@ fn rejects_single_permutation_string_enum() {
 fn rejects_single_permutation_integer() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2275,7 +2231,6 @@ fn rejects_single_permutation_integer() {
 fn modality_fail_image_in_schema_but_text_only() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2340,7 +2295,6 @@ fn modality_fail_image_in_schema_but_text_only() {
 fn modality_fail_image_in_nested_schema_but_text_only() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2406,7 +2360,6 @@ fn modality_fail_image_in_nested_schema_but_text_only() {
 fn modality_pass_image_in_responses() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2470,7 +2423,6 @@ fn modality_pass_image_in_responses() {
 fn modality_pass_image_in_messages() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2523,7 +2475,6 @@ fn modality_pass_image_in_messages() {
 fn job_application_ranker_1() {
     let f = RemoteFunction::Vector {
         description: "Ranks job applications against a job description by evaluating six dimensions: relevance of experience, skills alignment, demonstrated impact, clarity of communication, career trajectory, and tailoring to the role. Produces a consistent, principled ordering that helps hiring teams prioritize the most promising candidates.".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: Some("An object containing job applications to rank and a job description".to_string()),
             properties: index_map! {
@@ -2717,7 +2668,6 @@ fn job_application_ranker_1() {
 fn job_application_ranker_2() {
     let f = RemoteFunction::Vector {
         description: "Ranks job applications against a job description by evaluating six dimensions: relevance of experience, skills alignment, demonstrated impact, clarity of communication, career trajectory, and tailoring to the role. Produces a consistent, principled ordering that helps hiring teams prioritize the most promising candidates.".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: Some("An object containing job applications to rank and a job description".to_string()),
             properties: index_map! {
@@ -2900,7 +2850,6 @@ fn job_application_ranker_2() {
 fn job_application_ranker_3() {
     let f = RemoteFunction::Vector {
         description: "Ranks job applications against a job description by evaluating six dimensions: relevance of experience, skills alignment, demonstrated impact, clarity of communication, career trajectory, and tailoring to the role. Produces a consistent, principled ordering that helps hiring teams prioritize the most promising candidates.".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: Some("An object containing job applications to rank and a job description".to_string()),
             properties: index_map! {

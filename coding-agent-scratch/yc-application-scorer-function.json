@@ -1,7 +1,6 @@
 {
   "type": "scalar.function",
   "description": "Score a Y Combinator Spring 2026 application on a scale from 0 (reject) to 1 (accept). Evaluates six dimensions: founding team, progress and traction, idea and market, business model, application clarity, and competitive positioning. Each dimension is scored independently by an ensemble of LLMs and the final score is a profile-weighted average. Train a Profile on labeled applications to learn optimal dimension weights.",
-  "changelog": "v1.0.0 — Initial release matching the YC Spring 2026 application form.",
   "input_schema": {
     "type": "object",
     "description": "A Y Combinator Spring 2026 application. Field names correspond to the actual YC application form.",

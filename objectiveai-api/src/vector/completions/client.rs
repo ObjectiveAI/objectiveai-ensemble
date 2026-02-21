@@ -262,7 +262,7 @@ where
         }
 
         // validate credits + fetch ensemble if needed + fetch retry votes if needed
-        let (ensemble, mut static_votes) = match (
+        let (ensemble, mut static_votes, profile) = match (
             &request.ensemble,
             &request.retry,
         ) {
@@ -298,7 +298,7 @@ where
                     vote.from_rng = None;
                     vote.completion_index = None;
                 });
-                (ensemble, votes)
+                (ensemble, votes, request.profile.clone())
             }
             (
                 objectiveai::vector::completions::request::Ensemble::Provided(
@@ -306,9 +306,11 @@ where
                 ),
                 Some(retry),
             ) => {
-                let ensemble = ensemble_base
-                    .clone()
-                    .try_into()
+                let (ensemble, aligned_profile) =
+                    objectiveai::ensemble::Ensemble::try_from_with_profile(
+                        ensemble_base.clone(),
+                        request.profile.clone(),
+                    )
                     .map_err(super::Error::InvalidEnsemble)?;
                 let mut votes = self
                     .completion_votes_fetcher
@@ -325,7 +327,7 @@ where
                     vote.from_rng = None;
                     vote.completion_index = None;
                 });
-                (ensemble, votes)
+                (ensemble, votes, aligned_profile)
             }
             (
                 objectiveai::vector::completions::request::Ensemble::Id(
@@ -342,7 +344,7 @@ where
                         Err(e) => Err(super::Error::FetchEnsemble(e)),
                     })
                     .await?;
-                (ensemble, Vec::new())
+                (ensemble, Vec::new(), request.profile.clone())
             }
             (
                 objectiveai::vector::completions::request::Ensemble::Provided(
@@ -350,11 +352,13 @@ where
                 ),
                 None,
             ) => {
-                let ensemble = ensemble_base
-                    .clone()
-                    .try_into()
+                let (ensemble, aligned_profile) =
+                    objectiveai::ensemble::Ensemble::try_from_with_profile(
+                        ensemble_base.clone(),
+                        request.profile.clone(),
+                    )
                     .map_err(super::Error::InvalidEnsemble)?;
-                (ensemble, Vec::new())
+                (ensemble, Vec::new(), aligned_profile)
             }
         };
 
@@ -363,7 +367,7 @@ where
 
         // normalize profile into (weight, invert) pairs
         let profile_pairs: Vec<(Decimal, bool)> =
-            request.profile.to_weights_and_invert();
+            profile.to_weights_and_invert();
 
         // validate profile
         if profile_pairs.len() != ensemble.llms.len() {

@@ -48,9 +48,6 @@ pub enum InlineProfile {
 pub struct RemoteTasksProfile {
     /// Human-readable description of the profile.
     pub description: String,
-    /// Version history and changes for this profile.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub changelog: Option<String>,
     /// Configuration for each task in the corresponding Function.
     pub tasks: Vec<TaskProfile>,
     /// Weights for each Task in the corresponding Function.
@@ -69,9 +66,6 @@ pub struct RemoteTasksProfile {
 pub struct RemoteAutoProfile {
     /// Human-readable description of the profile.
     pub description: String,
-    /// Version history and changes for this profile.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub changelog: Option<String>,
     /// The ensemble to use for all vector completion tasks.
     pub ensemble: vector::completions::request::Ensemble,
     /// Weights for each LLM in the ensemble.
@@ -110,7 +104,7 @@ pub struct InlineAutoProfile {
 #[serde(untagged)]
 pub enum TaskProfile {
     /// Profile for a nested function task (references another profile).
-    RemoteFunction {
+    Remote {
         /// GitHub repository owner.
         owner: String,
         /// GitHub repository name.
@@ -119,20 +113,8 @@ pub enum TaskProfile {
         /// ensure compatibility if the referenced profile's shape changes.
         commit: Option<String>,
     },
-    /// Inline profile for a nested function task.
-    InlineFunction(InlineProfile),
-    /// Configuration for a vector completion task.
-    VectorCompletion {
-        /// The ensemble to use for voting.
-        ensemble: vector::completions::request::Ensemble,
-        /// Weights for each LLM in the ensemble.
-        ///
-        /// Must have the same length as the Ensemble's `llms` field (ignoring
-        /// `count`). Can be either:
-        /// - A vector of decimals (legacy representation), or
-        /// - A vector of objects with `weight` and optional `invert` fields.
-        profile: vector::completions::request::Profile,
-    },
+    /// Inline profile for a task (tasks-based or auto).
+    Inline(InlineProfile),
     /// Placeholder task — no configuration needed, output is fixed.
     Placeholder {},
 }
@@ -145,13 +127,12 @@ impl TaskProfile {
     /// referenced profile's structure changes.
     pub fn validate_commit_required(&self) -> bool {
         match self {
-            TaskProfile::RemoteFunction { commit, .. } => commit.is_some(),
-            TaskProfile::InlineFunction(InlineProfile::Tasks(inline)) => inline
+            TaskProfile::Remote { commit, .. } => commit.is_some(),
+            TaskProfile::Inline(InlineProfile::Tasks(inline)) => inline
                 .tasks
                 .iter()
                 .all(TaskProfile::validate_commit_required),
-            TaskProfile::InlineFunction(InlineProfile::Auto(_)) => true,
-            TaskProfile::VectorCompletion { .. } => true,
+            TaskProfile::Inline(InlineProfile::Auto(_)) => true,
             TaskProfile::Placeholder {} => true,
         }
     }

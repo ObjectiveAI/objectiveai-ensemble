@@ -445,7 +445,6 @@ export interface JsonSchemaProperty {
 export interface FunctionDefinition {
   type: FunctionType;
   description: string;
-  changelog?: string | null;
   input_schema: JsonSchema;
   input_maps?: Expression[] | null;
   tasks: TaskExpression[];
@@ -607,7 +606,6 @@ export interface ReasoningSummaryChunk {
  */
 export interface Profile {
   description: string;
-  changelog?: string | null;
   tasks: TaskProfile[];
 }
 

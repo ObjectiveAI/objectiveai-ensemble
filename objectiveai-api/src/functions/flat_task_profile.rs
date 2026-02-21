@@ -805,7 +805,7 @@ where
                 let effective_invert_output = profile_invert_flags[i];
                 let profile_param = if let Some(task_profile) = task_profile {
                     match task_profile {
-                        objectiveai::functions::TaskProfile::RemoteFunction {
+                        objectiveai::functions::TaskProfile::Remote {
                             owner,
                             repository,
                             commit,
@@ -814,7 +814,7 @@ where
                             repository,
                             commit,
                         },
-                        objectiveai::functions::TaskProfile::InlineFunction(
+                        objectiveai::functions::TaskProfile::Inline(
                             profile,
                         ) => ProfileParam::FetchedOrInline {
                             full_id: None,
@@ -823,7 +823,7 @@ where
                             ),
                         },
                         _ => return Err(super::executions::Error::InvalidProfile(
-                            "expected function profile (RemoteFunction or InlineFunction) for function task".to_string()
+                            "expected function profile (Remote or Inline) for function task".to_string()
                         )),
                     }
                 } else {
@@ -864,12 +864,11 @@ where
             ) => {
                 let (ensemble, vc_profile) = if let Some(task_profile) = task_profile {
                     match task_profile {
-                        objectiveai::functions::TaskProfile::VectorCompletion {
-                            ensemble,
-                            profile,
-                        } => (ensemble, profile),
+                        objectiveai::functions::TaskProfile::Inline(
+                            objectiveai::functions::InlineProfile::Auto(auto),
+                        ) => (auto.ensemble, auto.profile),
                         _ => return Err(super::executions::Error::InvalidProfile(
-                            "expected VectorCompletion profile for vector completion task".to_string()
+                            "expected Inline(Auto) profile for vector completion task".to_string()
                         )),
                     }
                 } else {
@@ -991,12 +990,11 @@ where
                             task_path.push(j as u64);
                             let (ensemble, vc_profile) = if let Some(ref task_profile) = task_profile {
                                 match task_profile {
-                                    objectiveai::functions::TaskProfile::VectorCompletion {
-                                        ensemble,
-                                        profile,
-                                    } => (ensemble.clone(), profile.clone()),
+                                    objectiveai::functions::TaskProfile::Inline(
+                                        objectiveai::functions::InlineProfile::Auto(auto),
+                                    ) => (auto.ensemble.clone(), auto.profile.clone()),
                                     _ => return Err(super::executions::Error::InvalidProfile(
-                                        "expected VectorCompletion profile for mapped vector completion task".to_string()
+                                        "expected Inline(Auto) profile for mapped vector completion task".to_string()
                                     )),
                                 }
                             } else {
@@ -1064,7 +1062,7 @@ where
                                 },
                                 if let Some(ref task_profile) = task_profile {
                                     match task_profile {
-                                        objectiveai::functions::TaskProfile::RemoteFunction {
+                                        objectiveai::functions::TaskProfile::Remote {
                                             owner,
                                             repository,
                                             commit,
@@ -1073,7 +1071,7 @@ where
                                             repository: repository.clone(),
                                             commit: commit.clone(),
                                         },
-                                        objectiveai::functions::TaskProfile::InlineFunction(
+                                        objectiveai::functions::TaskProfile::Inline(
                                             profile,
                                         ) => ProfileParam::FetchedOrInline {
                                             full_id: None,
@@ -1082,7 +1080,7 @@ where
                                             ),
                                         },
                                         _ => return Err(super::executions::Error::InvalidProfile(
-                                            "expected function profile (RemoteFunction or InlineFunction) for mapped function task".to_string()
+                                            "expected function profile (Remote or Inline) for mapped function task".to_string()
                                         )),
                                     }
                                 } else {
@@ -1233,7 +1231,7 @@ async fn get_vector_completion_flat_task_profile<CTXEXT>(
     path: Vec<u64>,
     task: objectiveai::functions::VectorCompletionTask,
     ensemble: objectiveai::vector::completions::request::Ensemble,
-    profile: objectiveai::vector::completions::request::Profile,
+    mut profile: objectiveai::vector::completions::request::Profile,
     invert_output: bool,
     ensemble_fetcher: Arc<
         crate::ensemble::fetcher::CachingFetcher<
@@ -1261,22 +1259,17 @@ where
         objectiveai::vector::completions::request::Ensemble::Provided(
             ensemble,
         ) => {
-            // validate ensemble
-            ensemble
-                .clone()
-                .try_into()
-                .map_err(super::executions::Error::InvalidEnsemble)?
+            // validate ensemble and align profile weights
+            let (ens, aligned_profile) =
+                objectiveai::ensemble::Ensemble::try_from_with_profile(
+                    ensemble.clone(),
+                    profile,
+                )
+                .map_err(super::executions::Error::InvalidEnsemble)?;
+            profile = aligned_profile;
+            ens
         }
     };
-
-    // validate profile length matches ensemble LLMs length
-    if profile.len() != ensemble.llms.len() {
-        return Err(super::executions::Error::InvalidProfile(format!(
-            "vector completion profile length ({}) does not match ensemble LLMs length ({})",
-            profile.len(),
-            ensemble.llms.len()
-        )));
-    }
 
     // construct flat task profile
     Ok(super::VectorCompletionFlatTaskProfile {
