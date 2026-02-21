@@ -16,8 +16,11 @@ objectiveai/
 ├── objectiveai-js/                 # TypeScript SDK (npm: objectiveai)
 ├── objectiveai-cli/                # ObjectiveAI CLI
 ├── objectiveai-web/                # Next.js web interface (production)
+├── objectiveai-scripts/            # Utility scripts (see objectiveai-scripts/README.md)
 └── coding-agent-scratch/           # Scratch folder for testing SDK calls
 ```
+
+**Scripts:** `objectiveai-scripts/` contains utility scripts. See its `README.md` for documentation. Add new useful scripts there and document them.
 
 ## Core Concepts
 
