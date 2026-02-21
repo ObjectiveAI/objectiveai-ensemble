@@ -139,9 +139,29 @@ function flattenNode(
   return lines;
 }
 
+function wrapIndent(text: string, width: number, indent: string): string {
+  if (width <= 0) return indent + text;
+  const lines: string[] = [];
+  for (const segment of text.split("\n")) {
+    if (segment.length <= width) {
+      lines.push(segment);
+      continue;
+    }
+    let remaining = segment;
+    while (remaining.length > width) {
+      let breakAt = remaining.lastIndexOf(" ", width);
+      if (breakAt <= 0) breakAt = width;
+      lines.push(remaining.slice(0, breakAt));
+      remaining = remaining.slice(breakAt === width ? breakAt : breakAt + 1);
+    }
+    if (remaining) lines.push(remaining);
+  }
+  return indent + lines.join("\n" + indent);
+}
+
 const LOADING_FRAMES = ["·  ", "·· ", "···"];
 
-function RenderLine({ line, tick }: { line: FlatLine; tick: number }) {
+function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; termWidth: number }) {
   if (line.type === "title") {
     return (
       <Text>
@@ -162,15 +182,15 @@ function RenderLine({ line, tick }: { line: FlatLine; tick: number }) {
   const msg = line.message;
   if (msg.role === "assistant") {
     const indent = line.gutter + "  ";
-    const content = msg.content.replace(/\n/g, "\n" + indent);
-    return <Text>{indent}{content}</Text>;
+    return <Text wrap="truncate">{wrapIndent(msg.content, termWidth - indent.length, indent)}</Text>;
   }
   if (msg.role === "tool") {
     if (msg.error) {
       const errIndent = line.gutter + "    ";
-      const error = msg.error.replace(/\n/g, "\n" + errIndent);
+      const firstPrefixLen = line.gutter.length + 4 + msg.name.length + 3;
+      const error = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
       return (
-        <Text>{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{error}</Text></Text>
+        <Text wrap="truncate">{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{error.slice(errIndent.length)}</Text></Text>
       );
     }
     return (
@@ -260,6 +280,7 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
   const [scrollOffset, setScrollOffset] = useState(0);
   const [autoFollow, setAutoFollow] = useState(true);
   const [termHeight, setTermHeight] = useState(stdout.rows ?? 24);
+  const [termWidth, setTermWidth] = useState(stdout.columns ?? 80);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -269,7 +290,10 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
   }, [done]);
 
   useEffect(() => {
-    const onResize = () => setTermHeight(stdout.rows ?? 24);
+    const onResize = () => {
+      setTermHeight(stdout.rows ?? 24);
+      setTermWidth(stdout.columns ?? 80);
+    };
     stdout.on("resize", onResize);
     return () => { stdout.off("resize", onResize); };
   }, [stdout]);
@@ -316,7 +340,7 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
       <Box width="100%" flexGrow={1}>
         <Box flexDirection="column" flexGrow={1}>
           {visible.map((line, i) => (
-            <RenderLine key={scrollOffset + i} line={line} tick={tick} />
+            <RenderLine key={scrollOffset + i} line={line} tick={tick} termWidth={termWidth - 1} />
           ))}
         </Box>
         <Scrollbar

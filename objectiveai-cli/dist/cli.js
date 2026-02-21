@@ -1245,10 +1245,11 @@ var BranchScalarState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters) {
+  constructor(parameters, inputSchema) {
     this.parameters = parameters;
     this.function = {
-      type: "scalar.function"
+      type: "scalar.function",
+      input_schema: inputSchema
     };
   }
   getInputSchema() {
@@ -1653,10 +1654,11 @@ var BranchVectorState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters, outputLength, inputSplit, inputMerge) {
+  constructor(parameters, inputSchema, outputLength, inputSplit, inputMerge) {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge
@@ -3215,7 +3217,7 @@ z4.union([
   }),
   StateOptionsBaseSchema.extend({
     type: z4.literal("vector.function"),
-    input_schema: Functions.RemoteVectorFunctionSchema.shape.input_schema,
+    input_schema: Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema,
     output_length: Functions.RemoteVectorFunctionSchema.shape.output_length,
     input_split: Functions.RemoteVectorFunctionSchema.shape.input_split,
     input_merge: Functions.RemoteVectorFunctionSchema.shape.input_merge
@@ -3242,10 +3244,14 @@ var State = class {
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
-          this._inner = new BranchScalarState(options.parameters);
+          this._inner = new BranchScalarState(
+            options.parameters,
+            options.input_schema
+          );
         } else if (options.type === "vector.function") {
           this._inner = new BranchVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge
@@ -4578,13 +4584,11 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
     for (let i = 0; i < tasks.length; i++) {
       const t = tasks[i];
       if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
-        templateLines.push(
-          `https://github.com/{{ .Owner }}/{{ .Task${i} }}`
-        );
+        templateLines.push(`https://github.com/{{ .Owner }}/{{ .Task${i} }}`);
       }
     }
     if (templateLines.length > 0) {
-      prompt += "\n\nYour README must include a link to each sub-function using the following template format:\n" + templateLines.join("\n") + "\nThese templates will be automatically replaced with the actual repository URLs after the sub-functions are invented.";
+      prompt += "\n\nYour README must include a link to each sub-function using the following template format:\n" + templateLines.join("\n") + "\nThese templates will be automatically replaced with the actual repository URLs after the sub-functions are invented.\nYou may also use {{ .Owner }} and {{ .TaskN }} anywhere else in the README and they will all be automatically replaced.";
     }
   }
   return runAgentStep(
@@ -5070,8 +5074,27 @@ function flattenNode(node, gutter, isLast, isRoot) {
   }
   return lines;
 }
+function wrapIndent(text, width, indent) {
+  if (width <= 0) return indent + text;
+  const lines = [];
+  for (const segment of text.split("\n")) {
+    if (segment.length <= width) {
+      lines.push(segment);
+      continue;
+    }
+    let remaining = segment;
+    while (remaining.length > width) {
+      let breakAt = remaining.lastIndexOf(" ", width);
+      if (breakAt <= 0) breakAt = width;
+      lines.push(remaining.slice(0, breakAt));
+      remaining = remaining.slice(breakAt === width ? breakAt : breakAt + 1);
+    }
+    if (remaining) lines.push(remaining);
+  }
+  return indent + lines.join("\n" + indent);
+}
 var LOADING_FRAMES = ["\xB7  ", "\xB7\xB7 ", "\xB7\xB7\xB7"];
-function RenderLine({ line, tick }) {
+function RenderLine({ line, tick, termWidth }) {
   if (line.type === "title") {
     return /* @__PURE__ */ jsxs(Text, { children: [
       line.gutter,
@@ -5096,23 +5119,20 @@ function RenderLine({ line, tick }) {
   const msg = line.message;
   if (msg.role === "assistant") {
     const indent = line.gutter + "  ";
-    const content = msg.content.replace(/\n/g, "\n" + indent);
-    return /* @__PURE__ */ jsxs(Text, { children: [
-      indent,
-      content
-    ] });
+    return /* @__PURE__ */ jsx(Text, { wrap: "truncate", children: wrapIndent(msg.content, termWidth - indent.length, indent) });
   }
   if (msg.role === "tool") {
     if (msg.error) {
       const errIndent = line.gutter + "    ";
-      const error = msg.error.replace(/\n/g, "\n" + errIndent);
-      return /* @__PURE__ */ jsxs(Text, { children: [
+      const firstPrefixLen = line.gutter.length + 4 + msg.name.length + 3;
+      const error = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
+      return /* @__PURE__ */ jsxs(Text, { wrap: "truncate", children: [
         line.gutter,
         /* @__PURE__ */ jsxs(Text, { color: "red", children: [
           "  \u2717 ",
           msg.name,
           " \u2014 ",
-          error
+          error.slice(errIndent.length)
         ] })
       ] });
     }
@@ -5177,6 +5197,7 @@ function InventView({ tree, done }) {
   const [scrollOffset, setScrollOffset] = useState(0);
   const [autoFollow, setAutoFollow] = useState(true);
   const [termHeight, setTermHeight] = useState(stdout.rows ?? 24);
+  const [termWidth, setTermWidth] = useState(stdout.columns ?? 80);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (done) return;
@@ -5184,7 +5205,10 @@ function InventView({ tree, done }) {
     return () => clearInterval(id);
   }, [done]);
   useEffect(() => {
-    const onResize = () => setTermHeight(stdout.rows ?? 24);
+    const onResize = () => {
+      setTermHeight(stdout.rows ?? 24);
+      setTermWidth(stdout.columns ?? 80);
+    };
     stdout.on("resize", onResize);
     return () => {
       stdout.off("resize", onResize);
@@ -5223,7 +5247,7 @@ function InventView({ tree, done }) {
   const visible = lines.slice(scrollOffset, scrollOffset + viewportHeight);
   return /* @__PURE__ */ jsxs(Box, { flexDirection: "column", height: termHeight, children: [
     /* @__PURE__ */ jsxs(Box, { width: "100%", flexGrow: 1, children: [
-      /* @__PURE__ */ jsx(Box, { flexDirection: "column", flexGrow: 1, children: visible.map((line, i) => /* @__PURE__ */ jsx(RenderLine, { line, tick }, scrollOffset + i)) }),
+      /* @__PURE__ */ jsx(Box, { flexDirection: "column", flexGrow: 1, children: visible.map((line, i) => /* @__PURE__ */ jsx(RenderLine, { line, tick, termWidth: termWidth - 1 }, scrollOffset + i)) }),
       /* @__PURE__ */ jsx(
         Scrollbar,
         {
