@@ -10,8 +10,8 @@ use crate::chat::completions::request::{
 };
 use crate::functions::expression::{
     AnyOfInputSchema, ArrayInputSchema, BooleanInputSchema, Expression,
-    InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
-    WithExpression,
+    ImageInputSchema, InputSchema, IntegerInputSchema, ObjectInputSchema,
+    StringInputSchema, WithExpression,
 };
 use crate::functions::quality::check_leaf_scalar_function;
 use crate::functions::{
