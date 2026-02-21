@@ -80,13 +80,6 @@ export const InlineFunctionJsonSchema: JSONSchema =
 
 export const RemoteScalarFunctionSchema = InlineScalarFunctionSchema.extend({
   description: z.string().describe("The description of the scalar function."),
-  changelog: z
-    .string()
-    .optional()
-    .nullable()
-    .describe(
-      "When present, describes changes from the previous version or versions.",
-    ),
   input_schema: InputSchemaSchema,
 })
   .describe('A scalar function fetched from GitHub. "function.json"')
@@ -98,13 +91,6 @@ export const RemoteScalarFunctionJsonSchema: JSONSchema = convert(
 
 export const RemoteVectorFunctionSchema = InlineVectorFunctionSchema.extend({
   description: z.string().describe("The description of the vector function."),
-  changelog: z
-    .string()
-    .optional()
-    .nullable()
-    .describe(
-      "When present, describes changes from the previous version or versions.",
-    ),
   input_schema: InputSchemaSchema,
   output_length: z
     .union([
