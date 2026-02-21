@@ -17,6 +17,8 @@ export type NotificationMessage =
   | {
       role: "done";
       error?: string;
+      functionTasks?: number;
+      placeholderTasks?: number;
     }
   | {
       role: "waiting";

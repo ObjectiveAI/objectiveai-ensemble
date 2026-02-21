@@ -10,6 +10,8 @@ interface FunctionNode {
   done: boolean;
   waiting: boolean;
   error?: string;
+  functionTasks?: number;
+  placeholderTasks?: number;
   children: Map<number, FunctionNode>;
 }
 
@@ -65,6 +67,12 @@ export function useInventNotifications() {
         if (notification.message.error) {
           node.error = notification.message.error;
         }
+        if (notification.message.functionTasks !== undefined) {
+          node.functionTasks = notification.message.functionTasks;
+        }
+        if (notification.message.placeholderTasks !== undefined) {
+          node.placeholderTasks = notification.message.placeholderTasks;
+        }
       } else if (notification.message.role === "waiting") {
         node.waiting = true;
       } else {
@@ -90,6 +98,8 @@ interface TitleLine {
   done: boolean;
   waiting: boolean;
   error?: string;
+  functionTasks?: number;
+  placeholderTasks?: number;
 }
 
 interface MsgLine {
@@ -124,6 +134,8 @@ function flattenNode(
     done: node.done,
     waiting: node.waiting,
     error: node.error,
+    functionTasks: node.functionTasks,
+    placeholderTasks: node.placeholderTasks,
   });
 
   if (!node.done && !node.waiting && node.messages.length > 0) {
@@ -176,7 +188,7 @@ function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; t
         {line.gutter}{line.prefix}
         <Text bold color="#5948e7">{line.name}</Text>
         {line.waiting && !line.done && <Text color="#5948e7">{" — Waiting"}<Text dimColor>{LOADING_FRAMES[tick % LOADING_FRAMES.length]}</Text></Text>}
-        {line.done && !line.error && <Text color="#5948e7">{" — Complete"}</Text>}
+        {line.done && !line.error && <Text color="#5948e7">{" — Complete"}{line.functionTasks !== undefined && line.placeholderTasks !== undefined && ` [${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`}</Text>}
         {line.done && line.error && <Text color="red">{" — "}{line.error}</Text>}
       </Text>
     );

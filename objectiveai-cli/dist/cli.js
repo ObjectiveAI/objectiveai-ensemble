@@ -4752,10 +4752,18 @@ async function invent(onNotification, options, continuation) {
     gitAuthorEmail
   );
   if (hasChildren) {
+    const specs = qualityFn.placeholderTaskSpecs;
+    const fn = qualityFn.function.type === "branch.scalar.function" || qualityFn.function.type === "branch.vector.function" ? qualityFn.function.function : void 0;
+    const totalTasks = fn?.tasks.length ?? 0;
+    const placeholderCount = specs.filter((s) => s !== null).length;
     onNotification({
       path,
       name: qualityFn.name,
-      message: { role: "done" }
+      message: {
+        role: "done",
+        functionTasks: totalTasks - placeholderCount,
+        placeholderTasks: placeholderCount
+      }
     });
   }
 }
@@ -5044,6 +5052,12 @@ function useInventNotifications() {
         if (notification.message.error) {
           node.error = notification.message.error;
         }
+        if (notification.message.functionTasks !== void 0) {
+          node.functionTasks = notification.message.functionTasks;
+        }
+        if (notification.message.placeholderTasks !== void 0) {
+          node.placeholderTasks = notification.message.placeholderTasks;
+        }
       } else if (notification.message.role === "waiting") {
         node.waiting = true;
       } else {
@@ -5069,7 +5083,9 @@ function flattenNode(node, gutter, isLast, isRoot) {
     name: node.name ?? "Unnamed Function",
     done: node.done,
     waiting: node.waiting,
-    error: node.error
+    error: node.error,
+    functionTasks: node.functionTasks,
+    placeholderTasks: node.placeholderTasks
   });
   if (!node.done && !node.waiting && node.messages.length > 0) {
     for (const msg of node.messages) {
@@ -5118,7 +5134,10 @@ function RenderLine({ line, tick, termWidth }) {
         " \u2014 Waiting",
         /* @__PURE__ */ jsx(Text, { dimColor: true, children: LOADING_FRAMES[tick % LOADING_FRAMES.length] })
       ] }),
-      line.done && !line.error && /* @__PURE__ */ jsx(Text, { color: "#5948e7", children: " \u2014 Complete" }),
+      line.done && !line.error && /* @__PURE__ */ jsxs(Text, { color: "#5948e7", children: [
+        " \u2014 Complete",
+        line.functionTasks !== void 0 && line.placeholderTasks !== void 0 && ` [${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`
+      ] }),
       line.done && line.error && /* @__PURE__ */ jsxs(Text, { color: "red", children: [
         " \u2014 ",
         line.error

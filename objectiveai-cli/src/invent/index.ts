@@ -236,10 +236,22 @@ export async function invent(
   );
 
   if (hasChildren) {
+    const specs = qualityFn.placeholderTaskSpecs!;
+    const fn =
+      qualityFn.function.type === "branch.scalar.function" ||
+      qualityFn.function.type === "branch.vector.function"
+        ? qualityFn.function.function
+        : undefined;
+    const totalTasks = fn?.tasks.length ?? 0;
+    const placeholderCount = specs.filter((s) => s !== null).length;
     onNotification({
       path,
       name: qualityFn.name,
-      message: { role: "done" },
+      message: {
+        role: "done",
+        functionTasks: totalTasks - placeholderCount,
+        placeholderTasks: placeholderCount,
+      },
     });
   }
 }
