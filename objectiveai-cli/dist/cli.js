@@ -5177,9 +5177,11 @@ function flattenNode(node, gutter, isLast, isRoot) {
     functionTasks: node.functionTasks,
     placeholderTasks: node.placeholderTasks
   });
-  if (node.done && node.error) {
+  const children = Array.from(node.children.entries());
+  if (node.done && node.error && node.functionTasks !== void 0) {
+    const errorGutter = children.length > 0 ? childGutter + "\u2502  " : childGutter;
     for (const errLine of node.error.split("\n")) {
-      if (errLine) lines.push({ type: "error", gutter: childGutter, text: errLine });
+      if (errLine) lines.push({ type: "error", gutter: errorGutter, text: errLine });
     }
   }
   if (!node.done && !node.waiting && node.messages.length > 0) {
@@ -5190,7 +5192,6 @@ function flattenNode(node, gutter, isLast, isRoot) {
   if (!node.done && !node.waiting) {
     lines.push({ type: "loading", gutter: childGutter });
   }
-  const children = Array.from(node.children.entries());
   for (let i = 0; i < children.length; i++) {
     const [, child] = children[i];
     lines.push(
@@ -5247,7 +5248,7 @@ function RenderLine({ line, tick, termWidth }) {
     return /* @__PURE__ */ jsxs(Text, { children: [
       line.gutter,
       /* @__PURE__ */ jsxs(Text, { color: "red", children: [
-        "  \u2717 ",
+        "\u2717 ",
         line.text
       ] })
     ] });

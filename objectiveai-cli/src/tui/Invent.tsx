@@ -144,9 +144,12 @@ function flattenNode(
     placeholderTasks: node.placeholderTasks,
   });
 
-  if (node.done && node.error) {
+  const children = Array.from(node.children.entries());
+
+  if (node.done && node.error && node.functionTasks !== undefined) {
+    const errorGutter = children.length > 0 ? childGutter + "│  " : childGutter;
     for (const errLine of node.error.split("\n")) {
-      if (errLine) lines.push({ type: "error", gutter: childGutter, text: errLine });
+      if (errLine) lines.push({ type: "error", gutter: errorGutter, text: errLine });
     }
   }
 
@@ -160,7 +163,6 @@ function flattenNode(
     lines.push({ type: "loading", gutter: childGutter });
   }
 
-  const children = Array.from(node.children.entries());
   for (let i = 0; i < children.length; i++) {
     const [, child] = children[i];
     lines.push(
@@ -209,7 +211,7 @@ function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; t
 
   if (line.type === "error") {
     return (
-      <Text>{line.gutter}<Text color="red">{"  ✗ "}{line.text}</Text></Text>
+      <Text>{line.gutter}<Text color="red">{"✗ "}{line.text}</Text></Text>
     );
   }
 
