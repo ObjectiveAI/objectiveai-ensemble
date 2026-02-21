@@ -1,8 +1,16 @@
 import z from "zod";
-import { join } from "path";
+import { join, basename } from "path";
 import { Parameters, ParametersSchema } from "./parameters";
 import { Functions } from "objectiveai";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+} from "fs";
+import { functionsDir, inventDir } from "./dirs";
+export { functionsDir, inventDir };
 import {
   PlaceholderTaskSpecs,
   PlaceholderTaskSpecsSchema,
@@ -48,10 +56,6 @@ function readTextFromFilesystem(path: string): string | null {
   } catch {
     return null;
   }
-}
-
-function readNameFromFilesystem(path: string): string | null {
-  return readTextFromFilesystem(join(path, "name.txt"));
 }
 
 function readJsonFromFilesystem(path: string): unknown | null {
@@ -100,8 +104,8 @@ export async function readQualityFunctionFromFilesystem(
 ): Promise<QualityFunction | null> {
   const parameters = readParametersFromFilesystem(dir);
   if (parameters === null) return null;
-  const name = readNameFromFilesystem(dir);
-  if (name === null) return null;
+  const name = basename(dir);
+  if (!name) return null;
   const fn = readFunctionFromFilesystem(dir);
   if (fn === null) return null;
   if (parameters.depth > 0) {
@@ -199,6 +203,39 @@ export async function readQualityFunctionFromFilesystem(
   return null;
 }
 
+// Parent token
+
+export function writeParentTokenToFilesystem(
+  dir: string,
+  token: string,
+): void {
+  writeTextToFilesystem(join(dir, "parent.txt"), token);
+}
+
+export function readParentTokenFromFilesystem(dir: string): string | null {
+  return readTextFromFilesystem(join(dir, "parent.txt"));
+}
+
+export function findChildByToken(
+  owner: string,
+  token: string,
+): string | null {
+  const ownerDir = functionsDir(owner);
+  if (!existsSync(ownerDir)) return null;
+  let entries: string[];
+  try {
+    entries = readdirSync(ownerDir);
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    const childDir = join(ownerDir, entry);
+    const childToken = readParentTokenFromFilesystem(childDir);
+    if (childToken === token) return childDir;
+  }
+  return null;
+}
+
 // Write
 
 function writeTextToFilesystem(path: string, content: string): void {
@@ -207,10 +244,6 @@ function writeTextToFilesystem(path: string, content: string): void {
 
 function writeJsonToFilesystem(path: string, data: unknown): void {
   writeTextToFilesystem(path, JSON.stringify(data, null, 2));
-}
-
-function writeNameToFilesystem(dir: string, name: string): void {
-  writeTextToFilesystem(join(dir, "name.txt"), name);
 }
 
 function writeParametersToFilesystem(
@@ -242,7 +275,11 @@ function writeInventEssayTasksToFilesystem(
   writeTextToFilesystem(join(dir, "INVENT_ESSAY_TASKS.md"), essayTasks);
 }
 
-function writeReadmeToFilesystem(dir: string, readme: string): void {
+export function readReadmeFromFilesystem(dir: string): string | null {
+  return readTextFromFilesystem(join(dir, "README.md"));
+}
+
+export function writeReadmeToFilesystem(dir: string, readme: string): void {
   writeTextToFilesystem(join(dir, "README.md"), readme);
 }
 
@@ -260,7 +297,7 @@ export function writeGitignoreToFilesystem(dir: string): void {
     "",
     "# Allow specific files",
     "!.gitignore",
-    "!name.txt",
+    "!parent.txt",
     "!parameters.json",
     "!function.json",
     "!INVENT_SPEC.md",
@@ -275,14 +312,9 @@ export function writeGitignoreToFilesystem(dir: string): void {
 
 export function writeInitialStateToFilesystem(
   dir: string,
-  state: State,
   parameters: Parameters,
 ): void {
   mkdirSync(dir, { recursive: true });
-
-  const name = state.getName();
-  if (!name.ok) throw new Error("Name not set");
-  writeNameToFilesystem(dir, name.value);
 
   writeParametersToFilesystem(dir, parameters);
 
@@ -294,7 +326,7 @@ export function writeFinalStateToFilesystem(
   state: State,
   parameters: Parameters,
 ): void {
-  writeInitialStateToFilesystem(dir, state, parameters);
+  writeInitialStateToFilesystem(dir, parameters);
 
   const inner = state.inner;
   if (!inner) throw new Error("Inner state not set");

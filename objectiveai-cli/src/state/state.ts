@@ -1,3 +1,4 @@
+import { existsSync, mkdirSync } from "fs";
 import z from "zod";
 import { Parameters, ParametersSchema } from "../parameters";
 import { Functions } from "objectiveai";
@@ -8,11 +9,13 @@ import { LeafScalarState } from "./leafScalarState";
 import { LeafVectorState } from "./leafVectorState";
 import { Tool } from "src/tool";
 import { GitHubBackend } from "../github";
+import { functionsDir, inventDir } from "../dirs";
 
 export const StateOptionsBaseSchema = z.object({
   parameters: ParametersSchema,
   inventSpec: z.string().nonempty(),
   gitHubToken: z.string().nonempty(),
+  owner: z.string().nonempty(),
 });
 export type StateOptionsBase = z.infer<typeof StateOptionsBaseSchema>;
 
@@ -24,7 +27,8 @@ export const StateOptionsSchema = z.union([
   }),
   StateOptionsBaseSchema.extend({
     type: z.literal("vector.function"),
-    input_schema: Functions.RemoteVectorFunctionSchema.shape.input_schema,
+    input_schema:
+      Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema,
     output_length: Functions.RemoteVectorFunctionSchema.shape.output_length,
     input_split: Functions.RemoteVectorFunctionSchema.shape.input_split,
     input_merge: Functions.RemoteVectorFunctionSchema.shape.input_merge,
@@ -36,6 +40,7 @@ export class State {
   readonly parameters: Parameters;
   readonly inventSpec: string;
   readonly gitHubToken: string;
+  readonly owner: string;
   private name: string | undefined;
   private inventEssay: string | undefined;
   private inventEssayTasks: string | undefined;
@@ -46,20 +51,26 @@ export class State {
     | LeafVectorState
     | undefined;
   private readme: string | undefined;
+  private placeholderTaskIndices: number[] | undefined;
   private gitHubBackend: GitHubBackend;
 
   constructor(options: StateOptions, gitHubBackend: GitHubBackend) {
     this.parameters = options.parameters;
     this.inventSpec = options.inventSpec;
     this.gitHubToken = options.gitHubToken;
+    this.owner = options.owner;
     this.gitHubBackend = gitHubBackend;
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
-          this._inner = new BranchScalarState(options.parameters);
+          this._inner = new BranchScalarState(
+            options.parameters,
+            options.input_schema,
+          );
         } else if (options.type === "vector.function") {
           this._inner = new BranchVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge,
@@ -132,7 +143,26 @@ export class State {
         error: "FunctionName exceeds maximum of 100 bytes",
       };
     }
+    const dir = inventDir(this.owner, value);
+    if (existsSync(dir)) {
+      return {
+        ok: false,
+        value: undefined,
+        error: "Name is already taken, please use another",
+      };
+    }
     if (await this.gitHubBackend.repoExists(value, this.gitHubToken)) {
+      return {
+        ok: false,
+        value: undefined,
+        error: "Name is already taken, please use another",
+      };
+    }
+    // Create the directory atomically to claim the name
+    mkdirSync(functionsDir(this.owner), { recursive: true });
+    try {
+      mkdirSync(dir);
+    } catch {
       return {
         ok: false,
         value: undefined,
@@ -246,10 +276,29 @@ export class State {
     };
   }
 
+  setPlaceholderTaskIndices(indices: number[]): void {
+    this.placeholderTaskIndices = indices;
+  }
 
   setReadme(value: string): Result<string> {
     if (value.trim() === "") {
       return { ok: false, value: undefined, error: "Readme cannot be empty" };
+    }
+    if (this.placeholderTaskIndices && this.placeholderTaskIndices.length > 0) {
+      const missing: string[] = [];
+      for (const i of this.placeholderTaskIndices) {
+        const template = `https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        if (!value.includes(template)) {
+          missing.push(template);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          value: undefined,
+          error: `README must include links to all sub-functions. Missing:\n${missing.join("\n")}`,
+        };
+      }
     }
     this.readme = value;
     return { ok: true, value: "", error: undefined };
@@ -384,6 +433,10 @@ export class State {
       inputSchema: { description: z.string() },
       fn: (args) => Promise.resolve(this.setDescription(args.description)),
     };
+  }
+
+  forceSetName(value: string): void {
+    this.name = value;
   }
 
   get inner():

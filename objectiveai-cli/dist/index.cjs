@@ -4,6 +4,7 @@ var path = require('path');
 var fs = require('fs');
 var z3 = require('zod');
 var objectiveai = require('objectiveai');
+var crypto = require('crypto');
 var os = require('os');
 var claudeAgentSdk = require('@anthropic-ai/claude-agent-sdk');
 var child_process = require('child_process');
@@ -129,10 +130,11 @@ var BranchScalarState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters) {
+  constructor(parameters, inputSchema) {
     this.parameters = parameters;
     this.function = {
-      type: "scalar.function"
+      type: "scalar.function",
+      input_schema: inputSchema
     };
   }
   getInputSchema() {
@@ -296,8 +298,8 @@ var BranchScalarState = class {
         error: "Invalid index"
       };
     }
-    const value = this.placeholderTaskSpecs[index];
-    if (value === null || value.trim() === "") {
+    const entry = this.placeholderTaskSpecs[index];
+    if (entry === null) {
       return {
         ok: false,
         value: void 0,
@@ -306,7 +308,7 @@ var BranchScalarState = class {
     }
     return {
       ok: true,
-      value,
+      value: entry.spec,
       error: void 0
     };
   }
@@ -352,10 +354,11 @@ var BranchScalarState = class {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: crypto.randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     return {
       ok: true,
@@ -449,13 +452,16 @@ var BranchScalarState = class {
         error: "Spec cannot be empty"
       };
     }
-    if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs[index] = spec;
-    } else {
+    if (!this.placeholderTaskSpecs) {
       throw new Error(
         "placeholderTaskSpecs should be defined if there are tasks"
       );
     }
+    const existing = this.placeholderTaskSpecs[index];
+    if (existing === null) {
+      throw new Error("Cannot edit spec of a null entry");
+    }
+    existing.spec = spec;
     return {
       ok: true,
       value: "Task spec updated. If the task should change, edit it as well.",
@@ -533,10 +539,11 @@ var BranchVectorState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters, outputLength, inputSplit, inputMerge) {
+  constructor(parameters, inputSchema, outputLength, inputSplit, inputMerge) {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge
@@ -892,8 +899,8 @@ var BranchVectorState = class {
         error: "Invalid index"
       };
     }
-    const value = this.placeholderTaskSpecs[index];
-    if (value === null || value.trim() === "") {
+    const entry = this.placeholderTaskSpecs[index];
+    if (entry === null) {
       return {
         ok: false,
         value: void 0,
@@ -902,7 +909,7 @@ var BranchVectorState = class {
     }
     return {
       ok: true,
-      value,
+      value: entry.spec,
       error: void 0
     };
   }
@@ -951,10 +958,11 @@ var BranchVectorState = class {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: crypto.randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     return {
       ok: true,
@@ -1016,10 +1024,11 @@ var BranchVectorState = class {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: crypto.randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     if (this.function.input_maps) {
       this.function.input_maps.push(inputMapParsed.data);
@@ -1196,7 +1205,16 @@ var BranchVectorState = class {
         error: "Spec cannot be empty"
       };
     }
-    this.placeholderTaskSpecs[index] = spec;
+    if (!this.placeholderTaskSpecs) {
+      throw new Error(
+        "placeholderTaskSpecs should be defined if there are tasks"
+      );
+    }
+    const existing = this.placeholderTaskSpecs[index];
+    if (existing === null) {
+      throw new Error("Cannot edit spec of a null entry");
+    }
+    existing.spec = spec;
     return {
       ok: true,
       value: "Task spec updated. If the task should change, edit it as well.",
@@ -2068,12 +2086,19 @@ var LeafVectorState = class {
     ]);
   }
 };
+function functionsDir(owner) {
+  return path.join(os.homedir(), ".objectiveai", "functions", owner);
+}
+function inventDir(owner, name) {
+  return path.join(functionsDir(owner), name);
+}
 
 // src/state/state.ts
 var StateOptionsBaseSchema = z3__default.default.object({
   parameters: ParametersSchema,
   inventSpec: z3__default.default.string().nonempty(),
-  gitHubToken: z3__default.default.string().nonempty()
+  gitHubToken: z3__default.default.string().nonempty(),
+  owner: z3__default.default.string().nonempty()
 });
 z3__default.default.union([
   StateOptionsBaseSchema,
@@ -2083,7 +2108,7 @@ z3__default.default.union([
   }),
   StateOptionsBaseSchema.extend({
     type: z3__default.default.literal("vector.function"),
-    input_schema: objectiveai.Functions.RemoteVectorFunctionSchema.shape.input_schema,
+    input_schema: objectiveai.Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema,
     output_length: objectiveai.Functions.RemoteVectorFunctionSchema.shape.output_length,
     input_split: objectiveai.Functions.RemoteVectorFunctionSchema.shape.input_split,
     input_merge: objectiveai.Functions.RemoteVectorFunctionSchema.shape.input_merge
@@ -2093,24 +2118,31 @@ var State = class {
   parameters;
   inventSpec;
   gitHubToken;
+  owner;
   name;
   inventEssay;
   inventEssayTasks;
   _inner;
   readme;
+  placeholderTaskIndices;
   gitHubBackend;
   constructor(options, gitHubBackend) {
     this.parameters = options.parameters;
     this.inventSpec = options.inventSpec;
     this.gitHubToken = options.gitHubToken;
+    this.owner = options.owner;
     this.gitHubBackend = gitHubBackend;
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
-          this._inner = new BranchScalarState(options.parameters);
+          this._inner = new BranchScalarState(
+            options.parameters,
+            options.input_schema
+          );
         } else if (options.type === "vector.function") {
           this._inner = new BranchVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge
@@ -2177,7 +2209,25 @@ var State = class {
         error: "FunctionName exceeds maximum of 100 bytes"
       };
     }
+    const dir = inventDir(this.owner, value);
+    if (fs.existsSync(dir)) {
+      return {
+        ok: false,
+        value: void 0,
+        error: "Name is already taken, please use another"
+      };
+    }
     if (await this.gitHubBackend.repoExists(value, this.gitHubToken)) {
+      return {
+        ok: false,
+        value: void 0,
+        error: "Name is already taken, please use another"
+      };
+    }
+    fs.mkdirSync(functionsDir(this.owner), { recursive: true });
+    try {
+      fs.mkdirSync(dir);
+    } catch {
       return {
         ok: false,
         value: void 0,
@@ -2279,9 +2329,29 @@ var State = class {
       fn: () => Promise.resolve(this.getReadme())
     };
   }
+  setPlaceholderTaskIndices(indices) {
+    this.placeholderTaskIndices = indices;
+  }
   setReadme(value) {
     if (value.trim() === "") {
       return { ok: false, value: void 0, error: "Readme cannot be empty" };
+    }
+    if (this.placeholderTaskIndices && this.placeholderTaskIndices.length > 0) {
+      const missing = [];
+      for (const i of this.placeholderTaskIndices) {
+        const template = `https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        if (!value.includes(template)) {
+          missing.push(template);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `README must include links to all sub-functions. Missing:
+${missing.join("\n")}`
+        };
+      }
     }
     this.readme = value;
     return { ok: true, value: "", error: void 0 };
@@ -2402,6 +2472,9 @@ var State = class {
       fn: (args) => Promise.resolve(this.setDescription(args.description))
     };
   }
+  forceSetName(value) {
+    this.name = value;
+  }
   get inner() {
     return this._inner;
   }
@@ -2454,10 +2527,27 @@ function getAgentMockConfig() {
 // src/agent/mock.ts
 var MOCK_OWNER = "mock";
 var MOCK_COMMIT = "mock";
-function getMockName(type, depth) {
+function getMockVariant(type, depth) {
   const tier = depth > 0 ? "branch" : "leaf";
   const kind = type === "vector.function" ? "vector" : "scalar";
   return `mock-${tier}-${kind}`;
+}
+function getNextMockName(type, depth) {
+  const variant = getMockVariant(type, depth);
+  const dir = functionsDir(MOCK_OWNER);
+  const pattern = new RegExp(`^${variant}-(\\d+)$`);
+  let max = 0;
+  try {
+    for (const entry of fs.readdirSync(dir)) {
+      const match = entry.match(pattern);
+      if (match) max = Math.max(max, parseInt(match[1], 10));
+    }
+  } catch {
+  }
+  return `${variant}-${max + 1}`;
+}
+function stripMockSuffix(repository) {
+  return repository.replace(/-\d+$/, "");
 }
 var MOCK_LEAF_SCALAR = {
   type: "scalar.function",
@@ -2653,13 +2743,22 @@ function mock() {
         if (result.ok)
           type = result.value;
       }
-      const name = getMockName(type, parameters.depth);
-      yield {
-        role: "assistant",
-        content: `Setting function name to "${name}"`
-      };
-      await wait();
-      yield* callTool(nameTool, { name }, wait);
+      for (; ; ) {
+        const name = getNextMockName(type, parameters.depth);
+        yield {
+          role: "assistant",
+          content: `Setting function name to "${name}"`
+        };
+        await wait();
+        const result = await nameTool.fn({ name });
+        if (result.ok) {
+          yield { role: "tool", name: nameTool.name };
+          await wait();
+          break;
+        }
+        yield { role: "tool", name: nameTool.name, error: result.error };
+        await wait();
+      }
       return void 0;
     }
     const essayTool = findTool(step, "WriteInventEssay");
@@ -2673,6 +2772,11 @@ function mock() {
         },
         wait
       );
+      yield {
+        role: "assistant",
+        content: "I've written the essay describing the function's approach.\nIt covers the key evaluation dimensions:\n- Quality assessment\n- Clarity scoring\n- Relevance matching"
+      };
+      await wait();
       return void 0;
     }
     const inputSchemaTool = findTool(step, "WriteFunctionInputSchema");
@@ -2890,6 +2994,11 @@ function mock() {
         if (result.ok) {
           yield { role: "tool", name: checkFunctionTool.name };
           await wait();
+          yield {
+            role: "assistant",
+            content: "Function validation passed successfully.\nAll tasks compile correctly and produce valid outputs.\nThe function is ready for deployment."
+          };
+          await wait();
           return void 0;
         }
         yield {
@@ -2912,13 +3021,22 @@ function mock() {
         },
         wait
       );
-      yield* callTool(
-        readmeTool,
-        {
-          readme: "# Mock Function\n\nEvaluates quality, clarity, and relevance."
-        },
-        wait
-      );
+      const isBranch = !!findTool(step, "ReadTaskSpec");
+      let readmeContent = "# Mock Function\n\nEvaluates quality, clarity, and relevance.";
+      if (isBranch) {
+        const tasksLengthTool = findTool(step, "ReadTasksLength");
+        let taskCount = 1;
+        if (tasksLengthTool) {
+          const result = await tasksLengthTool.fn({});
+          if (result.ok) taskCount = parseInt(result.value, 10) || 1;
+        }
+        readmeContent += "\n\n## Sub-functions\n";
+        for (let i = 0; i < taskCount; i++) {
+          readmeContent += `
+- https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        }
+      }
+      yield* callTool(readmeTool, { readme: readmeContent }, wait);
       return void 0;
     }
     throw new Error(
@@ -2931,28 +3049,26 @@ function mock() {
     pushFinal: async () => {
     },
     getOwnerRepositoryCommit: async (dir) => {
-      const namePath = path.join(dir, "name.txt");
-      if (!fs.existsSync(namePath)) return null;
-      try {
-        const name = fs.readFileSync(namePath, "utf-8").trim();
-        if (!name) return null;
-        return { owner: MOCK_OWNER, repository: name, commit: MOCK_COMMIT };
-      } catch {
-        return null;
-      }
+      const paramsPath = path.join(dir, "parameters.json");
+      if (!fs.existsSync(paramsPath)) return null;
+      const name = path.basename(dir);
+      if (!name) return null;
+      return { owner: MOCK_OWNER, repository: name, commit: MOCK_COMMIT };
     },
     fetchRemoteFunctions: async (refs) => {
       const entries = Array.from(refs);
       const record = {};
       for (const { owner, repository, commit: commit2 } of entries) {
         const key = `${owner}/${repository}/${commit2}`;
-        const fn = MOCK_FUNCTIONS[repository];
+        const variant = stripMockSuffix(repository);
+        const fn = MOCK_FUNCTIONS[variant];
         if (!fn) return null;
         record[key] = fn;
       }
       return record;
     },
-    repoExists: () => Promise.resolve(false)
+    repoExists: () => Promise.resolve(false),
+    getAuthenticatedUser: async () => MOCK_OWNER
   };
   return [agent, github];
 }
@@ -3072,8 +3188,12 @@ function getAgentStepFn(agentUpstream) {
     return _exhaustiveCheck;
   }
 }
+var PlaceholderTaskSpecEntrySchema = z3__default.default.object({
+  spec: z3__default.default.string().nonempty(),
+  token: z3__default.default.string().nonempty()
+});
 var PlaceholderTaskSpecsSchema = z3__default.default.array(
-  z3__default.default.union([z3__default.default.string().nonempty(), z3__default.default.null()])
+  z3__default.default.union([PlaceholderTaskSpecEntrySchema, z3__default.default.null()])
 );
 
 // src/ext.ts
@@ -3123,9 +3243,6 @@ function readTextFromFilesystem(path) {
     return null;
   }
 }
-function readNameFromFilesystem(path$1) {
-  return readTextFromFilesystem(path.join(path$1, "name.txt"));
-}
 function readJsonFromFilesystem(path) {
   try {
     const text = readTextFromFilesystem(path);
@@ -3161,8 +3278,8 @@ function readPlaceholderTaskSpecsFromFilesystem(path$1) {
 async function readQualityFunctionFromFilesystem(dir, githubBackend) {
   const parameters = readParametersFromFilesystem(dir);
   if (parameters === null) return null;
-  const name = readNameFromFilesystem(dir);
-  if (name === null) return null;
+  const name = path.basename(dir);
+  if (!name) return null;
   const fn = readFunctionFromFilesystem(dir);
   if (fn === null) return null;
   if (parameters.depth > 0) {
@@ -3243,14 +3360,33 @@ async function readQualityFunctionFromFilesystem(dir, githubBackend) {
   }
   return null;
 }
+function writeParentTokenToFilesystem(dir, token) {
+  writeTextToFilesystem(path.join(dir, "parent.txt"), token);
+}
+function readParentTokenFromFilesystem(dir) {
+  return readTextFromFilesystem(path.join(dir, "parent.txt"));
+}
+function findChildByToken(owner, token) {
+  const ownerDir = functionsDir(owner);
+  if (!fs.existsSync(ownerDir)) return null;
+  let entries;
+  try {
+    entries = fs.readdirSync(ownerDir);
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    const childDir = path.join(ownerDir, entry);
+    const childToken = readParentTokenFromFilesystem(childDir);
+    if (childToken === token) return childDir;
+  }
+  return null;
+}
 function writeTextToFilesystem(path, content) {
   fs.writeFileSync(path, content, "utf-8");
 }
 function writeJsonToFilesystem(path, data) {
   writeTextToFilesystem(path, JSON.stringify(data, null, 2));
-}
-function writeNameToFilesystem(dir, name) {
-  writeTextToFilesystem(path.join(dir, "name.txt"), name);
 }
 function writeParametersToFilesystem(dir, parameters) {
   writeJsonToFilesystem(path.join(dir, "parameters.json"), parameters);
@@ -3267,6 +3403,9 @@ function writeInventEssayToFilesystem(dir, essay) {
 function writeInventEssayTasksToFilesystem(dir, essayTasks) {
   writeTextToFilesystem(path.join(dir, "INVENT_ESSAY_TASKS.md"), essayTasks);
 }
+function readReadmeFromFilesystem(dir) {
+  return readTextFromFilesystem(path.join(dir, "README.md"));
+}
 function writeReadmeToFilesystem(dir, readme) {
   writeTextToFilesystem(path.join(dir, "README.md"), readme);
 }
@@ -3280,7 +3419,7 @@ function writeGitignoreToFilesystem(dir) {
     "",
     "# Allow specific files",
     "!.gitignore",
-    "!name.txt",
+    "!parent.txt",
     "!parameters.json",
     "!function.json",
     "!INVENT_SPEC.md",
@@ -3292,16 +3431,13 @@ function writeGitignoreToFilesystem(dir) {
   ].join("\n");
   writeTextToFilesystem(path.join(dir, ".gitignore"), content);
 }
-function writeInitialStateToFilesystem(dir, state, parameters) {
+function writeInitialStateToFilesystem(dir, parameters) {
   fs.mkdirSync(dir, { recursive: true });
-  const name = state.getName();
-  if (!name.ok) throw new Error("Name not set");
-  writeNameToFilesystem(dir, name.value);
   writeParametersToFilesystem(dir, parameters);
   writeGitignoreToFilesystem(dir);
 }
 function writeFinalStateToFilesystem(dir, state, parameters) {
-  writeInitialStateToFilesystem(dir, state, parameters);
+  writeInitialStateToFilesystem(dir, parameters);
   const inner = state.inner;
   if (!inner) throw new Error("Inner state not set");
   writeFunctionToFilesystem(dir, inner.function);
@@ -3422,7 +3558,8 @@ var DefaultGitHubBackend = {
   pushFinal,
   getOwnerRepositoryCommit,
   fetchRemoteFunctions,
-  repoExists
+  repoExists,
+  getAuthenticatedUser
 };
 var fetchRemoteFunctionCache = /* @__PURE__ */ new Map();
 function fetchRemoteFunction(owner, repository, commit2) {
@@ -3563,6 +3700,19 @@ async function pushInitial(options) {
   addRemote(dir, `https://github.com/${owner}/${repository}.git`);
   push(dir, gitHubToken);
 }
+async function getAuthenticatedUser(gitHubToken) {
+  const res = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${gitHubToken}`,
+      Accept: "application/vnd.github.v3+json"
+    }
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
+  }
+  const user = await res.json();
+  return user.login;
+}
 async function pushFinal(options) {
   const {
     dir,
@@ -3626,6 +3776,9 @@ function stepType(state, agent, onNotification, agentState, maxRetries = 5) {
 
 // src/invent/steps/2_name.ts
 function stepName(state, agent, onNotification, agentState, maxRetries = 5) {
+  if (state.getName().ok) {
+    return Promise.resolve(agentState);
+  }
   return runAgentStep(
     agent,
     {
@@ -4012,10 +4165,36 @@ Multimodal content parts can be used in both \`messages\` and \`responses\`. Typ
 function stepDescription(state, agent, onNotification, agentState, maxRetries = 5) {
   const inner = state.inner;
   if (!inner) throw new Error("Function type not set");
+  const isBranch = inner instanceof BranchVectorState || inner instanceof BranchScalarState;
+  if (isBranch) {
+    const tasks = inner.function.tasks ?? [];
+    const indices = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
+        indices.push(i);
+      }
+    }
+    state.setPlaceholderTaskIndices(indices);
+  }
+  let prompt = "First, create a 1-paragraph description of the Function you've invented. Then, create a comprehensive README for the Function, describing its input, output, use-cases, and what all it evaluates.";
+  if (isBranch) {
+    const tasks = inner.function.tasks ?? [];
+    const templateLines = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
+        templateLines.push(`https://github.com/{{ .Owner }}/{{ .Task${i} }}`);
+      }
+    }
+    if (templateLines.length > 0) {
+      prompt += "\n\nYour README must include a link to each sub-function using the following template format:\n" + templateLines.join("\n") + "\nThese templates will be automatically replaced with the actual repository URLs after the sub-functions are invented.\nYou may also use {{ .Owner }} and {{ .TaskN }} anywhere else in the README and they will all be automatically replaced.";
+    }
+  }
   return runAgentStep(
     agent,
     {
-      prompt: "First, create a 1-paragraph description of the Function you've invented. Then, create a comprehensive README for the Function, describing its input, output, use-cases, and what all it evaluates.",
+      prompt,
       tools: [
         state.getInventSpecTool(),
         state.getFunctionTypeTool(),
@@ -4025,7 +4204,7 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
         state.getInventEssayTasksTool(),
         inner.getTasksLengthTool(),
         inner.getTaskTool(),
-        ...inner instanceof BranchVectorState || inner instanceof BranchScalarState ? [inner.getTaskSpecTool()] : [],
+        ...isBranch ? [inner.getTaskSpecTool()] : [],
         state.setDescriptionTool(),
         state.setReadmeTool()
       ]
@@ -4043,7 +4222,7 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
 }
 
 // src/invent/index.ts
-async function invent(dir, onNotification, options, continuation) {
+async function invent(onNotification, options, continuation) {
   const [agent, gitHubBackend] = continuation ? [continuation.agent, continuation.gitHubBackend] : (() => {
     const [agent2, gitHubBackend2] = getAgentStepFn(
       getAgentUpstream() ?? (() => {
@@ -4061,55 +4240,163 @@ async function invent(dir, onNotification, options, continuation) {
   const gitAuthorEmail = continuation ? continuation.gitAuthorEmail : getGitAuthorEmail() ?? (() => {
     throw new Error("GitAuthorEmail required");
   })();
-  if (options !== void 0) {
-    await stage1(
-      dir,
-      onNotification,
-      options,
-      agent,
-      gitHubBackend,
-      gitHubToken,
-      gitAuthorName,
-      gitAuthorEmail,
-      continuation ? continuation.path : []
-    );
+  const path$1 = continuation?.path ?? [];
+  const parentToken = continuation?.parentToken;
+  const owner = await gitHubBackend.getAuthenticatedUser(gitHubToken);
+  let dir = null;
+  if ("name" in options) {
+    dir = inventDir(owner, options.name);
+  } else if (parentToken) {
+    dir = findChildByToken(owner, parentToken);
   }
-  await stage2(dir, onNotification, continuation?.path ?? [], {
+  let qualityFn;
+  try {
+    let state;
+    let agentState;
+    if (dir === null) {
+      if ("name" in options) {
+        throw new Error(
+          `Function directory not found for name: ${options.name}`
+        );
+      }
+      const result = await stage1(
+        owner,
+        options,
+        parentToken,
+        path$1,
+        onNotification,
+        agent,
+        gitHubBackend,
+        gitHubToken,
+        gitAuthorName,
+        gitAuthorEmail
+      );
+      dir = result.dir;
+      state = result.state;
+      agentState = result.agentState;
+      if (result.reThrow) throw result.reThrow;
+    }
+    qualityFn = await readQualityFunctionFromFilesystem(dir, gitHubBackend);
+    if (!qualityFn) {
+      if (!state) {
+        if ("name" in options) {
+          throw new Error(
+            `Function at ${dir} is not a quality function and cannot be resumed without inventSpec`
+          );
+        }
+        state = new State(
+          {
+            parameters: buildParameters(options.parameters),
+            inventSpec: options.inventSpec,
+            gitHubToken,
+            owner,
+            ..."type" in options ? {
+              type: options.type,
+              ...options.type === "vector.function" ? {
+                input_schema: options.input_schema,
+                output_length: options.output_length,
+                input_split: options.input_split,
+                input_merge: options.input_merge
+              } : { input_schema: options.input_schema }
+            } : {}
+          },
+          gitHubBackend
+        );
+        state.forceSetName(path.basename(dir));
+      }
+      await stage2(
+        dir,
+        state,
+        agentState,
+        path$1,
+        onNotification,
+        agent,
+        gitHubBackend,
+        gitHubToken,
+        gitAuthorName,
+        gitAuthorEmail
+      );
+      qualityFn = await readQualityFunctionFromFilesystem(dir, gitHubBackend);
+      if (!qualityFn) {
+        throw new Error("stage2 failed to produce quality function");
+      }
+    }
+  } catch (err) {
+    if (dir !== null) {
+      const name = path.basename(dir);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      onNotification({
+        path: path$1,
+        name,
+        message: { role: "done", error: message }
+      });
+    }
+    throw err;
+  }
+  onNotification({
+    path: path$1,
+    name: qualityFn.name,
+    message: { role: "done" }
+  });
+  await stage3(
+    dir,
+    owner,
+    qualityFn,
+    path$1,
+    onNotification,
     agent,
     gitHubBackend,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail
-  });
+  );
 }
-async function stage1(dir, onNotification, { parameters, inventSpec, ...stateOptions }, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail, path$1) {
-  const subFunctionsDir = path.join(dir, "sub_functions");
-  fs.rmSync(subFunctionsDir, { recursive: true, force: true });
+async function stage1(owner, options, parentToken, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
+  const {
+    parameters: parametersBuilder,
+    inventSpec,
+    ...stateOptions
+  } = options;
+  const parameters = buildParameters(parametersBuilder);
   const state = new State(
     {
-      parameters: buildParameters(parameters),
+      parameters,
       inventSpec,
       gitHubToken,
+      owner,
       ...stateOptions
     },
     gitHubBackend
   );
-  let boundOnNotification = (message) => onNotification({ path: path$1, message });
+  const boundOnNotification = (message) => onNotification({ path, message });
   let agentState = await stepType(state, agent, boundOnNotification);
   agentState = await stepName(state, agent, boundOnNotification, agentState);
   const name = state.getName().value;
-  writeInitialStateToFilesystem(dir, state, state.parameters);
-  await gitHubBackend.pushInitial({
-    dir,
-    name,
-    gitHubToken,
-    gitAuthorName,
-    gitAuthorEmail,
-    message: "initial commit"
-  });
-  boundOnNotification = (message) => onNotification({ path: path$1, name, message });
-  agentState = await stepFields(state, agent, boundOnNotification, agentState);
+  const dir = inventDir(owner, name);
+  writeInitialStateToFilesystem(dir, parameters);
+  if (parentToken) {
+    writeParentTokenToFilesystem(dir, parentToken);
+  }
+  let reThrow;
+  try {
+    await gitHubBackend.pushInitial({
+      dir,
+      name,
+      gitHubToken,
+      gitAuthorName,
+      gitAuthorEmail,
+      message: "initial commit"
+    });
+  } catch (err) {
+    reThrow = err;
+  }
+  return { dir, state, agentState, reThrow };
+}
+async function stage2(dir, state, agentState, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
+  const name = state.getName().value;
+  const boundOnNotification = (message) => onNotification({ path, name, message });
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
+  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
     state,
     agent,
@@ -4123,34 +4410,19 @@ async function stage1(dir, onNotification, { parameters, inventSpec, ...stateOpt
     boundOnNotification,
     agentState
   );
-  boundOnNotification({ role: "done" });
   writeFinalStateToFilesystem(dir, state, state.parameters);
   await gitHubBackend.pushFinal({
     dir,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
-    message: `implement ${state.getName().value}`,
+    message: `implement ${name}`,
     description: state.getDescription().value
   });
 }
-async function stage2(dir, onNotification, path$1, continuation) {
-  const qualityFn = await readQualityFunctionFromFilesystem(
-    dir,
-    continuation.gitHubBackend
-  );
-  if (!qualityFn) return;
-  const gitHubToken = getGitHubToken() ?? (() => {
-    throw new Error("GitHubToken required");
-  })();
-  const gitAuthorName = getGitAuthorName() ?? (() => {
-    throw new Error("GitAuthorName required");
-  })();
-  const gitAuthorEmail = getGitAuthorEmail() ?? (() => {
-    throw new Error("GitAuthorEmail required");
-  })();
+async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
   if (isDirty(dir)) {
-    await continuation.gitHubBackend.pushFinal({
+    await gitHubBackend.pushFinal({
       dir,
       gitHubToken,
       gitAuthorName,
@@ -4164,8 +4436,6 @@ async function stage2(dir, onNotification, path$1, continuation) {
   }
   const specs = qualityFn.placeholderTaskSpecs;
   if (!specs) return;
-  const subDir = path.join(dir, "sub_functions");
-  fs.mkdirSync(subDir, { recursive: true });
   const subParameters = {
     ...qualityFn.parameters,
     depth: qualityFn.parameters.depth - 1
@@ -4173,36 +4443,16 @@ async function stage2(dir, onNotification, path$1, continuation) {
   const tasks = qualityFn.function.function.tasks;
   const subInvents = [];
   for (let i = 0; i < tasks.length; i++) {
-    const spec = specs[i];
-    if (spec === null || spec === void 0) continue;
+    const entry = specs[i];
+    if (entry === null || entry === void 0) continue;
     const task = tasks[i];
-    const subFunctionDir = path.join(subDir, String(i));
-    const childQualityFn = await readQualityFunctionFromFilesystem(
-      subFunctionDir,
-      continuation.gitHubBackend
-    );
-    if (childQualityFn && await continuation.gitHubBackend.getOwnerRepositoryCommit(
-      subFunctionDir
-    )) {
-      const childPath = [...path$1, i];
-      subInvents.push(
-        invent(subFunctionDir, onNotification, void 0, {
-          path: childPath,
-          ...continuation
-        })
-      );
-      onNotification({
-        path: childPath,
-        name: childQualityFn.name,
-        message: { role: "done" }
-      });
-    } else if (task.type === "placeholder.vector.function") {
+    const childPath = [...path, i];
+    if (task.type === "placeholder.vector.function") {
       subInvents.push(
         invent(
-          subFunctionDir,
           onNotification,
           {
-            inventSpec: spec,
+            inventSpec: entry.spec,
             parameters: subParameters,
             type: "vector.function",
             input_schema: task.input_schema,
@@ -4210,21 +4460,36 @@ async function stage2(dir, onNotification, path$1, continuation) {
             input_split: task.input_split,
             input_merge: task.input_merge
           },
-          { path: [...path$1, i], ...continuation }
+          {
+            parentToken: entry.token,
+            path: childPath,
+            agent,
+            gitHubBackend,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail
+          }
         )
       );
     } else if (task.type === "placeholder.scalar.function") {
       subInvents.push(
         invent(
-          subFunctionDir,
           onNotification,
           {
-            inventSpec: spec,
+            inventSpec: entry.spec,
             parameters: subParameters,
             type: "scalar.function",
             input_schema: task.input_schema
           },
-          { path: [...path$1, i], ...continuation }
+          {
+            parentToken: entry.token,
+            path: childPath,
+            agent,
+            gitHubBackend,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail
+          }
         )
       );
     }
@@ -4240,14 +4505,17 @@ async function stage2(dir, onNotification, path$1, continuation) {
     if (task.type !== "placeholder.scalar.function" && task.type !== "placeholder.vector.function") {
       continue;
     }
-    const subFunctionDir = path.join(subDir, String(i));
+    const entry = specs[i];
+    if (entry === null || entry === void 0) continue;
+    const childDir = findChildByToken(owner, entry.token);
+    if (!childDir) continue;
     const subQualityFn = await readQualityFunctionFromFilesystem(
-      subFunctionDir,
-      continuation.gitHubBackend
+      childDir,
+      gitHubBackend
     );
     if (!subQualityFn) continue;
     if (hasPlaceholderTasks(subQualityFn.function.function)) continue;
-    const orc = await continuation.gitHubBackend.getOwnerRepositoryCommit(subFunctionDir);
+    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir);
     if (!orc) continue;
     replacePlaceholderTask(tasks, i, task, orc);
     replaced = true;
@@ -4257,7 +4525,32 @@ async function stage2(dir, onNotification, path$1, continuation) {
       dir,
       qualityFn.function.function
     );
-    await continuation.gitHubBackend.pushFinal({
+    let readme = readReadmeFromFilesystem(dir);
+    if (readme) {
+      let readmeChanged = false;
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        if (task.type !== "scalar.function" && task.type !== "vector.function") {
+          continue;
+        }
+        if (!("owner" in task) || !("repository" in task)) continue;
+        const taskOwner = task.owner;
+        const taskRepo = task.repository;
+        const templateTask = `{{ .Task${i} }}`;
+        const templateOwner = `{{ .Owner }}`;
+        if (readme.includes(templateTask)) {
+          readme = readme.split(templateTask).join(taskRepo);
+          readmeChanged = true;
+        }
+        if (readmeChanged && readme.includes(templateOwner)) {
+          readme = readme.split(templateOwner).join(taskOwner);
+        }
+      }
+      if (readmeChanged) {
+        writeReadmeToFilesystem(dir, readme);
+      }
+    }
+    await gitHubBackend.pushFinal({
       dir,
       gitHubToken,
       gitAuthorName,

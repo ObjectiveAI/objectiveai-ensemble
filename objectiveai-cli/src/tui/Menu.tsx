@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { ParametersBuilder } from "../parameters";
+import { useTextInput } from "./useTextInput";
 
 interface Command {
   name: string;
@@ -49,7 +50,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
   const { stdout } = useStdout();
   const termHeight = stdout.rows ?? 24;
 
-  const [input, setInput] = useState("");
+  const [{ text: input, cursor: cursorPos }, inputActions] = useTextInput();
   const [wizardStep, setWizardStep] = useState<number | null>(null);
   const [wizardValues, setWizardValues] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -68,7 +69,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       } else if (cmd === "/invent") {
         setWizardStep(0);
         setWizardValues([]);
-        setInput("");
+        inputActions.clear();
       }
     },
     [onResult],
@@ -85,7 +86,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       if (wizardStep < INVENT_WIZARD.length - 1) {
         setWizardValues(next);
         setWizardStep(wizardStep + 1);
-        setInput("");
+        inputActions.clear();
       } else {
         // Wizard complete
         const [spec, depth, minWidth, maxWidth] = next;
@@ -118,23 +119,15 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       return;
     }
 
-    if (key.backspace || key.delete) {
-      if (inWizard && input.length === 0) {
-        // Go back a wizard step
-        if (wizardStep! > 0) {
-          const prev = wizardValues.slice(0, -1);
-          setWizardValues(prev);
-          setWizardStep(wizardStep! - 1);
-          setInput("");
-        } else {
-          // Exit wizard back to menu
-          setWizardStep(null);
-          setWizardValues([]);
-          setInput("");
-        }
+    if ((key.backspace || key.delete) && inWizard && input.length === 0) {
+      if (wizardStep! > 0) {
+        setWizardValues(wizardValues.slice(0, -1));
+        setWizardStep(wizardStep! - 1);
       } else {
-        setInput((prev) => prev.slice(0, -1));
+        setWizardStep(null);
+        setWizardValues([]);
       }
+      inputActions.clear();
       return;
     }
 
@@ -142,10 +135,8 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       if (inWizard) {
         setWizardStep(null);
         setWizardValues([]);
-        setInput("");
-      } else {
-        setInput("");
       }
+      inputActions.clear();
       return;
     }
 
@@ -158,8 +149,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       return;
     }
 
-    if (ch && !key.ctrl && !key.meta) {
-      setInput((prev) => prev + ch);
+    if (inputActions.handleKey(ch, key)) {
       setSelectedIndex(0);
     }
   });
@@ -187,7 +177,7 @@ export function Menu({ onResult }: { onResult: (result: MenuResult) => void }) {
       <Box>
         <Text color="#5948e7" bold>{"❯ "}</Text>
         {input.length > 0 ? (
-          <Text>{input}<Text dimColor>█</Text></Text>
+          <Text>{input.slice(0, cursorPos)}<Text dimColor>█</Text>{input.slice(cursorPos)}</Text>
         ) : currentStep && currentStep.placeholder ? (
           <Text>█<Text color="gray">{currentStep.placeholder}</Text></Text>
         ) : (

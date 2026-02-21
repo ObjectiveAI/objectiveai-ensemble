@@ -8,6 +8,7 @@ interface FunctionNode {
   name?: string;
   messages: NotificationMessage[];
   done: boolean;
+  error?: string;
   children: Map<number, FunctionNode>;
 }
 
@@ -57,6 +58,9 @@ export function useInventNotifications() {
 
       if (notification.message.role === "done") {
         node.done = true;
+        if (notification.message.error) {
+          node.error = notification.message.error;
+        }
       } else {
         node.messages.push(notification.message);
         if (node.messages.length > 5) {
@@ -78,6 +82,7 @@ interface TitleLine {
   prefix: string;
   name: string;
   done: boolean;
+  error?: string;
 }
 
 interface MsgLine {
@@ -86,7 +91,12 @@ interface MsgLine {
   message: NotificationMessage;
 }
 
-type FlatLine = TitleLine | MsgLine;
+interface LoadingLine {
+  type: "loading";
+  gutter: string;
+}
+
+type FlatLine = TitleLine | MsgLine | LoadingLine;
 
 function flattenNode(
   node: FunctionNode,
@@ -105,12 +115,17 @@ function flattenNode(
     prefix,
     name: node.name ?? "Unnamed Function",
     done: node.done,
+    error: node.error,
   });
 
   if (!node.done && node.messages.length > 0) {
     for (const msg of node.messages) {
       lines.push({ type: "message", gutter: childGutter, message: msg });
     }
+  }
+
+  if (!node.done) {
+    lines.push({ type: "loading", gutter: childGutter });
   }
 
   const children = Array.from(node.children.entries());
@@ -124,25 +139,58 @@ function flattenNode(
   return lines;
 }
 
-function RenderLine({ line }: { line: FlatLine }) {
+function wrapIndent(text: string, width: number, indent: string): string {
+  if (width <= 0) return indent + text;
+  const lines: string[] = [];
+  for (const segment of text.split("\n")) {
+    if (segment.length <= width) {
+      lines.push(segment);
+      continue;
+    }
+    let remaining = segment;
+    while (remaining.length > width) {
+      let breakAt = remaining.lastIndexOf(" ", width);
+      if (breakAt <= 0) breakAt = width;
+      lines.push(remaining.slice(0, breakAt));
+      remaining = remaining.slice(breakAt === width ? breakAt : breakAt + 1);
+    }
+    if (remaining) lines.push(remaining);
+  }
+  return indent + lines.join("\n" + indent);
+}
+
+const LOADING_FRAMES = ["·  ", "·· ", "···"];
+
+function RenderLine({ line, tick, termWidth }: { line: FlatLine; tick: number; termWidth: number }) {
   if (line.type === "title") {
     return (
       <Text>
         {line.gutter}{line.prefix}
         <Text bold color="#5948e7">{line.name}</Text>
-        {line.done && <Text color="#5948e7">{" — Complete"}</Text>}
+        {line.done && !line.error && <Text color="#5948e7">{" — Complete"}</Text>}
+        {line.done && line.error && <Text color="red">{" — "}{line.error}</Text>}
       </Text>
+    );
+  }
+
+  if (line.type === "loading") {
+    return (
+      <Text>{line.gutter}<Text dimColor>{"  "}{LOADING_FRAMES[tick % LOADING_FRAMES.length]}</Text></Text>
     );
   }
 
   const msg = line.message;
   if (msg.role === "assistant") {
-    return <Text>{line.gutter}{"  "}{msg.content}</Text>;
+    const indent = line.gutter + "  ";
+    return <Text wrap="truncate">{wrapIndent(msg.content, termWidth - indent.length, indent)}</Text>;
   }
   if (msg.role === "tool") {
     if (msg.error) {
+      const errIndent = line.gutter + "    ";
+      const firstPrefixLen = line.gutter.length + 4 + msg.name.length + 3;
+      const error = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
       return (
-        <Text>{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{msg.error}</Text></Text>
+        <Text wrap="truncate">{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{error.slice(errIndent.length)}</Text></Text>
       );
     }
     return (
@@ -212,8 +260,7 @@ export function InventFlow({
     if (started.current) return;
     started.current = true;
 
-    const dir = process.cwd();
-    invent(dir, onNotification, { inventSpec: spec, parameters })
+    invent(onNotification, { inventSpec: spec, parameters })
       .then(() => setDone(true))
       .catch((err) => {
         console.error(err);
@@ -233,9 +280,20 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
   const [scrollOffset, setScrollOffset] = useState(0);
   const [autoFollow, setAutoFollow] = useState(true);
   const [termHeight, setTermHeight] = useState(stdout.rows ?? 24);
+  const [termWidth, setTermWidth] = useState(stdout.columns ?? 80);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const onResize = () => setTermHeight(stdout.rows ?? 24);
+    if (done) return;
+    const id = setInterval(() => setTick((t) => t + 1), 400);
+    return () => clearInterval(id);
+  }, [done]);
+
+  useEffect(() => {
+    const onResize = () => {
+      setTermHeight(stdout.rows ?? 24);
+      setTermWidth(stdout.columns ?? 80);
+    };
     stdout.on("resize", onResize);
     return () => { stdout.off("resize", onResize); };
   }, [stdout]);
@@ -282,7 +340,7 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
       <Box width="100%" flexGrow={1}>
         <Box flexDirection="column" flexGrow={1}>
           {visible.map((line, i) => (
-            <RenderLine key={scrollOffset + i} line={line} />
+            <RenderLine key={scrollOffset + i} line={line} tick={tick} termWidth={termWidth - 1} />
           ))}
         </Box>
         <Scrollbar
