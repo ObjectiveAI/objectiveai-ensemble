@@ -48,4 +48,13 @@ export default defineConfig([
       js: "#!/usr/bin/env node",
     },
   },
+  // Worker build
+  {
+    ...baseConfig,
+    entry: ["src/worker/inventWorker.ts"],
+    format: ["esm"],
+    outExtension: () => ({ js: ".js" }),
+    clean: false,
+    dts: false,
+  },
 ]);

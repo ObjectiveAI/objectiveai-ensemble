@@ -6,7 +6,7 @@ import { getAgentStepFn } from "../agent";
 import { DefaultGitHubBackend } from "../github";
 import { SelectableList } from "./SelectableList";
 import { useInventNotifications, InventView } from "./Invent";
-import { invent } from "../invent";
+import { useInventWorker } from "../worker/useInventWorker";
 
 function InventPlaceholdersList({
   onSelect,
@@ -126,20 +126,10 @@ function InventPlaceholdersRun({
   onBack: () => void;
 }) {
   const { tree, onNotification } = useInventNotifications();
-  const started = useRef(false);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-
-    invent(onNotification, { name })
-      .then(() => setDone(true))
-      .catch((err) => {
-        console.error(err);
-        setDone(true);
-      });
-  }, [name, onNotification]);
+  const done = useInventWorker(onNotification, {
+    type: "inventPlaceholders",
+    name,
+  });
 
   useInput((_ch, key) => {
     if (key.escape && done) onBack();

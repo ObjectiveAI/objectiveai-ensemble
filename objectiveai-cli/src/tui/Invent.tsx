@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { Notification, NotificationMessage } from "../notification";
 import { ParametersBuilder } from "../parameters";
-import { invent } from "../invent";
+import { useInventWorker } from "../worker/useInventWorker";
 
 interface FunctionNode {
   name?: string;
@@ -295,20 +295,10 @@ export function InventFlow({
   onBack: () => void;
 }) {
   const { tree, onNotification } = useInventNotifications();
-  const started = useRef(false);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-
-    invent(onNotification, { inventSpec: spec, parameters })
-      .then(() => setDone(true))
-      .catch((err) => {
-        console.error(err);
-        setDone(true);
-      });
-  }, [spec, parameters, onNotification]);
+  const done = useInventWorker(onNotification, {
+    type: "invent",
+    options: { inventSpec: spec, parameters },
+  });
 
   useInput((_ch, key) => {
     if (key.escape && done) onBack();
