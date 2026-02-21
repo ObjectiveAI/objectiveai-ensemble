@@ -200,8 +200,7 @@ export async function invent(
     // If dir was set, filesystem was written — emit done with error
     if (dir !== null) {
       const name = basename(dir);
-      const message =
-        err instanceof Error ? err.message : "Unknown error";
+      const message = err instanceof Error ? err.message : "Unknown error";
       onNotification({
         path,
         name,
@@ -250,8 +249,11 @@ async function stage1(
   agentState: unknown;
   reThrow: unknown;
 }> {
-  const { parameters: parametersBuilder, inventSpec, ...stateOptions } =
-    options;
+  const {
+    parameters: parametersBuilder,
+    inventSpec,
+    ...stateOptions
+  } = options;
   const parameters = buildParameters(parametersBuilder);
 
   const state = new State(
@@ -311,8 +313,8 @@ async function stage2(
   const boundOnNotification = (message: NotificationMessage) =>
     onNotification({ path, name, message });
 
-  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
+  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
     state,
     agent,
