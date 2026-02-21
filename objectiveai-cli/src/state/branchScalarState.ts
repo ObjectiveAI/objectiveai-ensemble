@@ -13,10 +13,14 @@ export class BranchScalarState {
   private placeholderTaskSpecs?: PlaceholderTaskSpecs;
   private editInputSchemaModalityRemovalRejected = false;
 
-  constructor(parameters: Parameters) {
+  constructor(
+    parameters: Parameters,
+    inputSchema?: Functions.RemoteScalarFunction["input_schema"],
+  ) {
     this.parameters = parameters;
     this.function = {
       type: "scalar.function",
+      input_schema: inputSchema,
     };
   }
 

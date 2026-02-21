@@ -132,7 +132,7 @@ declare class BranchScalarState {
     readonly function: Partial<Functions.QualityBranchRemoteScalarFunction>;
     private placeholderTaskSpecs?;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters);
+    constructor(parameters: Parameters, inputSchema?: Functions.RemoteScalarFunction["input_schema"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
     setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
@@ -182,7 +182,7 @@ declare class BranchVectorState {
     readonly function: Partial<Functions.QualityBranchRemoteVectorFunction>;
     private placeholderTaskSpecs?;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters, outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
+    constructor(parameters: Parameters, inputSchema?: Functions.QualityBranchRemoteVectorFunction["input_schema"], outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
     setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
@@ -416,36 +416,7 @@ declare const StateOptionsSchema: z.ZodUnion<readonly [z.ZodObject<{
     gitHubToken: z.ZodString;
     owner: z.ZodString;
     type: z.ZodLiteral<"vector.function">;
-    input_schema: z.ZodUnion<readonly [z.ZodType<objectiveai.ObjectInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ObjectInputSchema, unknown>>, z.ZodType<objectiveai.ArrayInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ArrayInputSchema, unknown>>, z.ZodObject<{
-        type: z.ZodLiteral<"string">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-        enum: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodString>>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"number">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-        minimum: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
-        maximum: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"integer">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-        minimum: z.ZodNullable<z.ZodOptional<z.ZodUInt32>>;
-        maximum: z.ZodNullable<z.ZodOptional<z.ZodUInt32>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"boolean">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"image">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"audio">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"video">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"file">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodType<objectiveai.AnyOfInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.AnyOfInputSchema, unknown>>]>;
+    input_schema: z.ZodUnion<readonly [z.ZodType<objectiveai.ArrayInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ArrayInputSchema, unknown>>, z.ZodType<objectiveai.ObjectInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ObjectInputSchema, unknown>>]>;
     output_length: z.ZodUnion<readonly [z.ZodUInt32, z.ZodUnion<readonly [z.ZodObject<{
         $jmespath: z.ZodString;
     }, z.core.$strict>, z.ZodObject<{

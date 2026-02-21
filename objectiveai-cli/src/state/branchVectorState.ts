@@ -15,6 +15,7 @@ export class BranchVectorState {
 
   constructor(
     parameters: Parameters,
+    inputSchema?: Functions.QualityBranchRemoteVectorFunction["input_schema"],
     outputLength?: Functions.RemoteVectorFunction["output_length"],
     inputSplit?: Functions.RemoteVectorFunction["input_split"],
     inputMerge?: Functions.RemoteVectorFunction["input_merge"],
@@ -22,6 +23,7 @@ export class BranchVectorState {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge,

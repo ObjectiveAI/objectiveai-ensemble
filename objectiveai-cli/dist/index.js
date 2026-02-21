@@ -124,10 +124,11 @@ var BranchScalarState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters) {
+  constructor(parameters, inputSchema) {
     this.parameters = parameters;
     this.function = {
-      type: "scalar.function"
+      type: "scalar.function",
+      input_schema: inputSchema
     };
   }
   getInputSchema() {
@@ -532,10 +533,11 @@ var BranchVectorState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters, outputLength, inputSplit, inputMerge) {
+  constructor(parameters, inputSchema, outputLength, inputSplit, inputMerge) {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge
@@ -2100,7 +2102,7 @@ z3.union([
   }),
   StateOptionsBaseSchema.extend({
     type: z3.literal("vector.function"),
-    input_schema: Functions.RemoteVectorFunctionSchema.shape.input_schema,
+    input_schema: Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema,
     output_length: Functions.RemoteVectorFunctionSchema.shape.output_length,
     input_split: Functions.RemoteVectorFunctionSchema.shape.input_split,
     input_merge: Functions.RemoteVectorFunctionSchema.shape.input_merge
@@ -2127,10 +2129,14 @@ var State = class {
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
-          this._inner = new BranchScalarState(options.parameters);
+          this._inner = new BranchScalarState(
+            options.parameters,
+            options.input_schema
+          );
         } else if (options.type === "vector.function") {
           this._inner = new BranchVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge
@@ -4172,13 +4178,11 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
     for (let i = 0; i < tasks.length; i++) {
       const t = tasks[i];
       if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
-        templateLines.push(
-          `https://github.com/{{ .Owner }}/{{ .Task${i} }}`
-        );
+        templateLines.push(`https://github.com/{{ .Owner }}/{{ .Task${i} }}`);
       }
     }
     if (templateLines.length > 0) {
-      prompt += "\n\nYour README must include a link to each sub-function using the following template format:\n" + templateLines.join("\n") + "\nThese templates will be automatically replaced with the actual repository URLs after the sub-functions are invented.";
+      prompt += "\n\nYour README must include a link to each sub-function using the following template format:\n" + templateLines.join("\n") + "\nThese templates will be automatically replaced with the actual repository URLs after the sub-functions are invented.\nYou may also use {{ .Owner }} and {{ .TaskN }} anywhere else in the README and they will all be automatically replaced.";
     }
   }
   return runAgentStep(

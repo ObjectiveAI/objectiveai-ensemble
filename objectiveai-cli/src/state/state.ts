@@ -27,7 +27,8 @@ export const StateOptionsSchema = z.union([
   }),
   StateOptionsBaseSchema.extend({
     type: z.literal("vector.function"),
-    input_schema: Functions.RemoteVectorFunctionSchema.shape.input_schema,
+    input_schema:
+      Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema,
     output_length: Functions.RemoteVectorFunctionSchema.shape.output_length,
     input_split: Functions.RemoteVectorFunctionSchema.shape.input_split,
     input_merge: Functions.RemoteVectorFunctionSchema.shape.input_merge,
@@ -62,10 +63,14 @@ export class State {
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
-          this._inner = new BranchScalarState(options.parameters);
+          this._inner = new BranchScalarState(
+            options.parameters,
+            options.input_schema,
+          );
         } else if (options.type === "vector.function") {
           this._inner = new BranchVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge,
@@ -270,7 +275,6 @@ export class State {
       fn: () => Promise.resolve(this.getReadme()),
     };
   }
-
 
   setPlaceholderTaskIndices(indices: number[]): void {
     this.placeholderTaskIndices = indices;
