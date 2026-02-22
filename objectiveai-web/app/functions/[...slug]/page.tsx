@@ -135,7 +135,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         const publicClient = createPublicClient();
 
         // Fetch function details directly (works for all functions, regardless of profiles)
-        const details = await Functions.retrieve(publicClient, "github", owner, repository, null);
+        const details = await Functions.retrieve(publicClient, owner, repository, null);
 
         const category = details.type === "vector.function" ? "Ranking" : "Scoring";
 
@@ -175,7 +175,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         // Fallback: try fetching profile from same repo (CLI puts profile.json in the function repo)
         if (functionProfiles.length === 0) {
           try {
-            const profile = await Functions.Profiles.retrieve(publicClient, "github", owner, repository, null);
+            const profile = await Functions.Profiles.retrieve(publicClient, owner, repository, null);
             functionProfiles = [{
               owner,
               repository,
@@ -289,7 +289,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       try {
         // Fetch the full function definition for WASM compilation
         const publicClient = createPublicClient();
-        const funcDef = await Functions.retrieve(publicClient, "github", owner, repository, commit);
+        const funcDef = await Functions.retrieve(publicClient, owner, repository, commit);
 
         // Use WASM to compile the input split
         const splitResult = await compileFunctionInputSplit(funcDef as unknown as FunctionConfig, inputSnapshot);
@@ -359,13 +359,11 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
       const stream = await Functions.Executions.create(
         client,
         {
-          remote: "github",
           owner: functionDetails.owner,
           repository: functionDetails.repository,
           commit: functionDetails.commit,
         },
         {
-          remote: "github",
           owner: selectedProfile.owner,
           repository: selectedProfile.repository,
           commit: selectedProfile.commit,
