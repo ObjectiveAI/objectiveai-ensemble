@@ -115,14 +115,14 @@ function SidebarTable(): ReactElement {
       />
       <SidebarApiItem
         method="GET"
-        path="/functions/{fowner}/{frepository}/{fcommit}"
-        href="/docs/api/get/functions/fowner/frepository/fcommit"
+        path="/functions/{fremote}/{fowner}/{frepository}/{fcommit}"
+        href="/docs/api/get/functions/fremote/fowner/frepository/fcommit"
         description="Retrieve a remote ObjectiveAI Function"
       />
       <SidebarApiItem
         method="GET"
-        path="/functions/{fowner}/{frepository}/{fcommit}/usage"
-        href="/docs/api/get/functions/fowner/frepository/fcommit/usage"
+        path="/functions/{fremote}/{fowner}/{frepository}/{fcommit}/usage"
+        href="/docs/api/get/functions/fremote/fowner/frepository/fcommit/usage"
         description="Retrieve historical usage for a remote ObjectiveAI Function"
       />
       <SidebarApiItem
@@ -133,20 +133,20 @@ function SidebarTable(): ReactElement {
       />
       <SidebarApiItem
         method="POST"
-        path="/functions/{fowner}/{frepository}/{fcommit}"
-        href="/docs/api/post/functions/fowner/frepository/fcommit"
+        path="/functions/{fremote}/{fowner}/{frepository}/{fcommit}"
+        href="/docs/api/post/functions/fremote/fowner/frepository/fcommit"
         description="Execute a remote ObjectiveAI Function with an inline Profile"
       />
       <SidebarApiItem
         method="POST"
-        path="/functions/profiles/{powner}/{prepository}/{pcommit}"
-        href="/docs/api/post/functions/profiles/powner/prepository/pcommit"
+        path="/functions/profiles/{premote}/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/post/functions/profiles/premote/powner/prepository/pcommit"
         description="Execute an inline ObjectiveAI Function with a remote Profile"
       />
       <SidebarApiItem
         method="POST"
-        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
-        href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
+        path="/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/post/functions/fremote/fowner/frepository/fcommit/profiles/premote/powner/prepository/pcommit"
         description="Execute a remote ObjectiveAI Function with a remote Profile"
       />
 
@@ -155,8 +155,8 @@ function SidebarTable(): ReactElement {
       <SidebarSection title="Function Profiles" />
       <SidebarApiItem
         method="POST"
-        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/compute"
-        href="/docs/api/post/functions/fowner/frepository/fcommit/profiles/compute"
+        path="/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/compute"
+        href="/docs/api/post/functions/fremote/fowner/frepository/fcommit/profiles/compute"
         description="Compute an ObjectiveAI Function Profile from your own Data (remote Function)"
       />
       <SidebarApiItem
@@ -173,14 +173,14 @@ function SidebarTable(): ReactElement {
       />
       <SidebarApiItem
         method="GET"
-        path="/functions/profiles/{powner}/{prepository}/{pcommit}"
-        href="/docs/api/get/functions/profiles/powner/prepository/pcommit"
+        path="/functions/profiles/{premote}/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/get/functions/profiles/premote/powner/prepository/pcommit"
         description="Retrieve a remote ObjectiveAI Function Profile"
       />
       <SidebarApiItem
         method="GET"
-        path="/functions/profiles/{powner}/{prepository}/{pcommit}/usage"
-        href="/docs/api/get/functions/profiles/powner/prepository/pcommit/usage"
+        path="/functions/profiles/{premote}/{powner}/{prepository}/{pcommit}/usage"
+        href="/docs/api/get/functions/profiles/premote/powner/prepository/pcommit/usage"
         description="Retrieve historical usage for a remote ObjectiveAI Function Profile"
       />
 
@@ -195,14 +195,14 @@ function SidebarTable(): ReactElement {
       />
       <SidebarApiItem
         method="GET"
-        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}"
-        href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit"
+        path="/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}/{pcommit}"
+        href="/docs/api/get/functions/fremote/fowner/frepository/fcommit/profiles/premote/powner/prepository/pcommit"
         description="Retrieve a remote ObjectiveAI Function-Profile pair"
       />
       <SidebarApiItem
         method="GET"
-        path="/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}/usage"
-        href="/docs/api/get/functions/fowner/frepository/fcommit/profiles/powner/prepository/pcommit/usage"
+        path="/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}/{pcommit}/usage"
+        href="/docs/api/get/functions/fremote/fowner/frepository/fcommit/profiles/premote/powner/prepository/pcommit/usage"
         description="Retrieve historical usage for a remote ObjectiveAI Function-Profile pair"
       />
 

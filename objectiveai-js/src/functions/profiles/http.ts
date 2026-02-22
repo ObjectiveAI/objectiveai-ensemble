@@ -2,18 +2,20 @@ import z from "zod";
 import { ObjectiveAI, RequestOptions } from "../../client";
 import { RemoteTasksProfileSchema, RemoteAutoProfileSchema } from "../profile";
 import { convert, type JSONSchema } from "../../json_schema";
+import { RemoteSchema, type Remote } from "../remote";
 
 export const ListItemSchema = z.object({
+  remote: RemoteSchema,
   owner: z
     .string()
-    .describe("The owner of the GitHub repository containing the profile."),
+    .describe("The owner of the repository containing the profile."),
   repository: z
     .string()
-    .describe("The name of the GitHub repository containing the profile."),
+    .describe("The name of the repository containing the profile."),
   commit: z
     .string()
     .describe(
-      "The commit SHA of the GitHub repository containing the profile.",
+      "The commit SHA of the repository containing the profile.",
     ),
 });
 export type ListItem = z.infer<typeof ListItemSchema>;
@@ -57,6 +59,7 @@ export const HistoricalUsageJsonSchema: JSONSchema = convert(HistoricalUsageSche
 
 export function retrieveUsage(
   client: ObjectiveAI,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -64,8 +67,8 @@ export function retrieveUsage(
 ): Promise<HistoricalUsage> {
   const path =
     pcommit !== null && pcommit !== undefined
-      ? `/functions/profiles/${powner}/${prepository}/${pcommit}/usage`
-      : `/functions/profiles/${powner}/${prepository}/usage`;
+      ? `/functions/profiles/${premote}/${powner}/${prepository}/${pcommit}/usage`
+      : `/functions/profiles/${premote}/${powner}/${prepository}/usage`;
   return client.get_unary<HistoricalUsage>(path, undefined, options);
 }
 
@@ -78,6 +81,7 @@ export const RetrieveJsonSchema: JSONSchema = convert(RetrieveSchema);
 
 export function retrieve(
   client: ObjectiveAI,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -85,7 +89,7 @@ export function retrieve(
 ): Promise<Retrieve> {
   const path =
     pcommit !== null && pcommit !== undefined
-      ? `/functions/profiles/${powner}/${prepository}/${pcommit}`
-      : `/functions/profiles/${powner}/${prepository}`;
+      ? `/functions/profiles/${premote}/${powner}/${prepository}/${pcommit}`
+      : `/functions/profiles/${premote}/${powner}/${prepository}`;
   return client.get_unary<Retrieve>(path, undefined, options);
 }

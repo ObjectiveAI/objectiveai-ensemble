@@ -2,6 +2,7 @@ import { ObjectiveAI, RequestOptions } from "../../client";
 import { Stream } from "../../stream";
 import { FunctionExecutionChunk } from "./response/streaming/function_execution_chunk";
 import { FunctionExecution } from "./response/unary/function_execution";
+import type { Remote } from "../remote";
 import {
   FunctionExecutionCreateParamsInlineFunctionInlineProfile,
   FunctionExecutionCreateParamsInlineFunctionInlineProfileStreaming,
@@ -46,6 +47,7 @@ export function inlineFunctionInlineProfileCreate(
 
 export function remoteFunctionInlineProfileCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -54,6 +56,7 @@ export function remoteFunctionInlineProfileCreate(
 ): Promise<Stream<FunctionExecutionChunk>>;
 export function remoteFunctionInlineProfileCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -62,6 +65,7 @@ export function remoteFunctionInlineProfileCreate(
 ): Promise<FunctionExecution>;
 export function remoteFunctionInlineProfileCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -70,8 +74,8 @@ export function remoteFunctionInlineProfileCreate(
 ): Promise<Stream<FunctionExecutionChunk> | FunctionExecution> {
   const path =
     fcommit !== null && fcommit !== undefined
-      ? `/functions/${fowner}/${frepository}/${fcommit}`
-      : `/functions/${fowner}/${frepository}`;
+      ? `/functions/${fremote}/${fowner}/${frepository}/${fcommit}`
+      : `/functions/${fremote}/${fowner}/${frepository}`;
   if (body.stream) {
     return client.post_streaming<FunctionExecutionChunk>(path, body, options);
   }
@@ -80,6 +84,7 @@ export function remoteFunctionInlineProfileCreate(
 
 export function inlineFunctionRemoteProfileCreate(
   client: ObjectiveAI,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -88,6 +93,7 @@ export function inlineFunctionRemoteProfileCreate(
 ): Promise<Stream<FunctionExecutionChunk>>;
 export function inlineFunctionRemoteProfileCreate(
   client: ObjectiveAI,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -96,6 +102,7 @@ export function inlineFunctionRemoteProfileCreate(
 ): Promise<FunctionExecution>;
 export function inlineFunctionRemoteProfileCreate(
   client: ObjectiveAI,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -104,8 +111,8 @@ export function inlineFunctionRemoteProfileCreate(
 ): Promise<Stream<FunctionExecutionChunk> | FunctionExecution> {
   const path =
     pcommit !== null && pcommit !== undefined
-      ? `/functions/profiles/${powner}/${prepository}/${pcommit}`
-      : `/functions/profiles/${powner}/${prepository}`;
+      ? `/functions/profiles/${premote}/${powner}/${prepository}/${pcommit}`
+      : `/functions/profiles/${premote}/${powner}/${prepository}`;
   if (body.stream) {
     return client.post_streaming<FunctionExecutionChunk>(path, body, options);
   }
@@ -114,9 +121,11 @@ export function inlineFunctionRemoteProfileCreate(
 
 export function remoteFunctionRemoteProfileCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -125,9 +134,11 @@ export function remoteFunctionRemoteProfileCreate(
 ): Promise<Stream<FunctionExecutionChunk>>;
 export function remoteFunctionRemoteProfileCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -136,9 +147,11 @@ export function remoteFunctionRemoteProfileCreate(
 ): Promise<FunctionExecution>;
 export function remoteFunctionRemoteProfileCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
@@ -148,14 +161,14 @@ export function remoteFunctionRemoteProfileCreate(
   let path: string;
   if (fcommit !== null && fcommit !== undefined) {
     if (pcommit !== null && pcommit !== undefined) {
-      path = `/functions/${fowner}/${frepository}/${fcommit}/profiles/${powner}/${prepository}/${pcommit}`;
+      path = `/functions/${fremote}/${fowner}/${frepository}/${fcommit}/profiles/${premote}/${powner}/${prepository}/${pcommit}`;
     } else {
-      path = `/functions/${fowner}/${frepository}/${fcommit}/profiles/${powner}/${prepository}`;
+      path = `/functions/${fremote}/${fowner}/${frepository}/${fcommit}/profiles/${premote}/${powner}/${prepository}`;
     }
   } else if (pcommit !== null && pcommit !== undefined) {
-    path = `/functions/${fowner}/${frepository}/profiles/${powner}/${prepository}/${pcommit}`;
+    path = `/functions/${fremote}/${fowner}/${frepository}/profiles/${premote}/${powner}/${prepository}/${pcommit}`;
   } else {
-    path = `/functions/${fowner}/${frepository}/profiles/${powner}/${prepository}`;
+    path = `/functions/${fremote}/${fowner}/${frepository}/profiles/${premote}/${powner}/${prepository}`;
   }
   if (body.stream) {
     return client.post_streaming<FunctionExecutionChunk>(path, body, options);
@@ -168,6 +181,7 @@ export function create(
   function_:
     | InlineFunction
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -175,6 +189,7 @@ export function create(
   profile:
     | InlineProfile
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -187,6 +202,7 @@ export function create(
   function_:
     | InlineFunction
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -194,6 +210,7 @@ export function create(
   profile:
     | InlineProfile
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -206,6 +223,7 @@ export function create(
   function_:
     | InlineFunction
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -213,6 +231,7 @@ export function create(
   profile:
     | InlineProfile
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -225,9 +244,11 @@ export function create(
       if (body.stream) {
         return remoteFunctionRemoteProfileCreate(
           client,
+          function_.remote,
           function_.owner,
           function_.repository,
           function_.commit,
+          profile.remote,
           profile.owner,
           profile.repository,
           profile.commit,
@@ -237,9 +258,11 @@ export function create(
       } else {
         return remoteFunctionRemoteProfileCreate(
           client,
+          function_.remote,
           function_.owner,
           function_.repository,
           function_.commit,
+          profile.remote,
           profile.owner,
           profile.repository,
           profile.commit,
@@ -256,6 +279,7 @@ export function create(
       if (requestBody.stream) {
         return remoteFunctionInlineProfileCreate(
           client,
+          function_.remote,
           function_.owner,
           function_.repository,
           function_.commit,
@@ -265,6 +289,7 @@ export function create(
       } else {
         return remoteFunctionInlineProfileCreate(
           client,
+          function_.remote,
           function_.owner,
           function_.repository,
           function_.commit,
@@ -282,6 +307,7 @@ export function create(
     if (requestBody.stream) {
       return inlineFunctionRemoteProfileCreate(
         client,
+        profile.remote,
         profile.owner,
         profile.repository,
         profile.commit,
@@ -291,6 +317,7 @@ export function create(
     } else {
       return inlineFunctionRemoteProfileCreate(
         client,
+        profile.remote,
         profile.owner,
         profile.repository,
         profile.commit,

@@ -5,5 +5,6 @@ export * from "./http";
 export * from "./profile";
 export * as Profiles from "./profiles";
 export * as Quality from "./quality";
+export * from "./remote";
 export * from "./task";
 export * from "./wasm";

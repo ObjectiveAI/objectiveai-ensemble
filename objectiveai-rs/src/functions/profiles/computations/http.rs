@@ -24,13 +24,13 @@ pub async fn compute_profile_unary(
                     match path.fcommit {
                         Some(fcommit) => {
                             format!(
-                                "functions/{}/{}/{}/profiles/compute",
-                                path.fowner, path.frepository, fcommit
+                                "functions/{}/{}/{}/{}/profiles/compute",
+                                path.fremote, path.fowner, path.frepository, fcommit
                             )
                         }
                         None => format!(
-                            "functions/{}/{}/profiles/compute",
-                            path.fowner, path.frepository
+                            "functions/{}/{}/{}/profiles/compute",
+                            path.fremote, path.fowner, path.frepository
                         ),
                     },
                     Some(body),
@@ -77,13 +77,13 @@ pub async fn compute_profile_streaming(
                         match path.fcommit {
                             Some(fcommit) => {
                                 format!(
-                                    "functions/{}/{}/{}/profiles/compute",
-                                    path.fowner, path.frepository, fcommit
+                                    "functions/{}/{}/{}/{}/profiles/compute",
+                                    path.fremote, path.fowner, path.frepository, fcommit
                                 )
                             }
                             None => format!(
-                                "functions/{}/{}/profiles/compute",
-                                path.fowner, path.frepository
+                                "functions/{}/{}/{}/profiles/compute",
+                                path.fremote, path.fowner, path.frepository
                             ),
                         },
                         Some(body),

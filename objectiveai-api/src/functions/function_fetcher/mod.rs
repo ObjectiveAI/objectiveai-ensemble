@@ -1,7 +1,9 @@
-//! Fetcher for Function definitions from GitHub.
+//! Fetcher for Function definitions from remote sources.
 
 mod fetcher;
-mod objectiveai;
+pub mod filesystem;
+pub mod github;
+mod router;
 
 pub use fetcher::*;
-pub use objectiveai::*;
+pub use router::*;

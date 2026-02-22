@@ -43,10 +43,11 @@ where
         self.retrieval_client.list_functions(ctx).await
     }
 
-    /// Retrieves a function by owner/repository/commit.
+    /// Retrieves a function by remote/owner/repository/commit.
     pub async fn get_function(
         &self,
         ctx: ctx::Context<CTXEXT>,
+        remote: objectiveai::functions::Remote,
         owner: &str,
         repository: &str,
         commit: Option<&str>,
@@ -55,7 +56,7 @@ where
         objectiveai::error::ResponseError,
     > {
         self.function_fetcher
-            .fetch(ctx, owner, repository, commit)
+            .fetch(ctx, remote, owner, repository, commit)
             .await?
             .ok_or_else(|| objectiveai::error::ResponseError {
                 code: 404,
@@ -70,6 +71,7 @@ where
     pub async fn get_function_usage(
         &self,
         ctx: ctx::Context<CTXEXT>,
+        remote: objectiveai::functions::Remote,
         owner: &str,
         repository: &str,
         commit: Option<&str>,
@@ -78,7 +80,7 @@ where
         objectiveai::error::ResponseError,
     > {
         self.retrieval_client
-            .get_function_usage(ctx, owner, repository, commit)
+            .get_function_usage(ctx, remote, owner, repository, commit)
             .await
     }
 }

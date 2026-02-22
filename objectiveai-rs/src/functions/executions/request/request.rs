@@ -107,7 +107,7 @@ impl Request {
 /// Parameters for creating a function execution.
 ///
 /// Supports four combinations based on whether the Function and Profile
-/// are provided inline or referenced from GitHub repositories.
+/// are provided inline or referenced from remote repositories.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum FunctionExecutionCreateParams {

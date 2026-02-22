@@ -18,7 +18,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// A Function definition, either remote (GitHub-hosted) or inline.
+/// A Function definition, either remote or inline.
 ///
 /// Functions are composable scoring pipelines that transform structured input
 /// into scores. Each task has an `output` expression that transforms its raw result
@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Function {
-    /// A GitHub-hosted function with metadata (description, schema, etc.).
+    /// A remote function with metadata (description, schema, etc.).
     Remote(RemoteFunction),
     /// An inline function definition without metadata.
     Inline(InlineFunction),
@@ -537,11 +537,11 @@ impl Function {
     }
 }
 
-/// A GitHub-hosted function with full metadata.
+/// A remote function with full metadata.
 ///
-/// Remote functions are stored as `function.json` in GitHub repositories and
-/// referenced by `owner/repository`. They include documentation fields that
-/// inline functions lack.
+/// Remote functions are stored as `function.json` in repositories and
+/// referenced by `remote/owner/repository`. They include documentation fields
+/// that inline functions lack.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum RemoteFunction {
@@ -666,7 +666,7 @@ impl RemoteFunction {
 /// An inline function definition without metadata.
 ///
 /// Used when embedding function logic directly in requests rather than
-/// referencing a GitHub-hosted function. Lacks description and input
+/// referencing a remote function. Lacks description and input
 /// schema fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]

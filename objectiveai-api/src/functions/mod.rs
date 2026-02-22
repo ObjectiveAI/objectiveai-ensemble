@@ -7,11 +7,11 @@ mod client;
 /// Function execution client and types.
 pub mod executions;
 mod flat_task_profile;
-/// Fetcher for Function definitions from GitHub.
+/// Fetcher for Function definitions from remote sources.
 pub mod function_fetcher;
 /// Client for listing function-profile pairs and getting usage statistics.
 pub mod pair_retrieval_client;
-/// Fetcher for Profile definitions from GitHub.
+/// Fetcher for Profile definitions from remote sources.
 pub mod profile_fetcher;
 /// Profile operations.
 pub mod profiles;

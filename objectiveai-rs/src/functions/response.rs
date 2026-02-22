@@ -13,9 +13,11 @@ pub struct ListFunction {
 /// A function in a list response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListFunctionItem {
-    /// GitHub repository owner.
+    /// The remote source where the function is hosted.
+    pub remote: functions::Remote,
+    /// Repository owner.
     pub owner: String,
-    /// GitHub repository name.
+    /// Repository name.
     pub repository: String,
     /// Git commit SHA.
     pub commit: String,
@@ -23,6 +25,7 @@ pub struct ListFunctionItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetFunction {
+    pub remote: functions::Remote,
     pub owner: String,
     pub repository: String,
     pub commit: String,

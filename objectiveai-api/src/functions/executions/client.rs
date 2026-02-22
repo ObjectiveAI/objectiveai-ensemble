@@ -832,11 +832,11 @@ where
 
             // identifiers
             let function =
-                ftp.full_function_id.map(|(owner, repository, commit)| {
-                    format!("{}/{}/{}", owner, repository, commit)
+                ftp.full_function_id.map(|(remote, owner, repository, commit)| {
+                    format!("{}/{}/{}/{}", remote, owner, repository, commit)
                 });
-            let profile = ftp.full_profile_id.map(|(owner, repository, commit)| {
-                format!("{}/{}/{}", owner, repository, commit)
+            let profile = ftp.full_profile_id.map(|(remote, owner, repository, commit)| {
+                format!("{}/{}/{}/{}", remote, owner, repository, commit)
             });
 
             // track whether child errors occurred
@@ -1542,6 +1542,7 @@ where
                         ),
                     },
                     functions::ProfileParam::Remote {
+                        remote: path.premote,
                         owner: path.powner.clone(),
                         repository: path.prepository.clone(),
                         commit: path.pcommit.clone(),
@@ -1563,6 +1564,7 @@ where
                     ctx,
                     Vec::new(),
                     functions::FunctionParam::Remote {
+                        remote: path.fremote,
                         owner: path.fowner.clone(),
                         repository: path.frepository.clone(),
                         commit: path.fcommit.clone(),
@@ -1590,11 +1592,13 @@ where
                     ctx,
                     Vec::new(),
                     functions::FunctionParam::Remote {
+                        remote: path.fremote,
                         owner: path.fowner.clone(),
                         repository: path.frepository.clone(),
                         commit: path.fcommit.clone(),
                     },
                     functions::ProfileParam::Remote {
+                        remote: path.premote,
                         owner: path.powner.clone(),
                         repository: path.prepository.clone(),
                         commit: path.pcommit.clone(),
@@ -2028,11 +2032,11 @@ where
 
         // identifiers
         let function =
-            ftp.full_function_id.map(|(owner, repository, commit)| {
-                format!("{}/{}/{}", owner, repository, commit)
+            ftp.full_function_id.map(|(remote, owner, repository, commit)| {
+                format!("{}/{}/{}/{}", remote, owner, repository, commit)
             });
-        let profile = ftp.full_profile_id.map(|(owner, repository, commit)| {
-            format!("{}/{}/{}", owner, repository, commit)
+        let profile = ftp.full_profile_id.map(|(remote, owner, repository, commit)| {
+            format!("{}/{}/{}/{}", remote, owner, repository, commit)
         });
 
         // return stream, yielding chunks and updating retry token and output

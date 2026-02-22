@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "objectiveai-api",
+    "objectiveai-mcp",
     "objectiveai-rs",
     "objectiveai-rs-wasm-js",
 ]
