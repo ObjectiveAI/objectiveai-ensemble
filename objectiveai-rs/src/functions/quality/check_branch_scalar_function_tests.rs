@@ -1105,7 +1105,6 @@ fn all_tasks_skipped() {
 fn no_example_inputs() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
         input_maps: None,
         tasks: vec![TaskExpression::ScalarFunction(
@@ -1122,14 +1121,13 @@ fn no_example_inputs() {
             },
         )],
     };
-    test_err(&f, "BS09");
+    test_err(&f, "QI01");
 }
 
 #[test]
 fn placeholder_scalar_field_validation_fails() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Integer(IntegerInputSchema {
             description: None,
             minimum: Some(1),
@@ -1148,5 +1146,5 @@ fn placeholder_scalar_field_validation_fails() {
             },
         )],
     };
-    test_err(&f, "BS11");
+    test_err(&f, "CV04");
 }

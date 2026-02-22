@@ -3031,7 +3031,6 @@ fn job_application_ranker_3() {
 fn input_merge_fails_on_subset() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -3084,14 +3083,13 @@ fn input_merge_fails_on_subset() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label'] if len(input) == 3 else 1/0}".to_string())),
     };
-    test_err(&f, "VF16");
+    test_err(&f, "CV14");
 }
 
 #[test]
 fn no_example_inputs() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
         input_maps: None,
         tasks: vec![TaskExpression::VectorCompletion(
@@ -3126,5 +3124,5 @@ fn no_example_inputs() {
         input_split: WithExpression::Expression(Expression::Starlark("[input]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("input[0]".to_string())),
     };
-    test_err(&f, "LV15");
+    test_err(&f, "QI01");
 }

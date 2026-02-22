@@ -71,6 +71,6 @@ fn no_example_inputs() {
         ScalarFieldsValidation {
             input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
         },
-        "SF01",
+        "QI01",
     );
 }

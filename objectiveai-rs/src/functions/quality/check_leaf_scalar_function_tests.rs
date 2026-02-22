@@ -2316,7 +2316,6 @@ fn all_tasks_skipped() {
 fn no_example_inputs() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
         input_maps: None,
         tasks: vec![TaskExpression::VectorCompletion(
@@ -2356,5 +2355,5 @@ fn no_example_inputs() {
             },
         )],
     };
-    test_err(&f, "LS18");
+    test_err(&f, "QI01");
 }

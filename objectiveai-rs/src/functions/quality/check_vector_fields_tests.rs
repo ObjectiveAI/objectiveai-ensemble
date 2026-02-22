@@ -576,7 +576,7 @@ fn output_length_fails_for_split() {
                 "[x[0] for x in input]".to_string(),
             )),
         },
-        "VF07",
+        "VF01",
     );
 }
 
@@ -676,7 +676,7 @@ fn no_example_inputs() {
                 "[x[0] for x in input]".to_string(),
             )),
         },
-        "VF22",
+        "QI01",
     );
 }
 
@@ -731,6 +731,6 @@ fn array_violates_max_items() {
                 "[x[0] for x in input] if len(input) == 3 else [x[0] for x in input] + [x[0] for x in input]".to_string(),
             )),
         },
-        "VF24",
+        "VF12",
     );
 }

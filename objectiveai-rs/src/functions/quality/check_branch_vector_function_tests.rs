@@ -2156,7 +2156,6 @@ fn output_length_less_than_2() {
 fn input_maps_compilation_fails() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2199,7 +2198,6 @@ fn input_maps_compilation_fails() {
 fn input_merge_fails_on_subset() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2240,7 +2238,6 @@ fn input_merge_fails_on_subset() {
 fn no_example_inputs() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
         input_maps: None,
         tasks: vec![TaskExpression::VectorFunction(VectorFunctionTaskExpression {
@@ -2256,14 +2253,13 @@ fn no_example_inputs() {
         input_split: WithExpression::Expression(Expression::Starlark("[input]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("input[0]".to_string())),
     };
-    test_err(&f, "BV17");
+    test_err(&f, "QI01");
 }
 
 #[test]
 fn fixed_mapped_input() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2299,14 +2295,13 @@ fn fixed_mapped_input() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, "BV19");
+    test_err(&f, "BV08");
 }
 
 #[test]
 fn all_mapped_inputs_equal() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2342,14 +2337,13 @@ fn all_mapped_inputs_equal() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, "BV20");
+    test_err(&f, "BV08");
 }
 
 #[test]
 fn placeholder_scalar_field_fails() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2379,14 +2373,13 @@ fn placeholder_scalar_field_fails() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x]} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input]}".to_string())),
     };
-    test_err(&f, "BV21");
+    test_err(&f, "CV04");
 }
 
 #[test]
 fn placeholder_vector_field_fails() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2417,5 +2410,5 @@ fn placeholder_vector_field_fails() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x]} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input]}".to_string())),
     };
-    test_err(&f, "BV22");
+    test_err(&f, "CV05");
 }
