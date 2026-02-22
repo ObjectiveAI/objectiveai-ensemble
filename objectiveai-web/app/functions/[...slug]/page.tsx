@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createPublicClient } from "../../../lib/client";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
-import { DEFAULT_PROFILES, DEFAULT_PROFILE_INDEX } from "../../../lib/profiles";
+import { DEFAULT_PROFILES } from "../../../lib/profiles";
 import { loadReasoningModels } from "../../../lib/reasoning-models";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
@@ -18,6 +18,8 @@ import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/
 import { compileFunctionInputSplit, type FunctionConfig } from "../../../lib/wasm-validation";
 import { Functions, EnsembleLlm } from "objectiveai";
 import { ObjectiveAIFetchError } from "objectiveai";
+import { FunctionTree } from "@objectiveai/function-tree";
+import "@objectiveai/function-tree/styles";
 interface FunctionDetails {
   owner: string;
   repository: string;
@@ -49,7 +51,14 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const slugKey = `${owner}/${repository}`;
 
   const [functionDetails, setFunctionDetails] = useState<FunctionDetails | null>(null);
-  const [selectedProfileIndex, setSelectedProfileIndex] = useState(DEFAULT_PROFILE_INDEX);
+  const [selectedProfileIndex, setSelectedProfileIndex] = useState(0);
+  const [availableProfiles, setAvailableProfiles] = useState<Array<{
+    owner: string;
+    repository: string;
+    commit: string | null;
+    label: string;
+    description: string;
+  }>>(DEFAULT_PROFILES);
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -105,6 +114,9 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const [showAllModels, setShowAllModels] = useState(false);
   const [expandedVotes, setExpandedVotes] = useState<Set<number>>(new Set());
 
+  // Execution tree visibility — open by default, opt-in collapse
+  const [showTree, setShowTree] = useState(true);
+
   // Demo mode: when enabled, uses RNG votes (free, simulated). When disabled, uses real LLM inference.
   const [demoMode, setDemoMode] = useState(true);
 
@@ -125,8 +137,11 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
         const publicClient = createPublicClient();
 
-        // Fetch function details directly (works for all functions, regardless of profiles)
-        const details = await Functions.retrieve(publicClient, owner, repository, null);
+        // Fetch function details and profile pairs in parallel
+        const [details, pairs] = await Promise.all([
+          Functions.retrieve(publicClient, owner, repository, null),
+          Functions.listPairs(publicClient).catch(() => ({ data: [] })),
+        ]);
 
         const category = details.type === "vector.function" ? "Ranking" : "Scoring";
 
@@ -140,6 +155,27 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
           type: details.type as "scalar.function" | "vector.function",
           inputSchema: (details as { input_schema?: Record<string, unknown> }).input_schema || null,
         });
+
+        // Find function-specific profile pairs
+        const matchingPairs = pairs.data.filter(
+          (p: { function: { owner: string; repository: string } }) =>
+            p.function.owner === owner && p.function.repository === repository
+        );
+
+        if (matchingPairs.length > 0) {
+          const functionProfiles = matchingPairs.map(
+            (p: { profile: { owner: string; repository: string; commit: string } }) => ({
+              owner: p.profile.owner,
+              repository: p.profile.repository,
+              commit: p.profile.commit,
+              label: deriveDisplayName(p.profile.repository),
+              description: `${p.profile.owner}/${p.profile.repository}`,
+            })
+          );
+          // Function-specific profiles first, then defaults
+          setAvailableProfiles([...functionProfiles, ...DEFAULT_PROFILES]);
+          setSelectedProfileIndex(0); // Select the function-specific profile
+        }
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : "Failed to load function");
       } finally {
@@ -275,7 +311,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
    * The user can retry by clicking Execute again.
    */
   const handleRun = async () => {
-    const selectedProfile = DEFAULT_PROFILES[selectedProfileIndex];
+    const selectedProfile = availableProfiles[selectedProfileIndex];
     if (!functionDetails || !selectedProfile) return;
 
     setIsRunning(true);
@@ -825,8 +861,8 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
                   cursor: "pointer",
                 }}
               >
-                {DEFAULT_PROFILES.map((profile, idx) => (
-                  <option key={profile.repository} value={idx}>
+                {availableProfiles.map((profile, idx) => (
+                  <option key={`${profile.owner}/${profile.repository}`} value={idx}>
                     {profile.label} — {profile.description}
                   </option>
                 ))}
@@ -1284,6 +1320,62 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
             )}
           </div>
         </div>
+
+        {/* Function Tree Visualization */}
+        {(results || isRunning) && !runError && (
+          <div style={{ marginTop: isMobile ? "16px" : "32px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                cursor: "pointer",
+                marginBottom: showTree ? "12px" : 0,
+              }}
+              onClick={() => setShowTree(!showTree)}
+            >
+              <p style={{
+                fontSize: isMobile ? "12px" : "13px",
+                color: "var(--text-muted)",
+                margin: 0,
+              }}>
+                Function Tree
+              </p>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  flexShrink: 0,
+                  transition: "transform 0.2s",
+                  transform: showTree ? "rotate(180deg)" : "rotate(0deg)",
+                }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+            {showTree && (
+              <FunctionTree
+                data={results ? {
+                  output: results.output,
+                  // Tasks carry full SDK fields (index, task_path, etc.) at runtime
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  tasks: results.tasks as any,
+                  function: functionDetails ? `${functionDetails.owner}/${functionDetails.repository}` : undefined,
+                  reasoning: results.reasoning,
+                } : null}
+                modelNames={modelNames}
+                height={isMobile ? 300 : 450}
+                config={{ theme: "auto" }}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
