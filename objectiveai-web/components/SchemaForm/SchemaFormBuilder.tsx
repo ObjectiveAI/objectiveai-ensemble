@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useMemo } from "react";
 import type { SchemaFormBuilderProps, ValidationError } from "./types";
 import { validateValue } from "./validation";
-import { getDefaultValue } from "./utils";
+import { getDefaultValue, valueMatchesSchema } from "./utils";
 import SchemaField from "./SchemaField";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -52,7 +52,7 @@ export default function SchemaFormBuilder({
 
   // Initialize with default values if value is null/undefined
   const effectiveValue = useMemo(() => {
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || !valueMatchesSchema(value, schema)) {
       return getDefaultValue(schema);
     }
     return value;

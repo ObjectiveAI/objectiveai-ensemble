@@ -52,31 +52,33 @@ export default function Home() {
         // Limit to FEATURED_COUNT
         const limitedFunctions = Array.from(uniqueFunctions.values()).slice(0, FEATURED_COUNT);
 
-        const functionItems: FeaturedFunction[] = await Promise.all(
-          limitedFunctions.map(async (fn) => {
-            const slug = `${fn.owner}/${fn.repository}`;
-            // Fetch full function details via SDK
-            const details = await Functions.retrieve(client, "github", fn.owner, fn.repository, fn.commit);
+        const results = await Promise.all(
+          limitedFunctions.map(async (fn): Promise<FeaturedFunction | null> => {
+            try {
+              const slug = `${fn.owner}/${fn.repository}`;
+              const details = await Functions.retrieve(client, "github", fn.owner, fn.repository, fn.commit);
 
-            const category = deriveCategory(details);
-            const name = deriveDisplayName(fn.repository);
+              const category = deriveCategory(details);
+              const name = deriveDisplayName(fn.repository);
 
-            // Extract tags from repository name
-            const tags = fn.repository.split("-").filter((t: string) => t.length > 2);
-            if (details.type === "vector.function") tags.push("ranking");
-            else tags.push("scoring");
+              const tags = fn.repository.split("-").filter((t: string) => t.length > 2);
+              if (details.type === "vector.function") tags.push("ranking");
+              else tags.push("scoring");
 
-            return {
-              slug,
-              name,
-              description: details.description || `${name} function`,
-              category,
-              tags,
-            };
+              return {
+                slug,
+                name,
+                description: details.description || `${name} function`,
+                category,
+                tags,
+              };
+            } catch {
+              return null;
+            }
           })
         );
 
-        setFunctions(functionItems);
+        setFunctions(results.filter((item): item is FeaturedFunction => item !== null));
       } catch {
         // Silent failure - page still renders, just without featured functions
       } finally {

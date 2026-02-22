@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createPublicClient } from "../../../lib/client";
 import { deriveDisplayName, DEV_EXECUTION_OPTIONS } from "../../../lib/objectiveai";
 import { PINNED_COLOR_ANIMATION_MS } from "../../../lib/constants";
+import { DEFAULT_PROFILES } from "../../../lib/profiles";
 import { loadReasoningModels } from "../../../lib/reasoning-models";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
@@ -17,6 +18,8 @@ import { simplifySplitItems, toDisplayItem, getDisplayMode } from "../../../lib/
 import { compileFunctionInputSplit, type FunctionConfig } from "../../../lib/wasm-validation";
 import { Functions, EnsembleLlm } from "objectiveai";
 import { ObjectiveAIFetchError } from "objectiveai";
+import { SkeletonFunctionDetails } from "../../../components/ui";
+
 interface FunctionDetails {
   owner: string;
   repository: string;
@@ -48,8 +51,14 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
   const slugKey = `${owner}/${repository}`;
 
   const [functionDetails, setFunctionDetails] = useState<FunctionDetails | null>(null);
-  const [availableProfiles, setAvailableProfiles] = useState<{ owner: string; repository: string; commit: string }[]>([]);
   const [selectedProfileIndex, setSelectedProfileIndex] = useState(0);
+  const [availableProfiles, setAvailableProfiles] = useState<Array<{
+    owner: string;
+    repository: string;
+    commit: string | null;
+    label: string;
+    description: string;
+  }>>(DEFAULT_PROFILES);
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -128,35 +137,6 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
         // Fetch function details directly (works for all functions, regardless of profiles)
         const details = await Functions.retrieve(publicClient, "github", owner, repository, null);
 
-        // Try to get available profiles (separately, so function loads even if no profiles exist)
-        let profiles: { owner: string; repository: string; commit: string }[] = [];
-        try {
-          const pairs = await Functions.listPairs(publicClient);
-          const matchingPairs = pairs.data.filter(
-            (p: { function: { owner: string; repository: string } }) =>
-              p.function.owner === owner && p.function.repository === repository
-          );
-          profiles = matchingPairs.map((p: { profile: { owner: string; repository: string; commit: string } }) => p.profile);
-        } catch {
-          // If pairs fetch fails, continue to fallback
-          profiles = [];
-        }
-
-        // Fallback: try fetching profile from same repo (CLI puts profile.json in the function repo)
-        if (profiles.length === 0) {
-          try {
-            const profile = await Functions.Profiles.retrieve(publicClient, "github", owner, repository, null);
-            profiles = [{ owner, repository, commit: profile.commit }];
-          } catch {
-            // Genuinely no profile exists for this function
-          }
-        }
-
-        setAvailableProfiles(profiles);
-        if (profiles.length > 0) {
-          setSelectedProfileIndex(0);
-        }
-
         const category = details.type === "vector.function" ? "Ranking" : "Scoring";
 
         setFunctionDetails({
@@ -169,6 +149,48 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
           type: details.type as "scalar.function" | "vector.function",
           inputSchema: (details as { input_schema?: Record<string, unknown> }).input_schema || null,
         });
+
+        // Try to get available profiles (separately, so function loads even if no profiles exist)
+        let functionProfiles: Array<{ owner: string; repository: string; commit: string; label: string; description: string }> = [];
+        try {
+          const pairs = await Functions.listPairs(publicClient);
+          const matchingPairs = pairs.data.filter(
+            (p: { function: { owner: string; repository: string } }) =>
+              p.function.owner === owner && p.function.repository === repository
+          );
+          functionProfiles = matchingPairs.map(
+            (p: { profile: { owner: string; repository: string; commit: string } }) => ({
+              owner: p.profile.owner,
+              repository: p.profile.repository,
+              commit: p.profile.commit,
+              label: deriveDisplayName(p.profile.repository),
+              description: `${p.profile.owner}/${p.profile.repository}`,
+            })
+          );
+        } catch {
+          // If pairs fetch fails, continue to fallback
+          functionProfiles = [];
+        }
+
+        // Fallback: try fetching profile from same repo (CLI puts profile.json in the function repo)
+        if (functionProfiles.length === 0) {
+          try {
+            const profile = await Functions.Profiles.retrieve(publicClient, "github", owner, repository, null);
+            functionProfiles = [{
+              owner,
+              repository,
+              commit: profile.commit,
+              label: deriveDisplayName(repository),
+              description: `${owner}/${repository}`,
+            }];
+          } catch {
+            // Genuinely no profile exists for this function
+          }
+        }
+
+        // Function-specific profiles first, then defaults
+        setAvailableProfiles([...functionProfiles, ...DEFAULT_PROFILES]);
+        setSelectedProfileIndex(0);
       } catch (err) {
         setLoadError(err instanceof Error ? err.message : "Failed to load function");
       } finally {
@@ -697,22 +719,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
   // Loading state
   if (isLoadingDetails) {
-    return (
-      <div className="page">
-        <div className="container" style={{ paddingTop: "100px", textAlign: "center" }}>
-          <div style={{
-            width: "40px",
-            height: "40px",
-            border: "3px solid var(--border)",
-            borderTopColor: "var(--accent)",
-            borderRadius: "50%",
-            margin: "0 auto 16px",
-            animation: "spin 1s linear infinite",
-          }} />
-          <p style={{ color: "var(--text-muted)" }}>Loading function...</p>
-        </div>
-      </div>
-    );
+    return <SkeletonFunctionDetails />;
   }
 
   // Error state
@@ -824,47 +831,45 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
               {renderInputFields()}
             </div>
 
-            {availableProfiles.length > 1 && (
-              <div style={{ marginTop: isMobile ? "16px" : "24px" }}>
-                <label style={{
-                  display: "block",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  color: "var(--text)",
+            <div style={{ marginTop: isMobile ? "16px" : "24px" }}>
+              <label style={{
+                display: "block",
+                fontSize: "14px",
+                fontWeight: 600,
+                marginBottom: "8px",
+                color: "var(--text)",
+              }}>
+                Profile
+                <span style={{
+                  fontWeight: 400,
+                  color: "var(--text-muted)",
+                  marginLeft: "8px",
                 }}>
-                  Profile
-                  <span style={{
-                    fontWeight: 400,
-                    color: "var(--text-muted)",
-                    marginLeft: "8px",
-                  }}>
-                    Learned weights for this function
-                  </span>
-                </label>
-                <select
-                  className="select"
-                  value={selectedProfileIndex}
-                  onChange={(e) => setSelectedProfileIndex(parseInt(e.target.value, 10))}
-                  style={{
-                    width: "100%",
-                    padding: isMobile ? "10px 12px" : "12px 16px",
-                    fontSize: isMobile ? "14px" : "15px",
-                    background: "var(--page-bg)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                    color: "var(--text)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {availableProfiles.map((profile, idx) => (
-                    <option key={`${profile.owner}/${profile.repository}@${profile.commit}`} value={idx}>
-                      {profile.owner}/{profile.repository}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+                  Learned weights for this function
+                </span>
+              </label>
+              <select
+                className="select"
+                value={selectedProfileIndex}
+                onChange={(e) => setSelectedProfileIndex(parseInt(e.target.value, 10))}
+                style={{
+                  width: "100%",
+                  padding: isMobile ? "10px 12px" : "12px 16px",
+                  fontSize: isMobile ? "14px" : "15px",
+                  background: "var(--page-bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                }}
+              >
+                {availableProfiles.map((profile, idx) => (
+                  <option key={`${profile.owner}/${profile.repository}`} value={idx}>
+                    {profile.label} — {profile.description}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Reasoning Options */}
             <div style={{
@@ -981,27 +986,16 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
             <button
               className="pillBtn"
               onClick={handleRun}
-              disabled={isRunning || availableProfiles.length === 0}
+              disabled={isRunning}
               style={{
                 width: "100%",
                 marginTop: isMobile ? "20px" : "32px",
                 padding: isMobile ? "12px 16px" : undefined,
-                opacity: (isRunning || availableProfiles.length === 0) ? 0.7 : 1,
+                opacity: isRunning ? 0.7 : 1,
               }}
             >
-              {isRunning ? "Running..." : availableProfiles.length === 0 ? "No Profile Available" : "Execute"}
+              {isRunning ? "Running..." : "Execute"}
             </button>
-            {availableProfiles.length === 0 && !isLoadingDetails && (
-              <p style={{
-                fontSize: "12px",
-                color: "var(--text-muted)",
-                marginTop: "8px",
-                textAlign: "center",
-                lineHeight: 1.4,
-              }}>
-                This function has no profile yet. A profile with learned weights is required for execution.
-              </p>
-            )}
           </div>
 
           {/* Right - Results */}
@@ -1328,6 +1322,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
             )}
           </div>
         </div>
+
       </div>
     </div>
   );
