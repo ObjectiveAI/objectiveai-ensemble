@@ -10,6 +10,7 @@ import { loadReasoningModels } from "../../../lib/reasoning-models";
 import { useIsMobile } from "../../../hooks/useIsMobile";
 import { useObjectiveAI } from "../../../hooks/useObjectiveAI";
 import { InputBuilder } from "../../../components/InputBuilder";
+import { LoadingSpinner, ErrorAlert, EmptyState, SkeletonFunctionDetails } from "../../../components/ui";
 import SchemaFormBuilder from "../../../components/SchemaForm/SchemaFormBuilder";
 import type { InputSchema, InputValue } from "../../../components/SchemaForm/types";
 import SplitItemDisplay from "../../../components/SplitItemDisplay";
@@ -697,22 +698,7 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
   // Loading state
   if (isLoadingDetails) {
-    return (
-      <div className="page">
-        <div className="container" style={{ paddingTop: "100px", textAlign: "center" }}>
-          <div style={{
-            width: "40px",
-            height: "40px",
-            border: "3px solid var(--border)",
-            borderTopColor: "var(--accent)",
-            borderRadius: "50%",
-            margin: "0 auto 16px",
-            animation: "spin 1s linear infinite",
-          }} />
-          <p style={{ color: "var(--text-muted)" }}>Loading function...</p>
-        </div>
-      </div>
-    );
+    return <SkeletonFunctionDetails />;
   }
 
   // Error state
@@ -1121,136 +1107,136 @@ export default function FunctionDetailPage({ params }: { params: Promise<{ slug:
 
                           <div className="model-breakdown-wrapper">
                             <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? "12px" : "16px" }}>
-                            {(() => {
-                              const displayedVotes = showAllModels ? votes : votes.slice(0, 5);
-                              const completions = results.tasks?.[0]?.completions || [];
+                              {(() => {
+                                const displayedVotes = showAllModels ? votes : votes.slice(0, 5);
+                                const completions = results.tasks?.[0]?.completions || [];
 
-                              return displayedVotes.map((vote, modelIdx) => {
-                                const maxVoteIdx = vote.vote.indexOf(Math.max(...vote.vote));
-                                const confidence = Math.max(...vote.vote) * 100;
-                                // Use readable model name if available, else shortened cryptic ID
-                                const displayName = modelNames[vote.model] || vote.model.slice(0, 8);
-                                const isResolved = !!modelNames[vote.model];
-                                const isExpanded = expandedVotes.has(modelIdx);
-                                // Find matching completion by model ID
-                                const completion = completions.find(c => c.model === vote.model);
-                                // Handle both streaming (delta) and non-streaming (message) structures
-                                const choice = completion?.choices?.[0];
-                                const reasoningText = choice?.message?.content || choice?.delta?.content;
+                                return displayedVotes.map((vote, modelIdx) => {
+                                  const maxVoteIdx = vote.vote.indexOf(Math.max(...vote.vote));
+                                  const confidence = Math.max(...vote.vote) * 100;
+                                  // Use readable model name if available, else shortened cryptic ID
+                                  const displayName = modelNames[vote.model] || vote.model.slice(0, 8);
+                                  const isResolved = !!modelNames[vote.model];
+                                  const isExpanded = expandedVotes.has(modelIdx);
+                                  // Find matching completion by model ID
+                                  const completion = completions.find(c => c.model === vote.model);
+                                  // Handle both streaming (delta) and non-streaming (message) structures
+                                  const choice = completion?.choices?.[0];
+                                  const reasoningText = choice?.message?.content || choice?.delta?.content;
 
-                                return (
-                                  <div key={modelIdx}>
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: isMobile ? "flex-start" : "baseline",
-                                        flexDirection: isMobile ? "column" : "row",
-                                        gap: isMobile ? "4px" : "0",
-                                        marginBottom: "8px",
-                                        cursor: reasoningText ? "pointer" : "default",
-                                      }}
-                                      onClick={() => {
-                                        if (!reasoningText) return;
-                                        setExpandedVotes(prev => {
-                                          const next = new Set(prev);
-                                          if (next.has(modelIdx)) {
-                                            next.delete(modelIdx);
-                                          } else {
-                                            next.add(modelIdx);
-                                          }
-                                          return next;
-                                        });
-                                      }}
-                                    >
-                                      <span style={{ fontSize: isMobile ? "12px" : "13px", color: "var(--text)" }}>
-                                        {reasoningText && (
-                                          <span style={{
-                                            display: "inline-block",
-                                            width: "16px",
-                                            color: "var(--text-muted)",
-                                            fontSize: "10px",
-                                          }}>
-                                            {isExpanded ? "▼" : "▶"}
+                                  return (
+                                    <div key={modelIdx}>
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: isMobile ? "flex-start" : "baseline",
+                                          flexDirection: isMobile ? "column" : "row",
+                                          gap: isMobile ? "4px" : "0",
+                                          marginBottom: "8px",
+                                          cursor: reasoningText ? "pointer" : "default",
+                                        }}
+                                        onClick={() => {
+                                          if (!reasoningText) return;
+                                          setExpandedVotes(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(modelIdx)) {
+                                              next.delete(modelIdx);
+                                            } else {
+                                              next.add(modelIdx);
+                                            }
+                                            return next;
+                                          });
+                                        }}
+                                      >
+                                        <span style={{ fontSize: isMobile ? "12px" : "13px", color: "var(--text)" }}>
+                                          {reasoningText && (
+                                            <span style={{
+                                              display: "inline-block",
+                                              width: "16px",
+                                              color: "var(--text-muted)",
+                                              fontSize: "10px",
+                                            }}>
+                                              {isExpanded ? "▼" : "▶"}
+                                            </span>
+                                          )}
+                                          <span
+                                            className={isResolved ? "model-name" : "model-id"}
+                                            style={{
+                                              fontFamily: isResolved ? "inherit" : "monospace",
+                                              fontSize: isResolved ? (isMobile ? "12px" : "13px") : (isMobile ? "11px" : "12px"),
+                                              color: isResolved ? "var(--text)" : "var(--text-muted)",
+                                            }}
+                                          >
+                                            {displayName}
                                           </span>
-                                        )}
-                                        <span
-                                          className={isResolved ? "model-name" : "model-id"}
-                                          style={{
-                                            fontFamily: isResolved ? "inherit" : "monospace",
-                                            fontSize: isResolved ? (isMobile ? "12px" : "13px") : (isMobile ? "11px" : "12px"),
-                                            color: isResolved ? "var(--text)" : "var(--text-muted)",
-                                          }}
-                                        >
-                                          {displayName}
+                                          <span style={{ margin: "0 6px", color: "var(--text-muted)" }}>→</span>
+                                          {isMobile ? getOptionLabel(maxVoteIdx).slice(0, 15) + (getOptionLabel(maxVoteIdx).length > 15 ? "…" : "") : getOptionLabel(maxVoteIdx)}
                                         </span>
-                                        <span style={{ margin: "0 6px", color: "var(--text-muted)" }}>→</span>
-                                        {isMobile ? getOptionLabel(maxVoteIdx).slice(0, 15) + (getOptionLabel(maxVoteIdx).length > 15 ? "…" : "") : getOptionLabel(maxVoteIdx)}
-                                      </span>
-                                      <span style={{ fontSize: isMobile ? "12px" : "13px" }}>
-                                        <span style={{ color: getScoreColor(confidence), fontWeight: 500 }}>
-                                          {confidence.toFixed(0)}%
-                                        </span>
-                                        {!isMobile && (
-                                          <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px" }}>
-                                            w:{vote.weight}
+                                        <span style={{ fontSize: isMobile ? "12px" : "13px" }}>
+                                          <span style={{ color: getScoreColor(confidence), fontWeight: 500 }}>
+                                            {confidence.toFixed(0)}%
                                           </span>
-                                        )}
-                                      </span>
-                                    </div>
-                                    {/* Progress bar - muted fill, no color */}
-                                    <div style={{
-                                      height: "6px",
-                                      background: "var(--border)",
-                                      borderRadius: "3px",
-                                      overflow: "hidden",
-                                    }}>
-                                      <div style={{
-                                        height: "100%",
-                                        width: `${confidence}%`,
-                                        background: "var(--text-muted)",
-                                        borderRadius: "3px",
-                                        opacity: 0.4,
-                                      }} />
-                                    </div>
-                                    {/* Expanded reasoning */}
-                                    {isExpanded && reasoningText && (
-                                      <div style={{
-                                        marginTop: "8px",
-                                        padding: "12px",
-                                        background: "var(--page-bg)",
-                                        borderRadius: "8px",
-                                        fontSize: "12px",
-                                        color: "var(--text-muted)",
-                                        lineHeight: 1.5,
-                                        whiteSpace: "pre-wrap",
-                                      }}>
-                                        {reasoningText}
+                                          {!isMobile && (
+                                            <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px" }}>
+                                              w:{vote.weight}
+                                            </span>
+                                          )}
+                                        </span>
                                       </div>
-                                    )}
-                                  </div>
-                                );
-                              });
-                            })()}
-                            {votes.length > 5 && (
-                              <button
-                                onClick={() => setShowAllModels(!showAllModels)}
-                                style={{
-                                  background: "none",
-                                  border: "none",
-                                  padding: 0,
-                                  fontSize: "12px",
-                                  color: "var(--accent)",
-                                  cursor: "pointer",
-                                  textAlign: "left",
-                                }}
-                              >
-                                {showAllModels
-                                  ? "Show less"
-                                  : `+${votes.length - 5} more model${votes.length - 5 !== 1 ? "s" : ""}`
-                                }
-                              </button>
-                            )}
+                                      {/* Progress bar - muted fill, no color */}
+                                      <div style={{
+                                        height: "6px",
+                                        background: "var(--border)",
+                                        borderRadius: "3px",
+                                        overflow: "hidden",
+                                      }}>
+                                        <div style={{
+                                          height: "100%",
+                                          width: `${confidence}%`,
+                                          background: "var(--text-muted)",
+                                          borderRadius: "3px",
+                                          opacity: 0.4,
+                                        }} />
+                                      </div>
+                                      {/* Expanded reasoning */}
+                                      {isExpanded && reasoningText && (
+                                        <div style={{
+                                          marginTop: "8px",
+                                          padding: "12px",
+                                          background: "var(--page-bg)",
+                                          borderRadius: "8px",
+                                          fontSize: "12px",
+                                          color: "var(--text-muted)",
+                                          lineHeight: 1.5,
+                                          whiteSpace: "pre-wrap",
+                                        }}>
+                                          {reasoningText}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                });
+                              })()}
+                              {votes.length > 5 && (
+                                <button
+                                  onClick={() => setShowAllModels(!showAllModels)}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    padding: 0,
+                                    fontSize: "12px",
+                                    color: "var(--accent)",
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  {showAllModels
+                                    ? "Show less"
+                                    : `+${votes.length - 5} more model${votes.length - 5 !== 1 ? "s" : ""}`
+                                  }
+                                </button>
+                              )}
                             </div>
                           </div>
 

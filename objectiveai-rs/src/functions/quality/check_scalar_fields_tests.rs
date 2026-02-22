@@ -4,7 +4,7 @@
 
 use super::check_scalar_fields::{ScalarFieldsValidation, check_scalar_fields};
 use crate::functions::expression::{
-    InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
+    AnyOfInputSchema, InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
 };
 use crate::util::index_map;
 
@@ -63,4 +63,14 @@ fn valid_object_schema() {
             required: Some(vec!["name".to_string(), "age".to_string()]),
         }),
     });
+}
+
+#[test]
+fn no_example_inputs() {
+    test_err(
+        ScalarFieldsValidation {
+            input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
+        },
+        "QI01",
+    );
 }

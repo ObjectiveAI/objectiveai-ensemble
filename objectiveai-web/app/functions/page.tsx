@@ -7,7 +7,7 @@ import { createPublicClient } from "../../lib/client";
 import { deriveCategory, deriveDisplayName } from "../../lib/objectiveai";
 import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT, STICKY_SEARCH_OVERLAP } from "../../lib/constants";
 import { useResponsive } from "../../hooks/useResponsive";
-import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
+import { LoadingSpinner, ErrorAlert, EmptyState, SkeletonCard } from "../../components/ui";
 
 // Function item type for UI
 interface FunctionItem {
@@ -115,7 +115,7 @@ export default function FunctionsPage() {
       const navHeight = navHeightStr ? parseInt(navHeightStr) : (isMobile ? 84 : 96);
       setNavOffset(navHeight);
     };
-    
+
     updateOffset();
     window.addEventListener('resize', updateOffset);
     const timer = setTimeout(updateOffset, NAV_HEIGHT_CALCULATION_DELAY_MS);
@@ -245,8 +245,8 @@ export default function FunctionsPage() {
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={`filterChip ${selectedCategory === cat ? 'active' : ''}`}
-                    style={{ 
-                      textAlign: 'left', 
+                    style={{
+                      textAlign: 'left',
                       padding: '8px 14px',
                       opacity: cat === 'Pinned' && pinnedFunctions.length === 0 ? 0.5 : 1,
                     }}
@@ -287,7 +287,116 @@ export default function FunctionsPage() {
           }}>
             {/* Only render grid when we have results */}
             {!isLoading && !error && visibleFunctions.length > 0 && (
-            <>
+              <>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile
+                    ? '1fr'
+                    : isTablet
+                      ? 'repeat(2, 1fr)'
+                      : filtersOpen
+                        ? 'repeat(2, 1fr)'
+                        : 'repeat(3, 1fr)',
+                  gap: isMobile ? '12px' : '16px',
+                }}>
+                  {visibleFunctions.map(fn => (
+                    <Link
+                      key={fn.slug}
+                      href={`/functions/${fn.slug}`}
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <div className="card" style={{
+                        cursor: 'pointer',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative',
+                        padding: '16px',
+                      }}>
+                        <span className="tag" style={{ alignSelf: 'flex-start', marginBottom: '8px', fontSize: '11px', padding: '4px 10px' }}>
+                          {fn.category}
+                        </span>
+                        <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
+                          {fn.name}
+                        </h3>
+                        <p className="card-description" style={{
+                          fontSize: '13px',
+                          lineHeight: 1.5,
+                          color: 'var(--text-muted)',
+                          flex: 1,
+                          marginBottom: '12px',
+                        }}>
+                          {fn.description}
+                        </p>
+                        <div style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '4px',
+                          marginBottom: '10px',
+                        }}>
+                          {fn.tags.slice(0, 2).map(tag => (
+                            <span key={tag} style={{
+                              fontSize: '11px',
+                              padding: '3px 8px',
+                              background: 'var(--border)',
+                              borderRadius: '10px',
+                              color: 'var(--text-muted)',
+                            }}>
+                              {tag}
+                            </span>
+                          ))}
+                          {fn.tags.length > 2 && (
+                            <span style={{
+                              fontSize: '11px',
+                              padding: '3px 8px',
+                              color: 'var(--text-muted)',
+                            }}>
+                              +{fn.tags.length - 2}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: 'var(--accent)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}>
+                          Open <span>→</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+
+                {hasMore && (
+                  <button
+                    onClick={() => setVisibleCount(prev => prev + LOAD_MORE_COUNT)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '16px',
+                      marginTop: '24px',
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: 'var(--accent)',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'opacity 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  >
+                    Load more ({filteredFunctions.length - visibleCount} remaining)
+                  </button>
+                )}
+              </>
+            )}
+
+            {isLoading && (
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: isMobile
@@ -299,106 +408,10 @@ export default function FunctionsPage() {
                       : 'repeat(3, 1fr)',
                 gap: isMobile ? '12px' : '16px',
               }}>
-                {visibleFunctions.map(fn => (
-                <Link
-                  key={fn.slug}
-                  href={`/functions/${fn.slug}`}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  <div className="card" style={{
-                    cursor: 'pointer',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative',
-                    padding: '16px',
-                  }}>
-                    <span className="tag" style={{ alignSelf: 'flex-start', marginBottom: '8px', fontSize: '11px', padding: '4px 10px' }}>
-                      {fn.category}
-                    </span>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
-                      {fn.name}
-                    </h3>
-                    <p className="card-description" style={{
-                      fontSize: '13px',
-                      lineHeight: 1.5,
-                      color: 'var(--text-muted)',
-                      flex: 1,
-                      marginBottom: '12px',
-                    }}>
-                      {fn.description}
-                    </p>
-                    <div style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '4px',
-                      marginBottom: '10px',
-                    }}>
-                      {fn.tags.slice(0, 2).map(tag => (
-                        <span key={tag} style={{
-                          fontSize: '11px',
-                          padding: '3px 8px',
-                          background: 'var(--border)',
-                          borderRadius: '10px',
-                          color: 'var(--text-muted)',
-                        }}>
-                          {tag}
-                        </span>
-                      ))}
-                      {fn.tags.length > 2 && (
-                        <span style={{
-                          fontSize: '11px',
-                          padding: '3px 8px',
-                          color: 'var(--text-muted)',
-                        }}>
-                          +{fn.tags.length - 2}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--accent)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}>
-                      Open <span>→</span>
-                    </div>
-                  </div>
-                </Link>
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <SkeletonCard key={i} />
                 ))}
               </div>
-
-              {/* Load More */}
-              {hasMore && (
-                <button
-                  onClick={() => setVisibleCount(prev => prev + LOAD_MORE_COUNT)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    padding: '16px',
-                    marginTop: '24px',
-                    background: 'none',
-                    border: 'none',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: 'var(--accent)',
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                    transition: 'opacity 0.2s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                >
-                  Load more ({filteredFunctions.length - visibleCount} remaining)
-                </button>
-              )}
-            </>
-            )}
-
-            {isLoading && (
-              <LoadingSpinner fullPage message="Loading functions..." />
             )}
 
             {error && !isLoading && (
@@ -465,7 +478,7 @@ export default function FunctionsPage() {
                   ✕
                 </button>
               </div>
-              
+
               <h4 style={{
                 fontSize: '12px',
                 fontWeight: 600,
@@ -485,7 +498,7 @@ export default function FunctionsPage() {
                       setFiltersOpen(false);
                     }}
                     className={`filterChip ${selectedCategory === cat ? 'active' : ''}`}
-                    style={{ 
+                    style={{
                       opacity: cat === 'Pinned' && pinnedFunctions.length === 0 ? 0.5 : 1,
                     }}
                     disabled={cat === 'Pinned' && pinnedFunctions.length === 0}

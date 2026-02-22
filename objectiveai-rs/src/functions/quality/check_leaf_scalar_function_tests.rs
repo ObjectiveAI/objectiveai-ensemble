@@ -9,9 +9,9 @@ use crate::chat::completions::request::{
     SystemMessageExpression, ToolMessageExpression, UserMessageExpression,
 };
 use crate::functions::expression::{
-    ArrayInputSchema, BooleanInputSchema, Expression, ImageInputSchema,
-    InputSchema, IntegerInputSchema, ObjectInputSchema, StringInputSchema,
-    WithExpression,
+    AnyOfInputSchema, ArrayInputSchema, BooleanInputSchema, Expression,
+    ImageInputSchema, InputSchema, IntegerInputSchema, ObjectInputSchema,
+    StringInputSchema, WithExpression,
 };
 use crate::functions::quality::check_leaf_scalar_function;
 use crate::functions::{
@@ -2310,4 +2310,50 @@ fn all_tasks_skipped() {
         ],
     };
     test_err(&f, "CV42");
+}
+
+#[test]
+fn no_example_inputs() {
+    let f = RemoteFunction::Scalar {
+        description: "test".to_string(),
+        input_schema: InputSchema::AnyOf(AnyOfInputSchema { any_of: vec![] }),
+        input_maps: None,
+        tasks: vec![TaskExpression::VectorCompletion(
+            VectorCompletionTaskExpression {
+                skip: None,
+                map: None,
+                messages: WithExpression::Value(vec![WithExpression::Value(
+                    MessageExpression::User(UserMessageExpression {
+                        content: WithExpression::Value(
+                            RichContentExpression::Parts(vec![
+                                WithExpression::Value(
+                                    RichContentPartExpression::Text {
+                                        text: WithExpression::Value(
+                                            "Hello".to_string(),
+                                        ),
+                                    },
+                                ),
+                            ]),
+                        ),
+                        name: None,
+                    }),
+                )]),
+                tools: None,
+                responses: WithExpression::Value(vec![
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("Yes".to_string()),
+                        }),
+                    ])),
+                    WithExpression::Value(RichContentExpression::Parts(vec![
+                        WithExpression::Value(RichContentPartExpression::Text {
+                            text: WithExpression::Value("No".to_string()),
+                        }),
+                    ])),
+                ]),
+                output: Expression::Starlark("output['scores'][0]".to_string()),
+            },
+        )],
+    };
+    test_err(&f, "QI01");
 }
