@@ -3572,6 +3572,18 @@ function writeFinalStateToFilesystem(dir, state, parameters) {
     if (specs) writePlaceholderTaskSpecsToFilesystem(dir, specs);
   }
 }
+
+// src/http.ts
+async function fetchWithRetries(url, init, maxRetries = 3) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      if (attempt >= maxRetries) throw err;
+      await new Promise((r) => setTimeout(r, 1e3 * 2 ** attempt));
+    }
+  }
+}
 var execOpts = { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] };
 function getRepoRoot(dir) {
   try {
@@ -3689,7 +3701,7 @@ function fetchRemoteFunction(owner, repository, commit2) {
   }
   const promise = (async () => {
     const url = `https://raw.githubusercontent.com/${owner}/${repository}/${commit2}/function.json`;
-    const response = await fetch(url);
+    const response = await fetchWithRetries(url);
     if (response.status === 404) {
       return null;
     }
@@ -3731,7 +3743,7 @@ async function fetchRemoteFunctions(refs) {
 }
 async function repoExists(name, gitHubToken) {
   try {
-    const userRes = await fetch("https://api.github.com/user", {
+    const userRes = await fetchWithRetries("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${gitHubToken}`,
         Accept: "application/vnd.github.v3+json"
@@ -3739,7 +3751,7 @@ async function repoExists(name, gitHubToken) {
     });
     if (!userRes.ok) return false;
     const user = await userRes.json();
-    const res = await fetch(
+    const res = await fetchWithRetries(
       `https://api.github.com/repos/${user.login}/${name}`,
       {
         headers: {
@@ -3756,7 +3768,7 @@ async function repoExists(name, gitHubToken) {
 async function commitExistsOnRemote(owner, repository, sha, gitHubToken) {
   try {
     const url = `https://api.github.com/repos/${owner}/${repository}/commits/${sha}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetries(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
         Authorization: `Bearer ${gitHubToken}`
@@ -3799,7 +3811,7 @@ async function pushInitial(options) {
   initRepo(dir);
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
-  const res = await fetch("https://api.github.com/user/repos", {
+  const res = await fetchWithRetries("https://api.github.com/user/repos", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${gitHubToken}`,
@@ -3825,7 +3837,7 @@ function getAuthenticatedUser(gitHubToken) {
   const cached = authenticatedUserCache.get(gitHubToken);
   if (cached) return cached;
   const promise = (async () => {
-    const res = await fetch("https://api.github.com/user", {
+    const res = await fetchWithRetries("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${gitHubToken}`,
         Accept: "application/vnd.github.v3+json"
@@ -3860,7 +3872,7 @@ async function pushFinal(options) {
   const parsed = parseGitHubRemote(remoteUrl);
   if (!parsed) throw new Error("Remote is not a GitHub repository");
   const { owner, repository } = parsed;
-  const res = await fetch(
+  const res = await fetchWithRetries(
     `https://api.github.com/repos/${owner}/${repository}`,
     {
       method: "PATCH",
@@ -3883,7 +3895,7 @@ async function pushFinal(options) {
   push(dir, gitHubToken);
 }
 async function ensureRemote(dir, name, gitHubToken) {
-  const res = await fetch("https://api.github.com/user/repos", {
+  const res = await fetchWithRetries("https://api.github.com/user/repos", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${gitHubToken}`,
@@ -3896,7 +3908,7 @@ async function ensureRemote(dir, name, gitHubToken) {
     const repo = await res.json();
     addRemote(dir, `https://github.com/${repo.owner.login}/${repo.name}.git`);
   } else if (res.status === 422) {
-    const user = await fetch("https://api.github.com/user", {
+    const user = await fetchWithRetries("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${gitHubToken}`,
         Accept: "application/vnd.github.v3+json"
