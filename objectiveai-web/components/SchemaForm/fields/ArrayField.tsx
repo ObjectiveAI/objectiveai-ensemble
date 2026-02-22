@@ -19,7 +19,7 @@ export default function ArrayField({
   isMobile,
   depth = 0,
 }: ArrayFieldProps) {
-  const items = value ?? [];
+  const items = Array.isArray(value) ? value : [];
   const canAdd = schema.maxItems == null || items.length < schema.maxItems;
   const canRemove = items.length > (schema.minItems ?? 0);
 

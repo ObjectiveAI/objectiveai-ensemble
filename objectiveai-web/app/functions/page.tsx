@@ -7,7 +7,7 @@ import { createPublicClient } from "../../lib/client";
 import { deriveCategory, deriveDisplayName } from "../../lib/objectiveai";
 import { NAV_HEIGHT_CALCULATION_DELAY_MS, STICKY_BAR_HEIGHT, STICKY_SEARCH_OVERLAP } from "../../lib/constants";
 import { useResponsive } from "../../hooks/useResponsive";
-import { LoadingSpinner, ErrorAlert, EmptyState } from "../../components/ui";
+import { ErrorAlert, EmptyState, SkeletonCard } from "../../components/ui";
 
 // Function item type for UI
 interface FunctionItem {
@@ -60,36 +60,38 @@ export default function FunctionsPage() {
           }
         }
 
-        // Fetch details for each unique function via API route
-        const functionItems: FunctionItem[] = await Promise.all(
-          Array.from(uniqueFunctions.values()).map(async (fn) => {
-            const slug = `${fn.owner}/${fn.repository}`;
+        // Fetch details for each unique function (gracefully skip any that 404)
+        const results = await Promise.all(
+          Array.from(uniqueFunctions.values()).map(async (fn): Promise<FunctionItem | null> => {
+            try {
+              const slug = `${fn.owner}/${fn.repository}`;
 
-            // Fetch full function details via SDK
-            const details = await Functions.retrieve(client, "github", fn.owner, fn.repository, fn.commit);
+              const details = await Functions.retrieve(client, "github", fn.owner, fn.repository, fn.commit);
 
-            const category = deriveCategory(details);
-            const name = deriveDisplayName(fn.repository);
+              const category = deriveCategory(details);
+              const name = deriveDisplayName(fn.repository);
 
-            // Extract tags from repository name
-            const tags = fn.repository.split("-").filter((t: string) => t.length > 2);
-            if (details.type === "vector.function") tags.push("ranking");
-            else tags.push("scoring");
+              const tags = fn.repository.split("-").filter((t: string) => t.length > 2);
+              if (details.type === "vector.function") tags.push("ranking");
+              else tags.push("scoring");
 
-            return {
-              slug,
-              owner: fn.owner,
-              repository: fn.repository,
-              commit: fn.commit,
-              name,
-              description: details.description || `${name} function`,
-              category,
-              tags,
-            };
+              return {
+                slug,
+                owner: fn.owner,
+                repository: fn.repository,
+                commit: fn.commit,
+                name,
+                description: details.description || `${name} function`,
+                category,
+                tags,
+              };
+            } catch {
+              return null;
+            }
           })
         );
 
-        setFunctions(functionItems);
+        setFunctions(results.filter((item): item is FunctionItem => item !== null));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load functions");
       } finally {
@@ -398,7 +400,21 @@ export default function FunctionsPage() {
             )}
 
             {isLoading && (
-              <LoadingSpinner fullPage message="Loading functions..." />
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile
+                  ? '1fr'
+                  : isTablet
+                    ? 'repeat(2, 1fr)'
+                    : filtersOpen
+                      ? 'repeat(2, 1fr)'
+                      : 'repeat(3, 1fr)',
+                gap: isMobile ? '12px' : '16px',
+              }}>
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
             )}
 
             {error && !isLoading && (
