@@ -36,6 +36,7 @@ where
     async fn get_profile_usage(
         &self,
         _ctx: ctx::Context<CTXEXT>,
+        remote: objectiveai::functions::Remote,
         owner: &str,
         repository: &str,
         commit: Option<&str>,
@@ -43,7 +44,7 @@ where
         objectiveai::functions::profiles::response::UsageProfile,
         objectiveai::error::ResponseError,
     > {
-        objectiveai::functions::profiles::get_profile_usage(&self.client, owner, repository, commit)
+        objectiveai::functions::profiles::get_profile_usage(&self.client, remote, owner, repository, commit)
             .await
             .map_err(|e| objectiveai::error::ResponseError::from(&e))
     }

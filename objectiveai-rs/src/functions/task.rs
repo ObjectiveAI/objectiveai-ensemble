@@ -152,9 +152,11 @@ impl Task {
 /// Expression for a task that calls a scalar function (pre-compilation).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScalarFunctionTaskExpression {
-    /// GitHub repository owner.
+    /// The remote source where the function is hosted.
+    pub remote: super::Remote,
+    /// Repository owner.
     pub owner: String,
-    /// GitHub repository name.
+    /// Repository name.
     pub repository: String,
     /// Git commit SHA for the function version.
     pub commit: String,
@@ -200,6 +202,7 @@ impl ScalarFunctionTaskExpression {
     ) -> Result<ScalarFunctionTask, super::expression::ExpressionError> {
         let input = self.input.compile_one(params)?.compile(params)?;
         Ok(ScalarFunctionTask {
+            remote: self.remote,
             owner: self.owner,
             repository: self.repository,
             commit: self.commit,
@@ -212,9 +215,11 @@ impl ScalarFunctionTaskExpression {
 /// A compiled scalar function task ready for execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScalarFunctionTask {
-    /// GitHub repository owner.
+    /// The remote source where the function is hosted.
+    pub remote: super::Remote,
+    /// Repository owner.
     pub owner: String,
-    /// GitHub repository name.
+    /// Repository name.
     pub repository: String,
     /// Git commit SHA for the function version.
     pub commit: String,
@@ -251,9 +256,11 @@ impl ScalarFunctionTask {
 /// Expression for a task that calls a vector function (pre-compilation).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VectorFunctionTaskExpression {
-    /// GitHub repository owner.
+    /// The remote source where the function is hosted.
+    pub remote: super::Remote,
+    /// Repository owner.
     pub owner: String,
-    /// GitHub repository name.
+    /// Repository name.
     pub repository: String,
     /// Git commit SHA for the function version.
     pub commit: String,
@@ -299,6 +306,7 @@ impl VectorFunctionTaskExpression {
     ) -> Result<VectorFunctionTask, super::expression::ExpressionError> {
         let input = self.input.compile_one(params)?.compile(params)?;
         Ok(VectorFunctionTask {
+            remote: self.remote,
             owner: self.owner,
             repository: self.repository,
             commit: self.commit,
@@ -311,9 +319,11 @@ impl VectorFunctionTaskExpression {
 /// A compiled vector function task ready for execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VectorFunctionTask {
-    /// GitHub repository owner.
+    /// The remote source where the function is hosted.
+    pub remote: super::Remote,
+    /// Repository owner.
     pub owner: String,
-    /// GitHub repository name.
+    /// Repository name.
     pub repository: String,
     /// Git commit SHA for the function version.
     pub commit: String,

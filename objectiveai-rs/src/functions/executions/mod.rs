@@ -3,7 +3,7 @@
 //! Function executions run a Function with a Profile against provided input
 //! data. Supports four combinations of remote/inline Functions and Profiles:
 //!
-//! - Remote Function + Remote Profile (reference both by GitHub repo)
+//! - Remote Function + Remote Profile (reference both by remote/owner/repository)
 //! - Remote Function + Inline Profile
 //! - Inline Function + Remote Profile
 //! - Inline Function + Inline Profile

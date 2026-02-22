@@ -13,9 +13,11 @@ pub struct ListProfile {
 /// A profile in a list response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListProfileItem {
-    /// GitHub repository owner.
+    /// The remote source where the profile is hosted.
+    pub remote: functions::Remote,
+    /// Repository owner.
     pub owner: String,
-    /// GitHub repository name.
+    /// Repository name.
     pub repository: String,
     /// Git commit SHA.
     pub commit: String,
@@ -23,6 +25,7 @@ pub struct ListProfileItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetProfile {
+    pub remote: functions::Remote,
     pub owner: String,
     pub repository: String,
     pub commit: String,

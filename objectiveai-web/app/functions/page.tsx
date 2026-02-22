@@ -66,7 +66,7 @@ export default function FunctionsPage() {
             const slug = `${fn.owner}/${fn.repository}`;
 
             // Fetch full function details via SDK
-            const details = await Functions.retrieve(client, fn.owner, fn.repository, fn.commit);
+            const details = await Functions.retrieve(client, "github", fn.owner, fn.repository, fn.commit);
 
             const category = deriveCategory(details);
             const name = deriveDisplayName(fn.repository);

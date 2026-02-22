@@ -4788,6 +4788,7 @@ function replacePlaceholderTask(tasks, index, placeholder, orc) {
   if (placeholder.type === "placeholder.scalar.function") {
     tasks[index] = {
       type: "scalar.function",
+      remote: "github",
       owner: orc.owner,
       repository: orc.repository,
       commit: orc.commit,
@@ -4799,6 +4800,7 @@ function replacePlaceholderTask(tasks, index, placeholder, orc) {
   } else if (placeholder.type === "placeholder.vector.function") {
     tasks[index] = {
       type: "vector.function",
+      remote: "github",
       owner: orc.owner,
       repository: orc.repository,
       commit: orc.commit,

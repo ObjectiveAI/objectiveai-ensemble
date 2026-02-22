@@ -187,10 +187,10 @@ impl MapFunctionFlatTaskProfile {
 pub struct FunctionFlatTaskProfile {
     /// Path to this task in the Function tree (indices into tasks arrays).
     pub path: Vec<u64>,
-    /// Full Function ID (owner, repository, commit) if from GitHub.
-    pub full_function_id: Option<(String, String, String)>,
-    /// Full Profile ID (owner, repository, commit) if from GitHub.
-    pub full_profile_id: Option<(String, String, String)>,
+    /// Full Function ID (remote, owner, repository, commit) if remote.
+    pub full_function_id: Option<(objectiveai::functions::Remote, String, String, String)>,
+    /// Full Profile ID (remote, owner, repository, commit) if remote.
+    pub full_profile_id: Option<(objectiveai::functions::Remote, String, String, String)>,
     /// Description from the Function definition.
     pub description: Option<String>,
     /// The compiled input for this Function.
@@ -419,15 +419,16 @@ impl MapPlaceholderVectorFunctionFlatTaskProfile {
 /// Parameter for specifying a function source.
 #[derive(Debug, Clone)]
 pub enum FunctionParam {
-    /// Function to fetch from GitHub by owner/repository/commit.
+    /// Function to fetch from a remote source by owner/repository/commit.
     Remote {
+        remote: objectiveai::functions::Remote,
         owner: String,
         repository: String,
         commit: Option<String>,
     },
     /// Already-fetched or inline function definition.
     FetchedOrInline {
-        full_id: Option<(String, String, String)>,
+        full_id: Option<(objectiveai::functions::Remote, String, String, String)>,
         function: objectiveai::functions::Function,
     },
 }
@@ -435,15 +436,16 @@ pub enum FunctionParam {
 /// Parameter for specifying a profile source.
 #[derive(Debug, Clone)]
 pub enum ProfileParam {
-    /// Profile to fetch from GitHub by owner/repository/commit.
+    /// Profile to fetch from a remote source by owner/repository/commit.
     Remote {
+        remote: objectiveai::functions::Remote,
         owner: String,
         repository: String,
         commit: Option<String>,
     },
     /// Already-fetched or inline profile definition.
     FetchedOrInline {
-        full_id: Option<(String, String, String)>,
+        full_id: Option<(objectiveai::functions::Remote, String, String, String)>,
         profile: objectiveai::functions::Profile,
     },
 }
@@ -479,18 +481,20 @@ where
 {
     // fetch function and profile if needed
     let (function_full_id, function, profile_full_id, profile): (
-        Option<(String, String, String)>,
+        Option<(objectiveai::functions::Remote, String, String, String)>,
         objectiveai::functions::Function,
-        Option<(String, String, String)>,
+        Option<(objectiveai::functions::Remote, String, String, String)>,
         objectiveai::functions::Profile,
     ) = match (function, profile) {
         (
             FunctionParam::Remote {
+                remote: fremote,
                 owner: fowner,
                 repository: frepository,
                 commit: fcommit,
             },
             ProfileParam::Remote {
+                remote: premote,
                 owner: powner,
                 repository: prepository,
                 commit: pcommit,
@@ -500,6 +504,7 @@ where
                 function_fetcher
                     .fetch(
                         ctx.clone(),
+                        fremote,
                         &fowner,
                         &frepository,
                         fcommit.as_deref()
@@ -516,6 +521,7 @@ where
                 profile_fetcher
                     .fetch(
                         ctx.clone(),
+                        premote,
                         &powner,
                         &prepository,
                         pcommit.as_deref(),
@@ -530,14 +536,15 @@ where
                     }),
             )?;
             (
-                Some((fowner.to_owned(), frepository.to_owned(), fcommit)),
+                Some((fremote, fowner.to_owned(), frepository.to_owned(), fcommit)),
                 objectiveai::functions::Function::Remote(function),
-                Some((powner, prepository, pcommit)),
+                Some((premote, powner, prepository, pcommit)),
                 objectiveai::functions::Profile::Remote(profile),
             )
         }
         (
             FunctionParam::Remote {
+                remote: fremote,
                 owner: fowner,
                 repository: frepository,
                 commit: fcommit,
@@ -548,7 +555,7 @@ where
             },
         ) => {
             let (function, fcommit) = match function_fetcher
-                .fetch(ctx.clone(), &fowner, &frepository, fcommit.as_deref())
+                .fetch(ctx.clone(), fremote, &fowner, &frepository, fcommit.as_deref())
                 .await
             {
                 Ok(Some(function)) => Ok((function.inner, function.commit)),
@@ -556,7 +563,7 @@ where
                 Err(e) => Err(super::executions::Error::FetchFunction(e)),
             }?;
             (
-                Some((fowner, frepository, fcommit)),
+                Some((fremote, fowner, frepository, fcommit)),
                 objectiveai::functions::Function::Remote(function),
                 pfull_id,
                 profile,
@@ -568,13 +575,14 @@ where
                 function,
             },
             ProfileParam::Remote {
+                remote: premote,
                 owner: powner,
                 repository: prepository,
                 commit: pcommit,
             },
         ) => {
             let (profile, pcommit) = match profile_fetcher
-                .fetch(ctx.clone(), &powner, &prepository, pcommit.as_deref())
+                .fetch(ctx.clone(), premote, &powner, &prepository, pcommit.as_deref())
                 .await
             {
                 Ok(Some(profile)) => Ok((profile.inner, profile.commit)),
@@ -584,7 +592,7 @@ where
             (
                 ffull_id,
                 function,
-                Some((powner, prepository, pcommit)),
+                Some((premote, powner, prepository, pcommit)),
                 objectiveai::functions::Profile::Remote(profile),
             )
         }
@@ -783,6 +791,7 @@ where
             objectiveai::functions::CompiledTask::One(
                 objectiveai::functions::Task::ScalarFunction(
                     objectiveai::functions::ScalarFunctionTask {
+                        remote,
                         owner,
                         repository,
                         commit,
@@ -794,6 +803,7 @@ where
             | objectiveai::functions::CompiledTask::One(
                 objectiveai::functions::Task::VectorFunction(
                     objectiveai::functions::VectorFunctionTask {
+                        remote,
                         owner,
                         repository,
                         commit,
@@ -806,10 +816,12 @@ where
                 let profile_param = if let Some(task_profile) = task_profile {
                     match task_profile {
                         objectiveai::functions::TaskProfile::Remote {
+                            remote: tp_remote,
                             owner,
                             repository,
                             commit,
                         } => ProfileParam::Remote {
+                            remote: tp_remote,
                             owner,
                             repository,
                             commit,
@@ -845,6 +857,7 @@ where
                         ctx.clone(),
                         task_path,
                         FunctionParam::Remote {
+                            remote,
                             owner,
                             repository,
                             commit: Some(commit),
@@ -1032,6 +1045,15 @@ where
                                 ctx.clone(),
                                 task_path,
                                 FunctionParam::Remote {
+                                    remote: match &task {
+                                        objectiveai::functions::Task::ScalarFunction(
+                                            sf_task,
+                                        ) => sf_task.remote,
+                                        objectiveai::functions::Task::VectorFunction(
+                                            vf_task,
+                                        ) => vf_task.remote,
+                                        _ => unreachable!(),
+                                    },
                                     owner: match &task {
                                         objectiveai::functions::Task::ScalarFunction(
                                             sf_task,
@@ -1063,10 +1085,12 @@ where
                                 if let Some(ref task_profile) = task_profile {
                                     match task_profile {
                                         objectiveai::functions::TaskProfile::Remote {
+                                            remote: tp_remote,
                                             owner,
                                             repository,
                                             commit,
                                         } => ProfileParam::Remote {
+                                            remote: *tp_remote,
                                             owner: owner.clone(),
                                             repository: repository.clone(),
                                             commit: commit.clone(),

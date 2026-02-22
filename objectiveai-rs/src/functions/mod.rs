@@ -13,7 +13,7 @@
 //!
 //! # Function Types
 //!
-//! - [`RemoteFunction`] - GitHub-hosted function with description and schema
+//! - [`RemoteFunction`] - Remote function with description and schema
 //! - [`InlineFunction`] - Inline function definition without metadata
 //! - **Scalar** - Produces a single score in [0, 1]
 //! - **Vector** - Produces a vector of scores that sums to 1
@@ -43,12 +43,14 @@ pub mod expression;
 mod function;
 mod profile;
 pub mod profiles;
+mod remote;
 pub mod response;
 mod task;
 pub mod quality;
 
 pub use function::*;
 pub use profile::*;
+pub use remote::*;
 pub use task::*;
 
 #[cfg(feature = "http")]

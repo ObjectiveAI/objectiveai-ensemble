@@ -1,0 +1,13 @@
+[package]
+name = "objectiveai-mcp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+rmcp = { version = "0.16.0", features = ["server", "transport-io"] }
+schemars = "1.2.1"
+serde = { version = "1.0.228", features = ["derive"] }
+tokio = { version = "1.49.0", features = ["full"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }

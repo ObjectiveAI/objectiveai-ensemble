@@ -47,10 +47,11 @@ where
         self.retrieval_client.list_profiles(ctx).await
     }
 
-    /// Retrieves a Profile definition by owner/repository/commit.
+    /// Retrieves a Profile definition by remote/owner/repository/commit.
     pub async fn get_profile(
         &self,
         ctx: ctx::Context<CTXEXT>,
+        remote: objectiveai::functions::Remote,
         owner: &str,
         repository: &str,
         commit: Option<&str>,
@@ -59,7 +60,7 @@ where
         objectiveai::error::ResponseError,
     > {
         self.profile_fetcher
-            .fetch(ctx, owner, repository, commit)
+            .fetch(ctx, remote, owner, repository, commit)
             .await?
             .ok_or_else(|| objectiveai::error::ResponseError {
                 code: 404,
@@ -74,6 +75,7 @@ where
     pub async fn get_profile_usage(
         &self,
         ctx: ctx::Context<CTXEXT>,
+        remote: objectiveai::functions::Remote,
         owner: &str,
         repository: &str,
         commit: Option<&str>,
@@ -82,7 +84,7 @@ where
         objectiveai::error::ResponseError,
     > {
         self.retrieval_client
-            .get_profile_usage(ctx, owner, repository, commit)
+            .get_profile_usage(ctx, remote, owner, repository, commit)
             .await
     }
 }

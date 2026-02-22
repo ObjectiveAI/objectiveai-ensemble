@@ -1,4 +1,5 @@
 import { ObjectiveAI, RequestOptions } from "../../../client";
+import type { Remote } from "../../remote";
 import { Stream } from "../../../stream";
 import { FunctionProfileComputationChunk } from "./response/streaming/function_profile_computation_chunk";
 import { FunctionProfileComputation } from "./response/unary/function_profile_computation";
@@ -45,6 +46,7 @@ export function inlineFunctionCreate(
 
 export function remoteFunctionCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -53,6 +55,7 @@ export function remoteFunctionCreate(
 ): Promise<Stream<FunctionProfileComputationChunk>>;
 export function remoteFunctionCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -61,6 +64,7 @@ export function remoteFunctionCreate(
 ): Promise<FunctionProfileComputation>;
 export function remoteFunctionCreate(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -71,8 +75,8 @@ export function remoteFunctionCreate(
 > {
   const path =
     fcommit !== null && fcommit !== undefined
-      ? `/functions/${fowner}/${frepository}/${fcommit}/profiles/compute`
-      : `/functions/${fowner}/${frepository}/profiles/compute`;
+      ? `/functions/${fremote}/${fowner}/${frepository}/${fcommit}/profiles/compute`
+      : `/functions/${fremote}/${fowner}/${frepository}/profiles/compute`;
   if (body.stream) {
     return client.post_streaming<FunctionProfileComputationChunk>(
       path,
@@ -88,6 +92,7 @@ export function create(
   function_:
     | InlineFunction
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -100,6 +105,7 @@ export function create(
   function_:
     | InlineFunction
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -112,6 +118,7 @@ export function create(
   function_:
     | InlineFunction
     | {
+        remote: Remote;
         owner: string;
         repository: string;
         commit?: string | null | undefined;
@@ -127,6 +134,7 @@ export function create(
     if (requestBody.stream) {
       return remoteFunctionCreate(
         client,
+        function_.remote,
         function_.owner,
         function_.repository,
         function_.commit ?? null,
@@ -136,6 +144,7 @@ export function create(
     } else {
       return remoteFunctionCreate(
         client,
+        function_.remote,
         function_.owner,
         function_.repository,
         function_.commit ?? null,

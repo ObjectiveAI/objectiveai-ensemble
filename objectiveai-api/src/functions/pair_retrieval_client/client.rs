@@ -18,9 +18,11 @@ pub trait Client<CTXEXT> {
     async fn get_function_profile_pair(
         &self,
         ctx: ctx::Context<CTXEXT>,
+        fremote: objectiveai::functions::Remote,
         fowner: &str,
         frepository: &str,
         fcommit: Option<&str>,
+        premote: objectiveai::functions::Remote,
         powner: &str,
         prepository: &str,
         pcommit: Option<&str>,
@@ -33,9 +35,11 @@ pub trait Client<CTXEXT> {
     async fn get_function_profile_pair_usage(
         &self,
         ctx: ctx::Context<CTXEXT>,
+        fremote: objectiveai::functions::Remote,
         fowner: &str,
         frepository: &str,
         fcommit: Option<&str>,
+        premote: objectiveai::functions::Remote,
         powner: &str,
         prepository: &str,
         pcommit: Option<&str>,
