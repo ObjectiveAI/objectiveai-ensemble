@@ -19,6 +19,10 @@ interface VectorCompletionNodeData {
     scores: number[] | null;
     responses: string[] | null;
     voteCount: number;
+    /** Raw vote data for DetailPanel display (LLM nodes no longer rendered in tree). */
+    votes: InputVote[] | null;
+    /** Raw completion data for DetailPanel display. */
+    completions: InputCompletion[] | null;
     error: string | null;
 }
 /** Data payload for an LLM leaf node (one Vote). */
@@ -301,7 +305,7 @@ declare class Viewport {
     /** Pan by screen-space delta. */
     pan(dx: number, dy: number): void;
     /** Zoom to fit all nodes in the viewport with padding. */
-    fitToContent(nodes: Map<string, TreeNode>, canvasWidth: number, canvasHeight: number, padding?: number): void;
+    fitToContent(nodes: Map<string, TreeNode>, canvasWidth: number, canvasHeight: number, padding?: number, minInitialZoom?: number): void;
     /** Animate to a target viewport state. */
     animateTo(target: Partial<ViewportState>, duration?: number): void;
     /** Tick the animation. Returns true if still animating. */

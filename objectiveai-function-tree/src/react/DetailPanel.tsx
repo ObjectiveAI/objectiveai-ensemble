@@ -36,7 +36,7 @@ export function DetailPanel({ node, modelNames, onClose }: DetailPanelProps): Re
         <FunctionDetails data={node.data} />
       )}
       {node.data.kind === "vector-completion" && (
-        <VectorCompletionDetails data={node.data} />
+        <VectorCompletionDetails data={node.data} modelNames={modelNames} />
       )}
       {node.data.kind === "llm" && (
         <LlmDetails data={node.data} modelNames={modelNames} />
@@ -73,7 +73,13 @@ function FunctionDetails({ data }: { data: FunctionNodeData }): React.ReactEleme
   );
 }
 
-function VectorCompletionDetails({ data }: { data: VectorCompletionNodeData }): React.ReactElement {
+function VectorCompletionDetails({
+  data,
+  modelNames,
+}: {
+  data: VectorCompletionNodeData;
+  modelNames?: Record<string, string>;
+}): React.ReactElement {
   return (
     <div className="ft-detail-body">
       <DetailRow label="Task Index" value={data.taskPath.join(" > ")} />
@@ -96,6 +102,43 @@ function VectorCompletionDetails({ data }: { data: VectorCompletionNodeData }): 
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+      {data.votes && data.votes.length > 0 && (
+        <div className="ft-detail-votes">
+          <span className="ft-detail-label">Vote Breakdown ({data.votes.length})</span>
+          <div className="ft-detail-vote-list">
+            {data.votes.map((vote, i) => {
+              const name = modelNames?.[vote.model]
+                ? (modelNames[vote.model].split("/").pop() ?? vote.model.slice(0, 8))
+                : vote.model.slice(0, 8);
+              const maxVote = vote.vote.length > 0 ? Math.max(...vote.vote) : 0;
+              return (
+                <div key={i} className="ft-detail-vote-item">
+                  <div className="ft-detail-vote-header">
+                    <span className="ft-detail-vote-name">{name}</span>
+                    <span className="ft-detail-vote-weight">w={vote.weight.toFixed(2)}</span>
+                  </div>
+                  {(vote.from_cache || vote.from_rng) && (
+                    <span className={`ft-detail-vote-badge${vote.from_rng ? " ft-detail-vote-badge-rng" : ""}`}>
+                      {vote.from_rng ? "RNG" : "CACHE"}
+                    </span>
+                  )}
+                  {vote.vote.length > 0 && (
+                    <div className="ft-detail-score-bar" style={{ height: 14, marginTop: 2 }}>
+                      <div
+                        className="ft-detail-score-fill"
+                        style={{
+                          width: `${maxVote * 100}%`,
+                          background: scoreColor(maxVote),
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

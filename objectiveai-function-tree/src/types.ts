@@ -26,6 +26,10 @@ export interface VectorCompletionNodeData {
   scores: number[] | null;
   responses: string[] | null;
   voteCount: number;
+  /** Raw vote data for DetailPanel display (LLM nodes no longer rendered in tree). */
+  votes: InputVote[] | null;
+  /** Raw completion data for DetailPanel display. */
+  completions: InputCompletion[] | null;
   error: string | null;
 }
 

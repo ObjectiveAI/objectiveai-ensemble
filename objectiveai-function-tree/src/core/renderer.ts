@@ -369,11 +369,25 @@ export class TreeRenderer {
       this.drawRoundedRectFill(x + padding, barY, barWidth * maxScore, barHeight, 3);
     }
 
-    // Vote count
+    // Vote count / status
     if (params.showLabels) {
       ctx.font = theme.fontSmall;
-      ctx.fillStyle = theme.textSecondary;
-      ctx.fillText(`${data.voteCount} LLMs`, x + padding, y + 56, node.width - padding * 2);
+      if (data.voteCount > 0) {
+        ctx.fillStyle = theme.textSecondary;
+        ctx.fillText(`${data.voteCount} LLMs`, x + padding, y + 56, node.width - padding * 2);
+      } else if (node.state === "pending") {
+        ctx.fillStyle = theme.nodeBorder;
+        ctx.fillText("Pending", x + padding, y + 56, node.width - padding * 2);
+      } else if (node.state === "streaming") {
+        ctx.fillStyle = theme.accent;
+        ctx.fillText("Running\u2026", x + padding, y + 56, node.width - padding * 2);
+      } else if (node.state === "error") {
+        ctx.fillStyle = SCORE_COLORS.red;
+        ctx.fillText("Error", x + padding, y + 56, node.width - padding * 2);
+      } else {
+        ctx.fillStyle = theme.textSecondary;
+        ctx.fillText("No votes", x + padding, y + 56, node.width - padding * 2);
+      }
     }
   }
 

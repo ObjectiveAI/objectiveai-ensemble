@@ -6,7 +6,6 @@ import type {
   InputTask,
   InputVectorCompletionTask,
   InputFunctionExecutionTask,
-  NODE_SIZES,
 } from "../types";
 import { NODE_SIZES as SIZES } from "../types";
 
@@ -116,7 +115,9 @@ function processTask(
   nodes: Map<string, TreeNode>,
   modelNames?: Record<string, string>
 ): void {
-  if (isFunctionExecutionTask(task) && !isVectorCompletionTask(task)) {
+  // A task with sub-tasks is always a function execution task,
+  // regardless of whether it also carries scores/votes properties
+  if (isFunctionExecutionTask(task)) {
     processFunctionTask(task, parentId, fallbackIndex, nodes, modelNames);
   } else {
     processVectorCompletionTask(
@@ -196,7 +197,7 @@ function processVectorCompletionTask(
     kind: "vector-completion",
     label: `Task ${idx}`,
     parentId,
-    children: [],
+    children: [], // LLM nodes no longer rendered in tree — vote data stored on this node
     x: 0,
     y: 0,
     width: SIZES["vector-completion"].width,
@@ -209,6 +210,8 @@ function processVectorCompletionTask(
       scores: task.scores ?? null,
       responses: null,
       voteCount: task.votes?.length ?? 0,
+      votes: task.votes ?? null,
+      completions: task.completions ?? null,
       error: task.error?.message ?? null,
     },
   };
@@ -218,59 +221,4 @@ function processVectorCompletionTask(
   // Add as child of parent
   const parent = nodes.get(parentId);
   if (parent) parent.children.push(id);
-
-  // Create LLM leaf nodes from votes
-  if (task.votes) {
-    for (let vi = 0; vi < task.votes.length; vi++) {
-      const vote = task.votes[vi];
-      const fei = vote.flat_ensemble_index ?? vi;
-      const llmId = `${id}-llm-${fei}`;
-
-      // Find matching completion for streaming text
-      let streamingText = "";
-      if (task.completions) {
-        const completion = task.completions.find(
-          (c) => c.model === vote.model
-        );
-        if (completion?.choices?.[0]) {
-          const choice = completion.choices[0];
-          streamingText =
-            choice.delta?.content ||
-            choice.message?.content ||
-            "";
-        }
-      }
-
-      const resolvedName = modelNames?.[vote.model] ?? null;
-
-      const llmNode: TreeNode = {
-        id: llmId,
-        kind: "llm",
-        label: resolvedName
-          ? resolvedName.split("/").pop() || vote.model.slice(0, 8)
-          : vote.model.slice(0, 8),
-        parentId: id,
-        children: [],
-        x: 0,
-        y: 0,
-        width: SIZES.llm.width,
-        height: SIZES.llm.height,
-        state: vote.vote.length > 0 ? "complete" : "streaming",
-        data: {
-          kind: "llm",
-          modelId: vote.model,
-          modelName: resolvedName,
-          vote: vote.vote.length > 0 ? vote.vote : null,
-          weight: vote.weight,
-          streamingText,
-          fromCache: vote.from_cache ?? false,
-          fromRng: vote.from_rng ?? false,
-          flatEnsembleIndex: fei,
-        },
-      };
-
-      nodes.set(llmId, llmNode);
-      node.children.push(llmId);
-    }
-  }
 }

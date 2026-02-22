@@ -36,9 +36,6 @@ function scoreColor(score) {
 }
 
 // src/core/tree-data.ts
-function isVectorCompletionTask(task) {
-  return "votes" in task || "completions" in task || "scores" in task;
-}
 function isFunctionExecutionTask(task) {
   return "tasks" in task && Array.isArray(task.tasks);
 }
@@ -85,22 +82,20 @@ function buildTree(execution, modelNames) {
   nodes.set(rootId, rootNode);
   if (execution.tasks) {
     for (let i = 0; i < execution.tasks.length; i++) {
-      processTask(execution.tasks[i], rootId, i, nodes, modelNames);
+      processTask(execution.tasks[i], rootId, i, nodes);
     }
   }
   return { nodes, rootId };
 }
 function processTask(task, parentId, fallbackIndex, nodes, modelNames) {
-  if (isFunctionExecutionTask(task) && !isVectorCompletionTask(task)) {
-    processFunctionTask(task, parentId, fallbackIndex, nodes, modelNames);
+  if (isFunctionExecutionTask(task)) {
+    processFunctionTask(task, parentId, fallbackIndex, nodes);
   } else {
     processVectorCompletionTask(
       task,
       parentId,
       fallbackIndex,
-      nodes,
-      modelNames
-    );
+      nodes);
   }
 }
 function processFunctionTask(task, parentId, fallbackIndex, nodes, modelNames) {
@@ -132,7 +127,7 @@ function processFunctionTask(task, parentId, fallbackIndex, nodes, modelNames) {
   if (parent) parent.children.push(id);
   if (task.tasks) {
     for (let i = 0; i < task.tasks.length; i++) {
-      processTask(task.tasks[i], id, i, nodes, modelNames);
+      processTask(task.tasks[i], id, i, nodes);
     }
   }
 }
@@ -146,6 +141,7 @@ function processVectorCompletionTask(task, parentId, fallbackIndex, nodes, model
     label: `Task ${idx}`,
     parentId,
     children: [],
+    // LLM nodes no longer rendered in tree — vote data stored on this node
     x: 0,
     y: 0,
     width: NODE_SIZES["vector-completion"].width,
@@ -158,55 +154,14 @@ function processVectorCompletionTask(task, parentId, fallbackIndex, nodes, model
       scores: task.scores ?? null,
       responses: null,
       voteCount: task.votes?.length ?? 0,
+      votes: task.votes ?? null,
+      completions: task.completions ?? null,
       error: task.error?.message ?? null
     }
   };
   nodes.set(id, node);
   const parent = nodes.get(parentId);
   if (parent) parent.children.push(id);
-  if (task.votes) {
-    for (let vi = 0; vi < task.votes.length; vi++) {
-      const vote = task.votes[vi];
-      const fei = vote.flat_ensemble_index ?? vi;
-      const llmId = `${id}-llm-${fei}`;
-      let streamingText = "";
-      if (task.completions) {
-        const completion = task.completions.find(
-          (c) => c.model === vote.model
-        );
-        if (completion?.choices?.[0]) {
-          const choice = completion.choices[0];
-          streamingText = choice.delta?.content || choice.message?.content || "";
-        }
-      }
-      const resolvedName = modelNames?.[vote.model] ?? null;
-      const llmNode = {
-        id: llmId,
-        kind: "llm",
-        label: resolvedName ? resolvedName.split("/").pop() || vote.model.slice(0, 8) : vote.model.slice(0, 8),
-        parentId: id,
-        children: [],
-        x: 0,
-        y: 0,
-        width: NODE_SIZES.llm.width,
-        height: NODE_SIZES.llm.height,
-        state: vote.vote.length > 0 ? "complete" : "streaming",
-        data: {
-          kind: "llm",
-          modelId: vote.model,
-          modelName: resolvedName,
-          vote: vote.vote.length > 0 ? vote.vote : null,
-          weight: vote.weight,
-          streamingText,
-          fromCache: vote.from_cache ?? false,
-          fromRng: vote.from_rng ?? false,
-          flatEnsembleIndex: fei
-        }
-      };
-      nodes.set(llmId, llmNode);
-      node.children.push(llmId);
-    }
-  }
 }
 
 // src/core/layout.ts
@@ -358,7 +313,7 @@ var Viewport = class {
     this.panY -= dy / this.zoom;
   }
   /** Zoom to fit all nodes in the viewport with padding. */
-  fitToContent(nodes, canvasWidth, canvasHeight, padding = 40) {
+  fitToContent(nodes, canvasWidth, canvasHeight, padding = 40, minInitialZoom = 0.4) {
     if (nodes.size === 0) return;
     let minX = Infinity;
     let minY = Infinity;
@@ -375,8 +330,12 @@ var Viewport = class {
     if (contentWidth <= 0 || contentHeight <= 0) return;
     const availableWidth = canvasWidth - padding * 2;
     const availableHeight = canvasHeight - padding * 2;
+    const naturalZoom = Math.min(
+      availableWidth / contentWidth,
+      availableHeight / contentHeight
+    );
     this.zoom = clamp(
-      Math.min(availableWidth / contentWidth, availableHeight / contentHeight),
+      Math.max(naturalZoom, minInitialZoom),
       this.minZoom,
       this.maxZoom
     );
@@ -683,8 +642,22 @@ var TreeRenderer = class {
     }
     if (params.showLabels) {
       ctx.font = theme.fontSmall;
-      ctx.fillStyle = theme.textSecondary;
-      ctx.fillText(`${data.voteCount} LLMs`, x + padding, y + 56, node.width - padding * 2);
+      if (data.voteCount > 0) {
+        ctx.fillStyle = theme.textSecondary;
+        ctx.fillText(`${data.voteCount} LLMs`, x + padding, y + 56, node.width - padding * 2);
+      } else if (node.state === "pending") {
+        ctx.fillStyle = theme.nodeBorder;
+        ctx.fillText("Pending", x + padding, y + 56, node.width - padding * 2);
+      } else if (node.state === "streaming") {
+        ctx.fillStyle = theme.accent;
+        ctx.fillText("Running\u2026", x + padding, y + 56, node.width - padding * 2);
+      } else if (node.state === "error") {
+        ctx.fillStyle = SCORE_COLORS.red;
+        ctx.fillText("Error", x + padding, y + 56, node.width - padding * 2);
+      } else {
+        ctx.fillStyle = theme.textSecondary;
+        ctx.fillText("No votes", x + padding, y + 56, node.width - padding * 2);
+      }
     }
   }
   drawLlmNode(node, x, y, theme, params) {
@@ -1152,7 +1125,7 @@ var FunctionTreeEngine = class {
   /** Update the tree data. Call on each streaming chunk or complete result. */
   setData(data, modelNames) {
     if (this.destroyed) return;
-    const newTree = buildTree(data, modelNames);
+    const newTree = buildTree(data);
     if (!newTree) {
       this.treeData = null;
       this.prevNodes = null;
@@ -1461,7 +1434,7 @@ function DetailPanel({ node, modelNames, onClose }) {
       node.state
     ] }),
     node.data.kind === "function" && /* @__PURE__ */ jsxRuntime.jsx(FunctionDetails, { data: node.data }),
-    node.data.kind === "vector-completion" && /* @__PURE__ */ jsxRuntime.jsx(VectorCompletionDetails, { data: node.data }),
+    node.data.kind === "vector-completion" && /* @__PURE__ */ jsxRuntime.jsx(VectorCompletionDetails, { data: node.data, modelNames }),
     node.data.kind === "llm" && /* @__PURE__ */ jsxRuntime.jsx(LlmDetails, { data: node.data, modelNames })
   ] });
 }
@@ -1481,7 +1454,10 @@ function FunctionDetails({ data }) {
     data.error && /* @__PURE__ */ jsxRuntime.jsx(DetailRow, { label: "Error", value: data.error, valueColor: "rgb(239, 68, 68)" })
   ] });
 }
-function VectorCompletionDetails({ data }) {
+function VectorCompletionDetails({
+  data,
+  modelNames
+}) {
   return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "ft-detail-body", children: [
     /* @__PURE__ */ jsxRuntime.jsx(DetailRow, { label: "Task Index", value: data.taskPath.join(" > ") }),
     /* @__PURE__ */ jsxRuntime.jsx(DetailRow, { label: "LLMs", value: String(data.voteCount) }),
@@ -1503,6 +1479,37 @@ function VectorCompletionDetails({ data }) {
           "%"
         ] })
       ] }, i)) })
+    ] }),
+    data.votes && data.votes.length > 0 && /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "ft-detail-votes", children: [
+      /* @__PURE__ */ jsxRuntime.jsxs("span", { className: "ft-detail-label", children: [
+        "Vote Breakdown (",
+        data.votes.length,
+        ")"
+      ] }),
+      /* @__PURE__ */ jsxRuntime.jsx("div", { className: "ft-detail-vote-list", children: data.votes.map((vote, i) => {
+        const name = modelNames?.[vote.model] ? modelNames[vote.model].split("/").pop() ?? vote.model.slice(0, 8) : vote.model.slice(0, 8);
+        const maxVote = vote.vote.length > 0 ? Math.max(...vote.vote) : 0;
+        return /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "ft-detail-vote-item", children: [
+          /* @__PURE__ */ jsxRuntime.jsxs("div", { className: "ft-detail-vote-header", children: [
+            /* @__PURE__ */ jsxRuntime.jsx("span", { className: "ft-detail-vote-name", children: name }),
+            /* @__PURE__ */ jsxRuntime.jsxs("span", { className: "ft-detail-vote-weight", children: [
+              "w=",
+              vote.weight.toFixed(2)
+            ] })
+          ] }),
+          (vote.from_cache || vote.from_rng) && /* @__PURE__ */ jsxRuntime.jsx("span", { className: `ft-detail-vote-badge${vote.from_rng ? " ft-detail-vote-badge-rng" : ""}`, children: vote.from_rng ? "RNG" : "CACHE" }),
+          vote.vote.length > 0 && /* @__PURE__ */ jsxRuntime.jsx("div", { className: "ft-detail-score-bar", style: { height: 14, marginTop: 2 }, children: /* @__PURE__ */ jsxRuntime.jsx(
+            "div",
+            {
+              className: "ft-detail-score-fill",
+              style: {
+                width: `${maxVote * 100}%`,
+                background: scoreColor(maxVote)
+              }
+            }
+          ) })
+        ] }, i);
+      }) })
     ] }),
     data.error && /* @__PURE__ */ jsxRuntime.jsx(DetailRow, { label: "Error", value: data.error, valueColor: "rgb(239, 68, 68)" })
   ] });

@@ -130,14 +130,14 @@ describe("Viewport", () => {
         [
           "b",
           {
-            id: "b", kind: "llm" as const, label: "B",
+            id: "b", kind: "vector-completion" as const, label: "B",
             parentId: "a", children: [],
-            x: 500, y: 200, width: 150, height: 60,
+            x: 500, y: 200, width: 180, height: 70,
             state: "complete" as const,
             data: {
-              kind: "llm" as const, modelId: "m", modelName: null,
-              vote: [1], weight: 1, streamingText: "",
-              fromCache: false, fromRng: false, flatEnsembleIndex: 0,
+              kind: "vector-completion" as const, taskIndex: 0, taskPath: [0],
+              scores: null, responses: null, voteCount: 0, votes: null,
+              completions: null, error: null,
             },
           },
         ],
@@ -147,6 +147,43 @@ describe("Viewport", () => {
 
       expect(vp.zoom).toBeGreaterThan(0);
       expect(vp.zoom).toBeLessThanOrEqual(3);
+    });
+
+    it("enforces minimum zoom floor", () => {
+      const vp = new Viewport();
+
+      // Nodes spread very far apart — natural zoom would be very low
+      const nodes = new Map([
+        [
+          "a",
+          {
+            id: "a", kind: "function" as const, label: "A",
+            parentId: null, children: [],
+            x: 0, y: 0, width: 200, height: 80,
+            state: "complete" as const,
+            data: { kind: "function" as const, functionId: null, profileId: null, output: null, taskCount: 0, error: null },
+          },
+        ],
+        [
+          "b",
+          {
+            id: "b", kind: "vector-completion" as const, label: "B",
+            parentId: "a", children: [],
+            x: 5000, y: 0, width: 180, height: 70,
+            state: "complete" as const,
+            data: {
+              kind: "vector-completion" as const, taskIndex: 0, taskPath: [0],
+              scores: null, responses: null, voteCount: 0, votes: null,
+              completions: null, error: null,
+            },
+          },
+        ],
+      ]);
+
+      vp.fitToContent(nodes, 800, 600, 40, 0.4);
+
+      // Should clamp to min initial zoom of 0.4, not natural zoom (~0.14)
+      expect(vp.zoom).toBeGreaterThanOrEqual(0.4);
     });
   });
 

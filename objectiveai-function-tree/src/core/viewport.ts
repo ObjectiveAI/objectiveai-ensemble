@@ -89,7 +89,8 @@ export class Viewport {
     nodes: Map<string, TreeNode>,
     canvasWidth: number,
     canvasHeight: number,
-    padding: number = 40
+    padding: number = 40,
+    minInitialZoom: number = 0.4
   ): void {
     if (nodes.size === 0) return;
 
@@ -113,8 +114,14 @@ export class Viewport {
     const availableWidth = canvasWidth - padding * 2;
     const availableHeight = canvasHeight - padding * 2;
 
+    const naturalZoom = Math.min(
+      availableWidth / contentWidth,
+      availableHeight / contentHeight
+    );
+
+    // Clamp to floor so the initial view is always readable
     this.zoom = clamp(
-      Math.min(availableWidth / contentWidth, availableHeight / contentHeight),
+      Math.max(naturalZoom, minInitialZoom),
       this.minZoom,
       this.maxZoom
     );

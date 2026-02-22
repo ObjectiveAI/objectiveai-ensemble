@@ -6,7 +6,6 @@ import type {
   InputFunctionExecutionTask,
   FunctionNodeData,
   VectorCompletionNodeData,
-  LlmNodeData,
 } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -94,7 +93,7 @@ describe("buildTree", () => {
     expect((root.data as FunctionNodeData).taskCount).toBe(0);
   });
 
-  it("builds tree with scalar execution (single VC task + 2 LLMs)", () => {
+  it("builds tree with scalar execution (single VC task, votes stored on node)", () => {
     const exec: InputFunctionExecution = {
       id: "exec-2",
       function: "user/scorer",
@@ -105,7 +104,7 @@ describe("buildTree", () => {
     };
 
     const tree = buildTree(exec)!;
-    expect(tree.nodes.size).toBe(4); // root + vc + 2 llms
+    expect(tree.nodes.size).toBe(2); // root + vc (no LLM nodes)
 
     const root = tree.nodes.get("root")!;
     expect(root.state).toBe("complete");
@@ -115,13 +114,15 @@ describe("buildTree", () => {
     const vc = tree.nodes.get("vc-0")!;
     expect(vc.kind).toBe("vector-completion");
     expect(vc.state).toBe("complete");
-    expect(vc.children.length).toBe(2);
+    expect(vc.children.length).toBe(0); // LLM nodes no longer tree children
 
-    const llm0 = tree.nodes.get("vc-0-llm-0")!;
-    expect(llm0.kind).toBe("llm");
-    expect((llm0.data as LlmNodeData).vote).toEqual([0.8, 0.2]);
-    expect((llm0.data as LlmNodeData).weight).toBe(1);
-    expect((llm0.data as LlmNodeData).streamingText).toBe("Reasoning for model 0");
+    // Vote data stored on the VC node for DetailPanel access
+    const vcData = vc.data as VectorCompletionNodeData;
+    expect(vcData.voteCount).toBe(2);
+    expect(vcData.votes).not.toBeNull();
+    expect(vcData.votes!.length).toBe(2);
+    expect(vcData.votes![0].vote).toEqual([0.8, 0.2]);
+    expect(vcData.votes![1].vote).toEqual([0.7, 0.3]);
   });
 
   it("builds tree with vector execution", () => {
@@ -153,9 +154,8 @@ describe("buildTree", () => {
     };
 
     const tree = buildTree(exec)!;
-    // root + func-task + 2 vc + 2 llm (from nested) + vc + 2 llm (from root)
-    // = 1 + 1 + 2 + 2 + 1 + 2 = 9
-    expect(tree.nodes.size).toBe(9);
+    // root + func-task + 2 vc (from nested) + vc (from root) = 5
+    expect(tree.nodes.size).toBe(5);
 
     const root = tree.nodes.get("root")!;
     expect(root.children.length).toBe(2); // func-0 and vc-1
@@ -187,7 +187,7 @@ describe("buildTree", () => {
     expect(vc.state).toBe("streaming");
   });
 
-  it("resolves model names when provided", () => {
+  it("stores vote data on VC node for DetailPanel access", () => {
     const exec: InputFunctionExecution = {
       id: "exec-6",
       tasks: [
@@ -195,14 +195,41 @@ describe("buildTree", () => {
       ],
     };
 
-    const modelNames = {
-      "model-0-xxxxxxxxxxxxxx": "openai/gpt-4o",
+    const tree = buildTree(exec)!;
+    const vc = tree.nodes.get("vc-0")!;
+    const vcData = vc.data as VectorCompletionNodeData;
+    expect(vcData.votes).not.toBeNull();
+    expect(vcData.votes!.length).toBe(1);
+    expect(vcData.votes![0].model).toBe("model-0-xxxxxxxxxxxxxx");
+    expect(vcData.completions).not.toBeNull();
+    expect(vcData.completions!.length).toBe(1);
+  });
+
+  it("prioritizes function task when task has both tasks array and scores", () => {
+    // A task with both 'tasks' and 'scores' should be treated as a function task
+    const exec: InputFunctionExecution = {
+      id: "exec-6b",
+      function: "user/parent",
+      tasks: [
+        {
+          index: 0,
+          task_index: 0,
+          task_path: [0],
+          tasks: [makeVCTask(0, [0, 0], [], [0.5, 0.5])],
+          output: 0.5,
+          scores: [0.5, 0.5], // This extra field should NOT cause misidentification
+          function: "user/nested",
+        } as unknown as InputFunctionExecutionTask,
+      ],
     };
 
-    const tree = buildTree(exec, modelNames)!;
-    const llm = tree.nodes.get("vc-0-llm-0")!;
-    expect(llm.label).toBe("gpt-4o");
-    expect((llm.data as LlmNodeData).modelName).toBe("openai/gpt-4o");
+    const tree = buildTree(exec)!;
+    const root = tree.nodes.get("root")!;
+    const childId = root.children[0];
+    const child = tree.nodes.get(childId)!;
+    // Should be treated as a function node, not a vector completion
+    expect(child.kind).toBe("function");
+    expect(child.children.length).toBe(1); // The nested VC sub-task
   });
 
   it("marks error state correctly", () => {
