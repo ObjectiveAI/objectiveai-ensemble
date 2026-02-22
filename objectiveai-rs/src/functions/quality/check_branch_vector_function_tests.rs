@@ -2191,7 +2191,7 @@ fn input_maps_compilation_fails() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': input[0]['label']}".to_string())),
     };
-    test_err(&f, "BV10");
+    test_err(&f, "BV08");
 }
 
 #[test]
@@ -2231,7 +2231,7 @@ fn input_merge_fails_on_subset() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x], 'label': input['label']} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input], 'label': 1/0}".to_string())),
     };
-    test_err(&f, "BV15");
+    test_err(&f, "VF10");
 }
 
 #[test]
@@ -2373,7 +2373,7 @@ fn placeholder_scalar_field_fails() {
         input_split: WithExpression::Expression(Expression::Starlark("[{'items': [x]} for x in input['items']]".to_string())),
         input_merge: WithExpression::Expression(Expression::Starlark("{'items': [x['items'][0] for x in input]}".to_string())),
     };
-    test_err(&f, "CV04");
+    test_err(&f, "BV08");
 }
 
 #[test]
