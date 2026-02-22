@@ -36,6 +36,7 @@ where
     async fn get_function_usage(
         &self,
         _ctx: ctx::Context<CTXEXT>,
+        remote: objectiveai::functions::Remote,
         owner: &str,
         repository: &str,
         commit: Option<&str>,
@@ -43,7 +44,7 @@ where
         objectiveai::functions::response::UsageFunction,
         objectiveai::error::ResponseError,
     > {
-        objectiveai::functions::get_function_usage(&self.client, owner, repository, commit)
+        objectiveai::functions::get_function_usage(&self.client, remote, owner, repository, commit)
             .await
             .map_err(|e| objectiveai::error::ResponseError::from(&e))
     }

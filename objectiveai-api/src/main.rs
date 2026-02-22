@@ -190,17 +190,39 @@ async fn main() {
             cache_vote_fetcher.clone(),
         ));
 
-    // Function Fetcher
-    let function_fetcher =
-        Arc::new(functions::function_fetcher::ObjectiveAiFetcher::new(
-            objectiveai_http_client.clone(),
-        ));
+    // Filesystem base directory for local function/profile repositories
+    let filesystem_base_dir = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".objectiveai")
+        .join("functions");
 
-    // Function Profile Fetcher
-    let profile_fetcher =
-        Arc::new(functions::profile_fetcher::ObjectiveAiFetcher::new(
-            objectiveai_http_client.clone(),
-        ));
+    // Function Fetcher (routes to GitHub or Filesystem based on Remote)
+    let function_fetcher = Arc::new(functions::function_fetcher::FetcherRouter::new(
+        Arc::new(
+            functions::function_fetcher::github::ObjectiveAiFetcher::new(
+                objectiveai_http_client.clone(),
+            ),
+        ),
+        Arc::new(
+            functions::function_fetcher::filesystem::FilesystemFetcher::new(
+                filesystem_base_dir.clone(),
+            ),
+        ),
+    ));
+
+    // Function Profile Fetcher (routes to GitHub or Filesystem based on Remote)
+    let profile_fetcher = Arc::new(functions::profile_fetcher::FetcherRouter::new(
+        Arc::new(
+            functions::profile_fetcher::github::ObjectiveAiFetcher::new(
+                objectiveai_http_client.clone(),
+            ),
+        ),
+        Arc::new(
+            functions::profile_fetcher::filesystem::FilesystemFetcher::new(
+                filesystem_base_dir,
+            ),
+        ),
+    ));
 
     // Function Executions Client
     let function_executions_client =
@@ -336,22 +358,23 @@ async fn main() {
         )
         // Functions - get (without commit)
         .route(
-            "/functions/{fowner}/{frepository}",
+            "/functions/{fremote}/{fowner}/{frepository}",
             axum::routing::get({
                 let functions_client = functions_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository)): Path<(String, String)>| {
-                    get_function(functions_client, headers, fowner, frepository, None)
+                      Path((fremote, fowner, frepository)): Path<(objectiveai::functions::Remote, String, String)>| {
+                    get_function(functions_client, headers, fremote, fowner, frepository, None)
                 }
             }),
         )
         // Functions - get (with commit)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}",
             axum::routing::get({
                 let functions_client = functions_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, fcommit)): Path<(
+                      Path((fremote, fowner, frepository, fcommit)): Path<(
+                    objectiveai::functions::Remote,
                     String,
                     String,
                     String,
@@ -359,6 +382,7 @@ async fn main() {
                     get_function(
                         functions_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         Some(fcommit),
@@ -368,25 +392,26 @@ async fn main() {
         )
         // Functions - get usage (without commit)
         .route(
-            "/functions/{fowner}/{frepository}/usage",
+            "/functions/{fremote}/{fowner}/{frepository}/usage",
             axum::routing::get({
                 let functions_client = functions_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository)): Path<(String, String)>| {
-                    get_function_usage(functions_client, headers, fowner, frepository, None)
+                      Path((fremote, fowner, frepository)): Path<(objectiveai::functions::Remote, String, String)>| {
+                    get_function_usage(functions_client, headers, fremote, fowner, frepository, None)
                 }
             }),
         )
         // Functions - get usage (with commit)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/usage",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/usage",
             axum::routing::get({
                 let functions_client = functions_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, fcommit)): Path<(String, String, String)>| {
+                      Path((fremote, fowner, frepository, fcommit)): Path<(objectiveai::functions::Remote, String, String, String)>| {
                     get_function_usage(
                         functions_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         Some(fcommit),
@@ -419,7 +444,7 @@ async fn main() {
         // remote function (without commit)
         // inline profile
         .route(
-            "/functions/{fowner}/{frepository}",
+            "/functions/{fremote}/{fowner}/{frepository}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -444,7 +469,7 @@ async fn main() {
         // remote function (with commit)
         // inline profile
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -469,7 +494,7 @@ async fn main() {
         // inline function
         // remote profile (without commit)
         .route(
-            "/functions/profiles/{powner}/{prepository}",
+            "/functions/profiles/{premote}/{powner}/{prepository}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -494,7 +519,7 @@ async fn main() {
         // inline function
         // remote profile (with commit)
         .route(
-            "/functions/profiles/{powner}/{prepository}/{pcommit}",
+            "/functions/profiles/{premote}/{powner}/{prepository}/{pcommit}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -519,7 +544,7 @@ async fn main() {
         // remote function (without commit)
         // remote profile (without commit)
         .route(
-            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}",
+            "/functions/{fremote}/{fowner}/{frepository}/profiles/{premote}/{powner}/{prepository}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -544,7 +569,7 @@ async fn main() {
         // remote function (without commit)
         // remote profile (with commit)
         .route(
-            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}/{pcommit}",
+            "/functions/{fremote}/{fowner}/{frepository}/profiles/{premote}/{powner}/{prepository}/{pcommit}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -569,7 +594,7 @@ async fn main() {
         // remote function (with commit)
         // remote profile (without commit)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -594,7 +619,7 @@ async fn main() {
         // remote function (with commit)
         // remote profile (with commit)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}/{pcommit}",
             axum::routing::post({
                 let function_executions_client = function_executions_client.clone();
                 move |headers: HeaderMap,
@@ -625,22 +650,23 @@ async fn main() {
         )
         // Function Profiles - get (without commit)
         .route(
-            "/functions/profiles/{powner}/{prepository}",
+            "/functions/profiles/{premote}/{powner}/{prepository}",
             axum::routing::get({
                 let profiles_client = profiles_client.clone();
                 move |headers: HeaderMap,
-                      Path((powner, prepository)): Path<(String, String)>| {
-                    get_profile(profiles_client, headers, powner, prepository, None)
+                      Path((premote, powner, prepository)): Path<(objectiveai::functions::Remote, String, String)>| {
+                    get_profile(profiles_client, headers, premote, powner, prepository, None)
                 }
             }),
         )
         // Function Profiles - get (with commit)
         .route(
-            "/functions/profiles/{powner}/{prepository}/{pcommit}",
+            "/functions/profiles/{premote}/{powner}/{prepository}/{pcommit}",
             axum::routing::get({
                 let profiles_client = profiles_client.clone();
                 move |headers: HeaderMap,
-                      Path((powner, prepository, pcommit)): Path<(
+                      Path((premote, powner, prepository, pcommit)): Path<(
+                    objectiveai::functions::Remote,
                     String,
                     String,
                     String,
@@ -648,6 +674,7 @@ async fn main() {
                     get_profile(
                         profiles_client,
                         headers,
+                        premote,
                         powner,
                         prepository,
                         Some(pcommit),
@@ -657,25 +684,26 @@ async fn main() {
         )
         // Function Profiles - get usage (without commit)
         .route(
-            "/functions/profiles/{powner}/{prepository}/usage",
+            "/functions/profiles/{premote}/{powner}/{prepository}/usage",
             axum::routing::get({
                 let profiles_client = profiles_client.clone();
                 move |headers: HeaderMap,
-                      Path((powner, prepository)): Path<(String, String)>| {
-                    get_profile_usage(profiles_client, headers, powner, prepository, None)
+                      Path((premote, powner, prepository)): Path<(objectiveai::functions::Remote, String, String)>| {
+                    get_profile_usage(profiles_client, headers, premote, powner, prepository, None)
                 }
             }),
         )
         // Function Profiles - get usage (with commit)
         .route(
-            "/functions/profiles/{powner}/{prepository}/{pcommit}/usage",
+            "/functions/profiles/{premote}/{powner}/{prepository}/{pcommit}/usage",
             axum::routing::get({
                 let profiles_client = profiles_client.clone();
                 move |headers: HeaderMap,
-                      Path((powner, prepository, pcommit)): Path<(String, String, String)>| {
+                      Path((premote, powner, prepository, pcommit)): Path<(objectiveai::functions::Remote, String, String, String)>| {
                     get_profile_usage(
                         profiles_client,
                         headers,
+                        premote,
                         powner,
                         prepository,
                         Some(pcommit),
@@ -693,17 +721,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get (no commits)
         .route(
-            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}",
+            "/functions/{fremote}/{fowner}/{frepository}/profiles/{premote}/{powner}/{prepository}",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, powner, prepository)): Path<(String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, premote, powner, prepository)): Path<(objectiveai::functions::Remote, String, String, objectiveai::functions::Remote, String, String)>| {
                     get_function_profile_pair(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         None,
+                        premote,
                         powner,
                         prepository,
                         None,
@@ -713,17 +743,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get (fcommit only)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, fcommit, powner, prepository)): Path<(String, String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, fcommit, premote, powner, prepository)): Path<(objectiveai::functions::Remote, String, String, String, objectiveai::functions::Remote, String, String)>| {
                     get_function_profile_pair(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         Some(fcommit),
+                        premote,
                         powner,
                         prepository,
                         None,
@@ -733,17 +765,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get (pcommit only)
         .route(
-            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}/{pcommit}",
+            "/functions/{fremote}/{fowner}/{frepository}/profiles/{premote}/{powner}/{prepository}/{pcommit}",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, powner, prepository, pcommit)): Path<(String, String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, premote, powner, prepository, pcommit)): Path<(objectiveai::functions::Remote, String, String, objectiveai::functions::Remote, String, String, String)>| {
                     get_function_profile_pair(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         None,
+                        premote,
                         powner,
                         prepository,
                         Some(pcommit),
@@ -753,17 +787,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get (both commits)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}/{pcommit}",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, fcommit, powner, prepository, pcommit)): Path<(String, String, String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, fcommit, premote, powner, prepository, pcommit)): Path<(objectiveai::functions::Remote, String, String, String, objectiveai::functions::Remote, String, String, String)>| {
                     get_function_profile_pair(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         Some(fcommit),
+                        premote,
                         powner,
                         prepository,
                         Some(pcommit),
@@ -773,17 +809,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get usage (no commits)
         .route(
-            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}/usage",
+            "/functions/{fremote}/{fowner}/{frepository}/profiles/{premote}/{powner}/{prepository}/usage",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, powner, prepository)): Path<(String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, premote, powner, prepository)): Path<(objectiveai::functions::Remote, String, String, objectiveai::functions::Remote, String, String)>| {
                     get_function_profile_pair_usage(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         None,
+                        premote,
                         powner,
                         prepository,
                         None,
@@ -793,17 +831,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get usage (fcommit only)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/usage",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}/usage",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, fcommit, powner, prepository)): Path<(String, String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, fcommit, premote, powner, prepository)): Path<(objectiveai::functions::Remote, String, String, String, objectiveai::functions::Remote, String, String)>| {
                     get_function_profile_pair_usage(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         Some(fcommit),
+                        premote,
                         powner,
                         prepository,
                         None,
@@ -813,17 +853,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get usage (pcommit only)
         .route(
-            "/functions/{fowner}/{frepository}/profiles/{powner}/{prepository}/{pcommit}/usage",
+            "/functions/{fremote}/{fowner}/{frepository}/profiles/{premote}/{powner}/{prepository}/{pcommit}/usage",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, powner, prepository, pcommit)): Path<(String, String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, premote, powner, prepository, pcommit)): Path<(objectiveai::functions::Remote, String, String, objectiveai::functions::Remote, String, String, String)>| {
                     get_function_profile_pair_usage(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         None,
+                        premote,
                         powner,
                         prepository,
                         Some(pcommit),
@@ -833,17 +875,19 @@ async fn main() {
         )
         // Function-Profile Pairs - get usage (both commits)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/profiles/{powner}/{prepository}/{pcommit}/usage",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/{premote}/{powner}/{prepository}/{pcommit}/usage",
             axum::routing::get({
                 let pairs_client = pairs_client.clone();
                 move |headers: HeaderMap,
-                      Path((fowner, frepository, fcommit, powner, prepository, pcommit)): Path<(String, String, String, String, String, String)>| {
+                      Path((fremote, fowner, frepository, fcommit, premote, powner, prepository, pcommit)): Path<(objectiveai::functions::Remote, String, String, String, objectiveai::functions::Remote, String, String, String)>| {
                     get_function_profile_pair_usage(
                         pairs_client,
                         headers,
+                        fremote,
                         fowner,
                         frepository,
                         Some(fcommit),
+                        premote,
                         powner,
                         prepository,
                         Some(pcommit),
@@ -875,7 +919,7 @@ async fn main() {
         // Function Profile Computations - create
         // remote function (without commit)
         .route(
-            "/functions/{fowner}/{frepository}/profiles/compute",
+            "/functions/{fremote}/{fowner}/{frepository}/profiles/compute",
             axum::routing::post({
                 let profile_computations_client =
                     profile_computations_client.clone();
@@ -900,7 +944,7 @@ async fn main() {
         // Function Profile Computations - create
         // remote function (with commit)
         .route(
-            "/functions/{fowner}/{frepository}/{fcommit}/profiles/compute",
+            "/functions/{fremote}/{fowner}/{frepository}/{fcommit}/profiles/compute",
             axum::routing::post({
                 let profile_computations_client =
                     profile_computations_client.clone();
@@ -1254,13 +1298,14 @@ async fn get_function_usage(
         >,
     >,
     headers: HeaderMap,
+    remote: objectiveai::functions::Remote,
     owner: String,
     repository: String,
     commit: Option<String>,
 ) -> axum::response::Response {
     let ctx = context(&headers);
     match client
-        .get_function_usage(ctx, &owner, &repository, commit.as_deref())
+        .get_function_usage(ctx, remote, &owner, &repository, commit.as_deref())
         .await
     {
         Ok(r) => Json(r).into_response(),
@@ -1392,13 +1437,14 @@ async fn get_profile_usage(
         >,
     >,
     headers: HeaderMap,
+    remote: objectiveai::functions::Remote,
     owner: String,
     repository: String,
     commit: Option<String>,
 ) -> axum::response::Response {
     let ctx = context(&headers);
     match client
-        .get_profile_usage(ctx, &owner, &repository, commit.as_deref())
+        .get_profile_usage(ctx, remote, &owner, &repository, commit.as_deref())
         .await
     {
         Ok(r) => Json(r).into_response(),
@@ -1432,9 +1478,11 @@ async fn get_function_profile_pair(
         + 'static,
     >,
     headers: HeaderMap,
+    fremote: objectiveai::functions::Remote,
     fowner: String,
     frepository: String,
     fcommit: Option<String>,
+    premote: objectiveai::functions::Remote,
     powner: String,
     prepository: String,
     pcommit: Option<String>,
@@ -1443,9 +1491,11 @@ async fn get_function_profile_pair(
     match client
         .get_function_profile_pair(
             ctx,
+            fremote,
             &fowner,
             &frepository,
             fcommit.as_deref(),
+            premote,
             &powner,
             &prepository,
             pcommit.as_deref(),
@@ -1465,9 +1515,11 @@ async fn get_function_profile_pair_usage(
         + 'static,
     >,
     headers: HeaderMap,
+    fremote: objectiveai::functions::Remote,
     fowner: String,
     frepository: String,
     fcommit: Option<String>,
+    premote: objectiveai::functions::Remote,
     powner: String,
     prepository: String,
     pcommit: Option<String>,
@@ -1476,9 +1528,11 @@ async fn get_function_profile_pair_usage(
     match client
         .get_function_profile_pair_usage(
             ctx,
+            fremote,
             &fowner,
             &frepository,
             fcommit.as_deref(),
+            premote,
             &powner,
             &prepository,
             pcommit.as_deref(),
@@ -1571,13 +1625,14 @@ async fn get_function(
         >,
     >,
     headers: HeaderMap,
+    remote: objectiveai::functions::Remote,
     owner: String,
     repository: String,
     commit: Option<String>,
 ) -> axum::response::Response {
     let ctx = context(&headers);
     match client
-        .get_function(ctx, &owner, &repository, commit.as_deref())
+        .get_function(ctx, remote, &owner, &repository, commit.as_deref())
         .await
     {
         Ok(r) => Json(r).into_response(),
@@ -1603,13 +1658,14 @@ async fn get_profile(
         >,
     >,
     headers: HeaderMap,
+    remote: objectiveai::functions::Remote,
     owner: String,
     repository: String,
     commit: Option<String>,
 ) -> axum::response::Response {
     let ctx = context(&headers);
     match client
-        .get_profile(ctx, &owner, &repository, commit.as_deref())
+        .get_profile(ctx, remote, &owner, &repository, commit.as_deref())
         .await
     {
         Ok(r) => Json(r).into_response(),

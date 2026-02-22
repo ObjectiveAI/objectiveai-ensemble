@@ -82,7 +82,7 @@ export const RemoteScalarFunctionSchema = InlineScalarFunctionSchema.extend({
   description: z.string().describe("The description of the scalar function."),
   input_schema: InputSchemaSchema,
 })
-  .describe('A scalar function fetched from GitHub. "function.json"')
+  .describe('A remote scalar function. "function.json"')
   .meta({ title: "RemoteScalarFunction" });
 export type RemoteScalarFunction = z.infer<typeof RemoteScalarFunctionSchema>;
 export const RemoteScalarFunctionJsonSchema: JSONSchema = convert(
@@ -113,7 +113,7 @@ export const RemoteVectorFunctionSchema = InlineVectorFunctionSchema.extend({
       "Receives: `input` (an array of sub-inputs).",
   ),
 })
-  .describe('A vector function fetched from GitHub. "function.json"')
+  .describe('A remote vector function. "function.json"')
   .meta({ title: "RemoteVectorFunction" });
 export type RemoteVectorFunction = z.infer<typeof RemoteVectorFunctionSchema>;
 export const RemoteVectorFunctionJsonSchema: JSONSchema = convert(
@@ -125,7 +125,7 @@ export const RemoteFunctionSchema = z
     RemoteScalarFunctionSchema,
     RemoteVectorFunctionSchema,
   ])
-  .describe('A remote function fetched from GitHub. "function.json"')
+  .describe('A remote function. "function.json"')
   .meta({ title: "RemoteFunction" });
 export type RemoteFunction = z.infer<typeof RemoteFunctionSchema>;
 export const RemoteFunctionJsonSchema: JSONSchema =

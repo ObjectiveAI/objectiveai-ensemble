@@ -23,6 +23,7 @@ import {
   VectorResponsesSchema,
 } from "src/vector/completions/request/vector_response";
 import { convert, type JSONSchema } from "../json_schema";
+import { RemoteSchema } from "./remote";
 
 // Task Expression
 
@@ -74,16 +75,17 @@ export const TaskOutputExpressionJsonSchema: JSONSchema = convert(
 export const ScalarFunctionTaskExpressionSchema = z
   .object({
     type: z.literal("scalar.function"),
+    remote: RemoteSchema,
     owner: z
       .string()
-      .describe("The owner of the GitHub repository containing the function."),
+      .describe("The owner of the repository containing the function."),
     repository: z
       .string()
-      .describe("The name of the GitHub repository containing the function."),
+      .describe("The name of the repository containing the function."),
     commit: z
       .string()
       .describe(
-        "The commit SHA of the GitHub repository containing the function.",
+        "The commit SHA of the repository containing the function.",
       ),
     skip: TaskExpressionSkipSchema.optional().nullable(),
     map: TaskExpressionMapSchema.optional().nullable(),
@@ -102,6 +104,7 @@ export const ScalarFunctionTaskExpressionJsonSchema: JSONSchema = convert(
 export const QualityScalarFunctionTaskExpressionSchema = z
   .object({
     type: ScalarFunctionTaskExpressionSchema.shape.type,
+    remote: ScalarFunctionTaskExpressionSchema.shape.remote,
     owner: ScalarFunctionTaskExpressionSchema.shape.owner,
     repository: ScalarFunctionTaskExpressionSchema.shape.repository,
     commit: ScalarFunctionTaskExpressionSchema.shape.commit,
@@ -121,16 +124,17 @@ export const QualityScalarFunctionTaskExpressionJsonSchema: JSONSchema =
 export const VectorFunctionTaskExpressionSchema = z
   .object({
     type: z.literal("vector.function"),
+    remote: RemoteSchema,
     owner: z
       .string()
-      .describe("The owner of the GitHub repository containing the function."),
+      .describe("The owner of the repository containing the function."),
     repository: z
       .string()
-      .describe("The name of the GitHub repository containing the function."),
+      .describe("The name of the repository containing the function."),
     commit: z
       .string()
       .describe(
-        "The commit SHA of the GitHub repository containing the function.",
+        "The commit SHA of the repository containing the function.",
       ),
     skip: TaskExpressionSkipSchema.optional().nullable(),
     map: TaskExpressionMapSchema.optional().nullable(),
@@ -149,6 +153,7 @@ export const VectorFunctionTaskExpressionJsonSchema: JSONSchema = convert(
 export const QualityVectorFunctionTaskExpressionSchema = z
   .object({
     type: VectorFunctionTaskExpressionSchema.shape.type,
+    remote: VectorFunctionTaskExpressionSchema.shape.remote,
     owner: VectorFunctionTaskExpressionSchema.shape.owner,
     repository: VectorFunctionTaskExpressionSchema.shape.repository,
     commit: VectorFunctionTaskExpressionSchema.shape.commit,
@@ -475,16 +480,17 @@ export const QualityLeafVectorTasksExpressionsJsonSchema: JSONSchema = convert(
 export const ScalarFunctionTaskSchema = z
   .object({
     type: z.literal("scalar.function"),
+    remote: RemoteSchema,
     owner: z
       .string()
-      .describe("The owner of the GitHub repository containing the function."),
+      .describe("The owner of the repository containing the function."),
     repository: z
       .string()
-      .describe("The name of the GitHub repository containing the function."),
+      .describe("The name of the repository containing the function."),
     commit: z
       .string()
       .describe(
-        "The commit SHA of the GitHub repository containing the function.",
+        "The commit SHA of the repository containing the function.",
       ),
     input: InputValueSchema,
     output: ExpressionSchema.describe(
@@ -501,16 +507,17 @@ export const ScalarFunctionTaskJsonSchema: JSONSchema = convert(
 export const VectorFunctionTaskSchema = z
   .object({
     type: z.literal("vector.function"),
+    remote: RemoteSchema,
     owner: z
       .string()
-      .describe("The owner of the GitHub repository containing the function."),
+      .describe("The owner of the repository containing the function."),
     repository: z
       .string()
-      .describe("The name of the GitHub repository containing the function."),
+      .describe("The name of the repository containing the function."),
     commit: z
       .string()
       .describe(
-        "The commit SHA of the GitHub repository containing the function.",
+        "The commit SHA of the repository containing the function.",
       ),
     input: InputValueSchema,
     output: ExpressionSchema.describe(

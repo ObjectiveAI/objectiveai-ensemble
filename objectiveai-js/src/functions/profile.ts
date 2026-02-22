@@ -2,6 +2,7 @@ import { EnsembleSchema } from "src/vector/completions/request/ensemble";
 import { ProfileSchema as VectorProfileSchema } from "src/vector/completions/request/profile";
 import z from "zod";
 import { convert, type JSONSchema } from "../json_schema";
+import { RemoteSchema } from "./remote";
 
 // Inline/Remote Auto Profiles (single ensemble+weights for all tasks)
 
@@ -41,7 +42,7 @@ export namespace InlineAutoProfileExt {
 export const RemoteAutoProfileSchema = InlineAutoProfileSchema.extend({
   description: z.string().describe("The description of the profile."),
 })
-  .describe('An auto function profile fetched from GitHub. "profile.json"')
+  .describe('A remote auto function profile. "profile.json"')
   .meta({ title: "RemoteAutoProfile" });
 export type RemoteAutoProfile = z.infer<typeof RemoteAutoProfileSchema>;
 
@@ -55,20 +56,21 @@ export namespace RemoteAutoProfileExt {
 
 export const RemoteTaskProfileSchema = z
   .object({
+    remote: RemoteSchema,
     owner: z
       .string()
-      .describe("The owner of the GitHub repository containing the profile."),
+      .describe("The owner of the repository containing the profile."),
     repository: z
       .string()
-      .describe("The name of the GitHub repository containing the profile."),
+      .describe("The name of the repository containing the profile."),
     commit: z
       .string()
       .describe(
-        "The commit SHA of the GitHub repository containing the profile.",
+        "The commit SHA of the repository containing the profile.",
       ),
   })
   .describe(
-    "The identifiers for a function profile hosted in a GitHub repository.",
+    "The identifiers for a remote function profile.",
   )
   .meta({ title: "RemoteTaskProfile" });
 export type RemoteTaskProfile = z.infer<typeof RemoteTaskProfileSchema>;
@@ -162,7 +164,7 @@ export const RemoteTasksProfileSchema = InlineTasksProfileSchema.extend({
   description: z.string().describe("The description of the profile."),
 })
   .describe(
-    'A tasks-based function profile fetched from GitHub. "profile.json"',
+    'A remote tasks-based function profile. "profile.json"',
   )
   .meta({ title: "RemoteTasksProfile" });
 export type RemoteTasksProfile = z.infer<typeof RemoteTasksProfileSchema>;
@@ -195,7 +197,7 @@ export namespace InlineProfileExt {
 
 export const RemoteProfileSchema = z
   .union([RemoteTasksProfileSchema, RemoteAutoProfileSchema])
-  .describe('A function profile fetched from GitHub. "profile.json"')
+  .describe('A remote function profile. "profile.json"')
   .meta({ title: "RemoteProfile" });
 export type RemoteProfile = z.infer<typeof RemoteProfileSchema>;
 

@@ -1,7 +1,9 @@
-//! Fetcher for Profile definitions from GitHub.
+//! Fetcher for Profile definitions from remote sources.
 
 mod fetcher;
-mod objectiveai;
+pub mod filesystem;
+pub mod github;
+mod router;
 
 pub use fetcher::*;
-pub use objectiveai::*;
+pub use router::*;

@@ -9,18 +9,20 @@ import {
   RetrieveSchema as ProfileRetrieveSchema,
 } from "./profiles/http";
 import { convert, type JSONSchema } from "../json_schema";
+import { RemoteSchema, type Remote } from "./remote";
 
 export const ListItemSchema = z.object({
+  remote: RemoteSchema,
   owner: z
     .string()
-    .describe("The owner of the GitHub repository containing the function."),
+    .describe("The owner of the repository containing the function."),
   repository: z
     .string()
-    .describe("The name of the GitHub repository containing the function."),
+    .describe("The name of the repository containing the function."),
   commit: z
     .string()
     .describe(
-      "The commit SHA of the GitHub repository containing the function.",
+      "The commit SHA of the repository containing the function.",
     ),
 });
 export type ListItem = z.infer<typeof ListItemSchema>;
@@ -60,6 +62,7 @@ export const HistoricalUsageJsonSchema: JSONSchema = convert(HistoricalUsageSche
 
 export function retrieveUsage(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -67,8 +70,8 @@ export function retrieveUsage(
 ): Promise<HistoricalUsage> {
   const path =
     fcommit !== null && fcommit !== undefined
-      ? `/functions/${fowner}/${frepository}/${fcommit}/usage`
-      : `/functions/${fowner}/${frepository}/usage`;
+      ? `/functions/${fremote}/${fowner}/${frepository}/${fcommit}/usage`
+      : `/functions/${fremote}/${fowner}/${frepository}/usage`;
   return client.get_unary<HistoricalUsage>(path, undefined, options);
 }
 
@@ -81,6 +84,7 @@ export const RetrieveJsonSchema: JSONSchema = convert(RetrieveSchema);
 
 export function retrieve(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
@@ -88,8 +92,8 @@ export function retrieve(
 ): Promise<Retrieve> {
   const path =
     fcommit !== null && fcommit !== undefined
-      ? `/functions/${fowner}/${frepository}/${fcommit}`
-      : `/functions/${fowner}/${frepository}`;
+      ? `/functions/${fremote}/${fowner}/${frepository}/${fcommit}`
+      : `/functions/${fremote}/${fowner}/${frepository}`;
   return client.get_unary<Retrieve>(path, undefined, options);
 }
 
@@ -130,19 +134,21 @@ export const RetrievePairJsonSchema: JSONSchema = convert(RetrievePairSchema);
 
 export function retrievePair(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
   options?: RequestOptions,
 ): Promise<RetrievePair> {
-  let path = `/functions/${fowner}/${frepository}`;
+  let path = `/functions/${fremote}/${fowner}/${frepository}`;
   if (fcommit !== null && fcommit !== undefined) {
     path += `/${fcommit}`;
   }
-  path += `/profiles/${powner}/${prepository}`;
+  path += `/profiles/${premote}/${powner}/${prepository}`;
   if (pcommit !== null && pcommit !== undefined) {
     path += `/${pcommit}`;
   }
@@ -151,19 +157,21 @@ export function retrievePair(
 
 export function retrievePairUsage(
   client: ObjectiveAI,
+  fremote: Remote,
   fowner: string,
   frepository: string,
   fcommit: string | null | undefined,
+  premote: Remote,
   powner: string,
   prepository: string,
   pcommit: string | null | undefined,
   options?: RequestOptions,
 ): Promise<HistoricalUsage> {
-  let path = `/functions/${fowner}/${frepository}`;
+  let path = `/functions/${fremote}/${fowner}/${frepository}`;
   if (fcommit !== null && fcommit !== undefined) {
     path += `/${fcommit}`;
   }
-  path += `/profiles/${powner}/${prepository}`;
+  path += `/profiles/${premote}/${powner}/${prepository}`;
   if (pcommit !== null && pcommit !== undefined) {
     path += `/${pcommit}`;
   }

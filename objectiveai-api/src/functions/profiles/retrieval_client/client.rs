@@ -18,6 +18,7 @@ pub trait Client<CTXEXT> {
     async fn get_profile_usage(
         &self,
         ctx: ctx::Context<CTXEXT>,
+        remote: objectiveai::functions::Remote,
         owner: &str,
         repository: &str,
         commit: Option<&str>,

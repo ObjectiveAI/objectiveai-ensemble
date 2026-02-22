@@ -7,20 +7,20 @@
 use crate::vector;
 use serde::{Deserialize, Serialize};
 
-/// A Profile definition, either remote (GitHub-hosted) or inline.
+/// A Profile definition, either remote or inline.
 ///
 /// Profiles contain the weights and nested configurations needed to execute
 /// a Function. They correspond to a Function's task structure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Profile {
-    /// A GitHub-hosted profile with metadata.
+    /// A remote profile with metadata.
     Remote(RemoteProfile),
     /// An inline profile definition.
     Inline(InlineProfile),
 }
 
-/// A GitHub-hosted profile, either tasks-based or auto.
+/// A remote profile, either tasks-based or auto.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RemoteProfile {
@@ -40,10 +40,10 @@ pub enum InlineProfile {
     Auto(InlineAutoProfile),
 }
 
-/// A GitHub-hosted tasks-based profile with full metadata.
+/// A remote tasks-based profile with full metadata.
 ///
-/// Stored as `profile.json` in GitHub repositories and referenced by
-/// `owner/repository`.
+/// Stored as `profile.json` in repositories and referenced by
+/// `remote/owner/repository`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteTasksProfile {
     /// Human-readable description of the profile.
@@ -58,7 +58,7 @@ pub struct RemoteTasksProfile {
     pub profile: crate::vector::completions::request::Profile,
 }
 
-/// A GitHub-hosted auto profile with full metadata.
+/// A remote auto profile with full metadata.
 ///
 /// Applies a single ensemble and weights to every vector completion task
 /// in the function, with equal task weights.
@@ -105,11 +105,13 @@ pub struct InlineAutoProfile {
 pub enum TaskProfile {
     /// Profile for a nested function task (references another profile).
     Remote {
-        /// GitHub repository owner.
+        /// The remote source where the profile is hosted.
+        remote: super::Remote,
+        /// Repository owner.
         owner: String,
-        /// GitHub repository name.
+        /// Repository name.
         repository: String,
-        /// Git commit SHA. Highly recommended for GitHub-hosted profiles to
+        /// Git commit SHA. Highly recommended for remote profiles to
         /// ensure compatibility if the referenced profile's shape changes.
         commit: Option<String>,
     },
@@ -123,7 +125,7 @@ impl TaskProfile {
     /// Returns `false` if any remote function reference is missing a commit SHA.
     ///
     /// While not strictly required, specifying commit SHAs is highly recommended
-    /// for GitHub-hosted profiles to ensure the profile remains valid if the
+    /// for remote profiles to ensure the profile remains valid if the
     /// referenced profile's structure changes.
     pub fn validate_commit_required(&self) -> bool {
         match self {

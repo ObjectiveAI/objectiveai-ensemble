@@ -36,9 +36,11 @@ where
     async fn get_function_profile_pair(
         &self,
         _ctx: ctx::Context<CTXEXT>,
+        fremote: objectiveai::functions::Remote,
         fowner: &str,
         frepository: &str,
         fcommit: Option<&str>,
+        premote: objectiveai::functions::Remote,
         powner: &str,
         prepository: &str,
         pcommit: Option<&str>,
@@ -48,9 +50,11 @@ where
     > {
         objectiveai::functions::get_function_profile_pair(
             &self.client,
+            fremote,
             fowner,
             frepository,
             fcommit,
+            premote,
             powner,
             prepository,
             pcommit,
@@ -62,9 +66,11 @@ where
     async fn get_function_profile_pair_usage(
         &self,
         _ctx: ctx::Context<CTXEXT>,
+        fremote: objectiveai::functions::Remote,
         fowner: &str,
         frepository: &str,
         fcommit: Option<&str>,
+        premote: objectiveai::functions::Remote,
         powner: &str,
         prepository: &str,
         pcommit: Option<&str>,
@@ -74,9 +80,11 @@ where
     > {
         objectiveai::functions::get_function_profile_pair_usage(
             &self.client,
+            fremote,
             fowner,
             frepository,
             fcommit,
+            premote,
             powner,
             prepository,
             pcommit,

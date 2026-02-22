@@ -116,6 +116,7 @@ impl functions::function_fetcher::Fetcher<MockContextExt> for MockFunctionFetche
     async fn fetch(
         &self,
         _ctx: ctx::Context<MockContextExt>,
+        _remote: objectiveai::functions::Remote,
         _owner: &str,
         _repository: &str,
         _commit: Option<&str>,
@@ -136,6 +137,7 @@ impl functions::profile_fetcher::Fetcher<MockContextExt> for MockProfileFetcher 
     async fn fetch(
         &self,
         _ctx: ctx::Context<MockContextExt>,
+        _remote: objectiveai::functions::Remote,
         _owner: &str,
         _repository: &str,
         _commit: Option<&str>,
