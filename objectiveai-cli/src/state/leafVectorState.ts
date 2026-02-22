@@ -2,7 +2,7 @@ import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
 import { Tool, getSchemaTools } from "../tool";
-import { collectModalities } from "../modalities";
+import { collectModalities, Modality } from "../modalities";
 import { Parameters } from "../parameters";
 
 export class LeafVectorState {
@@ -55,6 +55,7 @@ export class LeafVectorState {
   setInputSchema(
     value: unknown,
     dangerouslyRemoveModalities?: boolean,
+    modalities?: Modality[],
   ): Result<string> {
     const parsed =
       Functions.QualityLeafRemoteVectorFunctionSchema.shape.input_schema.safeParse(
@@ -66,6 +67,20 @@ export class LeafVectorState {
         value: undefined,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`,
       };
+    }
+
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: undefined,
+          error:
+            `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. ` +
+            `Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`,
+        };
+      }
     }
 
     if (dangerouslyRemoveModalities) {
@@ -110,6 +125,7 @@ export class LeafVectorState {
   setInputSchemaTool(): Tool<{
     input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
     dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+    modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
   }> {
     return {
       name: "WriteFunctionInputSchema",
@@ -117,12 +133,14 @@ export class LeafVectorState {
       inputSchema: {
         input_schema: z.record(z.string(), z.unknown()),
         dangerouslyRemoveModalities: z.boolean().optional(),
+        modalities: z.array(z.enum(["image", "audio", "video", "file", "string"])).optional(),
       },
       fn: (args) =>
         Promise.resolve(
           this.setInputSchema(
             args.input_schema,
             args.dangerouslyRemoveModalities,
+            args.modalities,
           ),
         ),
     };

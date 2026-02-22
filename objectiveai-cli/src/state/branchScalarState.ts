@@ -4,7 +4,7 @@ import z from "zod";
 import { Result } from "../result";
 import { Tool, getSchemaTools } from "../tool";
 import { PlaceholderTaskSpecs } from "src/placeholder";
-import { collectModalities } from "../modalities";
+import { collectModalities, Modality } from "../modalities";
 import { Parameters } from "../parameters";
 
 export class BranchScalarState {
@@ -52,6 +52,7 @@ export class BranchScalarState {
   setInputSchema(
     value: unknown,
     dangerouslyRemoveModalities?: boolean,
+    modalities?: Modality[],
   ): Result<string> {
     const parsed =
       Functions.QualityBranchRemoteScalarFunctionSchema.shape.input_schema.safeParse(
@@ -63,6 +64,20 @@ export class BranchScalarState {
         value: undefined,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`,
       };
+    }
+
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: undefined,
+          error:
+            `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. ` +
+            `Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`,
+        };
+      }
     }
 
     if (dangerouslyRemoveModalities) {
@@ -107,6 +122,7 @@ export class BranchScalarState {
   setInputSchemaTool(): Tool<{
     input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
     dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+    modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
   }> {
     return {
       name: "WriteFunctionInputSchema",
@@ -114,12 +130,14 @@ export class BranchScalarState {
       inputSchema: {
         input_schema: z.record(z.string(), z.unknown()),
         dangerouslyRemoveModalities: z.boolean().optional(),
+        modalities: z.array(z.enum(["image", "audio", "video", "file", "string"])).optional(),
       },
       fn: (args) =>
         Promise.resolve(
           this.setInputSchema(
             args.input_schema,
             args.dangerouslyRemoveModalities,
+            args.modalities,
           ),
         ),
     };

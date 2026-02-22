@@ -114,6 +114,8 @@ function collectModalitiesRecursive(schema, result) {
     }
   } else if (schema.type === "array") {
     collectModalitiesRecursive(schema.items, result);
+  } else if (schema.type === "string") {
+    result.add("string");
   } else if (ALL_MODALITIES.includes(schema.type)) {
     result.add(schema.type);
   }
@@ -155,7 +157,7 @@ var BranchScalarState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityBranchRemoteScalarFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -165,6 +167,17 @@ var BranchScalarState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -204,12 +217,14 @@ var BranchScalarState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };
@@ -567,7 +582,7 @@ var BranchVectorState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -577,6 +592,17 @@ var BranchVectorState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -616,12 +642,14 @@ var BranchVectorState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };
@@ -1324,7 +1352,7 @@ var LeafScalarState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityLeafRemoteScalarFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -1334,6 +1362,17 @@ var LeafScalarState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -1373,12 +1412,14 @@ var LeafScalarState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };
@@ -1635,7 +1676,7 @@ var LeafVectorState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityLeafRemoteVectorFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -1645,6 +1686,17 @@ var LeafVectorState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -1684,12 +1736,14 @@ var LeafVectorState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };

@@ -135,6 +135,8 @@ declare const PlaceholderTaskSpecsSchema: z.ZodArray<z.ZodUnion<readonly [z.ZodO
 }, z.core.$strip>, z.ZodNull]>>;
 type PlaceholderTaskSpecs = z.infer<typeof PlaceholderTaskSpecsSchema>;
 
+type Modality = "image" | "audio" | "video" | "file" | "string";
+
 declare class BranchScalarState {
     readonly parameters: Parameters;
     readonly function: Partial<Functions.QualityBranchRemoteScalarFunction>;
@@ -143,10 +145,11 @@ declare class BranchScalarState {
     constructor(parameters: Parameters, inputSchema?: Functions.RemoteScalarFunction["input_schema"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     checkFields(): Result<string>;
     checkFieldsTool(): Tool<{}>;
@@ -193,10 +196,11 @@ declare class BranchVectorState {
     constructor(parameters: Parameters, inputSchema?: Functions.QualityBranchRemoteVectorFunction["input_schema"], outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     getOutputLength(): Result<string>;
     getOutputLengthTool(): Tool<{}>;
@@ -272,10 +276,11 @@ declare class LeafScalarState {
     constructor(parameters: Parameters, inputSchema?: Functions.RemoteScalarFunction["input_schema"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     checkFields(): Result<string>;
     checkFieldsTool(): Tool<{}>;
@@ -310,10 +315,11 @@ declare class LeafVectorState {
     constructor(parameters: Parameters, inputSchema?: Functions.QualityLeafRemoteVectorFunction["input_schema"], outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     getOutputLength(): Result<string>;
     getOutputLengthTool(): Tool<{}>;
