@@ -1322,23 +1322,40 @@ function flattenNode(node, gutter, isLast, isRoot, termWidth) {
   }
   return lines;
 }
+function capLines(rawLines, max = 5) {
+  if (rawLines.length <= max) return rawLines;
+  return [...rawLines.slice(0, 2), "...", ...rawLines.slice(-2)];
+}
 function flattenMessage(lines, gutter, msg, termWidth) {
   if (msg.role === "assistant") {
     const indent = gutter + "  ";
-    const wrapped = wrapIndent(msg.content, termWidth - indent.length, indent);
-    for (const row of wrapped.split("\n")) {
-      lines.push({ type: "text", text: row, wrap: "truncate" });
+    const rawLines = capLines(msg.content.split("\n"));
+    for (const raw of rawLines) {
+      const wrapped = wrapIndent(raw, termWidth - indent.length, indent);
+      for (const row of wrapped.split("\n")) {
+        lines.push({ type: "text", text: row, wrap: "truncate" });
+      }
     }
   } else if (msg.role === "tool") {
     if (msg.error) {
       const errIndent = gutter + "    ";
+      const rawLines = capLines(msg.error.split("\n"));
       const firstPrefixLen = gutter.length + 4 + msg.name.length + 3;
-      const wrapped = wrapIndent(msg.error, termWidth - firstPrefixLen, errIndent);
-      const wrappedRows = wrapped.split("\n");
-      const firstRow = gutter + "  \u2717 " + msg.name + " \u2014 " + wrappedRows[0].slice(errIndent.length);
-      lines.push({ type: "text", text: firstRow, color: "red", wrap: "truncate" });
-      for (let j = 1; j < wrappedRows.length; j++) {
-        lines.push({ type: "text", text: wrappedRows[j], color: "red", wrap: "truncate" });
+      for (let j = 0; j < rawLines.length; j++) {
+        if (j === 0) {
+          const wrapped = wrapIndent(rawLines[0], termWidth - firstPrefixLen, errIndent);
+          const wrappedRows = wrapped.split("\n");
+          const firstRow = gutter + "  \u2717 " + msg.name + " \u2014 " + wrappedRows[0].slice(errIndent.length);
+          lines.push({ type: "text", text: firstRow, color: "red", wrap: "truncate" });
+          for (let k = 1; k < wrappedRows.length; k++) {
+            lines.push({ type: "text", text: wrappedRows[k], color: "red", wrap: "truncate" });
+          }
+        } else {
+          const wrapped = wrapIndent(rawLines[j], termWidth - errIndent.length, errIndent);
+          for (const row of wrapped.split("\n")) {
+            lines.push({ type: "text", text: row, color: "red", wrap: "truncate" });
+          }
+        }
       }
     } else {
       lines.push({ type: "toolSuccess", gutter, name: msg.name });
