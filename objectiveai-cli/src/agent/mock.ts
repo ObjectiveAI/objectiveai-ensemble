@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
+import { existsSync, readdirSync } from "fs";
+import { join, basename } from "path";
 import { Functions } from "objectiveai";
 import { GitHubBackend } from "../github";
 import { AgentStep, AgentStepFn } from ".";
@@ -7,6 +7,7 @@ import { NotificationMessage } from "../notification";
 import { Parameters } from "../parameters";
 import { Tool } from "../tool";
 import { getAgentMockConfig } from "../config";
+import { functionsDir } from "../dirs";
 
 export interface Config {
   notificationDelayMs?: number;
@@ -15,19 +16,40 @@ export interface Config {
 const MOCK_OWNER = "mock";
 const MOCK_COMMIT = "mock";
 
-type MockName =
+type MockVariant =
   | "mock-branch-scalar"
   | "mock-branch-vector"
   | "mock-leaf-scalar"
   | "mock-leaf-vector";
 
-function getMockName(
+function getMockVariant(
   type: "scalar.function" | "vector.function",
   depth: number,
-): MockName {
+): MockVariant {
   const tier = depth > 0 ? "branch" : "leaf";
   const kind = type === "vector.function" ? "vector" : "scalar";
   return `mock-${tier}-${kind}`;
+}
+
+function getNextMockName(
+  type: "scalar.function" | "vector.function",
+  depth: number,
+): string {
+  const variant = getMockVariant(type, depth);
+  const dir = functionsDir(MOCK_OWNER);
+  const pattern = new RegExp(`^${variant}-(\\d+)$`);
+  let max = 0;
+  try {
+    for (const entry of readdirSync(dir)) {
+      const match = entry.match(pattern);
+      if (match) max = Math.max(max, parseInt(match[1], 10));
+    }
+  } catch {}
+  return `${variant}-${max + 1}`;
+}
+
+function stripMockSuffix(repository: string): string {
+  return repository.replace(/-\d+$/, "");
 }
 
 // Hardcoded functions returned by fetchRemoteFunctions — no file reading needed.
@@ -190,7 +212,7 @@ const MOCK_BRANCH_VECTOR: Functions.RemoteFunction = {
   ],
 };
 
-const MOCK_FUNCTIONS: Record<MockName, Functions.RemoteFunction> = {
+const MOCK_FUNCTIONS: Record<MockVariant, Functions.RemoteFunction> = {
   "mock-leaf-scalar": MOCK_LEAF_SCALAR,
   "mock-leaf-vector": MOCK_LEAF_VECTOR,
   "mock-branch-scalar": MOCK_BRANCH_SCALAR,
@@ -248,13 +270,22 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
         if (result.ok)
           type = result.value as "scalar.function" | "vector.function";
       }
-      const name = getMockName(type, parameters.depth);
-      yield {
-        role: "assistant",
-        content: `Setting function name to "${name}"`,
-      };
-      await wait();
-      yield* callTool(nameTool, { name }, wait);
+      for (;;) {
+        const name = getNextMockName(type, parameters.depth);
+        yield {
+          role: "assistant",
+          content: `Setting function name to "${name}"`,
+        };
+        await wait();
+        const result = await nameTool.fn({ name });
+        if (result.ok) {
+          yield { role: "tool", name: nameTool.name };
+          await wait();
+          break;
+        }
+        yield { role: "tool", name: nameTool.name, error: result.error };
+        await wait();
+      }
       return undefined;
     }
 
@@ -271,6 +302,12 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
         },
         wait,
       );
+      yield {
+        role: "assistant",
+        content:
+          "I've written the essay describing the function's approach.\nIt covers the key evaluation dimensions:\n- Quality assessment\n- Clarity scoring\n- Relevance matching",
+      };
+      await wait();
       return undefined;
     }
 
@@ -516,6 +553,12 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
         if (result.ok) {
           yield { role: "tool", name: checkFunctionTool.name };
           await wait();
+          yield {
+            role: "assistant",
+            content:
+              "Function validation passed successfully.\nAll tasks compile correctly and produce valid outputs.\nThe function is ready for deployment.",
+          };
+          await wait();
           return undefined;
         }
         yield {
@@ -541,14 +584,26 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
         },
         wait,
       );
-      yield* callTool(
-        readmeTool,
-        {
-          readme:
-            "# Mock Function\n\nEvaluates quality, clarity, and relevance.",
-        },
-        wait,
-      );
+
+      // For branch functions, include template links in the README
+      const isBranch = !!findTool(step, "ReadTaskSpec");
+      let readmeContent =
+        "# Mock Function\n\nEvaluates quality, clarity, and relevance.";
+      if (isBranch) {
+        // Read tasks length to determine how many placeholder tasks exist
+        const tasksLengthTool = findTool(step, "ReadTasksLength");
+        let taskCount = 1;
+        if (tasksLengthTool) {
+          const result = await tasksLengthTool.fn({});
+          if (result.ok) taskCount = parseInt(result.value as string, 10) || 1;
+        }
+        readmeContent += "\n\n## Sub-functions\n";
+        for (let i = 0; i < taskCount; i++) {
+          readmeContent += `\n- https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        }
+      }
+
+      yield* callTool(readmeTool, { readme: readmeContent }, wait);
       return undefined;
     }
 
@@ -561,28 +616,26 @@ export function mock(): [AgentStepFn<unknown>, GitHubBackend] {
     pushInitial: async () => {},
     pushFinal: async () => {},
     getOwnerRepositoryCommit: async (dir) => {
-      const namePath = join(dir, "name.txt");
-      if (!existsSync(namePath)) return null;
-      try {
-        const name = readFileSync(namePath, "utf-8").trim();
-        if (!name) return null;
-        return { owner: MOCK_OWNER, repository: name, commit: MOCK_COMMIT };
-      } catch {
-        return null;
-      }
+      const paramsPath = join(dir, "parameters.json");
+      if (!existsSync(paramsPath)) return null;
+      const name = basename(dir);
+      if (!name) return null;
+      return { owner: MOCK_OWNER, repository: name, commit: MOCK_COMMIT };
     },
     fetchRemoteFunctions: async (refs) => {
       const entries = Array.from(refs);
       const record: Record<string, Functions.RemoteFunction> = {};
       for (const { owner, repository, commit } of entries) {
         const key = `${owner}/${repository}/${commit}`;
-        const fn = MOCK_FUNCTIONS[repository as MockName];
+        const variant = stripMockSuffix(repository);
+        const fn = MOCK_FUNCTIONS[variant as MockVariant];
         if (!fn) return null;
         record[key] = fn;
       }
       return record;
     },
     repoExists: () => Promise.resolve(false),
+    getAuthenticatedUser: async () => MOCK_OWNER,
   };
 
   return [agent, github];

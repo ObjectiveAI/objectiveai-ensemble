@@ -1,9 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { Functions } from "objectiveai";
 import z from "zod";
 import { Result } from "../result";
 import { Tool, getSchemaTools } from "../tool";
 import { PlaceholderTaskSpecs } from "src/placeholder";
-import { collectModalities } from "../modalities";
+import { collectModalities, Modality } from "../modalities";
 import { Parameters } from "../parameters";
 
 export class BranchVectorState {
@@ -14,6 +15,7 @@ export class BranchVectorState {
 
   constructor(
     parameters: Parameters,
+    inputSchema?: Functions.QualityBranchRemoteVectorFunction["input_schema"],
     outputLength?: Functions.RemoteVectorFunction["output_length"],
     inputSplit?: Functions.RemoteVectorFunction["input_split"],
     inputMerge?: Functions.RemoteVectorFunction["input_merge"],
@@ -21,6 +23,7 @@ export class BranchVectorState {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge,
@@ -55,6 +58,7 @@ export class BranchVectorState {
   setInputSchema(
     value: unknown,
     dangerouslyRemoveModalities?: boolean,
+    modalities?: Modality[],
   ): Result<string> {
     const parsed =
       Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema.safeParse(
@@ -66,6 +70,20 @@ export class BranchVectorState {
         value: undefined,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`,
       };
+    }
+
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: undefined,
+          error:
+            `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. ` +
+            `Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`,
+        };
+      }
     }
 
     if (dangerouslyRemoveModalities) {
@@ -110,6 +128,7 @@ export class BranchVectorState {
   setInputSchemaTool(): Tool<{
     input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
     dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+    modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
   }> {
     return {
       name: "WriteFunctionInputSchema",
@@ -117,12 +136,14 @@ export class BranchVectorState {
       inputSchema: {
         input_schema: z.record(z.string(), z.unknown()),
         dangerouslyRemoveModalities: z.boolean().optional(),
+        modalities: z.array(z.enum(["image", "audio", "video", "file", "string"])).optional(),
       },
       fn: (args) =>
         Promise.resolve(
           this.setInputSchema(
             args.input_schema,
             args.dangerouslyRemoveModalities,
+            args.modalities,
           ),
         ),
     };
@@ -425,8 +446,8 @@ export class BranchVectorState {
         error: "Invalid index",
       };
     }
-    const value = this.placeholderTaskSpecs[index];
-    if (value === null || value.trim() === "") {
+    const entry = this.placeholderTaskSpecs[index];
+    if (entry === null) {
       return {
         ok: false,
         value: undefined,
@@ -435,7 +456,7 @@ export class BranchVectorState {
     }
     return {
       ok: true,
-      value,
+      value: entry.spec,
       error: undefined,
     };
   }
@@ -487,10 +508,11 @@ export class BranchVectorState {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     return {
       ok: true,
@@ -569,10 +591,11 @@ export class BranchVectorState {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     if (this.function.input_maps) {
       this.function.input_maps.push(inputMapParsed.data);
@@ -793,7 +816,16 @@ export class BranchVectorState {
         error: "Spec cannot be empty",
       };
     }
-    this.placeholderTaskSpecs![index] = spec;
+    if (!this.placeholderTaskSpecs) {
+      throw new Error(
+        "placeholderTaskSpecs should be defined if there are tasks",
+      );
+    }
+    const existing = this.placeholderTaskSpecs[index];
+    if (existing === null) {
+      throw new Error("Cannot edit spec of a null entry");
+    }
+    existing.spec = spec;
     return {
       ok: true,
       value: "Task spec updated. If the task should change, edit it as well.",

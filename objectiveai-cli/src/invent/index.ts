@@ -1,14 +1,19 @@
-import { join } from "path";
-import { mkdirSync, rmSync } from "fs";
+import { basename } from "path";
 import { State } from "../state/state";
 import { AgentStepFn, getAgentStepFn } from "../agent";
 import { Parameters, ParametersBuilder, buildParameters } from "../parameters";
 import { Functions } from "objectiveai";
 import {
   readQualityFunctionFromFilesystem,
+  readReadmeFromFilesystem,
   writeInitialStateToFilesystem,
   writeFinalStateToFilesystem,
   writeFunctionToFilesystem,
+  writeReadmeToFilesystem,
+  writeParentTokenToFilesystem,
+  findChildByToken,
+  inventDir,
+  QualityFunction,
 } from "../fs";
 import {
   GitHubBackend,
@@ -33,10 +38,14 @@ import {
 } from "../config";
 import { Notification, NotificationMessage } from "../notification";
 
-interface InventOptionsBase {
-  inventSpec: string;
-  parameters: ParametersBuilder;
-}
+type InventOptionsBase =
+  | {
+      inventSpec: string;
+      parameters: ParametersBuilder;
+    }
+  | {
+      name: string;
+    };
 
 export type InventOptions =
   | InventOptionsBase
@@ -53,10 +62,10 @@ export type InventOptions =
     });
 
 export async function invent(
-  dir: string,
   onNotification: (notification: Notification) => void,
-  options?: InventOptions,
+  options: InventOptions,
   continuation?: {
+    parentToken?: string;
     path: number[];
     agent: AgentStepFn;
     gitHubBackend: GitHubBackend;
@@ -94,73 +103,249 @@ export async function invent(
       (() => {
         throw new Error("GitAuthorEmail required");
       })());
-  if (options !== undefined) {
-    await stage1(
-      dir,
-      onNotification,
-      options,
-      agent,
-      gitHubBackend,
-      gitHubToken,
-      gitAuthorName,
-      gitAuthorEmail,
-      continuation ? continuation.path : [],
-    );
+
+  const path = continuation?.path ?? [];
+  const parentToken = continuation?.parentToken;
+  const owner = await gitHubBackend.getAuthenticatedUser(gitHubToken);
+
+  // Determine dir — may need stage1
+  let dir: string | null = null;
+  if ("name" in options) {
+    dir = inventDir(owner, options.name);
+  } else if (parentToken) {
+    dir = findChildByToken(owner, parentToken);
   }
-  await stage2(dir, onNotification, continuation?.path ?? [], {
+
+  let qualityFn: QualityFunction | null;
+  try {
+    // Maybe stage1
+    let state: State | undefined;
+    let agentState: unknown;
+    if (dir === null) {
+      if ("name" in options) {
+        throw new Error(
+          `Function directory not found for name: ${options.name}`,
+        );
+      }
+      const result = await stage1(
+        owner,
+        options,
+        parentToken,
+        path,
+        onNotification,
+        agent,
+        gitHubBackend,
+        gitHubToken,
+        gitAuthorName,
+        gitAuthorEmail,
+      );
+      dir = result.dir;
+      state = result.state;
+      agentState = result.agentState;
+      if (result.reThrow) throw result.reThrow;
+    }
+
+    // Try to read quality function — skip stage2 if already complete
+    qualityFn = await readQualityFunctionFromFilesystem(dir, gitHubBackend);
+
+    // Maybe stage2
+    if (!qualityFn) {
+      if (!state) {
+        if ("name" in options) {
+          throw new Error(
+            `Function at ${dir} is not a quality function and cannot be resumed without inventSpec`,
+          );
+        }
+        // mode 2 resume: child dir exists but not quality — reconstruct state
+        state = new State(
+          {
+            parameters: buildParameters(options.parameters),
+            inventSpec: options.inventSpec,
+            gitHubToken,
+            owner,
+            ...("type" in options
+              ? {
+                  type: options.type,
+                  ...(options.type === "vector.function"
+                    ? {
+                        input_schema: options.input_schema,
+                        output_length: options.output_length,
+                        input_split: options.input_split,
+                        input_merge: options.input_merge,
+                      }
+                    : { input_schema: options.input_schema }),
+                }
+              : {}),
+          },
+          gitHubBackend,
+        );
+        state.forceSetName(basename(dir));
+      }
+      await stage2(
+        dir,
+        state,
+        agentState,
+        path,
+        onNotification,
+        agent,
+        gitHubBackend,
+        gitHubToken,
+        gitAuthorName,
+        gitAuthorEmail,
+      );
+      qualityFn = await readQualityFunctionFromFilesystem(dir, gitHubBackend);
+      if (!qualityFn) {
+        throw new Error("stage2 failed to produce quality function");
+      }
+    }
+  } catch (err) {
+    // If dir was set, filesystem was written — emit done with error
+    if (dir !== null) {
+      const name = basename(dir);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      onNotification({
+        path,
+        name,
+        message: { role: "done", error: message },
+      });
+    }
+    throw err;
+  }
+
+  const hasChildren =
+    qualityFn.placeholderTaskSpecs?.some((s) => s !== null) ?? false;
+
+  onNotification({
+    path,
+    name: qualityFn.name,
+    message: hasChildren ? { role: "waiting" } : { role: "done" },
+  });
+
+  // Always stage3
+  const unreplacedReasons = await stage3(
+    dir,
+    owner,
+    qualityFn,
+    path,
+    onNotification,
     agent,
     gitHubBackend,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
-  });
+  );
+
+  if (hasChildren) {
+    const fn =
+      qualityFn.function.type === "branch.scalar.function" ||
+      qualityFn.function.type === "branch.vector.function"
+        ? qualityFn.function.function
+        : undefined;
+    const tasks = fn?.tasks ?? [];
+    const remainingPlaceholders = tasks.filter(
+      (t) =>
+        t.type === "placeholder.scalar.function" ||
+        t.type === "placeholder.vector.function",
+    ).length;
+    onNotification({
+      path,
+      name: qualityFn.name,
+      message: {
+        role: "done",
+        functionTasks: tasks.length - remainingPlaceholders,
+        placeholderTasks: remainingPlaceholders,
+        error:
+          unreplacedReasons.length > 0
+            ? unreplacedReasons.join("\n")
+            : undefined,
+      },
+    });
+  }
 }
 
 async function stage1(
-  dir: string,
+  owner: string,
+  options: Exclude<InventOptions, { name: string }>,
+  parentToken: string | undefined,
+  path: number[],
   onNotification: (notification: Notification) => void,
-  { parameters, inventSpec, ...stateOptions }: InventOptions,
   agent: AgentStepFn,
   gitHubBackend: GitHubBackend,
   gitHubToken: string,
   gitAuthorName: string,
   gitAuthorEmail: string,
-  path: number[],
-): Promise<void> {
-  // Starting from scratch for this branch — remove any stale sub_functions
-  const subFunctionsDir = join(dir, "sub_functions");
-  rmSync(subFunctionsDir, { recursive: true, force: true });
+): Promise<{
+  dir: string;
+  state: State;
+  agentState: unknown;
+  reThrow: unknown;
+}> {
+  const {
+    parameters: parametersBuilder,
+    inventSpec,
+    ...stateOptions
+  } = options;
+  const parameters = buildParameters(parametersBuilder);
 
   const state = new State(
     {
-      parameters: buildParameters(parameters),
+      parameters,
       inventSpec,
       gitHubToken,
+      owner,
       ...stateOptions,
     },
     gitHubBackend,
   );
 
-  let boundOnNotification = (message: NotificationMessage) =>
+  const boundOnNotification = (message: NotificationMessage) =>
     onNotification({ path, message });
   let agentState = await stepType(state, agent, boundOnNotification);
   agentState = await stepName(state, agent, boundOnNotification, agentState);
 
   const name = state.getName().value!;
-  writeInitialStateToFilesystem(dir, state, state.parameters);
-  await gitHubBackend.pushInitial({
-    dir,
-    name,
-    gitHubToken,
-    gitAuthorName,
-    gitAuthorEmail,
-    message: "initial commit",
-  });
+  const dir = inventDir(owner, name);
+  // Dir already created by setName — just write files
+  writeInitialStateToFilesystem(dir, parameters);
+  if (parentToken) {
+    writeParentTokenToFilesystem(dir, parentToken);
+  }
 
-  boundOnNotification = (message: NotificationMessage) =>
+  let reThrow: unknown;
+  try {
+    await gitHubBackend.pushInitial({
+      dir,
+      name,
+      gitHubToken,
+      gitAuthorName,
+      gitAuthorEmail,
+      message: "initial commit",
+    });
+  } catch (err) {
+    reThrow = err;
+  }
+
+  return { dir, state, agentState, reThrow };
+}
+
+async function stage2(
+  dir: string,
+  state: State,
+  agentState: unknown,
+  path: number[],
+  onNotification: (notification: Notification) => void,
+  agent: AgentStepFn,
+  gitHubBackend: GitHubBackend,
+  gitHubToken: string,
+  gitAuthorName: string,
+  gitAuthorEmail: string,
+): Promise<void> {
+  const name = state.getName().value!;
+  const boundOnNotification = (message: NotificationMessage) =>
     onNotification({ path, name, message });
-  agentState = await stepFields(state, agent, boundOnNotification, agentState);
+
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
+  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
     state,
     agent,
@@ -175,56 +360,34 @@ async function stage1(
     agentState,
   );
 
-  boundOnNotification({ role: "done" });
-
   writeFinalStateToFilesystem(dir, state, state.parameters);
   await gitHubBackend.pushFinal({
     dir,
+    name,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
-    message: `implement ${state.getName().value!}`,
+    message: `implement ${name}`,
     description: state.getDescription().value!,
   });
 }
 
-async function stage2(
+async function stage3(
   dir: string,
-  onNotification: (notification: Notification) => void,
+  owner: string,
+  qualityFn: QualityFunction,
   path: number[],
-  continuation: {
-    agent: AgentStepFn;
-    gitHubBackend: GitHubBackend;
-    gitHubToken: string;
-    gitAuthorName: string;
-    gitAuthorEmail: string;
-  },
-): Promise<void> {
-  const qualityFn = await readQualityFunctionFromFilesystem(
-    dir,
-    continuation.gitHubBackend,
-  );
-  if (!qualityFn) return;
-
-  const gitHubToken =
-    getGitHubToken() ??
-    (() => {
-      throw new Error("GitHubToken required");
-    })();
-  const gitAuthorName =
-    getGitAuthorName() ??
-    (() => {
-      throw new Error("GitAuthorName required");
-    })();
-  const gitAuthorEmail =
-    getGitAuthorEmail() ??
-    (() => {
-      throw new Error("GitAuthorEmail required");
-    })();
-
+  onNotification: (notification: Notification) => void,
+  agent: AgentStepFn,
+  gitHubBackend: GitHubBackend,
+  gitHubToken: string,
+  gitAuthorName: string,
+  gitAuthorEmail: string,
+): Promise<string[]> {
   if (isDirty(dir)) {
-    await continuation.gitHubBackend.pushFinal({
+    await gitHubBackend.pushFinal({
       dir,
+      name: qualityFn.name,
       gitHubToken,
       gitAuthorName,
       gitAuthorEmail,
@@ -237,14 +400,11 @@ async function stage2(
     qualityFn.function.type !== "branch.scalar.function" &&
     qualityFn.function.type !== "branch.vector.function"
   ) {
-    return; // Leaf functions have no sub-functions
+    return []; // Leaf functions have no sub-functions
   }
 
   const specs = qualityFn.placeholderTaskSpecs;
-  if (!specs) return;
-
-  const subDir = join(dir, "sub_functions");
-  mkdirSync(subDir, { recursive: true });
+  if (!specs) return [];
 
   const subParameters: Parameters = {
     ...qualityFn.parameters,
@@ -255,42 +415,18 @@ async function stage2(
   const subInvents: Promise<void>[] = [];
 
   for (let i = 0; i < tasks.length; i++) {
-    const spec = specs[i];
-    if (spec === null || spec === undefined) continue;
+    const entry = specs[i];
+    if (entry === null || entry === undefined) continue;
 
     const task = tasks[i];
-    const subFunctionDir = join(subDir, String(i));
+    const childPath = [...path, i];
 
-    // If a valid quality function already exists on disk + on GitHub, skip stage1
-    const childQualityFn = await readQualityFunctionFromFilesystem(
-      subFunctionDir,
-      continuation.gitHubBackend,
-    );
-    if (
-      childQualityFn &&
-      (await continuation.gitHubBackend.getOwnerRepositoryCommit(
-        subFunctionDir,
-      ))
-    ) {
-      const childPath = [...path, i];
-      subInvents.push(
-        invent(subFunctionDir, onNotification, undefined, {
-          path: childPath,
-          ...continuation,
-        }),
-      );
-      onNotification({
-        path: childPath,
-        name: childQualityFn.name,
-        message: { role: "done" },
-      });
-    } else if (task.type === "placeholder.vector.function") {
+    if (task.type === "placeholder.vector.function") {
       subInvents.push(
         invent(
-          subFunctionDir,
           onNotification,
           {
-            inventSpec: spec,
+            inventSpec: entry.spec,
             parameters: subParameters,
             type: "vector.function",
             input_schema: task.input_schema,
@@ -298,21 +434,36 @@ async function stage2(
             input_split: task.input_split,
             input_merge: task.input_merge,
           },
-          { path: [...path, i], ...continuation },
+          {
+            parentToken: entry.token,
+            path: childPath,
+            agent,
+            gitHubBackend,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail,
+          },
         ),
       );
     } else if (task.type === "placeholder.scalar.function") {
       subInvents.push(
         invent(
-          subFunctionDir,
           onNotification,
           {
-            inventSpec: spec,
+            inventSpec: entry.spec,
             parameters: subParameters,
             type: "scalar.function",
             input_schema: task.input_schema,
           },
-          { path: [...path, i], ...continuation },
+          {
+            parentToken: entry.token,
+            path: childPath,
+            agent,
+            gitHubBackend,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail,
+          },
         ),
       );
     }
@@ -327,6 +478,7 @@ async function stage2(
 
   // Closer: replace resolved placeholders with real function task references
   let replaced = false;
+  const unreplacedReasons: string[] = [];
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
     if (
@@ -336,20 +488,36 @@ async function stage2(
       continue;
     }
 
-    const subFunctionDir = join(subDir, String(i));
+    const entry = specs[i];
+    if (entry === null || entry === undefined) continue;
+
+    // Find the child dir by token
+    const childDir = findChildByToken(owner, entry.token);
+    if (!childDir) {
+      unreplacedReasons.push(`task ${i}: child directory not found`);
+      continue;
+    }
 
     const subQualityFn = await readQualityFunctionFromFilesystem(
-      subFunctionDir,
-      continuation.gitHubBackend,
+      childDir,
+      gitHubBackend,
     );
-    if (!subQualityFn) continue;
+    if (!subQualityFn) {
+      unreplacedReasons.push(`task ${i}: not a valid quality function`);
+      continue;
+    }
 
     // Assert sub-function has no placeholder tasks remaining
-    if (hasPlaceholderTasks(subQualityFn.function.function)) continue;
+    if (hasPlaceholderTasks(subQualityFn.function.function)) {
+      unreplacedReasons.push(`task ${i}: still has unresolved placeholders`);
+      continue;
+    }
 
-    const orc =
-      await continuation.gitHubBackend.getOwnerRepositoryCommit(subFunctionDir);
-    if (!orc) continue;
+    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir, gitHubToken);
+    if (!orc) {
+      unreplacedReasons.push(`task ${i}: could not resolve repository commit`);
+      continue;
+    }
 
     replacePlaceholderTask(tasks, i, task, orc);
     replaced = true;
@@ -360,8 +528,40 @@ async function stage2(
       dir,
       qualityFn.function.function as Functions.RemoteFunction,
     );
-    await continuation.gitHubBackend.pushFinal({
+
+    // Replace template strings in README.md
+    let readme = readReadmeFromFilesystem(dir);
+    if (readme) {
+      let readmeChanged = false;
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        if (
+          task.type !== "scalar.function" &&
+          task.type !== "vector.function"
+        ) {
+          continue;
+        }
+        if (!("owner" in task) || !("repository" in task)) continue;
+        const taskOwner = task.owner as string;
+        const taskRepo = task.repository as string;
+        const templateTask = `{{ .Task${i} }}`;
+        const templateOwner = `{{ .Owner }}`;
+        if (readme.includes(templateTask)) {
+          readme = readme.split(templateTask).join(taskRepo);
+          readmeChanged = true;
+        }
+        if (readmeChanged && readme.includes(templateOwner)) {
+          readme = readme.split(templateOwner).join(taskOwner);
+        }
+      }
+      if (readmeChanged) {
+        writeReadmeToFilesystem(dir, readme);
+      }
+    }
+
+    await gitHubBackend.pushFinal({
       dir,
+      name: qualityFn.name,
       gitHubToken,
       gitAuthorName,
       gitAuthorEmail,
@@ -373,6 +573,8 @@ async function stage2(
   // Re-throw any sub-invent errors
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1) throw new AggregateError(errors);
+
+  return unreplacedReasons;
 }
 
 function hasPlaceholderTasks(fn: Functions.RemoteFunction): boolean {

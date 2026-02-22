@@ -17,6 +17,9 @@ pub enum Verbosity {
     /// Detailed output with thorough explanations.
     #[serde(rename = "high")]
     High,
+    /// Maximum verbosity, most detailed output possible.
+    #[serde(rename = "max")]
+    Max,
 }
 
 impl Verbosity {

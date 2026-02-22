@@ -24,6 +24,7 @@ export function stepFields<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "fields",
         prompt:
           "Create the InputSchema for your Vector Function. " +
           "Ensure that it adheres to the specifications outlined in your InventSpec and is consistent with the qualities and values described in your essay. " +
@@ -65,6 +66,7 @@ export function stepFields<TState>(
     return runAgentStep(
       agent,
       {
+        stepName: "fields",
         prompt:
           "Create the InputSchema for your Scalar Function. " +
           "Ensure that it adheres to the specifications outlined in your InventSpec and is consistent with the essay you wrote describing your function. " +

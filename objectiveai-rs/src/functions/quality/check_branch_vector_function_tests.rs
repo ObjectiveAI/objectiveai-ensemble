@@ -34,7 +34,6 @@ fn test_err(f: &RemoteFunction, expected: &str) {
 fn wrong_type_scalar() {
     let f = RemoteFunction::Scalar {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -61,7 +60,6 @@ fn wrong_type_scalar() {
 fn input_schema_string() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::String(StringInputSchema {
             description: None,
             r#enum: None,
@@ -97,7 +95,6 @@ fn input_schema_string() {
 fn input_schema_object_no_required_array() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -139,7 +136,6 @@ fn input_schema_object_no_required_array() {
 fn scalar_function_without_map() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -191,7 +187,6 @@ fn scalar_function_without_map() {
 fn placeholder_scalar_without_map() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -244,7 +239,6 @@ fn placeholder_scalar_without_map() {
 fn vector_function_with_map() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -285,7 +279,6 @@ fn vector_function_with_map() {
 fn placeholder_vector_with_map() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -345,7 +338,6 @@ fn placeholder_vector_with_map() {
 fn contains_vector_completion() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -397,7 +389,6 @@ fn contains_vector_completion() {
 fn single_mapped_scalar_task() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -440,7 +431,6 @@ fn single_mapped_scalar_task() {
 fn over_50_percent_mapped_scalar() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -505,7 +495,6 @@ fn over_50_percent_mapped_scalar() {
 fn valid_single_vector_function() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -546,7 +535,6 @@ fn valid_single_vector_function() {
 fn valid_single_placeholder_vector() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -606,7 +594,6 @@ fn valid_single_placeholder_vector() {
 fn valid_50_50_split() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -660,7 +647,6 @@ fn valid_50_50_split() {
 fn valid_mixed_tasks() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -723,7 +709,6 @@ fn valid_mixed_tasks() {
 fn valid_all_unmapped_vector() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -777,7 +762,6 @@ fn valid_all_unmapped_vector() {
 fn description_too_long() {
     let f = RemoteFunction::Vector {
         description: "a".repeat(351),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -824,7 +808,6 @@ fn description_too_long() {
 fn description_empty() {
     let f = RemoteFunction::Vector {
         description: "  ".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -873,7 +856,6 @@ fn description_empty() {
 fn input_diversity_fail_third_task_fixed_input() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -937,7 +919,6 @@ fn input_diversity_fail_third_task_fixed_input() {
 fn input_diversity_fail_third_task_mapped_fixed() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1011,7 +992,6 @@ fn input_diversity_fail_third_task_mapped_fixed() {
 fn input_diversity_pass_vector_function_passthrough() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1063,7 +1043,6 @@ fn input_diversity_pass_vector_function_passthrough() {
 fn input_diversity_pass_mixed_mapped_and_unmapped() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1117,7 +1096,6 @@ fn input_diversity_pass_mixed_mapped_and_unmapped() {
 fn input_diversity_pass_placeholder_vector_tasks() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1199,7 +1177,6 @@ fn input_diversity_pass_placeholder_vector_tasks() {
 fn input_diversity_pass_mapped_scalar_with_two_vectors() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1296,7 +1273,6 @@ fn input_diversity_fail_child_min_items_3() {
     });
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: parent_schema,
         input_maps: None,
         tasks: vec![
@@ -1331,7 +1307,6 @@ fn input_diversity_fail_child_min_items_3() {
 fn input_diversity_pass_no_input_maps() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1383,7 +1358,6 @@ fn input_diversity_pass_no_input_maps() {
 fn input_diversity_fail_with_input_maps_fixed() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1439,7 +1413,6 @@ fn input_diversity_fail_with_input_maps_fixed() {
 fn rejects_no_tasks() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1474,7 +1447,6 @@ fn rejects_no_tasks() {
 fn rejects_unused_input_maps() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1530,7 +1502,6 @@ fn rejects_unused_input_maps() {
 fn valid_with_skip_last_task_boolean() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1585,7 +1556,6 @@ fn valid_with_skip_last_task_boolean() {
 fn valid_with_skip_on_quick_mode() {
     let f = RemoteFunction::Vector {
         description: "Rank with optional deep analysis".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1637,7 +1607,6 @@ fn valid_with_skip_on_quick_mode() {
 fn rejects_out_of_bounds_map_index() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1711,7 +1680,6 @@ fn rejects_out_of_bounds_map_index() {
 fn output_distribution_pass_mapped_scalar_max_items_10() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1765,7 +1733,6 @@ fn output_distribution_pass_mapped_scalar_max_items_10() {
 fn output_distribution_pass_mixed_tasks_max_items_10() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1828,7 +1795,6 @@ fn output_distribution_pass_mixed_tasks_max_items_10() {
 fn output_distribution_fail_biased_mapped_scalar() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1884,7 +1850,6 @@ fn output_distribution_fail_biased_mapped_scalar() {
 fn output_distribution_fail_biased_unmapped_vector() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1927,7 +1892,6 @@ fn output_distribution_fail_biased_unmapped_vector() {
 fn output_distribution_fail_mapped_scalar_division_by_zero() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -1981,7 +1945,6 @@ fn output_distribution_fail_mapped_scalar_division_by_zero() {
 fn output_distribution_pass_identity() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Object(ObjectInputSchema {
             description: None,
             properties: index_map! {
@@ -2022,7 +1985,6 @@ fn output_distribution_pass_identity() {
 fn rejects_single_permutation_string_enum() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2063,7 +2025,6 @@ fn rejects_single_permutation_string_enum() {
 fn all_tasks_skipped() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2115,7 +2076,6 @@ fn all_tasks_skipped() {
 fn rejects_single_permutation_integer() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(2),
@@ -2157,7 +2117,6 @@ fn rejects_single_permutation_integer() {
 fn output_length_less_than_2() {
     let f = RemoteFunction::Vector {
         description: "test".to_string(),
-        changelog: None,
         input_schema: InputSchema::Array(ArrayInputSchema {
             description: None,
             min_items: Some(1),

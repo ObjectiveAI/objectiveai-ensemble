@@ -16,8 +16,11 @@ objectiveai/
 ├── objectiveai-js/                 # TypeScript SDK (npm: objectiveai)
 ├── objectiveai-cli/                # ObjectiveAI CLI
 ├── objectiveai-web/                # Next.js web interface (production)
+├── objectiveai-scripts/            # Utility scripts (see objectiveai-scripts/README.md)
 └── coding-agent-scratch/           # Scratch folder for testing SDK calls
 ```
+
+**Scripts:** `objectiveai-scripts/` contains utility scripts. See its `README.md` for documentation. Add new useful scripts there and document them.
 
 ## Core Concepts
 
@@ -525,7 +528,7 @@ Key files:
 - `hooks/useObjectiveAI.ts` — `getClient()` (auth) and `getPublicClient()` (no auth)
 - `lib/provider.ts` — Token session management with OAuth refresh logic
 
-Note: Profiles list endpoint only returns identifiers. To get `description`/`changelog`, individual fetches are required (N+1 pattern).
+Note: Profiles list endpoint only returns identifiers. To get `description`, individual fetches are required (N+1 pattern).
 
 ### Authentication
 

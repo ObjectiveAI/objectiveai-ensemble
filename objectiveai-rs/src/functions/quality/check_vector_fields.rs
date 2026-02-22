@@ -25,7 +25,6 @@ impl VectorFieldsValidation {
     fn to_function(&self) -> Function {
         Function::Remote(RemoteFunction::Vector {
             description: String::new(),
-            changelog: None,
             input_schema: self.input_schema.clone(),
             input_maps: None,
             tasks: vec![],

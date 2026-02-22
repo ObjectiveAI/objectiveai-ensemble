@@ -6,6 +6,8 @@ import {
   setHomeConfigValue,
   deleteHomeConfigValue,
 } from "../config";
+import { useTextInput } from "./useTextInput";
+import { SelectableList } from "./SelectableList";
 
 interface TextItem {
   label: string;
@@ -96,8 +98,7 @@ export function Config({ onBack }: { onBack: () => void }) {
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState("");
-  const [cursorPos, setCursorPos] = useState(0);
+  const [{ text: editValue, cursor: cursorPos }, editActions] = useTextInput();
   const [values, setValues] = useState<Record<string, string | undefined>>(() => {
     const config = readHomeConfig();
     const result: Record<string, string | undefined> = {};
@@ -134,7 +135,6 @@ export function Config({ onBack }: { onBack: () => void }) {
         if (trimmed === "") {
           clearValue(item);
         } else if (item.kind === "text" && item.validate && !item.validate(trimmed)) {
-          // Invalid — do nothing
           return;
         } else {
           saveValue(item, trimmed);
@@ -142,25 +142,7 @@ export function Config({ onBack }: { onBack: () => void }) {
         setEditing(false);
         return;
       }
-      if (key.leftArrow) {
-        setCursorPos((prev) => Math.max(0, prev - 1));
-        return;
-      }
-      if (key.rightArrow) {
-        setCursorPos((prev) => Math.min(editValue.length, prev + 1));
-        return;
-      }
-      if (key.backspace || key.delete) {
-        if (cursorPos > 0) {
-          setEditValue((prev) => prev.slice(0, cursorPos - 1) + prev.slice(cursorPos));
-          setCursorPos((prev) => prev - 1);
-        }
-        return;
-      }
-      if (ch && !key.ctrl && !key.meta) {
-        setEditValue((prev) => prev.slice(0, cursorPos) + ch + prev.slice(cursorPos));
-        setCursorPos((prev) => prev + 1);
-      }
+      editActions.handleKey(ch, key);
       return;
     }
 
@@ -190,10 +172,8 @@ export function Config({ onBack }: { onBack: () => void }) {
           saveValue(item, item.options[next]);
         }
       } else {
-        const existing = values[item.key] ?? "";
         setEditing(true);
-        setEditValue(existing);
-        setCursorPos(existing.length);
+        editActions.set(values[item.key] ?? "");
       }
     }
   });
@@ -204,29 +184,42 @@ export function Config({ onBack }: { onBack: () => void }) {
         <Text bold color="#5948e7">Config</Text>
       </Box>
       <Box height={1} />
-      {CONFIG_ITEMS.map((item, i) => {
-        const selected = i === selectedIndex;
-        const value = values[item.key];
-        const isEditing = selected && editing;
-        const prefix = selected ? "❯ " : "  ";
+      {editing ? (
+        <>
+          {CONFIG_ITEMS.map((item, i) => {
+            const selected = i === selectedIndex;
+            const value = values[item.key];
+            const prefix = selected ? "❯ " : "  ";
 
-        return (
-          <Box key={item.key}>
-            {selected ? (
-              <Text color="#5948e7" bold>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
-            ) : (
-              <Text dimColor>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
-            )}
-            {isEditing ? (
-              <Text>{editValue.slice(0, cursorPos)}█{editValue.slice(cursorPos)}</Text>
-            ) : value !== undefined ? (
-              <Text dimColor={!selected}>{value}</Text>
-            ) : (
-              <Text color="gray" dimColor>unset</Text>
-            )}
-          </Box>
-        );
-      })}
+            return (
+              <Box key={item.key}>
+                {selected ? (
+                  <Text color="#5948e7" bold>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
+                ) : (
+                  <Text dimColor>{prefix}{item.label.padEnd(LABEL_WIDTH)}</Text>
+                )}
+                {selected ? (
+                  <Text>{editValue.slice(0, cursorPos)}█{editValue.slice(cursorPos)}</Text>
+                ) : value !== undefined ? (
+                  <Text dimColor>{value}</Text>
+                ) : (
+                  <Text color="gray" dimColor>unset</Text>
+                )}
+              </Box>
+            );
+          })}
+        </>
+      ) : (
+        <SelectableList
+          items={CONFIG_ITEMS.map((item) => ({
+            key: item.key,
+            label: item.label,
+            value: values[item.key] ?? "unset",
+          }))}
+          selectedIndex={selectedIndex}
+          labelWidth={LABEL_WIDTH}
+        />
+      )}
       <Box flexGrow={1} />
       <Text dimColor>{"  press esc to go back"}</Text>
     </Box>

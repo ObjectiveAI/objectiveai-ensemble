@@ -1,5 +1,6 @@
 import { Functions } from "objectiveai";
 import { relative } from "path";
+import { fetchWithRetries } from "./http";
 import {
   getRepoRoot,
   getRemoteUrl,
@@ -17,11 +18,12 @@ import {
 export interface GitHubBackend {
   pushInitial(options: PushInitialOptions): Promise<void>;
   pushFinal(options: PushFinalOptions): Promise<void>;
-  getOwnerRepositoryCommit(dir: string): Promise<OwnerRepositoryCommit | null>;
+  getOwnerRepositoryCommit(dir: string, gitHubToken: string): Promise<OwnerRepositoryCommit | null>;
   fetchRemoteFunctions(
     refs: Iterable<OwnerRepositoryCommit>,
   ): Promise<Record<string, Functions.RemoteFunction> | null>;
   repoExists(name: string, gitHubToken: string): Promise<boolean>;
+  getAuthenticatedUser(gitHubToken: string): Promise<string>;
 }
 
 export const DefaultGitHubBackend: GitHubBackend = {
@@ -30,6 +32,7 @@ export const DefaultGitHubBackend: GitHubBackend = {
   getOwnerRepositoryCommit,
   fetchRemoteFunctions,
   repoExists,
+  getAuthenticatedUser,
 };
 
 export interface OwnerRepositoryCommit {
@@ -58,7 +61,7 @@ function fetchRemoteFunction(
   const promise = (async (): Promise<Functions.RemoteFunction | null> => {
     const url = `https://raw.githubusercontent.com/${owner}/${repository}/${commit}/function.json`;
 
-    const response = await fetch(url);
+    const response = await fetchWithRetries(url);
 
     if (response.status === 404) {
       return null;
@@ -112,7 +115,7 @@ async function fetchRemoteFunctions(
 
 async function repoExists(name: string, gitHubToken: string): Promise<boolean> {
   try {
-    const userRes = await fetch("https://api.github.com/user", {
+    const userRes = await fetchWithRetries("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${gitHubToken}`,
         Accept: "application/vnd.github.v3+json",
@@ -121,7 +124,7 @@ async function repoExists(name: string, gitHubToken: string): Promise<boolean> {
     if (!userRes.ok) return false;
     const user = (await userRes.json()) as { login: string };
 
-    const res = await fetch(
+    const res = await fetchWithRetries(
       `https://api.github.com/repos/${user.login}/${name}`,
       {
         headers: {
@@ -140,15 +143,14 @@ async function commitExistsOnRemote(
   owner: string,
   repository: string,
   sha: string,
+  gitHubToken: string,
 ): Promise<boolean> {
   try {
     const url = `https://api.github.com/repos/${owner}/${repository}/commits/${sha}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetries(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
-        ...(process.env.GITHUB_TOKEN
-          ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
-          : {}),
+        Authorization: `Bearer ${gitHubToken}`,
       },
     });
     return response.ok;
@@ -159,6 +161,7 @@ async function commitExistsOnRemote(
 
 async function getOwnerRepositoryCommit(
   dir: string,
+  gitHubToken: string,
 ): Promise<OwnerRepositoryCommit | null> {
   const repoRoot = getRepoRoot(dir);
   if (!repoRoot) return null;
@@ -169,7 +172,7 @@ async function getOwnerRepositoryCommit(
   const parsed = parseGitHubRemote(remoteUrl);
   if (!parsed) return null;
 
-  const relativePath = relative(repoRoot, dir).replace(/\\/g, "/");
+  const relativePath = relative(repoRoot, dir).replace(/\\/g, "/") || ".";
 
   if (hasUncommittedChanges(repoRoot, relativePath + "/function.json")) {
     return null;
@@ -182,6 +185,7 @@ async function getOwnerRepositoryCommit(
     parsed.owner,
     parsed.repository,
     localCommit,
+    gitHubToken,
   );
   if (!exists) return null;
 
@@ -212,7 +216,7 @@ async function pushInitial(options: PushInitialOptions): Promise<void> {
   commit(dir, message, gitAuthorName, gitAuthorEmail);
 
   // Create upstream repository via GitHub API
-  const res = await fetch("https://api.github.com/user/repos", {
+  const res = await fetchWithRetries("https://api.github.com/user/repos", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${gitHubToken}`,
@@ -238,6 +242,7 @@ async function pushInitial(options: PushInitialOptions): Promise<void> {
 
 export interface PushFinalOptions {
   dir: string;
+  name: string;
   gitHubToken: string;
   gitAuthorName: string;
   gitAuthorEmail: string;
@@ -245,9 +250,34 @@ export interface PushFinalOptions {
   description: string;
 }
 
+const authenticatedUserCache = new Map<string, Promise<string>>();
+
+function getAuthenticatedUser(gitHubToken: string): Promise<string> {
+  const cached = authenticatedUserCache.get(gitHubToken);
+  if (cached) return cached;
+
+  const promise = (async (): Promise<string> => {
+    const res = await fetchWithRetries("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
+    }
+    const user = (await res.json()) as { login: string };
+    return user.login;
+  })();
+
+  authenticatedUserCache.set(gitHubToken, promise);
+  return promise;
+}
+
 async function pushFinal(options: PushFinalOptions): Promise<void> {
   const {
     dir,
+    name,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
@@ -255,9 +285,14 @@ async function pushFinal(options: PushFinalOptions): Promise<void> {
     description,
   } = options;
 
-  // Verify git is initialized and has a remote
+  // Verify git is initialized
   const repoRoot = getRepoRoot(dir);
   if (!repoRoot) throw new Error("Git repository not initialized");
+
+  // Ensure remote exists (pushInitial may have failed before adding it)
+  if (!getRemoteUrl(repoRoot)) {
+    await ensureRemote(dir, name, gitHubToken);
+  }
 
   const remoteUrl = getRemoteUrl(repoRoot);
   if (!remoteUrl) throw new Error("No remote origin set");
@@ -268,7 +303,7 @@ async function pushFinal(options: PushFinalOptions): Promise<void> {
   const { owner, repository } = parsed;
 
   // Update repository description via GitHub API
-  const res = await fetch(
+  const res = await fetchWithRetries(
     `https://api.github.com/repos/${owner}/${repository}`,
     {
       method: "PATCH",
@@ -291,4 +326,37 @@ async function pushFinal(options: PushFinalOptions): Promise<void> {
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
   push(dir, gitHubToken);
+}
+
+async function ensureRemote(
+  dir: string,
+  name: string,
+  gitHubToken: string,
+): Promise<void> {
+  const res = await fetchWithRetries("https://api.github.com/user/repos", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${gitHubToken}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, visibility: "public" }),
+  });
+
+  if (res.ok) {
+    const repo = (await res.json()) as { owner: { login: string }; name: string };
+    addRemote(dir, `https://github.com/${repo.owner.login}/${repo.name}.git`);
+  } else if (res.status === 422) {
+    // 422 = repo already exists (pushInitial created it but failed before addRemote)
+    const user = await fetchWithRetries("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (user.ok) {
+      const { login } = (await user.json()) as { login: string };
+      addRemote(dir, `https://github.com/${login}/${name}.git`);
+    }
+  }
 }

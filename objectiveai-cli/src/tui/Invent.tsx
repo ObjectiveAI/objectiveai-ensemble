@@ -1,13 +1,17 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { Notification, NotificationMessage } from "../notification";
 import { ParametersBuilder } from "../parameters";
-import { invent } from "../invent";
+import { useInventWorker } from "../worker/useInventWorker";
 
 interface FunctionNode {
   name?: string;
   messages: NotificationMessage[];
   done: boolean;
+  waiting: boolean;
+  error?: string;
+  functionTasks?: number;
+  placeholderTasks?: number;
   children: Map<number, FunctionNode>;
 }
 
@@ -21,6 +25,7 @@ function findOrCreateNode(
       node.children.set(index, {
         messages: [],
         done: false,
+        waiting: false,
         children: new Map(),
       });
     }
@@ -43,6 +48,7 @@ export function useInventNotifications() {
   const [tree, setTree] = useState<FunctionNode>({
     messages: [],
     done: false,
+    waiting: false,
     children: new Map(),
   });
 
@@ -57,6 +63,18 @@ export function useInventNotifications() {
 
       if (notification.message.role === "done") {
         node.done = true;
+        node.waiting = false;
+        if (notification.message.error) {
+          node.error = notification.message.error;
+        }
+        if (notification.message.functionTasks !== undefined) {
+          node.functionTasks = notification.message.functionTasks;
+        }
+        if (notification.message.placeholderTasks !== undefined) {
+          node.placeholderTasks = notification.message.placeholderTasks;
+        }
+      } else if (notification.message.role === "waiting") {
+        node.waiting = true;
       } else {
         node.messages.push(notification.message);
         if (node.messages.length > 5) {
@@ -71,28 +89,47 @@ export function useInventNotifications() {
   return { tree, onNotification };
 }
 
-// Flat line types for the scrollable viewport
+// Flat line types for the scrollable viewport.
+// INVARIANT: each FlatLine renders as exactly 1 terminal row.
 interface TitleLine {
   type: "title";
   gutter: string;
   prefix: string;
   name: string;
   done: boolean;
+  waiting: boolean;
+  error?: string;
+  functionTasks?: number;
+  placeholderTasks?: number;
 }
 
-interface MsgLine {
-  type: "message";
+interface ToolSuccessLine {
+  type: "toolSuccess";
   gutter: string;
-  message: NotificationMessage;
+  name: string;
 }
 
-type FlatLine = TitleLine | MsgLine;
+interface TextLine {
+  type: "text";
+  text: string;
+  color?: string;
+  dimColor?: boolean;
+  wrap?: "truncate";
+}
+
+interface LoadingLine {
+  type: "loading";
+  gutter: string;
+}
+
+type FlatLine = TitleLine | ToolSuccessLine | TextLine | LoadingLine;
 
 function flattenNode(
   node: FunctionNode,
   gutter: string,
   isLast: boolean,
   isRoot: boolean,
+  termWidth: number,
 ): FlatLine[] {
   const lines: FlatLine[] = [];
   const prefix = isRoot ? "" : isLast ? "└─ " : "├─ ";
@@ -105,50 +142,145 @@ function flattenNode(
     prefix,
     name: node.name ?? "Unnamed Function",
     done: node.done,
+    waiting: node.waiting,
+    error: node.error,
+    functionTasks: node.functionTasks,
+    placeholderTasks: node.placeholderTasks,
   });
 
-  if (!node.done && node.messages.length > 0) {
-    for (const msg of node.messages) {
-      lines.push({ type: "message", gutter: childGutter, message: msg });
+  const children = Array.from(node.children.entries());
+
+  if (node.done && node.error && node.functionTasks !== undefined) {
+    const errorGutter = children.length > 0 ? childGutter + "│  " : childGutter;
+    for (const errLine of node.error.split("\n")) {
+      if (errLine) lines.push({ type: "text", text: errorGutter + "✗ " + errLine, color: "red" });
     }
   }
 
-  const children = Array.from(node.children.entries());
+  if (!node.done && !node.waiting && node.messages.length > 0) {
+    for (const msg of node.messages) {
+      flattenMessage(lines, childGutter, msg, termWidth);
+    }
+  }
+
+  if (!node.done && !node.waiting) {
+    lines.push({ type: "loading", gutter: childGutter });
+  }
+
   for (let i = 0; i < children.length; i++) {
     const [, child] = children[i];
     lines.push(
-      ...flattenNode(child, childGutter, i === children.length - 1, false),
+      ...flattenNode(child, childGutter, i === children.length - 1, false, termWidth),
     );
   }
 
   return lines;
 }
 
-function RenderLine({ line }: { line: FlatLine }) {
+function capLines(rawLines: string[], max = 5): string[] {
+  if (rawLines.length <= max) return rawLines;
+  return [...rawLines.slice(0, 2), "...", ...rawLines.slice(-2)];
+}
+
+function flattenMessage(
+  lines: FlatLine[],
+  gutter: string,
+  msg: NotificationMessage,
+  termWidth: number,
+): void {
+  if (msg.role === "assistant") {
+    const indent = gutter + "  ";
+    const rawLines = capLines(msg.content.split("\n"));
+    for (const raw of rawLines) {
+      const wrapped = wrapIndent(raw, termWidth - indent.length, indent);
+      for (const row of wrapped.split("\n")) {
+        lines.push({ type: "text", text: row, wrap: "truncate" });
+      }
+    }
+  } else if (msg.role === "tool") {
+    if (msg.error) {
+      // First row: "  ✗ toolName — first line of error"
+      const errIndent = gutter + "    ";
+      const rawLines = capLines(msg.error.split("\n"));
+      const firstPrefixLen = gutter.length + 4 + msg.name.length + 3;
+      for (let j = 0; j < rawLines.length; j++) {
+        if (j === 0) {
+          const wrapped = wrapIndent(rawLines[0], termWidth - firstPrefixLen, errIndent);
+          const wrappedRows = wrapped.split("\n");
+          const firstRow = gutter + "  ✗ " + msg.name + " — " + wrappedRows[0].slice(errIndent.length);
+          lines.push({ type: "text", text: firstRow, color: "red", wrap: "truncate" });
+          for (let k = 1; k < wrappedRows.length; k++) {
+            lines.push({ type: "text", text: wrappedRows[k], color: "red", wrap: "truncate" });
+          }
+        } else {
+          const wrapped = wrapIndent(rawLines[j], termWidth - errIndent.length, errIndent);
+          for (const row of wrapped.split("\n")) {
+            lines.push({ type: "text", text: row, color: "red", wrap: "truncate" });
+          }
+        }
+      }
+    } else {
+      lines.push({ type: "toolSuccess", gutter, name: msg.name });
+    }
+  }
+  // "done" and "waiting" roles are handled at the node level, not here
+}
+
+function wrapIndent(text: string, width: number, indent: string): string {
+  if (width <= 0) return indent + text;
+  const lines: string[] = [];
+  for (const segment of text.split("\n")) {
+    if (segment.length <= width) {
+      lines.push(segment);
+      continue;
+    }
+    let remaining = segment;
+    while (remaining.length > width) {
+      let breakAt = remaining.lastIndexOf(" ", width);
+      if (breakAt <= 0) breakAt = width;
+      lines.push(remaining.slice(0, breakAt));
+      remaining = remaining.slice(breakAt === width ? breakAt : breakAt + 1);
+    }
+    if (remaining) lines.push(remaining);
+  }
+  return indent + lines.join("\n" + indent);
+}
+
+const LOADING_FRAMES = ["·  ", "·· ", "···"];
+
+function RenderLine({ line, tick }: { line: FlatLine; tick: number }) {
   if (line.type === "title") {
     return (
       <Text>
         {line.gutter}{line.prefix}
         <Text bold color="#5948e7">{line.name}</Text>
-        {line.done && <Text color="#5948e7">{" — Complete"}</Text>}
+        {line.waiting && !line.done && <Text color="#5948e7">{" — Waiting"}<Text dimColor>{LOADING_FRAMES[tick % LOADING_FRAMES.length]}</Text></Text>}
+        {line.done && !line.error && <Text color="#5948e7">{" — Complete"}{line.functionTasks !== undefined && line.placeholderTasks !== undefined && ` [${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`}</Text>}
+        {line.done && line.error && line.functionTasks !== undefined && line.placeholderTasks !== undefined && <Text color="#5948e7">{" — "}{`[${line.functionTasks}/${line.functionTasks + line.placeholderTasks}]`}</Text>}
+        {line.done && line.error && (line.functionTasks === undefined || line.placeholderTasks === undefined) && <Text color="red">{" — "}{line.error}</Text>}
       </Text>
     );
   }
 
-  const msg = line.message;
-  if (msg.role === "assistant") {
-    return <Text>{line.gutter}{"  "}{msg.content}</Text>;
-  }
-  if (msg.role === "tool") {
-    if (msg.error) {
-      return (
-        <Text>{line.gutter}<Text color="red">{"  ✗ "}{msg.name}{" — "}{msg.error}</Text></Text>
-      );
-    }
+  if (line.type === "toolSuccess") {
     return (
-      <Text>{line.gutter}<Text color="green">{"  ✓ "}{msg.name}</Text></Text>
+      <Text>{line.gutter}<Text color="green">{"  ✓ "}{line.name}</Text></Text>
     );
   }
+
+  if (line.type === "text") {
+    if (line.color) {
+      return <Text wrap={line.wrap}><Text color={line.color}>{line.text}</Text></Text>;
+    }
+    return <Text wrap={line.wrap}>{line.text}</Text>;
+  }
+
+  if (line.type === "loading") {
+    return (
+      <Text>{line.gutter}<Text dimColor>{"  "}{LOADING_FRAMES[tick % LOADING_FRAMES.length]}</Text></Text>
+    );
+  }
+
   return null;
 }
 
@@ -205,21 +337,10 @@ export function InventFlow({
   onBack: () => void;
 }) {
   const { tree, onNotification } = useInventNotifications();
-  const started = useRef(false);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-
-    const dir = process.cwd();
-    invent(dir, onNotification, { inventSpec: spec, parameters })
-      .then(() => setDone(true))
-      .catch((err) => {
-        console.error(err);
-        setDone(true);
-      });
-  }, [spec, parameters, onNotification]);
+  const done = useInventWorker(onNotification, {
+    type: "invent",
+    options: { inventSpec: spec, parameters },
+  });
 
   useInput((_ch, key) => {
     if (key.escape && done) onBack();
@@ -233,9 +354,20 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
   const [scrollOffset, setScrollOffset] = useState(0);
   const [autoFollow, setAutoFollow] = useState(true);
   const [termHeight, setTermHeight] = useState(stdout.rows ?? 24);
+  const [termWidth, setTermWidth] = useState(stdout.columns ?? 80);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const onResize = () => setTermHeight(stdout.rows ?? 24);
+    if (done) return;
+    const id = setInterval(() => setTick((t) => t + 1), 400);
+    return () => clearInterval(id);
+  }, [done]);
+
+  useEffect(() => {
+    const onResize = () => {
+      setTermHeight(stdout.rows ?? 24);
+      setTermWidth(stdout.columns ?? 80);
+    };
     stdout.on("resize", onResize);
     return () => { stdout.off("resize", onResize); };
   }, [stdout]);
@@ -243,7 +375,9 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
   const hintHeight = done ? 1 : 0;
   const viewportHeight = termHeight - hintHeight;
 
-  const lines = useMemo(() => flattenNode(tree, "", true, true), [tree]);
+  const scrollbarWidth = 1;
+  const contentWidth = termWidth - scrollbarWidth;
+  const lines = useMemo(() => flattenNode(tree, "", true, true, contentWidth), [tree, contentWidth]);
   const maxOffset = Math.max(0, lines.length - viewportHeight);
 
   // Auto-follow: scroll to bottom when new content arrives
@@ -282,7 +416,7 @@ export function InventView({ tree, done }: { tree: FunctionNode; done?: boolean 
       <Box width="100%" flexGrow={1}>
         <Box flexDirection="column" flexGrow={1}>
           {visible.map((line, i) => (
-            <RenderLine key={scrollOffset + i} line={line} />
+            <RenderLine key={scrollOffset + i} line={line} tick={tick} />
           ))}
         </Box>
         <Scrollbar

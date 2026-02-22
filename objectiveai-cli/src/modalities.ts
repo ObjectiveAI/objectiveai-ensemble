@@ -1,6 +1,6 @@
 import { Functions } from "objectiveai";
 
-export type Modality = "image" | "audio" | "video" | "file";
+export type Modality = "image" | "audio" | "video" | "file" | "string";
 
 const ALL_MODALITIES: Modality[] = ["image", "audio", "video", "file"];
 
@@ -26,6 +26,8 @@ function collectModalitiesRecursive(
     }
   } else if (schema.type === "array") {
     collectModalitiesRecursive(schema.items, result);
+  } else if (schema.type === "string") {
+    result.add("string");
   } else if (ALL_MODALITIES.includes(schema.type as Modality)) {
     result.add(schema.type as Modality);
   }

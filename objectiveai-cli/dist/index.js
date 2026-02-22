@@ -1,7 +1,8 @@
-import { join, relative } from 'path';
-import { rmSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { basename, join, relative } from 'path';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync, readFileSync } from 'fs';
 import z3 from 'zod';
 import { Functions, listRefDependencies, getJsonSchema } from 'objectiveai';
+import { randomUUID } from 'crypto';
 import { homedir } from 'os';
 import { tool, createSdkMcpServer, query } from '@anthropic-ai/claude-agent-sdk';
 import { execSync } from 'child_process';
@@ -112,6 +113,8 @@ function collectModalitiesRecursive(schema, result) {
     }
   } else if (schema.type === "array") {
     collectModalitiesRecursive(schema.items, result);
+  } else if (schema.type === "string") {
+    result.add("string");
   } else if (ALL_MODALITIES.includes(schema.type)) {
     result.add(schema.type);
   }
@@ -123,10 +126,11 @@ var BranchScalarState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters) {
+  constructor(parameters, inputSchema) {
     this.parameters = parameters;
     this.function = {
-      type: "scalar.function"
+      type: "scalar.function",
+      input_schema: inputSchema
     };
   }
   getInputSchema() {
@@ -152,7 +156,7 @@ var BranchScalarState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityBranchRemoteScalarFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -162,6 +166,17 @@ var BranchScalarState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -201,12 +216,14 @@ var BranchScalarState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };
@@ -290,8 +307,8 @@ var BranchScalarState = class {
         error: "Invalid index"
       };
     }
-    const value = this.placeholderTaskSpecs[index];
-    if (value === null || value.trim() === "") {
+    const entry = this.placeholderTaskSpecs[index];
+    if (entry === null) {
       return {
         ok: false,
         value: void 0,
@@ -300,7 +317,7 @@ var BranchScalarState = class {
     }
     return {
       ok: true,
-      value,
+      value: entry.spec,
       error: void 0
     };
   }
@@ -346,10 +363,11 @@ var BranchScalarState = class {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     return {
       ok: true,
@@ -443,13 +461,16 @@ var BranchScalarState = class {
         error: "Spec cannot be empty"
       };
     }
-    if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs[index] = spec;
-    } else {
+    if (!this.placeholderTaskSpecs) {
       throw new Error(
         "placeholderTaskSpecs should be defined if there are tasks"
       );
     }
+    const existing = this.placeholderTaskSpecs[index];
+    if (existing === null) {
+      throw new Error("Cannot edit spec of a null entry");
+    }
+    existing.spec = spec;
     return {
       ok: true,
       value: "Task spec updated. If the task should change, edit it as well.",
@@ -527,10 +548,11 @@ var BranchVectorState = class {
   function;
   placeholderTaskSpecs;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters, outputLength, inputSplit, inputMerge) {
+  constructor(parameters, inputSchema, outputLength, inputSplit, inputMerge) {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge
@@ -559,7 +581,7 @@ var BranchVectorState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -569,6 +591,17 @@ var BranchVectorState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -608,12 +641,14 @@ var BranchVectorState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };
@@ -886,8 +921,8 @@ var BranchVectorState = class {
         error: "Invalid index"
       };
     }
-    const value = this.placeholderTaskSpecs[index];
-    if (value === null || value.trim() === "") {
+    const entry = this.placeholderTaskSpecs[index];
+    if (entry === null) {
       return {
         ok: false,
         value: void 0,
@@ -896,7 +931,7 @@ var BranchVectorState = class {
     }
     return {
       ok: true,
-      value,
+      value: entry.spec,
       error: void 0
     };
   }
@@ -945,10 +980,11 @@ var BranchVectorState = class {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     return {
       ok: true,
@@ -1010,10 +1046,11 @@ var BranchVectorState = class {
     } else {
       this.function.tasks = [parsed.data];
     }
+    const entry = { spec, token: randomUUID() };
     if (this.placeholderTaskSpecs) {
-      this.placeholderTaskSpecs.push(spec);
+      this.placeholderTaskSpecs.push(entry);
     } else {
-      this.placeholderTaskSpecs = [spec];
+      this.placeholderTaskSpecs = [entry];
     }
     if (this.function.input_maps) {
       this.function.input_maps.push(inputMapParsed.data);
@@ -1190,7 +1227,16 @@ var BranchVectorState = class {
         error: "Spec cannot be empty"
       };
     }
-    this.placeholderTaskSpecs[index] = spec;
+    if (!this.placeholderTaskSpecs) {
+      throw new Error(
+        "placeholderTaskSpecs should be defined if there are tasks"
+      );
+    }
+    const existing = this.placeholderTaskSpecs[index];
+    if (existing === null) {
+      throw new Error("Cannot edit spec of a null entry");
+    }
+    existing.spec = spec;
     return {
       ok: true,
       value: "Task spec updated. If the task should change, edit it as well.",
@@ -1275,10 +1321,11 @@ var LeafScalarState = class {
   parameters;
   function;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters) {
+  constructor(parameters, inputSchema) {
     this.parameters = parameters;
     this.function = {
-      type: "scalar.function"
+      type: "scalar.function",
+      input_schema: inputSchema
     };
   }
   getInputSchema() {
@@ -1304,7 +1351,7 @@ var LeafScalarState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityLeafRemoteScalarFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -1314,6 +1361,17 @@ var LeafScalarState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -1353,12 +1411,14 @@ var LeafScalarState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };
@@ -1582,10 +1642,11 @@ var LeafVectorState = class {
   parameters;
   function;
   editInputSchemaModalityRemovalRejected = false;
-  constructor(parameters, outputLength, inputSplit, inputMerge) {
+  constructor(parameters, inputSchema, outputLength, inputSplit, inputMerge) {
     this.parameters = parameters;
     this.function = {
       type: "vector.function",
+      input_schema: inputSchema,
       output_length: outputLength,
       input_split: inputSplit,
       input_merge: inputMerge
@@ -1614,7 +1675,7 @@ var LeafVectorState = class {
       fn: () => Promise.resolve(this.getInputSchema())
     };
   }
-  setInputSchema(value, dangerouslyRemoveModalities) {
+  setInputSchema(value, dangerouslyRemoveModalities, modalities) {
     const parsed = Functions.QualityLeafRemoteVectorFunctionSchema.shape.input_schema.safeParse(
       value
     );
@@ -1624,6 +1685,17 @@ var LeafVectorState = class {
         value: void 0,
         error: `Invalid FunctionInputSchema: ${parsed.error.message}`
       };
+    }
+    if (modalities && parsed.data) {
+      const actual = collectModalities(parsed.data);
+      const required = new Set(modalities);
+      if (actual.size !== required.size || [...actual].some((m) => !required.has(m))) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `Input schema modalities [${[...actual].join(", ")}] do not match specified modalities [${[...required].join(", ")}]. Read the input schema schema. Use type: 'image', 'video', 'audio', 'file', or 'string' for multimodal inputs.`
+        };
+      }
     }
     if (dangerouslyRemoveModalities) {
       if (!this.editInputSchemaModalityRemovalRejected) {
@@ -1663,12 +1735,14 @@ var LeafVectorState = class {
       description: "Write FunctionInputSchema",
       inputSchema: {
         input_schema: z3.record(z3.string(), z3.unknown()),
-        dangerouslyRemoveModalities: z3.boolean().optional()
+        dangerouslyRemoveModalities: z3.boolean().optional(),
+        modalities: z3.array(z3.enum(["image", "audio", "video", "file", "string"])).optional()
       },
       fn: (args) => Promise.resolve(
         this.setInputSchema(
           args.input_schema,
-          args.dangerouslyRemoveModalities
+          args.dangerouslyRemoveModalities,
+          args.modalities
         )
       )
     };
@@ -2062,12 +2136,19 @@ var LeafVectorState = class {
     ]);
   }
 };
+function functionsDir(owner) {
+  return join(homedir(), ".objectiveai", "functions", owner);
+}
+function inventDir(owner, name) {
+  return join(functionsDir(owner), name);
+}
 
 // src/state/state.ts
 var StateOptionsBaseSchema = z3.object({
   parameters: ParametersSchema,
   inventSpec: z3.string().nonempty(),
-  gitHubToken: z3.string().nonempty()
+  gitHubToken: z3.string().nonempty(),
+  owner: z3.string().nonempty()
 });
 z3.union([
   StateOptionsBaseSchema,
@@ -2077,7 +2158,7 @@ z3.union([
   }),
   StateOptionsBaseSchema.extend({
     type: z3.literal("vector.function"),
-    input_schema: Functions.RemoteVectorFunctionSchema.shape.input_schema,
+    input_schema: Functions.QualityBranchRemoteVectorFunctionSchema.shape.input_schema,
     output_length: Functions.RemoteVectorFunctionSchema.shape.output_length,
     input_split: Functions.RemoteVectorFunctionSchema.shape.input_split,
     input_merge: Functions.RemoteVectorFunctionSchema.shape.input_merge
@@ -2087,24 +2168,31 @@ var State = class {
   parameters;
   inventSpec;
   gitHubToken;
+  owner;
   name;
   inventEssay;
   inventEssayTasks;
   _inner;
   readme;
+  placeholderTaskIndices;
   gitHubBackend;
   constructor(options, gitHubBackend) {
     this.parameters = options.parameters;
     this.inventSpec = options.inventSpec;
     this.gitHubToken = options.gitHubToken;
+    this.owner = options.owner;
     this.gitHubBackend = gitHubBackend;
     if ("type" in options) {
       if (options.parameters.depth > 0) {
         if (options.type === "scalar.function") {
-          this._inner = new BranchScalarState(options.parameters);
+          this._inner = new BranchScalarState(
+            options.parameters,
+            options.input_schema
+          );
         } else if (options.type === "vector.function") {
           this._inner = new BranchVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge
@@ -2112,10 +2200,14 @@ var State = class {
         }
       } else {
         if (options.type === "scalar.function") {
-          this._inner = new LeafScalarState(options.parameters);
+          this._inner = new LeafScalarState(
+            options.parameters,
+            options.input_schema
+          );
         } else if (options.type === "vector.function") {
           this._inner = new LeafVectorState(
             options.parameters,
+            options.input_schema,
             options.output_length,
             options.input_split,
             options.input_merge
@@ -2171,7 +2263,25 @@ var State = class {
         error: "FunctionName exceeds maximum of 100 bytes"
       };
     }
+    const dir = inventDir(this.owner, value);
+    if (existsSync(dir)) {
+      return {
+        ok: false,
+        value: void 0,
+        error: "Name is already taken, please use another"
+      };
+    }
     if (await this.gitHubBackend.repoExists(value, this.gitHubToken)) {
+      return {
+        ok: false,
+        value: void 0,
+        error: "Name is already taken, please use another"
+      };
+    }
+    mkdirSync(functionsDir(this.owner), { recursive: true });
+    try {
+      mkdirSync(dir);
+    } catch {
       return {
         ok: false,
         value: void 0,
@@ -2273,9 +2383,29 @@ var State = class {
       fn: () => Promise.resolve(this.getReadme())
     };
   }
+  setPlaceholderTaskIndices(indices) {
+    this.placeholderTaskIndices = indices;
+  }
   setReadme(value) {
     if (value.trim() === "") {
       return { ok: false, value: void 0, error: "Readme cannot be empty" };
+    }
+    if (this.placeholderTaskIndices && this.placeholderTaskIndices.length > 0) {
+      const missing = [];
+      for (const i of this.placeholderTaskIndices) {
+        const template = `https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        if (!value.includes(template)) {
+          missing.push(template);
+        }
+      }
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          value: void 0,
+          error: `README must include links to all sub-functions. Missing:
+${missing.join("\n")}`
+        };
+      }
     }
     this.readme = value;
     return { ok: true, value: "", error: void 0 };
@@ -2396,6 +2526,9 @@ var State = class {
       fn: (args) => Promise.resolve(this.setDescription(args.description))
     };
   }
+  forceSetName(value) {
+    this.name = value;
+  }
   get inner() {
     return this._inner;
   }
@@ -2444,14 +2577,53 @@ function getAgentMockConfig() {
   if (!Number.isFinite(n)) return null;
   return { notificationDelayMs: n };
 }
+var CLAUDE_MODELS = ["opus", "sonnet", "haiku"];
+function parseClaudeModel(value) {
+  if (typeof value === "string" && CLAUDE_MODELS.includes(value)) {
+    return value;
+  }
+  return void 0;
+}
+function getAgentClaudeConfig() {
+  const config = {
+    ...readConfigFile(homedir()) ?? {},
+    ...readConfigFile(process.cwd()) ?? {}
+  };
+  return {
+    typeModel: parseClaudeModel(config.agentClaudeTypeModel),
+    nameModel: parseClaudeModel(config.agentClaudeNameModel),
+    essayModel: parseClaudeModel(config.agentClaudeEssayModel),
+    fieldsModel: parseClaudeModel(config.agentClaudeFieldsModel),
+    essayTasksModel: parseClaudeModel(config.agentClaudeEssayTasksModel),
+    bodyModel: parseClaudeModel(config.agentClaudeBodyModel),
+    descriptionModel: parseClaudeModel(config.agentClaudeDescriptionModel)
+  };
+}
 
 // src/agent/mock.ts
 var MOCK_OWNER = "mock";
 var MOCK_COMMIT = "mock";
-function getMockName(type, depth) {
+function getMockVariant(type, depth) {
   const tier = depth > 0 ? "branch" : "leaf";
   const kind = type === "vector.function" ? "vector" : "scalar";
   return `mock-${tier}-${kind}`;
+}
+function getNextMockName(type, depth) {
+  const variant = getMockVariant(type, depth);
+  const dir = functionsDir(MOCK_OWNER);
+  const pattern = new RegExp(`^${variant}-(\\d+)$`);
+  let max = 0;
+  try {
+    for (const entry of readdirSync(dir)) {
+      const match = entry.match(pattern);
+      if (match) max = Math.max(max, parseInt(match[1], 10));
+    }
+  } catch {
+  }
+  return `${variant}-${max + 1}`;
+}
+function stripMockSuffix(repository) {
+  return repository.replace(/-\d+$/, "");
 }
 var MOCK_LEAF_SCALAR = {
   type: "scalar.function",
@@ -2647,13 +2819,22 @@ function mock() {
         if (result.ok)
           type = result.value;
       }
-      const name = getMockName(type, parameters.depth);
-      yield {
-        role: "assistant",
-        content: `Setting function name to "${name}"`
-      };
-      await wait();
-      yield* callTool(nameTool, { name }, wait);
+      for (; ; ) {
+        const name = getNextMockName(type, parameters.depth);
+        yield {
+          role: "assistant",
+          content: `Setting function name to "${name}"`
+        };
+        await wait();
+        const result = await nameTool.fn({ name });
+        if (result.ok) {
+          yield { role: "tool", name: nameTool.name };
+          await wait();
+          break;
+        }
+        yield { role: "tool", name: nameTool.name, error: result.error };
+        await wait();
+      }
       return void 0;
     }
     const essayTool = findTool(step, "WriteInventEssay");
@@ -2667,6 +2848,11 @@ function mock() {
         },
         wait
       );
+      yield {
+        role: "assistant",
+        content: "I've written the essay describing the function's approach.\nIt covers the key evaluation dimensions:\n- Quality assessment\n- Clarity scoring\n- Relevance matching"
+      };
+      await wait();
       return void 0;
     }
     const inputSchemaTool = findTool(step, "WriteFunctionInputSchema");
@@ -2884,6 +3070,11 @@ function mock() {
         if (result.ok) {
           yield { role: "tool", name: checkFunctionTool.name };
           await wait();
+          yield {
+            role: "assistant",
+            content: "Function validation passed successfully.\nAll tasks compile correctly and produce valid outputs.\nThe function is ready for deployment."
+          };
+          await wait();
           return void 0;
         }
         yield {
@@ -2906,13 +3097,22 @@ function mock() {
         },
         wait
       );
-      yield* callTool(
-        readmeTool,
-        {
-          readme: "# Mock Function\n\nEvaluates quality, clarity, and relevance."
-        },
-        wait
-      );
+      const isBranch = !!findTool(step, "ReadTaskSpec");
+      let readmeContent = "# Mock Function\n\nEvaluates quality, clarity, and relevance.";
+      if (isBranch) {
+        const tasksLengthTool = findTool(step, "ReadTasksLength");
+        let taskCount = 1;
+        if (tasksLengthTool) {
+          const result = await tasksLengthTool.fn({});
+          if (result.ok) taskCount = parseInt(result.value, 10) || 1;
+        }
+        readmeContent += "\n\n## Sub-functions\n";
+        for (let i = 0; i < taskCount; i++) {
+          readmeContent += `
+- https://github.com/{{ .Owner }}/{{ .Task${i} }}`;
+        }
+      }
+      yield* callTool(readmeTool, { readme: readmeContent }, wait);
       return void 0;
     }
     throw new Error(
@@ -2925,37 +3125,50 @@ function mock() {
     pushFinal: async () => {
     },
     getOwnerRepositoryCommit: async (dir) => {
-      const namePath = join(dir, "name.txt");
-      if (!existsSync(namePath)) return null;
-      try {
-        const name = readFileSync(namePath, "utf-8").trim();
-        if (!name) return null;
-        return { owner: MOCK_OWNER, repository: name, commit: MOCK_COMMIT };
-      } catch {
-        return null;
-      }
+      const paramsPath = join(dir, "parameters.json");
+      if (!existsSync(paramsPath)) return null;
+      const name = basename(dir);
+      if (!name) return null;
+      return { owner: MOCK_OWNER, repository: name, commit: MOCK_COMMIT };
     },
     fetchRemoteFunctions: async (refs) => {
       const entries = Array.from(refs);
       const record = {};
       for (const { owner, repository, commit: commit2 } of entries) {
         const key = `${owner}/${repository}/${commit2}`;
-        const fn = MOCK_FUNCTIONS[repository];
+        const variant = stripMockSuffix(repository);
+        const fn = MOCK_FUNCTIONS[variant];
         if (!fn) return null;
         record[key] = fn;
       }
       return record;
     },
-    repoExists: () => Promise.resolve(false)
+    repoExists: () => Promise.resolve(false),
+    getAuthenticatedUser: async () => MOCK_OWNER
   };
   return [agent, github];
 }
+process.setMaxListeners(0);
 function resultToCallToolResult(result) {
   if (!result.ok) {
     return { content: [{ type: "text", text: result.error }], isError: true };
   }
   return { content: [{ type: "text", text: result.value ?? "OK" }] };
 }
+var STEP_TO_CONFIG_KEY = {
+  type: "typeModel",
+  name: "nameModel",
+  essay: "essayModel",
+  fields: "fieldsModel",
+  essay_tasks: "essayTasksModel",
+  body: "bodyModel",
+  description: "descriptionModel"
+};
+var CLAUDE_MODEL_TO_QUERY = {
+  opus: "default",
+  sonnet: "sonnet",
+  haiku: "haiku"
+};
 function claude() {
   const agent = async function* (step, state, _parameters) {
     const notifications = [];
@@ -2972,6 +3185,9 @@ function claude() {
       name: "invent",
       tools: sdkTools
     });
+    const claudeConfig = getAgentClaudeConfig();
+    const configKey = STEP_TO_CONFIG_KEY[step.stepName];
+    const claudeModel = claudeConfig[configKey];
     const stream = query({
       prompt: step.prompt,
       options: {
@@ -2979,29 +3195,41 @@ function claude() {
         allowedTools: ["mcp__invent__*"],
         disallowedTools: ["AskUserQuestion"],
         permissionMode: "dontAsk",
-        resume: state?.sessionId
+        resume: state?.sessionId,
+        ...claudeModel ? { model: CLAUDE_MODEL_TO_QUERY[claudeModel] } : {}
       }
     });
     let sessionId = state?.sessionId;
-    for await (const message of stream) {
-      while (notifications.length > 0) {
-        yield notifications.shift();
+    const onUncaughtException = (err) => {
+      if (err?.code === "ERR_STREAM_WRITE_AFTER_END") {
+        return;
       }
-      if (message.type === "system" && message.subtype === "init") {
-        sessionId = message.session_id;
-      }
-      if (message.type === "assistant") {
-        const parts = [];
-        for (const block of message.message.content) {
-          if (block.type === "text") {
-            const text = block.text.trim();
-            if (text) parts.push(text);
+      throw err;
+    };
+    process.on("uncaughtException", onUncaughtException);
+    try {
+      for await (const message of stream) {
+        while (notifications.length > 0) {
+          yield notifications.shift();
+        }
+        if (message.type === "system" && message.subtype === "init") {
+          sessionId = message.session_id;
+        }
+        if (message.type === "assistant") {
+          const parts = [];
+          for (const block of message.message.content) {
+            if (block.type === "text") {
+              const text = block.text.trim();
+              if (text) parts.push(text);
+            }
+          }
+          if (parts.length > 0) {
+            yield { role: "assistant", content: parts.join("\n") };
           }
         }
-        if (parts.length > 0) {
-          yield { role: "assistant", content: parts.join("\n") };
-        }
       }
+    } finally {
+      process.removeListener("uncaughtException", onUncaughtException);
     }
     while (notifications.length > 0) {
       yield notifications.shift();
@@ -3018,33 +3246,46 @@ var AgentUpstreamSchema = z3.union([
   MockAgentUpstreamSchema,
   ClaudeAgentUpstreamSchema
 ]);
+z3.union([
+  z3.literal("type"),
+  z3.literal("name"),
+  z3.literal("essay"),
+  z3.literal("fields"),
+  z3.literal("essay_tasks"),
+  z3.literal("body"),
+  z3.literal("description")
+]);
 async function runAgentStep(agent, step, parameters, isDone, maxRetries, onNotification, state) {
-  state = await runAgentStepOne(agent, step, parameters, onNotification, state);
-  for (let i = 0; i < maxRetries; i++) {
+  let lastError;
+  for (let i = 0; i <= maxRetries; i++) {
+    const retryPrompt = lastError != null ? step.prompt + `
+
+The following error occurred: ${lastError}
+
+Please try again.` : step.prompt;
+    try {
+      state = await runAgentStepOne(
+        agent,
+        { ...step, prompt: retryPrompt },
+        parameters,
+        onNotification,
+        state
+      );
+    } catch (err) {
+      onNotification({
+        role: "assistant",
+        content: `Agent crashed: ${err instanceof Error ? err.message : err}`
+      });
+      lastError = err instanceof Error ? err.message : String(err);
+      continue;
+    }
     const result = isDone();
     if (result.ok) return state;
-    state = await runAgentStepOne(
-      agent,
-      {
-        ...step,
-        prompt: step.prompt + `
-
-The following error occurred: ${result.error}
-
-Please try again.`
-      },
-      parameters,
-      onNotification,
-      state
-    );
+    lastError = result.error;
   }
-  const finalResult = isDone();
-  if (!finalResult.ok) {
-    throw new Error(
-      `Agent step failed after ${maxRetries} retries: ${finalResult.error}`
-    );
-  }
-  return state;
+  throw new Error(
+    `Agent step failed after ${maxRetries} retries: ${lastError}`
+  );
 }
 async function runAgentStepOne(agent, step, parameters, onNotification, state) {
   const generator = agent(step, state, parameters);
@@ -3066,8 +3307,12 @@ function getAgentStepFn(agentUpstream) {
     return _exhaustiveCheck;
   }
 }
+var PlaceholderTaskSpecEntrySchema = z3.object({
+  spec: z3.string().nonempty(),
+  token: z3.string().nonempty()
+});
 var PlaceholderTaskSpecsSchema = z3.array(
-  z3.union([z3.string().nonempty(), z3.null()])
+  z3.union([PlaceholderTaskSpecEntrySchema, z3.null()])
 );
 
 // src/ext.ts
@@ -3117,9 +3362,6 @@ function readTextFromFilesystem(path) {
     return null;
   }
 }
-function readNameFromFilesystem(path) {
-  return readTextFromFilesystem(join(path, "name.txt"));
-}
 function readJsonFromFilesystem(path) {
   try {
     const text = readTextFromFilesystem(path);
@@ -3155,8 +3397,8 @@ function readPlaceholderTaskSpecsFromFilesystem(path) {
 async function readQualityFunctionFromFilesystem(dir, githubBackend) {
   const parameters = readParametersFromFilesystem(dir);
   if (parameters === null) return null;
-  const name = readNameFromFilesystem(dir);
-  if (name === null) return null;
+  const name = basename(dir);
+  if (!name) return null;
   const fn = readFunctionFromFilesystem(dir);
   if (fn === null) return null;
   if (parameters.depth > 0) {
@@ -3237,14 +3479,33 @@ async function readQualityFunctionFromFilesystem(dir, githubBackend) {
   }
   return null;
 }
+function writeParentTokenToFilesystem(dir, token) {
+  writeTextToFilesystem(join(dir, "parent.txt"), token);
+}
+function readParentTokenFromFilesystem(dir) {
+  return readTextFromFilesystem(join(dir, "parent.txt"));
+}
+function findChildByToken(owner, token) {
+  const ownerDir = functionsDir(owner);
+  if (!existsSync(ownerDir)) return null;
+  let entries;
+  try {
+    entries = readdirSync(ownerDir);
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    const childDir = join(ownerDir, entry);
+    const childToken = readParentTokenFromFilesystem(childDir);
+    if (childToken === token) return childDir;
+  }
+  return null;
+}
 function writeTextToFilesystem(path, content) {
   writeFileSync(path, content, "utf-8");
 }
 function writeJsonToFilesystem(path, data) {
   writeTextToFilesystem(path, JSON.stringify(data, null, 2));
-}
-function writeNameToFilesystem(dir, name) {
-  writeTextToFilesystem(join(dir, "name.txt"), name);
 }
 function writeParametersToFilesystem(dir, parameters) {
   writeJsonToFilesystem(join(dir, "parameters.json"), parameters);
@@ -3261,6 +3522,9 @@ function writeInventEssayToFilesystem(dir, essay) {
 function writeInventEssayTasksToFilesystem(dir, essayTasks) {
   writeTextToFilesystem(join(dir, "INVENT_ESSAY_TASKS.md"), essayTasks);
 }
+function readReadmeFromFilesystem(dir) {
+  return readTextFromFilesystem(join(dir, "README.md"));
+}
 function writeReadmeToFilesystem(dir, readme) {
   writeTextToFilesystem(join(dir, "README.md"), readme);
 }
@@ -3274,7 +3538,7 @@ function writeGitignoreToFilesystem(dir) {
     "",
     "# Allow specific files",
     "!.gitignore",
-    "!name.txt",
+    "!parent.txt",
     "!parameters.json",
     "!function.json",
     "!INVENT_SPEC.md",
@@ -3286,16 +3550,13 @@ function writeGitignoreToFilesystem(dir) {
   ].join("\n");
   writeTextToFilesystem(join(dir, ".gitignore"), content);
 }
-function writeInitialStateToFilesystem(dir, state, parameters) {
+function writeInitialStateToFilesystem(dir, parameters) {
   mkdirSync(dir, { recursive: true });
-  const name = state.getName();
-  if (!name.ok) throw new Error("Name not set");
-  writeNameToFilesystem(dir, name.value);
   writeParametersToFilesystem(dir, parameters);
   writeGitignoreToFilesystem(dir);
 }
 function writeFinalStateToFilesystem(dir, state, parameters) {
-  writeInitialStateToFilesystem(dir, state, parameters);
+  writeInitialStateToFilesystem(dir, parameters);
   const inner = state.inner;
   if (!inner) throw new Error("Inner state not set");
   writeFunctionToFilesystem(dir, inner.function);
@@ -3309,6 +3570,18 @@ function writeFinalStateToFilesystem(dir, state, parameters) {
   if (inner instanceof BranchScalarState || inner instanceof BranchVectorState) {
     const specs = inner.getPlaceholderTaskSpecs();
     if (specs) writePlaceholderTaskSpecsToFilesystem(dir, specs);
+  }
+}
+
+// src/http.ts
+async function fetchWithRetries(url, init, maxRetries = 3) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      if (attempt >= maxRetries) throw err;
+      await new Promise((r) => setTimeout(r, 1e3 * 2 ** attempt));
+    }
   }
 }
 var execOpts = { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] };
@@ -3416,7 +3689,8 @@ var DefaultGitHubBackend = {
   pushFinal,
   getOwnerRepositoryCommit,
   fetchRemoteFunctions,
-  repoExists
+  repoExists,
+  getAuthenticatedUser
 };
 var fetchRemoteFunctionCache = /* @__PURE__ */ new Map();
 function fetchRemoteFunction(owner, repository, commit2) {
@@ -3427,7 +3701,7 @@ function fetchRemoteFunction(owner, repository, commit2) {
   }
   const promise = (async () => {
     const url = `https://raw.githubusercontent.com/${owner}/${repository}/${commit2}/function.json`;
-    const response = await fetch(url);
+    const response = await fetchWithRetries(url);
     if (response.status === 404) {
       return null;
     }
@@ -3469,7 +3743,7 @@ async function fetchRemoteFunctions(refs) {
 }
 async function repoExists(name, gitHubToken) {
   try {
-    const userRes = await fetch("https://api.github.com/user", {
+    const userRes = await fetchWithRetries("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${gitHubToken}`,
         Accept: "application/vnd.github.v3+json"
@@ -3477,7 +3751,7 @@ async function repoExists(name, gitHubToken) {
     });
     if (!userRes.ok) return false;
     const user = await userRes.json();
-    const res = await fetch(
+    const res = await fetchWithRetries(
       `https://api.github.com/repos/${user.login}/${name}`,
       {
         headers: {
@@ -3491,13 +3765,13 @@ async function repoExists(name, gitHubToken) {
     return false;
   }
 }
-async function commitExistsOnRemote(owner, repository, sha) {
+async function commitExistsOnRemote(owner, repository, sha, gitHubToken) {
   try {
     const url = `https://api.github.com/repos/${owner}/${repository}/commits/${sha}`;
-    const response = await fetch(url, {
+    const response = await fetchWithRetries(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
-        ...process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}
+        Authorization: `Bearer ${gitHubToken}`
       }
     });
     return response.ok;
@@ -3505,14 +3779,14 @@ async function commitExistsOnRemote(owner, repository, sha) {
     return false;
   }
 }
-async function getOwnerRepositoryCommit(dir) {
+async function getOwnerRepositoryCommit(dir, gitHubToken) {
   const repoRoot = getRepoRoot(dir);
   if (!repoRoot) return null;
   const remoteUrl = getRemoteUrl(repoRoot);
   if (!remoteUrl) return null;
   const parsed = parseGitHubRemote(remoteUrl);
   if (!parsed) return null;
-  const relativePath = relative(repoRoot, dir).replace(/\\/g, "/");
+  const relativePath = relative(repoRoot, dir).replace(/\\/g, "/") || ".";
   if (hasUncommittedChanges(repoRoot, relativePath + "/function.json")) {
     return null;
   }
@@ -3521,7 +3795,8 @@ async function getOwnerRepositoryCommit(dir) {
   const exists = await commitExistsOnRemote(
     parsed.owner,
     parsed.repository,
-    localCommit
+    localCommit,
+    gitHubToken
   );
   if (!exists) return null;
   return {
@@ -3536,7 +3811,7 @@ async function pushInitial(options) {
   initRepo(dir);
   addAll(dir);
   commit(dir, message, gitAuthorName, gitAuthorEmail);
-  const res = await fetch("https://api.github.com/user/repos", {
+  const res = await fetchWithRetries("https://api.github.com/user/repos", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${gitHubToken}`,
@@ -3557,9 +3832,30 @@ async function pushInitial(options) {
   addRemote(dir, `https://github.com/${owner}/${repository}.git`);
   push(dir, gitHubToken);
 }
+var authenticatedUserCache = /* @__PURE__ */ new Map();
+function getAuthenticatedUser(gitHubToken) {
+  const cached = authenticatedUserCache.get(gitHubToken);
+  if (cached) return cached;
+  const promise = (async () => {
+    const res = await fetchWithRetries("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json"
+      }
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to get authenticated user: HTTP ${res.status}`);
+    }
+    const user = await res.json();
+    return user.login;
+  })();
+  authenticatedUserCache.set(gitHubToken, promise);
+  return promise;
+}
 async function pushFinal(options) {
   const {
     dir,
+    name,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
@@ -3568,12 +3864,15 @@ async function pushFinal(options) {
   } = options;
   const repoRoot = getRepoRoot(dir);
   if (!repoRoot) throw new Error("Git repository not initialized");
+  if (!getRemoteUrl(repoRoot)) {
+    await ensureRemote(dir, name, gitHubToken);
+  }
   const remoteUrl = getRemoteUrl(repoRoot);
   if (!remoteUrl) throw new Error("No remote origin set");
   const parsed = parseGitHubRemote(remoteUrl);
   if (!parsed) throw new Error("Remote is not a GitHub repository");
   const { owner, repository } = parsed;
-  const res = await fetch(
+  const res = await fetchWithRetries(
     `https://api.github.com/repos/${owner}/${repository}`,
     {
       method: "PATCH",
@@ -3595,6 +3894,32 @@ async function pushFinal(options) {
   commit(dir, message, gitAuthorName, gitAuthorEmail);
   push(dir, gitHubToken);
 }
+async function ensureRemote(dir, name, gitHubToken) {
+  const res = await fetchWithRetries("https://api.github.com/user/repos", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${gitHubToken}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ name, visibility: "public" })
+  });
+  if (res.ok) {
+    const repo = await res.json();
+    addRemote(dir, `https://github.com/${repo.owner.login}/${repo.name}.git`);
+  } else if (res.status === 422) {
+    const user = await fetchWithRetries("https://api.github.com/user", {
+      headers: {
+        Authorization: `Bearer ${gitHubToken}`,
+        Accept: "application/vnd.github.v3+json"
+      }
+    });
+    if (user.ok) {
+      const { login } = await user.json();
+      addRemote(dir, `https://github.com/${login}/${name}.git`);
+    }
+  }
+}
 
 // src/invent/steps/1_type.ts
 function stepType(state, agent, onNotification, agentState, maxRetries = 5) {
@@ -3604,6 +3929,7 @@ function stepType(state, agent, onNotification, agentState, maxRetries = 5) {
   return runAgentStep(
     agent,
     {
+      stepName: "type",
       prompt: 'You are an inventor creating a new ObjectiveAI Function. ObjectiveAI Functions are for ranking multiple input items ("vector.function"), or for scoring a single input item ("scalar.function"). Select the appropriate type based on InventSpec and what the expected input is.',
       tools: [
         state.getInventSpecTool(),
@@ -3620,9 +3946,13 @@ function stepType(state, agent, onNotification, agentState, maxRetries = 5) {
 
 // src/invent/steps/2_name.ts
 function stepName(state, agent, onNotification, agentState, maxRetries = 5) {
+  if (state.getName().ok) {
+    return Promise.resolve(agentState);
+  }
   return runAgentStep(
     agent,
     {
+      stepName: "name",
       prompt: 'Select a name for your ObjectiveAI Function. Do not include "ObjectiveAI" or "Function" in the name. Name it how you would name a function in code. Use all lowercase and separate words with dashes.',
       tools: [
         state.getInventSpecTool(),
@@ -3650,6 +3980,7 @@ function stepEssay(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "essay",
         prompt: `Write a non-technical essay describing the Vector Function you are building. Explore the purpose, inputs, and use-cases of the function in detail. Explore the qualities and values that must be evaluated in order to properly rank items relative to one another. There should be ${tasksStr} qualities or values. This essay will guide the development of the Vector Function and underpins its philosophy.`,
         tools: [
           state.getInventSpecTool(),
@@ -3668,6 +3999,7 @@ function stepEssay(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "essay",
         prompt: `Write a non-technical essay describing the Scalar Function you are building. Explore the purpose, input, and use-cases of the function in detail. Explore the qualities and values that must be evaluated for the input. There should be ${tasksStr} qualities or values. This essay will guide the development of the Scalar Function and underpins its philosophy.`,
         tools: [
           state.getInventSpecTool(),
@@ -3697,6 +4029,7 @@ function stepFields(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "fields",
         prompt: "Create the InputSchema for your Vector Function. Ensure that it adheres to the specifications outlined in your InventSpec and is consistent with the qualities and values described in your essay. Read the QualityVectorFunctionInputSchema for guidance on what a valid input schema looks like. Next, create an OutputLength Starlark Expression. This expression is provided with an `input` matching the InputSchema and should evaluate to the number of items being ranked. Next, create an InputSplit Starlark Expression. This expression is provided with the same `input` and should evaluate to an array of valid inputs, which, on their own, are valid inputs to the function. So, if the input is an array, the InputSplit expression should convert it into an array of 1-length arrays. Or, if the input is an object with at least 1 array field, the InputSplit expression should convert it into an array of objects with the field containing rankable items being 1-length arrays. Finally, create an InputMerge Starlark Expression. This expression is provided with an `input` which is an array of valid inputs. This expression should re-combine the provided inputs back into the original input format. Use `CheckFields` to validate your schema and expressions prior to finishing.",
         tools: [
           state.getInventSpecTool(),
@@ -3725,6 +4058,7 @@ function stepFields(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "fields",
         prompt: "Create the InputSchema for your Scalar Function. Ensure that it adheres to the specifications outlined in your InventSpec and is consistent with the essay you wrote describing your function. Read the InputSchemaSchema for guidance on what a valid input schema looks like. Use `CheckFields` to validate your schema prior to finishing.",
         tools: [
           state.getInventSpecTool(),
@@ -3756,6 +4090,7 @@ function stepEssayTasks(state, agent, onNotification, agentState, maxRetries = 5
   return runAgentStep(
     agent,
     {
+      stepName: "essay_tasks",
       prompt: `Write EssayTasks listing and describing the key tasks the Function must perform in order to fulfill the quality and value evaluations defined within the essay.  Each task is a non-technical plain language description of a task which will go into the function's \`tasks\` array. There should be ${tasksStr} tasks.`,
       tools: [
         state.getInventSpecTool(),
@@ -3785,6 +4120,7 @@ function stepBody(state, agent, onNotification, agentState, maxRetries = 5) {
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Vector Function.
 
 ## Task Structure
@@ -3832,6 +4168,7 @@ You can mix two types of placeholder tasks:
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Scalar Function.
 
 ## Task Structure
@@ -3868,6 +4205,7 @@ Create ${tasksStr} placeholder tasks based on your EssayTasks. Each task defines
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Vector Function.
 
 ## Task Structure
@@ -3935,6 +4273,7 @@ Multimodal content parts can be used in both \`messages\` and \`responses\`. Put
     return runAgentStep(
       agent,
       {
+        stepName: "body",
         prompt: `Create the Tasks for your Scalar Function.
 
 ## Task Structure
@@ -4006,10 +4345,37 @@ Multimodal content parts can be used in both \`messages\` and \`responses\`. Typ
 function stepDescription(state, agent, onNotification, agentState, maxRetries = 5) {
   const inner = state.inner;
   if (!inner) throw new Error("Function type not set");
+  const isBranch = inner instanceof BranchVectorState || inner instanceof BranchScalarState;
+  if (isBranch) {
+    const tasks = inner.function.tasks ?? [];
+    const indices = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
+        indices.push(i);
+      }
+    }
+    state.setPlaceholderTaskIndices(indices);
+  }
+  let prompt = "First, create a 1-paragraph description of the Function you've invented. Then, create a comprehensive README for the Function, describing its input, output, use-cases, and what all it evaluates.";
+  if (isBranch) {
+    const tasks = inner.function.tasks ?? [];
+    const templateLines = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const t = tasks[i];
+      if (t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function") {
+        templateLines.push(`https://github.com/{{ .Owner }}/{{ .Task${i} }}`);
+      }
+    }
+    if (templateLines.length > 0) {
+      prompt += "\n\nYour README must include a link to each sub-function using the following template format:\n" + templateLines.join("\n") + "\nThese templates will be automatically replaced with the actual repository URLs after the sub-functions are invented.\nYou may also use {{ .Owner }} and {{ .TaskN }} anywhere else in the README and they will all be automatically replaced.";
+    }
+  }
   return runAgentStep(
     agent,
     {
-      prompt: "First, create a 1-paragraph description of the Function you've invented. Then, create a comprehensive README for the Function, describing its input, output, use-cases, and what all it evaluates.",
+      stepName: "description",
+      prompt,
       tools: [
         state.getInventSpecTool(),
         state.getFunctionTypeTool(),
@@ -4019,7 +4385,7 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
         state.getInventEssayTasksTool(),
         inner.getTasksLengthTool(),
         inner.getTaskTool(),
-        ...inner instanceof BranchVectorState || inner instanceof BranchScalarState ? [inner.getTaskSpecTool()] : [],
+        ...isBranch ? [inner.getTaskSpecTool()] : [],
         state.setDescriptionTool(),
         state.setReadmeTool()
       ]
@@ -4037,7 +4403,7 @@ function stepDescription(state, agent, onNotification, agentState, maxRetries = 
 }
 
 // src/invent/index.ts
-async function invent(dir, onNotification, options, continuation) {
+async function invent(onNotification, options, continuation) {
   const [agent, gitHubBackend] = continuation ? [continuation.agent, continuation.gitHubBackend] : (() => {
     const [agent2, gitHubBackend2] = getAgentStepFn(
       getAgentUpstream() ?? (() => {
@@ -4055,55 +4421,181 @@ async function invent(dir, onNotification, options, continuation) {
   const gitAuthorEmail = continuation ? continuation.gitAuthorEmail : getGitAuthorEmail() ?? (() => {
     throw new Error("GitAuthorEmail required");
   })();
-  if (options !== void 0) {
-    await stage1(
-      dir,
-      onNotification,
-      options,
-      agent,
-      gitHubBackend,
-      gitHubToken,
-      gitAuthorName,
-      gitAuthorEmail,
-      continuation ? continuation.path : []
-    );
+  const path = continuation?.path ?? [];
+  const parentToken = continuation?.parentToken;
+  const owner = await gitHubBackend.getAuthenticatedUser(gitHubToken);
+  let dir = null;
+  if ("name" in options) {
+    dir = inventDir(owner, options.name);
+  } else if (parentToken) {
+    dir = findChildByToken(owner, parentToken);
   }
-  await stage2(dir, onNotification, continuation?.path ?? [], {
+  let qualityFn;
+  try {
+    let state;
+    let agentState;
+    if (dir === null) {
+      if ("name" in options) {
+        throw new Error(
+          `Function directory not found for name: ${options.name}`
+        );
+      }
+      const result = await stage1(
+        owner,
+        options,
+        parentToken,
+        path,
+        onNotification,
+        agent,
+        gitHubBackend,
+        gitHubToken,
+        gitAuthorName,
+        gitAuthorEmail
+      );
+      dir = result.dir;
+      state = result.state;
+      agentState = result.agentState;
+      if (result.reThrow) throw result.reThrow;
+    }
+    qualityFn = await readQualityFunctionFromFilesystem(dir, gitHubBackend);
+    if (!qualityFn) {
+      if (!state) {
+        if ("name" in options) {
+          throw new Error(
+            `Function at ${dir} is not a quality function and cannot be resumed without inventSpec`
+          );
+        }
+        state = new State(
+          {
+            parameters: buildParameters(options.parameters),
+            inventSpec: options.inventSpec,
+            gitHubToken,
+            owner,
+            ..."type" in options ? {
+              type: options.type,
+              ...options.type === "vector.function" ? {
+                input_schema: options.input_schema,
+                output_length: options.output_length,
+                input_split: options.input_split,
+                input_merge: options.input_merge
+              } : { input_schema: options.input_schema }
+            } : {}
+          },
+          gitHubBackend
+        );
+        state.forceSetName(basename(dir));
+      }
+      await stage2(
+        dir,
+        state,
+        agentState,
+        path,
+        onNotification,
+        agent,
+        gitHubBackend,
+        gitHubToken,
+        gitAuthorName,
+        gitAuthorEmail
+      );
+      qualityFn = await readQualityFunctionFromFilesystem(dir, gitHubBackend);
+      if (!qualityFn) {
+        throw new Error("stage2 failed to produce quality function");
+      }
+    }
+  } catch (err) {
+    if (dir !== null) {
+      const name = basename(dir);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      onNotification({
+        path,
+        name,
+        message: { role: "done", error: message }
+      });
+    }
+    throw err;
+  }
+  const hasChildren = qualityFn.placeholderTaskSpecs?.some((s) => s !== null) ?? false;
+  onNotification({
+    path,
+    name: qualityFn.name,
+    message: hasChildren ? { role: "waiting" } : { role: "done" }
+  });
+  const unreplacedReasons = await stage3(
+    dir,
+    owner,
+    qualityFn,
+    path,
+    onNotification,
     agent,
     gitHubBackend,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail
-  });
+  );
+  if (hasChildren) {
+    const fn = qualityFn.function.type === "branch.scalar.function" || qualityFn.function.type === "branch.vector.function" ? qualityFn.function.function : void 0;
+    const tasks = fn?.tasks ?? [];
+    const remainingPlaceholders = tasks.filter(
+      (t) => t.type === "placeholder.scalar.function" || t.type === "placeholder.vector.function"
+    ).length;
+    onNotification({
+      path,
+      name: qualityFn.name,
+      message: {
+        role: "done",
+        functionTasks: tasks.length - remainingPlaceholders,
+        placeholderTasks: remainingPlaceholders,
+        error: unreplacedReasons.length > 0 ? unreplacedReasons.join("\n") : void 0
+      }
+    });
+  }
 }
-async function stage1(dir, onNotification, { parameters, inventSpec, ...stateOptions }, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail, path) {
-  const subFunctionsDir = join(dir, "sub_functions");
-  rmSync(subFunctionsDir, { recursive: true, force: true });
+async function stage1(owner, options, parentToken, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
+  const {
+    parameters: parametersBuilder,
+    inventSpec,
+    ...stateOptions
+  } = options;
+  const parameters = buildParameters(parametersBuilder);
   const state = new State(
     {
-      parameters: buildParameters(parameters),
+      parameters,
       inventSpec,
       gitHubToken,
+      owner,
       ...stateOptions
     },
     gitHubBackend
   );
-  let boundOnNotification = (message) => onNotification({ path, message });
+  const boundOnNotification = (message) => onNotification({ path, message });
   let agentState = await stepType(state, agent, boundOnNotification);
   agentState = await stepName(state, agent, boundOnNotification, agentState);
   const name = state.getName().value;
-  writeInitialStateToFilesystem(dir, state, state.parameters);
-  await gitHubBackend.pushInitial({
-    dir,
-    name,
-    gitHubToken,
-    gitAuthorName,
-    gitAuthorEmail,
-    message: "initial commit"
-  });
-  boundOnNotification = (message) => onNotification({ path, name, message });
-  agentState = await stepFields(state, agent, boundOnNotification, agentState);
+  const dir = inventDir(owner, name);
+  writeInitialStateToFilesystem(dir, parameters);
+  if (parentToken) {
+    writeParentTokenToFilesystem(dir, parentToken);
+  }
+  let reThrow;
+  try {
+    await gitHubBackend.pushInitial({
+      dir,
+      name,
+      gitHubToken,
+      gitAuthorName,
+      gitAuthorEmail,
+      message: "initial commit"
+    });
+  } catch (err) {
+    reThrow = err;
+  }
+  return { dir, state, agentState, reThrow };
+}
+async function stage2(dir, state, agentState, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
+  const name = state.getName().value;
+  const boundOnNotification = (message) => onNotification({ path, name, message });
   agentState = await stepEssay(state, agent, boundOnNotification, agentState);
+  agentState = await stepFields(state, agent, boundOnNotification, agentState);
   agentState = await stepEssayTasks(
     state,
     agent,
@@ -4117,35 +4609,22 @@ async function stage1(dir, onNotification, { parameters, inventSpec, ...stateOpt
     boundOnNotification,
     agentState
   );
-  boundOnNotification({ role: "done" });
   writeFinalStateToFilesystem(dir, state, state.parameters);
   await gitHubBackend.pushFinal({
     dir,
+    name,
     gitHubToken,
     gitAuthorName,
     gitAuthorEmail,
-    message: `implement ${state.getName().value}`,
+    message: `implement ${name}`,
     description: state.getDescription().value
   });
 }
-async function stage2(dir, onNotification, path, continuation) {
-  const qualityFn = await readQualityFunctionFromFilesystem(
-    dir,
-    continuation.gitHubBackend
-  );
-  if (!qualityFn) return;
-  const gitHubToken = getGitHubToken() ?? (() => {
-    throw new Error("GitHubToken required");
-  })();
-  const gitAuthorName = getGitAuthorName() ?? (() => {
-    throw new Error("GitAuthorName required");
-  })();
-  const gitAuthorEmail = getGitAuthorEmail() ?? (() => {
-    throw new Error("GitAuthorEmail required");
-  })();
+async function stage3(dir, owner, qualityFn, path, onNotification, agent, gitHubBackend, gitHubToken, gitAuthorName, gitAuthorEmail) {
   if (isDirty(dir)) {
-    await continuation.gitHubBackend.pushFinal({
+    await gitHubBackend.pushFinal({
       dir,
+      name: qualityFn.name,
       gitHubToken,
       gitAuthorName,
       gitAuthorEmail,
@@ -4154,12 +4633,10 @@ async function stage2(dir, onNotification, path, continuation) {
     });
   }
   if (qualityFn.function.type !== "branch.scalar.function" && qualityFn.function.type !== "branch.vector.function") {
-    return;
+    return [];
   }
   const specs = qualityFn.placeholderTaskSpecs;
-  if (!specs) return;
-  const subDir = join(dir, "sub_functions");
-  mkdirSync(subDir, { recursive: true });
+  if (!specs) return [];
   const subParameters = {
     ...qualityFn.parameters,
     depth: qualityFn.parameters.depth - 1
@@ -4167,36 +4644,16 @@ async function stage2(dir, onNotification, path, continuation) {
   const tasks = qualityFn.function.function.tasks;
   const subInvents = [];
   for (let i = 0; i < tasks.length; i++) {
-    const spec = specs[i];
-    if (spec === null || spec === void 0) continue;
+    const entry = specs[i];
+    if (entry === null || entry === void 0) continue;
     const task = tasks[i];
-    const subFunctionDir = join(subDir, String(i));
-    const childQualityFn = await readQualityFunctionFromFilesystem(
-      subFunctionDir,
-      continuation.gitHubBackend
-    );
-    if (childQualityFn && await continuation.gitHubBackend.getOwnerRepositoryCommit(
-      subFunctionDir
-    )) {
-      const childPath = [...path, i];
-      subInvents.push(
-        invent(subFunctionDir, onNotification, void 0, {
-          path: childPath,
-          ...continuation
-        })
-      );
-      onNotification({
-        path: childPath,
-        name: childQualityFn.name,
-        message: { role: "done" }
-      });
-    } else if (task.type === "placeholder.vector.function") {
+    const childPath = [...path, i];
+    if (task.type === "placeholder.vector.function") {
       subInvents.push(
         invent(
-          subFunctionDir,
           onNotification,
           {
-            inventSpec: spec,
+            inventSpec: entry.spec,
             parameters: subParameters,
             type: "vector.function",
             input_schema: task.input_schema,
@@ -4204,21 +4661,36 @@ async function stage2(dir, onNotification, path, continuation) {
             input_split: task.input_split,
             input_merge: task.input_merge
           },
-          { path: [...path, i], ...continuation }
+          {
+            parentToken: entry.token,
+            path: childPath,
+            agent,
+            gitHubBackend,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail
+          }
         )
       );
     } else if (task.type === "placeholder.scalar.function") {
       subInvents.push(
         invent(
-          subFunctionDir,
           onNotification,
           {
-            inventSpec: spec,
+            inventSpec: entry.spec,
             parameters: subParameters,
             type: "scalar.function",
             input_schema: task.input_schema
           },
-          { path: [...path, i], ...continuation }
+          {
+            parentToken: entry.token,
+            path: childPath,
+            agent,
+            gitHubBackend,
+            gitHubToken,
+            gitAuthorName,
+            gitAuthorEmail
+          }
         )
       );
     }
@@ -4229,20 +4701,36 @@ async function stage2(dir, onNotification, path, continuation) {
     if (result.status === "rejected") errors.push(result.reason);
   }
   let replaced = false;
+  const unreplacedReasons = [];
   for (let i = 0; i < tasks.length; i++) {
     const task = tasks[i];
     if (task.type !== "placeholder.scalar.function" && task.type !== "placeholder.vector.function") {
       continue;
     }
-    const subFunctionDir = join(subDir, String(i));
+    const entry = specs[i];
+    if (entry === null || entry === void 0) continue;
+    const childDir = findChildByToken(owner, entry.token);
+    if (!childDir) {
+      unreplacedReasons.push(`task ${i}: child directory not found`);
+      continue;
+    }
     const subQualityFn = await readQualityFunctionFromFilesystem(
-      subFunctionDir,
-      continuation.gitHubBackend
+      childDir,
+      gitHubBackend
     );
-    if (!subQualityFn) continue;
-    if (hasPlaceholderTasks(subQualityFn.function.function)) continue;
-    const orc = await continuation.gitHubBackend.getOwnerRepositoryCommit(subFunctionDir);
-    if (!orc) continue;
+    if (!subQualityFn) {
+      unreplacedReasons.push(`task ${i}: not a valid quality function`);
+      continue;
+    }
+    if (hasPlaceholderTasks(subQualityFn.function.function)) {
+      unreplacedReasons.push(`task ${i}: still has unresolved placeholders`);
+      continue;
+    }
+    const orc = await gitHubBackend.getOwnerRepositoryCommit(childDir, gitHubToken);
+    if (!orc) {
+      unreplacedReasons.push(`task ${i}: could not resolve repository commit`);
+      continue;
+    }
     replacePlaceholderTask(tasks, i, task, orc);
     replaced = true;
   }
@@ -4251,8 +4739,34 @@ async function stage2(dir, onNotification, path, continuation) {
       dir,
       qualityFn.function.function
     );
-    await continuation.gitHubBackend.pushFinal({
+    let readme = readReadmeFromFilesystem(dir);
+    if (readme) {
+      let readmeChanged = false;
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        if (task.type !== "scalar.function" && task.type !== "vector.function") {
+          continue;
+        }
+        if (!("owner" in task) || !("repository" in task)) continue;
+        const taskOwner = task.owner;
+        const taskRepo = task.repository;
+        const templateTask = `{{ .Task${i} }}`;
+        const templateOwner = `{{ .Owner }}`;
+        if (readme.includes(templateTask)) {
+          readme = readme.split(templateTask).join(taskRepo);
+          readmeChanged = true;
+        }
+        if (readmeChanged && readme.includes(templateOwner)) {
+          readme = readme.split(templateOwner).join(taskOwner);
+        }
+      }
+      if (readmeChanged) {
+        writeReadmeToFilesystem(dir, readme);
+      }
+    }
+    await gitHubBackend.pushFinal({
       dir,
+      name: qualityFn.name,
       gitHubToken,
       gitAuthorName,
       gitAuthorEmail,
@@ -4262,6 +4776,7 @@ async function stage2(dir, onNotification, path, continuation) {
   }
   if (errors.length === 1) throw errors[0];
   if (errors.length > 1) throw new AggregateError(errors);
+  return unreplacedReasons;
 }
 function hasPlaceholderTasks(fn) {
   return fn.tasks.some(

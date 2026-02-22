@@ -10,9 +10,13 @@ export function stepName<TState>(
   agentState?: TState,
   maxRetries = 5,
 ): Promise<TState> {
+  if (state.getName().ok) {
+    return Promise.resolve(agentState as TState);
+  }
   return runAgentStep(
     agent,
     {
+      stepName: "name",
       prompt:
         "Select a name for your ObjectiveAI Function. " +
         'Do not include "ObjectiveAI" or "Function" in the name. ' +

@@ -33,6 +33,11 @@ type NotificationMessage = {
     error?: string;
 } | {
     role: "done";
+    error?: string;
+    functionTasks?: number;
+    placeholderTasks?: number;
+} | {
+    role: "waiting";
 };
 
 declare const ParametersSchema: z.ZodObject<{
@@ -61,9 +66,10 @@ declare function buildParameters(builder?: ParametersBuilder): Parameters;
 interface GitHubBackend {
     pushInitial(options: PushInitialOptions): Promise<void>;
     pushFinal(options: PushFinalOptions): Promise<void>;
-    getOwnerRepositoryCommit(dir: string): Promise<OwnerRepositoryCommit | null>;
+    getOwnerRepositoryCommit(dir: string, gitHubToken: string): Promise<OwnerRepositoryCommit | null>;
     fetchRemoteFunctions(refs: Iterable<OwnerRepositoryCommit>): Promise<Record<string, Functions.RemoteFunction> | null>;
     repoExists(name: string, gitHubToken: string): Promise<boolean>;
+    getAuthenticatedUser(gitHubToken: string): Promise<string>;
 }
 interface OwnerRepositoryCommit {
     owner: string;
@@ -80,6 +86,7 @@ interface PushInitialOptions {
 }
 interface PushFinalOptions {
     dir: string;
+    name: string;
     gitHubToken: string;
     gitAuthorName: string;
     gitAuthorEmail: string;
@@ -87,16 +94,21 @@ interface PushFinalOptions {
     description: string;
 }
 
+declare const StepNameSchema: z.ZodUnion<readonly [z.ZodLiteral<"type">, z.ZodLiteral<"name">, z.ZodLiteral<"essay">, z.ZodLiteral<"fields">, z.ZodLiteral<"essay_tasks">, z.ZodLiteral<"body">, z.ZodLiteral<"description">]>;
+type StepName = z.infer<typeof StepNameSchema>;
 interface AgentStep {
+    stepName: StepName;
     prompt: string;
     tools: Tool[];
 }
 type AgentStepFn<TState = unknown> = (step: AgentStep, state: TState | undefined, parameters: Parameters) => AsyncGenerator<NotificationMessage, TState>;
 
-interface InventOptionsBase {
+type InventOptionsBase = {
     inventSpec: string;
     parameters: ParametersBuilder;
-}
+} | {
+    name: string;
+};
 type InventOptions = InventOptionsBase | (InventOptionsBase & {
     type: "scalar.function";
     input_schema?: Functions.RemoteScalarFunction["input_schema"];
@@ -107,7 +119,8 @@ type InventOptions = InventOptionsBase | (InventOptionsBase & {
     input_split?: Functions.RemoteVectorFunction["input_split"];
     input_merge?: Functions.RemoteVectorFunction["input_merge"];
 });
-declare function invent(dir: string, onNotification: (notification: Notification) => void, options?: InventOptions, continuation?: {
+declare function invent(onNotification: (notification: Notification) => void, options: InventOptions, continuation?: {
+    parentToken?: string;
     path: number[];
     agent: AgentStepFn;
     gitHubBackend: GitHubBackend;
@@ -116,21 +129,27 @@ declare function invent(dir: string, onNotification: (notification: Notification
     gitAuthorEmail: string;
 }): Promise<void>;
 
-declare const PlaceholderTaskSpecsSchema: z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNull]>>;
+declare const PlaceholderTaskSpecsSchema: z.ZodArray<z.ZodUnion<readonly [z.ZodObject<{
+    spec: z.ZodString;
+    token: z.ZodString;
+}, z.core.$strip>, z.ZodNull]>>;
 type PlaceholderTaskSpecs = z.infer<typeof PlaceholderTaskSpecsSchema>;
+
+type Modality = "image" | "audio" | "video" | "file" | "string";
 
 declare class BranchScalarState {
     readonly parameters: Parameters;
     readonly function: Partial<Functions.QualityBranchRemoteScalarFunction>;
     private placeholderTaskSpecs?;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters);
+    constructor(parameters: Parameters, inputSchema?: Functions.RemoteScalarFunction["input_schema"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     checkFields(): Result<string>;
     checkFieldsTool(): Tool<{}>;
@@ -174,13 +193,14 @@ declare class BranchVectorState {
     readonly function: Partial<Functions.QualityBranchRemoteVectorFunction>;
     private placeholderTaskSpecs?;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters, outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
+    constructor(parameters: Parameters, inputSchema?: Functions.QualityBranchRemoteVectorFunction["input_schema"], outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     getOutputLength(): Result<string>;
     getOutputLengthTool(): Tool<{}>;
@@ -253,13 +273,14 @@ declare class LeafScalarState {
     readonly parameters: Parameters;
     readonly function: Partial<Functions.QualityLeafRemoteScalarFunction>;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters);
+    constructor(parameters: Parameters, inputSchema?: Functions.RemoteScalarFunction["input_schema"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     checkFields(): Result<string>;
     checkFieldsTool(): Tool<{}>;
@@ -291,13 +312,14 @@ declare class LeafVectorState {
     readonly parameters: Parameters;
     readonly function: Partial<Functions.QualityLeafRemoteVectorFunction>;
     private editInputSchemaModalityRemovalRejected;
-    constructor(parameters: Parameters, outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
+    constructor(parameters: Parameters, inputSchema?: Functions.QualityLeafRemoteVectorFunction["input_schema"], outputLength?: Functions.RemoteVectorFunction["output_length"], inputSplit?: Functions.RemoteVectorFunction["input_split"], inputMerge?: Functions.RemoteVectorFunction["input_merge"]);
     getInputSchema(): Result<string>;
     getInputSchemaTool(): Tool<{}>;
-    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean): Result<string>;
+    setInputSchema(value: unknown, dangerouslyRemoveModalities?: boolean, modalities?: Modality[]): Result<string>;
     setInputSchemaTool(): Tool<{
         input_schema: z.ZodRecord<z.ZodString, z.ZodUnknown>;
         dangerouslyRemoveModalities: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodType<Modality>>>;
     }>;
     getOutputLength(): Result<string>;
     getOutputLengthTool(): Tool<{}>;
@@ -353,6 +375,7 @@ declare const StateOptionsSchema: z.ZodUnion<readonly [z.ZodObject<{
     }, z.core.$strip>;
     inventSpec: z.ZodString;
     gitHubToken: z.ZodString;
+    owner: z.ZodString;
 }, z.core.$strip>, z.ZodObject<{
     parameters: z.ZodObject<{
         branchMinWidth: z.ZodInt;
@@ -363,6 +386,7 @@ declare const StateOptionsSchema: z.ZodUnion<readonly [z.ZodObject<{
     }, z.core.$strip>;
     inventSpec: z.ZodString;
     gitHubToken: z.ZodString;
+    owner: z.ZodString;
     type: z.ZodLiteral<"scalar.function">;
     input_schema: z.ZodUnion<readonly [z.ZodType<objectiveai.ObjectInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ObjectInputSchema, unknown>>, z.ZodType<objectiveai.ArrayInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ArrayInputSchema, unknown>>, z.ZodObject<{
         type: z.ZodLiteral<"string">;
@@ -404,37 +428,9 @@ declare const StateOptionsSchema: z.ZodUnion<readonly [z.ZodObject<{
     }, z.core.$strip>;
     inventSpec: z.ZodString;
     gitHubToken: z.ZodString;
+    owner: z.ZodString;
     type: z.ZodLiteral<"vector.function">;
-    input_schema: z.ZodUnion<readonly [z.ZodType<objectiveai.ObjectInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ObjectInputSchema, unknown>>, z.ZodType<objectiveai.ArrayInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ArrayInputSchema, unknown>>, z.ZodObject<{
-        type: z.ZodLiteral<"string">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-        enum: z.ZodNullable<z.ZodOptional<z.ZodArray<z.ZodString>>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"number">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-        minimum: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
-        maximum: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"integer">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-        minimum: z.ZodNullable<z.ZodOptional<z.ZodUInt32>>;
-        maximum: z.ZodNullable<z.ZodOptional<z.ZodUInt32>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"boolean">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"image">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"audio">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"video">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodObject<{
-        type: z.ZodLiteral<"file">;
-        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
-    }, z.core.$strip>, z.ZodType<objectiveai.AnyOfInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.AnyOfInputSchema, unknown>>]>;
+    input_schema: z.ZodUnion<readonly [z.ZodType<objectiveai.ArrayInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ArrayInputSchema, unknown>>, z.ZodType<objectiveai.ObjectInputSchema, unknown, z.core.$ZodTypeInternals<objectiveai.ObjectInputSchema, unknown>>]>;
     output_length: z.ZodUnion<readonly [z.ZodUInt32, z.ZodUnion<readonly [z.ZodObject<{
         $jmespath: z.ZodString;
     }, z.core.$strict>, z.ZodObject<{
@@ -456,11 +452,13 @@ declare class State {
     readonly parameters: Parameters;
     readonly inventSpec: string;
     readonly gitHubToken: string;
+    readonly owner: string;
     private name;
     private inventEssay;
     private inventEssayTasks;
     private _inner;
     private readme;
+    private placeholderTaskIndices;
     private gitHubBackend;
     constructor(options: StateOptions, gitHubBackend: GitHubBackend);
     getInventSpec(): Result<string>;
@@ -485,6 +483,7 @@ declare class State {
     }>;
     getReadme(): Result<string>;
     getReadmeTool(): Tool<{}>;
+    setPlaceholderTaskIndices(indices: number[]): void;
     setReadme(value: string): Result<string>;
     setReadmeTool(): Tool<{
         readme: z.ZodString;
@@ -501,6 +500,7 @@ declare class State {
     setDescriptionTool(): Tool<{
         description: z.ZodString;
     }>;
+    forceSetName(value: string): void;
     get inner(): BranchScalarState | BranchVectorState | LeafScalarState | LeafVectorState | undefined;
 }
 

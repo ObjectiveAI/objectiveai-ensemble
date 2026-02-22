@@ -1,6 +1,6 @@
 import z from "zod";
 import { ObjectiveAI, RequestOptions } from "../../client";
-import { RemoteProfileSchema } from "../profile";
+import { RemoteTasksProfileSchema, RemoteAutoProfileSchema } from "../profile";
 import { convert, type JSONSchema } from "../../json_schema";
 
 export const ListItemSchema = z.object({
@@ -69,7 +69,10 @@ export function retrieveUsage(
   return client.get_unary<HistoricalUsage>(path, undefined, options);
 }
 
-export const RetrieveSchema = ListItemSchema.merge(RemoteProfileSchema);
+export const RetrieveSchema = z.union([
+  ListItemSchema.merge(RemoteTasksProfileSchema),
+  ListItemSchema.merge(RemoteAutoProfileSchema),
+]);
 export type Retrieve = z.infer<typeof RetrieveSchema>;
 export const RetrieveJsonSchema: JSONSchema = convert(RetrieveSchema);
 
