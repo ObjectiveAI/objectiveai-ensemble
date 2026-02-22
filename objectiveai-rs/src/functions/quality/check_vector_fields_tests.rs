@@ -714,23 +714,33 @@ fn array_violates_max_items() {
             input_schema: InputSchema::Array(ArrayInputSchema {
                 description: None,
                 min_items: Some(2),
-                max_items: Some(3), // subset can never be > 3 if original is 3, wait.
-                items: Box::new(InputSchema::String(StringInputSchema {
+                max_items: Some(4),
+                items: Box::new(InputSchema::Object(ObjectInputSchema {
                     description: None,
-                    r#enum: None,
+                    properties: index_map! {
+                        "inner" => InputSchema::Array(ArrayInputSchema {
+                            description: None,
+                            min_items: Some(1),
+                            max_items: Some(1),
+                            items: Box::new(InputSchema::String(StringInputSchema {
+                                description: None,
+                                r#enum: None,
+                            })),
+                        })
+                    },
+                    required: Some(vec!["inner".to_string()]),
                 })),
             }),
             output_length: WithExpression::Expression(Expression::Starlark(
-                "len(input)".to_string(),
+                "len(input) if type(input) == 'list' else 1".to_string(),
             )),
             input_split: WithExpression::Expression(Expression::Starlark(
-                "[[x] for x in input]".to_string(),
+                "[{'val': x, 'orig_len': len(input)} for x in input]".to_string(),
             )),
-            // If we double the items in the merge!
             input_merge: WithExpression::Expression(Expression::Starlark(
-                "[x[0] for x in input] if len(input) == 3 else [x[0] for x in input] + [x[0] for x in input]".to_string(),
+                "[{'inner': x['val']['inner'] * 2} if len(input) != x['orig_len'] else x['val'] for x in input]".to_string(),
             )),
         },
-        "VF12",
+        "VF24",
     );
 }
